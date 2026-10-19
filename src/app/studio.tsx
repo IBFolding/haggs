@@ -5,13 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_MODEL, MODELS, getModelCard, searchModels } from "../catalog/models";
 import type { AspectRatio } from "../providers/types";
 import { clearKey, hasKey, rates, run, saveKey, type Rate, type Shot } from "./actions";
+import { Nav } from "./nav";
 
 type Slot =
   | { state: "working"; id: number }
   | { state: "done"; id: number; shot: Shot; label: string }
   | { state: "failed"; id: number; reason: string };
-
-const NAV = ["Create", "Explore", "Video", "Edit", "Library"];
 
 export function Studio() {
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
@@ -91,22 +90,12 @@ export function Studio() {
 
   return (
     <div className="app">
-      <nav className="nav">
-        <span className="logo">
-          haggs<i>.</i>
-        </span>
-        {NAV.map((item) => (
-          <button key={item} className="nav-item" aria-current={item === "Create"}>
-            {item}
-          </button>
-        ))}
-        <span className="nav-right">
-          <button className="key-state" onClick={() => setSheet(true)}>
-            <span className={`lamp${keyed ? " live" : ""}`} />
-            {keyed ? "fal connected" : "no key"}
-          </button>
-        </span>
-      </nav>
+      <Nav current="Create">
+        <button className="key-state" onClick={() => setSheet(true)}>
+          <span className={`lamp${keyed ? " live" : ""}`} />
+          {keyed ? "fal connected" : "no key"}
+        </button>
+      </Nav>
 
       <div className="canvas" onClick={() => { setPicking(false); setRatioOpen(false); }}>
         {slots.length === 0 ? (
