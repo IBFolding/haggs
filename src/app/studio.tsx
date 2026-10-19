@@ -2,25 +2,48 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { DEFAULT_MODEL, MODELS, getModelCard, searchModels } from "../catalog/models";
-import type { AspectRatio } from "../providers/types";
+import { MODELS, getModelCard, outputCount, searchModels } from "../catalog/models";
+import { coerceSettings, defaultSettings, type Settings } from "../catalog/settings";
+import type { Capability } from "../providers/types";
 import { clearKey, hasKey, rates, run, saveKey, type Rate, type Shot } from "./actions";
 import { Nav } from "./nav";
+import { SettingsRail } from "./settings-rail";
 
 type Slot =
   | { state: "working"; id: number }
   | { state: "done"; id: number; shot: Shot; label: string }
   | { state: "failed"; id: number; reason: string };
 
-export function Studio() {
-  const [modelId, setModelId] = useState(DEFAULT_MODEL);
+/** Which part of the catalog a surface shows. The nav items are these. */
+export type Surface = "Create" | "Video" | "Edit";
+
+const SURFACE_CAPABILITIES: Record<Surface, readonly Capability[]> = {
+  Create: ["text-to-image"],
+  Video: ["text-to-video", "image-to-video"],
+  Edit: ["image-edit"],
+};
+
+const BLURB: Record<Surface, string> = {
+  Create: "Describe a scene, character, mood or style. The price is on the button before you press it — in dollars, not credits.",
+  Video: "Describe the shot — subject, camera move, light, pacing. Every setting below is one this model actually accepts.",
+  Edit: "Attach an image and describe the change. The rest of the picture stays as it is.",
+};
+
+export function Studio({ surface = "Create" }: { surface?: Surface }) {
+  const catalog = useMemo(
+    () => MODELS.filter((model) => SURFACE_CAPABILITIES[surface].includes(model.capability)),
+    [surface],
+  );
+
+  const [modelId, setModelId] = useState(catalog[0]!.id);
   const [prompt, setPrompt] = useState("");
-  const [ratio, setRatio] = useState<AspectRatio>("1:1");
-  const [count, setCount] = useState(1);
+  const [settings, setSettings] = useState<Settings>(() =>
+    defaultSettings(getModelCard(catalog[0]!.id).settings),
+  );
+  const [images, setImages] = useState<string[]>([]);
 
   const [picking, setPicking] = useState(false);
   const [hunt, setHunt] = useState("");
-  const [ratioOpen, setRatioOpen] = useState(false);
 
   const [rateMap, setRateMap] = useState<Record<string, Rate>>({});
   const [keyed, setKeyed] = useState(false);
@@ -30,6 +53,7 @@ export function Studio() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [busy, setBusy] = useState(false);
   const nextId = useRef(0);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const card = useMemo(() => getModelCard(modelId), [modelId]);
   const rate = rateMap[modelId];
@@ -39,35 +63,44 @@ export function Studio() {
     void hasKey().then(setKeyed);
   }, []);
 
-  // A model that cannot do the current ratio or count has to pull them back
-  // into range, or the request is built against settings the endpoint rejects.
+  // Changing model means the settings you were holding belong to the model you
+  // just left. Keep what the new one also declares, and default the rest.
   useEffect(() => {
-    if (!card.ratios.includes(ratio)) setRatio(card.ratios[0]!);
-    if (count > card.maxCount) setCount(card.maxCount);
-  }, [card, ratio, count]);
+    setSettings((held) => coerceSettings(getModelCard(modelId).settings, held));
+  }, [modelId]);
 
   /** What the run will cost, in dollars, before it runs. */
   const cost = useMemo(() => {
     if (!rate || rate.usd === null) return null;
     const perOutput = rate.unit === "image" || rate.unit === "video";
-    return rate.usd * (perOutput ? count : 1);
-  }, [rate, count]);
+    return rate.usd * (perOutput ? outputCount(card, settings) : 1);
+  }, [rate, card, settings]);
 
   const costLabel = cost === null ? (rate ? rate.label : "···") : `$${cost.toFixed(3)}`;
+  const needsImage = card.inputImages > 0 && images.length === 0;
+
+  const attach = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // fal accepts a data URI wherever it takes an image URL, which keeps this
+      // working with no upload host. Big files make a big request body — a real
+      // blob store is the fix when that starts to bite.
+      if (typeof reader.result === "string") setImages([reader.result]);
+    };
+    reader.readAsDataURL(file);
+  }, []);
 
   const fire = useCallback(async () => {
-    if (!prompt.trim() || busy) return;
+    if (!prompt.trim() || busy || needsImage) return;
     setBusy(true);
     const id = nextId.current++;
     setSlots((prior) => [{ state: "working", id }, ...prior]);
 
-    const result = await run(modelId, prompt, ratio, count);
+    const result = await run(modelId, prompt, settings, images.length ? images : undefined);
 
     setSlots((prior) => {
       const rest = prior.filter((slot) => slot.id !== id);
-      if (!result.ok) {
-        return [{ state: "failed", id, reason: result.reason }, ...rest];
-      }
+      if (!result.ok) return [{ state: "failed", id, reason: result.reason }, ...rest];
       const made = result.shots.map((shot, index) => ({
         state: "done" as const,
         id: nextId.current++,
@@ -79,7 +112,7 @@ export function Studio() {
 
     if (!result.ok && result.needsKey) setSheet(true);
     setBusy(false);
-  }, [prompt, busy, modelId, ratio, count, card.name]);
+  }, [prompt, busy, needsImage, modelId, settings, images, card.name]);
 
   const commitKey = useCallback(async () => {
     await saveKey(keyDraft);
@@ -90,14 +123,14 @@ export function Studio() {
 
   return (
     <div className="app">
-      <Nav current="Create">
+      <Nav current={surface}>
         <button className="key-state" onClick={() => setSheet(true)}>
           <span className={`lamp${keyed ? " live" : ""}`} />
           {keyed ? "fal connected" : "no key"}
         </button>
       </Nav>
 
-      <div className="canvas" onClick={() => { setPicking(false); setRatioOpen(false); }}>
+      <div className="canvas" onClick={() => setPicking(false)}>
         {slots.length === 0 ? (
           <div className="blank">
             <div className="strip">
@@ -106,19 +139,15 @@ export function Studio() {
               ))}
             </div>
             <h1>
-              Start creating with <b>{card.name}</b>
+              {surface === "Edit" ? "Edit with " : "Start creating with "}
+              <b>{card.name}</b>
             </h1>
-            <p>
-              Describe a scene, character, mood or style. The price is on the button
-              before you press it — in dollars, not credits.
-            </p>
+            <p>{BLURB[surface]}</p>
           </div>
         ) : (
           <div className="grid">
             {slots.map((slot) => {
-              if (slot.state === "working") {
-                return <div key={slot.id} className="cell working" />;
-              }
+              if (slot.state === "working") return <div key={slot.id} className="cell working" />;
               if (slot.state === "failed") {
                 return (
                   <div key={slot.id} className="cell failed">
@@ -154,69 +183,78 @@ export function Studio() {
               />
               <div className="picker-list">
                 <div className="picker-head">Models · live rates from fal</div>
-                {searchModels(hunt).map((model) => {
-                  const modelRate = rateMap[model.id];
-                  return (
-                    <button
-                      key={model.id}
-                      className="opt"
-                      aria-selected={model.id === modelId}
-                      onClick={() => {
-                        setModelId(model.id);
-                        setPicking(false);
-                        setHunt("");
-                      }}
-                    >
-                      <span className="opt-glyph">{model.name.slice(0, 2).toUpperCase()}</span>
-                      <span className="opt-main">
-                        <span className="opt-name">
-                          {model.name}
-                          {model.badge && <span className={`badge ${model.badge}`}>{model.badge}</span>}
+                {searchModels(hunt)
+                  .filter((model) => catalog.includes(model))
+                  .map((model) => {
+                    const modelRate = rateMap[model.id];
+                    return (
+                      <button
+                        key={model.id}
+                        className="opt"
+                        aria-selected={model.id === modelId}
+                        onClick={() => {
+                          setModelId(model.id);
+                          setPicking(false);
+                          setHunt("");
+                        }}
+                      >
+                        <span className="opt-glyph">{model.name.slice(0, 2).toUpperCase()}</span>
+                        <span className="opt-main">
+                          <span className="opt-name">
+                            {model.name}
+                            {model.badge && <span className={`badge ${model.badge}`}>{model.badge}</span>}
+                          </span>
+                          <span className="opt-blurb">{model.blurb}</span>
                         </span>
-                        <span className="opt-blurb">{model.blurb}</span>
-                      </span>
-                      <span className={`opt-rate${modelRate?.usd == null ? " dim" : ""}`}>
-                        {modelRate?.label ?? "···"}
-                      </span>
-                      {model.id === modelId && <span className="tick">✓</span>}
-                    </button>
-                  );
-                })}
+                        <span className={`opt-rate${modelRate?.usd == null ? " dim" : ""}`}>
+                          {modelRate?.label ?? "···"}
+                        </span>
+                        {model.id === modelId && <span className="tick">✓</span>}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}
 
-          {ratioOpen && (
-            <div className="picker" style={{ width: 190 }} onClick={(e) => e.stopPropagation()}>
-              <div className="picker-list">
-                <div className="picker-head">Aspect</div>
-                {card.ratios.map((option) => (
-                  <button
-                    key={option}
-                    className="opt"
-                    aria-selected={option === ratio}
-                    onClick={() => {
-                      setRatio(option);
-                      setRatioOpen(false);
-                    }}
-                  >
-                    <span className="opt-main">
-                      <span className="opt-name">{option}</span>
-                    </span>
-                    {option === ratio && <span className="tick">✓</span>}
+          {images.length > 0 && (
+            <div className="tray">
+              {images.map((src) => (
+                <span key={src.slice(0, 64)} className="tray-item">
+                  <img src={src} alt="" />
+                  <button onClick={() => setImages([])} title="Remove">
+                    ×
                   </button>
-                ))}
-              </div>
+                </span>
+              ))}
             </div>
           )}
 
           <div className="composer-top">
-            <button className="attach" title="Attach an image">+</button>
+            <button
+              className={`attach${needsImage ? " wanted" : ""}`}
+              title={card.inputImages > 0 ? "Attach an image" : "This model takes text only"}
+              disabled={card.inputImages === 0}
+              onClick={() => fileInput.current?.click()}
+            >
+              +
+            </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) attach(file);
+              }}
+            />
             <textarea
               className="say"
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Describe the scene you imagine"
+              placeholder={surface === "Edit" ? "Describe the change" : "Describe the scene you imagine"}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void fire();
               }}
@@ -229,43 +267,24 @@ export function Studio() {
               onClick={(event) => {
                 event.stopPropagation();
                 setPicking((open) => !open);
-                setRatioOpen(false);
               }}
             >
               {card.name}
               <span className="caret">▾</span>
             </button>
 
+            <SettingsRail
+              fields={card.settings}
+              settings={settings}
+              onChange={(key, value) => setSettings((held) => ({ ...held, [key]: value }))}
+            />
+
             <button
-              className="pill"
-              onClick={(event) => {
-                event.stopPropagation();
-                setRatioOpen((open) => !open);
-                setPicking(false);
-              }}
+              className="fire"
+              onClick={() => void fire()}
+              disabled={busy || !prompt.trim() || needsImage}
+              title={needsImage ? "Attach an image first" : undefined}
             >
-              {ratio}
-              <span className="caret">▾</span>
-            </button>
-
-            {card.maxCount > 1 && (
-              <span className="stepper">
-                <button onClick={() => setCount((n) => Math.max(1, n - 1))} disabled={count <= 1}>
-                  −
-                </button>
-                <span>
-                  {count}/{card.maxCount}
-                </span>
-                <button
-                  onClick={() => setCount((n) => Math.min(card.maxCount, n + 1))}
-                  disabled={count >= card.maxCount}
-                >
-                  +
-                </button>
-              </span>
-            )}
-
-            <button className="fire" onClick={() => void fire()} disabled={busy || !prompt.trim()}>
               {busy ? "Generating…" : "Generate"}
               <span className="cost">{costLabel}</span>
             </button>

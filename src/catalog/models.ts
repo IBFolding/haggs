@@ -1,4 +1,5 @@
-import type { AspectRatio, Capability } from "../providers/types";
+import type { Capability } from "../providers/types";
+import type { SettingFields } from "./settings";
 
 /**
  * The model picker, mirroring Higgsfield's: name, badge, one-line description,
@@ -8,6 +9,14 @@ import type { AspectRatio, Capability } from "../providers/types";
  * onto ~1,500 rather than a fixed shelf. And every row carries a live price
  * pulled from the provider at request time, because "Generate ⚡ 6.5" tells
  * you nothing — 6.5 of what, bought at which tier, worth how many dollars?
+ *
+ * Each card declares the settings its endpoint actually accepts, and the
+ * composer renders exactly those. The settings below are transcribed from
+ * fal's published OpenAPI schema per endpoint, not assumed: the same idea is
+ * `aspect_ratio` on Nano Banana, Kontext, Kling, Veo and Seedance but
+ * `image_size` on every FLUX and on Z-Image. A single shared control sending
+ * `aspect_ratio` to all of them is a control that silently does nothing on
+ * four of these ten.
  */
 export type ModelCard = {
   id: string;
@@ -15,13 +24,68 @@ export type ModelCard = {
   blurb: string;
   badge?: "new" | "premium" | "fast";
   capability: Capability;
-  /** Aspect ratios this endpoint actually accepts. */
-  ratios: readonly AspectRatio[];
-  maxCount: number;
+  /** How many images this endpoint accepts as input. 0 means text-only. */
+  inputImages: number;
+  settings: SettingFields;
 };
 
-const IMAGE_RATIOS = ["1:1", "4:5", "3:4", "2:3", "3:2", "4:3", "16:9", "9:16", "21:9"] as const;
-const VIDEO_RATIOS = ["16:9", "9:16", "1:1"] as const;
+/** fal's shared FLUX/Z-Image size vocabulary. Not aspect ratios — named sizes. */
+const IMAGE_SIZE = [
+  "square_hd",
+  "square",
+  "portrait_4_3",
+  "portrait_16_9",
+  "landscape_4_3",
+  "landscape_16_9",
+] as const;
+
+const imageSize = (): SettingFields["x"] => ({
+  type: "enum",
+  label: "Size",
+  values: IMAGE_SIZE,
+  default: "square_hd",
+  input: "image_size",
+});
+
+const count = (max: number): SettingFields["x"] => ({
+  type: "range",
+  label: "Images",
+  min: 1,
+  max,
+  default: 1,
+  input: "num_images",
+});
+
+const format = (values: readonly string[]): SettingFields["x"] => ({
+  type: "enum",
+  label: "Format",
+  values,
+  default: values[0]!,
+  input: "output_format",
+});
+
+const aspect = (values: readonly string[], fallback: string): SettingFields["x"] => ({
+  type: "enum",
+  label: "Aspect",
+  values,
+  default: fallback,
+  input: "aspect_ratio",
+});
+
+const audio = (): SettingFields["x"] => ({
+  type: "boolean",
+  label: "Audio",
+  default: false,
+  input: "generate_audio",
+});
+
+const seconds = (values: readonly string[], fallback: string): SettingFields["x"] => ({
+  type: "enum",
+  label: "Duration",
+  values,
+  default: fallback,
+  input: "duration",
+});
 
 export const MODELS: readonly ModelCard[] = [
   {
@@ -30,8 +94,16 @@ export const MODELS: readonly ModelCard[] = [
     blurb: "Google's fast generation and editing model",
     badge: "fast",
     capability: "text-to-image",
-    ratios: IMAGE_RATIOS,
-    maxCount: 4,
+    inputImages: 0,
+    settings: {
+      aspectRatio: aspect(
+        ["auto", "21:9", "16:9", "3:2", "4:3", "5:4", "1:1", "4:5", "3:4", "2:3", "9:16"],
+        "1:1",
+      ),
+      resolution: { type: "enum", label: "Resolution", values: ["0.5K", "1K", "2K", "4K"], default: "1K" },
+      count: count(4),
+      outputFormat: format(["jpeg", "png", "webp"]),
+    },
   },
   {
     id: "fal-ai/flux-2-pro",
@@ -39,16 +111,16 @@ export const MODELS: readonly ModelCard[] = [
     blurb: "High quality text-to-image, tiered by megapixel",
     badge: "premium",
     capability: "text-to-image",
-    ratios: IMAGE_RATIOS,
-    maxCount: 4,
+    inputImages: 0,
+    settings: { imageSize: imageSize(), outputFormat: format(["jpeg", "png"]) },
   },
   {
     id: "fal-ai/flux/dev",
     name: "FLUX.1 Dev",
     blurb: "Widely used general-purpose workhorse",
     capability: "text-to-image",
-    ratios: IMAGE_RATIOS,
-    maxCount: 4,
+    inputImages: 0,
+    settings: { imageSize: imageSize(), count: count(4), outputFormat: format(["jpeg", "png"]) },
   },
   {
     id: "fal-ai/flux/schnell",
@@ -56,77 +128,110 @@ export const MODELS: readonly ModelCard[] = [
     blurb: "Distilled for speed, cheapest per image",
     badge: "fast",
     capability: "text-to-image",
-    ratios: IMAGE_RATIOS,
-    maxCount: 4,
+    inputImages: 0,
+    settings: { imageSize: imageSize(), count: count(4), outputFormat: format(["jpeg", "png"]) },
   },
   {
     id: "fal-ai/z-image/turbo",
     name: "Z-Image Turbo",
-    blurb: "Speed-oriented, with image-to-image variants",
+    blurb: "Very fast, very cheap, good for iteration",
     badge: "fast",
     capability: "text-to-image",
-    ratios: IMAGE_RATIOS,
-    maxCount: 4,
+    inputImages: 0,
+    settings: {
+      imageSize: imageSize(),
+      count: count(4),
+      outputFormat: format(["jpeg", "png", "webp"]),
+    },
   },
   {
     id: "fal-ai/flux-pro/kontext",
     name: "FLUX.1 Kontext",
-    blurb: "Instruction-based editing of an existing image",
+    blurb: "Edit an image with an instruction, keeping the rest",
     capability: "image-edit",
-    ratios: IMAGE_RATIOS,
-    maxCount: 2,
+    inputImages: 1,
+    settings: {
+      aspectRatio: aspect(
+        ["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"],
+        "1:1",
+      ),
+      count: count(4),
+      outputFormat: format(["jpeg", "png"]),
+    },
   },
   {
     id: "fal-ai/kling-video/v3/pro/text-to-video",
     name: "Kling 3 Pro",
-    blurb: "Cinematic quality with synchronised audio",
+    blurb: "Premium text-to-video with strong motion",
     badge: "premium",
     capability: "text-to-video",
-    ratios: VIDEO_RATIOS,
-    maxCount: 1,
+    inputImages: 0,
+    settings: {
+      aspectRatio: aspect(["16:9", "9:16", "1:1"], "16:9"),
+      duration: seconds(["3", "4", "5", "6", "7", "8", "9", "10"], "5"),
+      generateAudio: audio(),
+    },
   },
   {
     id: "fal-ai/kling-video/v3/pro/image-to-video",
     name: "Kling 3 Pro — Animate",
-    blurb: "Animates an image you supply, audio optional",
+    blurb: "Bring a still image to life",
     badge: "premium",
     capability: "image-to-video",
-    ratios: VIDEO_RATIOS,
-    maxCount: 1,
+    inputImages: 1,
+    // No aspect here on purpose: the endpoint takes its framing from the image.
+    settings: {
+      duration: seconds(["3", "4", "5", "6", "7", "8", "9", "10"], "5"),
+      generateAudio: audio(),
+    },
   },
   {
     id: "fal-ai/veo3.1",
     name: "Veo 3.1",
-    blurb: "Google's video model, generates synced audio",
-    badge: "premium",
+    blurb: "Google's flagship video model, with native audio",
+    badge: "new",
     capability: "text-to-video",
-    ratios: VIDEO_RATIOS,
-    maxCount: 1,
+    inputImages: 0,
+    settings: {
+      aspectRatio: aspect(["16:9", "9:16"], "16:9"),
+      resolution: { type: "enum", label: "Resolution", values: ["720p", "1080p", "4k"], default: "720p" },
+      duration: seconds(["4s", "6s", "8s"], "8s"),
+      generateAudio: audio(),
+    },
   },
   {
     id: "fal-ai/bytedance/seedance/v1/pro/text-to-video",
     name: "Seedance 1 Pro",
-    blurb: "ByteDance video model, lite and fast tiers too",
-    badge: "new",
+    blurb: "Fast, controllable video at a low rate",
     capability: "text-to-video",
-    ratios: VIDEO_RATIOS,
-    maxCount: 1,
+    inputImages: 0,
+    settings: {
+      aspectRatio: aspect(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], "16:9"),
+      resolution: { type: "enum", label: "Resolution", values: ["480p", "720p", "1080p"], default: "720p" },
+      duration: seconds(["3", "4", "5", "6", "7", "8", "9", "10"], "5"),
+    },
   },
 ];
 
 export const DEFAULT_MODEL = MODELS[0]!.id;
 
 export function getModelCard(id: string): ModelCard {
-  return MODELS.find((model) => model.id === id) ?? MODELS[0]!;
+  const found = MODELS.find((model) => model.id === id);
+  if (!found) throw new Error(`Unknown model: ${id}`);
+  return found;
 }
 
-export function searchModels(query: string): readonly ModelCard[] {
-  const needle = query.trim().toLowerCase();
+export function searchModels(hunt: string): readonly ModelCard[] {
+  const needle = hunt.trim().toLowerCase();
   if (!needle) return MODELS;
-  return MODELS.filter(
-    (model) =>
-      model.name.toLowerCase().includes(needle) ||
-      model.blurb.toLowerCase().includes(needle) ||
-      model.id.toLowerCase().includes(needle),
+  return MODELS.filter((model) =>
+    `${model.name} ${model.blurb} ${model.id}`.toLowerCase().includes(needle),
   );
+}
+
+/** How many outputs a run will produce, for the cost on the button. */
+export function outputCount(card: ModelCard, settings: Record<string, unknown>): number {
+  const held = settings.count;
+  if (!card.settings.count || typeof held !== "number") return 1;
+  return held;
 }

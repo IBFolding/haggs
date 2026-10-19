@@ -3,9 +3,9 @@
 import { cookies } from "next/headers";
 
 import { fetchPricing, formatRate } from "../catalog/pricing";
-import { MODELS, getModelCard } from "../catalog/models";
+import { MODELS, getModelCard, outputCount } from "../catalog/models";
+import { toWireSettings } from "../catalog/settings";
 import { createFalProvider } from "../providers/fal";
-import type { AspectRatio } from "../providers/types";
 
 const KEY_COOKIE = "fal_key";
 
@@ -75,8 +75,8 @@ export type RunResult =
 export async function run(
   modelId: string,
   prompt: string,
-  aspectRatio: AspectRatio,
-  count: number,
+  settings: Record<string, unknown>,
+  images?: string[],
 ): Promise<RunResult> {
   if (!prompt.trim()) return { ok: false, reason: "Describe something first." };
 
@@ -97,8 +97,11 @@ export async function run(
     const result = await fal.run({
       capability: card.capability,
       prompt,
-      aspectRatio,
-      count: Math.min(count, card.maxCount),
+      ...(images?.length ? { images } : {}),
+      count: outputCount(card, settings),
+      // Only the fields this endpoint declares, under the names it declares
+      // them. Nothing the model did not ask for reaches the request.
+      passthrough: toWireSettings(card.settings, settings),
     });
     if (result.assets.length === 0) {
       return { ok: false, reason: "The model returned no media." };

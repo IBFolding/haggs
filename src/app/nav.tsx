@@ -13,8 +13,8 @@ type Item = { label: string; href?: string };
 const ITEMS: readonly Item[] = [
   { label: "Create", href: "/" },
   { label: "Explore" },
-  { label: "Video" },
-  { label: "Edit" },
+  { label: "Video", href: "/video" },
+  { label: "Edit", href: "/edit" },
   { label: "Library", href: "/library" },
 ];
 

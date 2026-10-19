@@ -651,3 +651,36 @@ a.nav-item { text-decoration: none; display: inline-flex; align-items: center; }
 
 .library-actions:focus-within { opacity: 1; }
 .plain.danger:hover { color: #f87171; }
+
+/* ─── settings rail, attach tray ───────────────────────────────────── */
+
+.pill-wrap { position: relative; display: inline-flex; }
+.picker.narrow { width: 210px; left: 0; }
+
+.pill .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-3); margin-right: 2px;
+}
+.pill .dot.live { background: var(--volt); box-shadow: 0 0 7px var(--volt); }
+
+.attach:disabled { opacity: 0.3; cursor: not-allowed; }
+.attach.wanted { border-color: var(--volt); color: var(--volt); }
+
+.tray { display: flex; gap: 8px; margin-bottom: 10px; }
+
+.tray-item { position: relative; width: 54px; height: 54px; }
+
+.tray-item img {
+  width: 100%; height: 100%; object-fit: cover;
+  border-radius: 9px; border: 1px solid var(--line-hot); display: block;
+}
+
+.tray-item button {
+  position: absolute; top: -6px; right: -6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--surface-3); color: var(--text);
+  border: 1px solid var(--line-hot); cursor: pointer;
+  font-size: 12px; line-height: 1; padding: 0;
+}
+
+.composer-bottom { flex-wrap: wrap; row-gap: 8px; }
