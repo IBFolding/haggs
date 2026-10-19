@@ -55,3 +55,43 @@ test("every rejection carries a message a person can act on", () => {
     });
   }
 });
+
+// Review finding (important): arrays were checked for array-ness but not element
+// shape, direction only defaulted on null/undefined, and "" passed as a name — so
+// import could persist a project that crashes whatever reads it next.
+function envelope(project: unknown): string {
+  return JSON.stringify({ format: "haggs.project/1", exportedAt: 0, project });
+}
+
+const wellFormed = {
+  id: "x",
+  name: "A",
+  createdAt: 1,
+  updatedAt: 1,
+  shots: [],
+  threads: [],
+  notes: [],
+  direction: { camera: "", light: "", staging: "", constants: "" },
+};
+
+test("import rejects an empty name", () => {
+  assert.throws(() => importProject(envelope({ ...wellFormed, name: "   " })), TransferError);
+});
+
+test("import rejects shots that are not objects with ids", () => {
+  assert.throws(() => importProject(envelope({ ...wellFormed, shots: [null] })), TransferError);
+  assert.throws(() => importProject(envelope({ ...wellFormed, shots: [7] })), TransferError);
+  assert.throws(() => importProject(envelope({ ...wellFormed, threads: [{}] })), TransferError);
+});
+
+test("import rejects a direction that is not an object", () => {
+  assert.throws(() => importProject(envelope({ ...wellFormed, direction: "nope" })), TransferError);
+});
+
+test("import accepts a well-formed project with real shots", () => {
+  const shot = { id: "s1", heading: "INT. ALLEY", beat: "she turns", threadIds: [], seconds: null,
+    model: { id: "m", ratio: "1:1", count: 1 } };
+  const back = importProject(envelope({ ...wellFormed, shots: [shot] }));
+  assert.equal(back.shots.length, 1);
+  assert.equal(back.shots[0]!.id, "s1");
+});

@@ -65,3 +65,46 @@ test("a queue after a flush still saves", async () => {
   await q.flush();
   assert.equal((await store.load(p.id))?.name, "renamed");
 });
+
+// Review finding (important): `running = running.then(writePending)` meant a single
+// rejected save turned the chain into a rejected promise, so writePending was never
+// called again — every later edit was silently dropped for the rest of the session.
+test("a failed save does not stop later saves", async () => {
+  const store = createProjectStore(memoryKv());
+  let failNext = true;
+  const errors: unknown[] = [];
+  const flaky = {
+    ...store,
+    async save(project: ReturnType<typeof createProject>) {
+      if (failNext) {
+        failNext = false;
+        throw new Error("QuotaExceeded");
+      }
+      return store.save(project);
+    },
+  };
+
+  const q = createSaveQueue(flaky, 5, (error) => errors.push(error));
+  q.queue(createProject("doomed"));
+  await q.flush();
+
+  const later = createProject("later");
+  q.queue(later);
+  await q.flush();
+
+  assert.equal((await store.load(later.id))?.name, "later");
+  assert.equal(errors.length, 1);
+});
+
+test("flush does not reject when a save fails", async () => {
+  const store = createProjectStore(memoryKv());
+  const broken = {
+    ...store,
+    async save() {
+      throw new Error("nope");
+    },
+  };
+  const q = createSaveQueue(broken, 5, () => {});
+  q.queue(createProject("A"));
+  await q.flush();
+});

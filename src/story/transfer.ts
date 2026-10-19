@@ -56,14 +56,25 @@ export function importProject(json: string): Project {
   }
 
   const project = parsed.project;
-  if (!isRecord(project) || typeof project.name !== "string") {
+  if (!isRecord(project) || typeof project.name !== "string" || !project.name.trim()) {
     throw new TransferError("That project file is missing its name.");
   }
 
+  // Array-ness alone let `shots: [null]` and `direction: "nope"` onto disk,
+  // where they read back as a crash in whatever opens the project next — and
+  // that crash would look like a bug in the canvas, not in this import.
   for (const field of ["shots", "threads", "notes"] as const) {
-    if (!Array.isArray(project[field])) {
+    const value = project[field];
+    if (!Array.isArray(value)) {
       throw new TransferError(`That project file is missing its ${field}.`);
     }
+    if (!value.every((entry) => isRecord(entry) && typeof entry.id === "string")) {
+      throw new TransferError(`That project file has damaged ${field}.`);
+    }
+  }
+
+  if (project.direction !== undefined && project.direction !== null && !isRecord(project.direction)) {
+    throw new TransferError("That project file has a damaged direction.");
   }
 
   // A fresh id and fresh timestamps, so importing a file you already have adds

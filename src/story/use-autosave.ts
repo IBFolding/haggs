@@ -23,7 +23,11 @@ export type SaveQueue = {
 
 const DEFAULT_DELAY_MS = 600;
 
-export function createSaveQueue(store: ProjectStore, delayMs = DEFAULT_DELAY_MS): SaveQueue {
+export function createSaveQueue(
+  store: ProjectStore,
+  delayMs = DEFAULT_DELAY_MS,
+  onError?: (error: unknown) => void,
+): SaveQueue {
   const pending = new Map<string, Project>();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<void> = Promise.resolve();
@@ -42,11 +46,24 @@ export function createSaveQueue(store: ProjectStore, delayMs = DEFAULT_DELAY_MS)
     );
   }
 
+  /**
+   * Chaining with `.then` alone meant one rejected save — a quota error, an
+   * aborted transaction — turned `running` into a rejected promise, and every
+   * later `.then(writePending)` was skipped. Autosave then stopped for the rest
+   * of the session without saying so. Catching keeps the chain alive, and the
+   * failure is reported rather than swallowed.
+   */
+  function advance(): void {
+    running = running.then(writePending).catch((error: unknown) => {
+      onError?.(error);
+    });
+  }
+
   function schedule(): void {
     if (timer) return;
     timer = setTimeout(() => {
       timer = undefined;
-      running = running.then(writePending);
+      advance();
     }, delayMs);
   }
 
@@ -65,7 +82,7 @@ export function createSaveQueue(store: ProjectStore, delayMs = DEFAULT_DELAY_MS)
         clearTimeout(timer);
         timer = undefined;
       }
-      running = running.then(writePending);
+      advance();
       await running;
     },
   };

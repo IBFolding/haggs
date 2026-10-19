@@ -80,15 +80,48 @@ export function idbKv(): Kv {
   };
 }
 
+/**
+ * Tries the primary store and switches permanently to the spare the first time
+ * it fails. Blocked site data and a private window both leave `indexedDB`
+ * *defined* while every operation on it rejects, so testing for its absence is
+ * not enough — without this the library waits forever on a promise that will
+ * never resolve, showing nothing and explaining nothing.
+ */
+export function resilient(primary: Kv, spare: Kv): Kv {
+  let fallen = false;
+
+  async function run<T>(operation: (kv: Kv) => Promise<T>): Promise<T> {
+    if (fallen) return operation(spare);
+    try {
+      return await operation(primary);
+    } catch {
+      fallen = true;
+      return operation(spare);
+    }
+  }
+
+  return {
+    get<T>(key: string) {
+      return run((kv) => kv.get<T>(key));
+    },
+    set(key, value) {
+      return run((kv) => kv.set(key, value));
+    },
+    remove(key) {
+      return run((kv) => kv.remove(key));
+    },
+  };
+}
+
 let browser: Kv | undefined;
 
 /**
- * Memory when there is no IndexedDB — server rendering, but also a private
- * window or blocked site data, where the studio must still paint rather than
- * throw on first load.
+ * Memory when there is no IndexedDB at all (server rendering), and memory again
+ * the moment a present-but-unusable IndexedDB rejects — a private window or
+ * blocked site data. Either way the studio paints.
  */
 export function defaultKv(): Kv {
   if (typeof indexedDB === "undefined") return memoryKv();
-  browser ??= idbKv();
+  browser ??= resilient(idbKv(), memoryKv());
   return browser;
 }

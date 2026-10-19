@@ -29,8 +29,16 @@ export function Library() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
-    setProjects(await store.list());
-    setReady(true);
+    try {
+      setProjects(await store.list());
+    } catch {
+      // Storage can be unavailable outright — blocked site data, a private
+      // window. Say so; without this the page sits on its loading state
+      // forever, showing nothing and explaining nothing.
+      setError("Storage is unavailable in this browser, so projects can't be saved here.");
+    } finally {
+      setReady(true);
+    }
   }, [store]);
 
   useEffect(() => {
