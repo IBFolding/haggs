@@ -5,9 +5,12 @@ import { cookies } from "next/headers";
 import { fetchPricing, formatRate } from "../catalog/pricing";
 import { MODELS, getModelCard, outputCount } from "../catalog/models";
 import { toWireSettings } from "../catalog/settings";
+import { createComfyProvider } from "../providers/comfy";
 import { createFalProvider } from "../providers/fal";
+import type { Provider } from "../providers/types";
 
 const KEY_COOKIE = "fal_key";
+const COMFY_COOKIE = "comfy_key";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -27,6 +30,27 @@ export async function saveKey(key: string): Promise<void> {
   if (!trimmed) throw new Error("Enter a key");
   const jar = await cookies();
   jar.set(KEY_COOKIE, trimmed, COOKIE_OPTIONS);
+}
+
+/** Comfy Router is the platform this app is built on; fal stays as a second route. */
+export async function saveComfyKey(key: string): Promise<void> {
+  const trimmed = key.trim();
+  if (!trimmed) throw new Error("Enter a key");
+  const jar = await cookies();
+  jar.set(COMFY_COOKIE, trimmed, COOKIE_OPTIONS);
+}
+
+export async function clearComfyKey(): Promise<void> {
+  const jar = await cookies();
+  jar.set(COMFY_COOKIE, "", { ...COOKIE_OPTIONS, maxAge: 0 });
+}
+
+export async function keysHeld(): Promise<{ comfy: boolean; fal: boolean }> {
+  const jar = await cookies();
+  return {
+    comfy: Boolean(jar.get(COMFY_COOKIE)?.value),
+    fal: Boolean(jar.get(KEY_COOKIE)?.value),
+  };
 }
 
 export async function clearKey(): Promise<void> {
@@ -55,6 +79,13 @@ export type Rate = { id: string; label: string; usd: number | null; unit: string
 export async function rates(): Promise<Rate[]> {
   return Promise.all(
     MODELS.map(async (model) => {
+      /* Router prices per request through its estimate route rather than on a
+         public page, and that call needs the workspace key — so these rows read
+         "quoted at run" until a key is held, instead of showing a number
+         scraped from somewhere that does not describe this model. */
+      if (model.provider === "comfy") {
+        return { id: model.id, label: "quoted at run", usd: null, unit: null };
+      }
       const pricing = await fetchPricing(model.id);
       return {
         id: model.id,
@@ -80,21 +111,32 @@ export async function run(
 ): Promise<RunResult> {
   if (!prompt.trim()) return { ok: false, reason: "Describe something first." };
 
-  let key: string;
-  try {
-    key = await readKey();
-  } catch {
-    return { ok: false, reason: "Add a fal key to generate.", needsKey: true };
+  const card = getModelCard(modelId);
+  const wanted = card.provider === "comfy" ? COMFY_COOKIE : KEY_COOKIE;
+  const jar = await cookies();
+  const key = jar.get(wanted)?.value;
+  if (!key) {
+    return {
+      ok: false,
+      reason:
+        card.provider === "comfy"
+          ? "Add a Comfy API key to run this model."
+          : "Add a fal key to run this model.",
+      needsKey: true,
+    };
   }
 
-  const card = getModelCard(modelId);
-  const fal = createFalProvider({
-    apiKey: key,
-    endpoints: { [card.capability]: card.id },
-  });
+  const provider: Provider =
+    card.provider === "comfy"
+      ? createComfyProvider({
+          apiKey: key,
+          endpoints: { [card.capability]: card.id },
+          ...(card.bodyStyle ? { bodyStyle: card.bodyStyle } : {}),
+        })
+      : createFalProvider({ apiKey: key, endpoints: { [card.capability]: card.id } });
 
   try {
-    const result = await fal.run({
+    const result = await provider.run({
       capability: card.capability,
       prompt,
       ...(images?.length ? { images } : {}),
@@ -111,7 +153,10 @@ export async function run(
     const message = caught instanceof Error ? caught.message : String(caught);
     // A 401 here is almost always a bad key, and saying so beats a raw dump.
     if (/401|unauthor|invalid cred/i.test(message)) {
-      return { ok: false, reason: "That key was rejected by fal.", needsKey: true };
+      return { ok: false, reason: `That key was rejected by ${card.provider}.`, needsKey: true };
+    }
+    if (/insufficient_credits|402/i.test(message)) {
+      return { ok: false, reason: "Your Comfy workspace is out of credits.", needsKey: true };
     }
     return { ok: false, reason: message };
   }

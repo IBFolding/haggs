@@ -141,3 +141,54 @@ test("passthrough settings reach the request body", async () => {
   assert.equal(body.duration, 6);
   assert.equal(body.resolution, "1080p");
 });
+
+// Router models do not share a request shape. MiniMax H3 takes a `content`
+// array; FLUX 3 and LTX take a plain `prompt` string. Sending the wrong one is
+// a 400, so the shape is declared per model rather than assumed.
+test("a prompt-style model receives prompt, not content", async () => {
+  const { impl, calls } = fakeFetch([
+    { status: 201, body: { request_id: "r1", status_url: "https://x/s", response_url: "https://x/r" } },
+    { body: { status: "completed" } },
+    { body: { images: [{ url: "https://cdn.test/a.png" }] } },
+  ]);
+  const comfy = createComfyProvider({
+    apiKey: "k",
+    fetch: impl,
+    pollMs: 0,
+    bodyStyle: "prompt",
+    endpoints: { "text-to-image": "bfl/flux-3-image" },
+  });
+  await comfy.run({ capability: "text-to-image", prompt: "a teapot" });
+
+  const body = JSON.parse(String(calls[0]!.init?.body)) as Record<string, unknown>;
+  assert.equal(body.prompt, "a teapot");
+  assert.equal("content" in body, false);
+});
+
+test("a prompt-style model takes its images in the images field", async () => {
+  const { impl, calls } = fakeFetch([
+    { status: 201, body: { request_id: "r1", status_url: "https://x/s", response_url: "https://x/r" } },
+    { body: { status: "completed" } },
+    { body: { images: [{ url: "https://cdn.test/a.png" }] } },
+  ]);
+  const comfy = createComfyProvider({
+    apiKey: "k", fetch: impl, pollMs: 0, bodyStyle: "prompt",
+    endpoints: { "image-edit": "bfl/flux-3-image" },
+  });
+  await comfy.run({ capability: "image-edit", prompt: "make it night", images: ["https://in/a.png"] });
+
+  const body = JSON.parse(String(calls[0]!.init?.body)) as Record<string, unknown>;
+  assert.deepEqual(body.images, ["https://in/a.png"]);
+});
+
+test("content style stays the default, so MiniMax H3 is unaffected", async () => {
+  const { impl, calls } = fakeFetch([
+    { status: 201, body: { request_id: "r1", status_url: "https://x/s", response_url: "https://x/r" } },
+    { body: { status: "completed" } },
+    { body: { video: { url: "https://cdn.test/a.mp4" } } },
+  ]);
+  const comfy = createComfyProvider({ apiKey: "k", fetch: impl, pollMs: 0, endpoints: { "text-to-video": "minimax/minimax-h3" } });
+  await comfy.run({ capability: "text-to-video", prompt: "a fox" });
+  const body = JSON.parse(String(calls[0]!.init?.body)) as Record<string, unknown>;
+  assert.ok(Array.isArray(body.content));
+});

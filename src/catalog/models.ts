@@ -19,6 +19,13 @@ import type { SettingFields } from "./settings";
  * four of these ten.
  */
 export type ModelCard = {
+  /** Which backend runs this. Comfy Router is the platform; fal stays available. */
+  provider: "comfy" | "fal";
+  /**
+   * The request shape this endpoint accepts. Router models disagree: MiniMax H3
+   * requires a `content` array, FLUX 3 and LTX take a plain `prompt`.
+   */
+  bodyStyle?: "content" | "prompt";
   id: string;
   name: string;
   blurb: string;
@@ -88,7 +95,92 @@ const seconds = (values: readonly string[], fallback: string): SettingFields["x"
 });
 
 export const MODELS: readonly ModelCard[] = [
+  /* ── Comfy Router ──────────────────────────────────────────────────────
+     Settings below are transcribed from each model's published Router schema
+     at docs.comfy.org/router-schemas/<provider>/<model>.json, not assumed. */
   {
+    provider: "comfy",
+    bodyStyle: "content",
+    id: "minimax/minimax-h3",
+    name: "MiniMax H3",
+    blurb: "Video with native audio, from text or a first frame",
+    badge: "new",
+    capability: "text-to-video",
+    inputImages: 1,
+    settings: {
+      duration: { type: "range", label: "Duration", min: 4, max: 15, default: 6, unit: "s" },
+      resolution: { type: "enum", label: "Resolution", values: ["768P", "2K"], default: "768P" },
+      ratio: aspect(["16:9", "9:16", "1:1"], "16:9"),
+    },
+  },
+  {
+    provider: "comfy",
+    bodyStyle: "prompt",
+    id: "bfl/flux-3-image",
+    name: "FLUX 3",
+    blurb: "Black Forest Labs' flagship image model",
+    badge: "premium",
+    capability: "text-to-image",
+    inputImages: 4,
+    settings: {
+      aspectRatio: aspect(["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], "auto"),
+      resolution: { type: "enum", label: "Resolution", values: ["1k", "2k", "4k"], default: "1k" },
+      safetyTolerance: { type: "range", label: "Safety", min: 0, max: 4, default: 2, input: "safety_tolerance" },
+    },
+  },
+  {
+    provider: "comfy",
+    bodyStyle: "prompt",
+    id: "bfl/flux-3-video",
+    name: "FLUX 3 Video",
+    blurb: "FLUX 3 moving, with audio",
+    badge: "new",
+    capability: "text-to-video",
+    inputImages: 1,
+    settings: {
+      aspectRatio: aspect(["auto", "16:9", "9:16", "1:1"], "16:9"),
+    },
+  },
+  {
+    provider: "comfy",
+    bodyStyle: "prompt",
+    id: "ltx/ltx-2-5-pro",
+    name: "LTX 2.5 Pro",
+    blurb: "Long takes at high resolution, with audio",
+    badge: "premium",
+    capability: "text-to-video",
+    inputImages: 0,
+    settings: {
+      duration: seconds(["2", "3", "4", "5", "6", "8", "10", "12", "14", "16", "18", "20"], "6"),
+      resolution: {
+        type: "enum",
+        label: "Resolution",
+        values: ["1280x720", "1920x1080", "2560x1440", "720x1280", "1080x1920"],
+        default: "1280x720",
+      },
+      fps: { type: "enum", label: "FPS", values: ["24", "25", "48", "50"], default: "25" },
+      generateAudio: audio(),
+    },
+  },
+  {
+    provider: "comfy",
+    bodyStyle: "prompt",
+    id: "ltx/ltx-2-5-fast",
+    name: "LTX 2.5 Fast",
+    blurb: "The quick LTX pass, for iterating",
+    badge: "fast",
+    capability: "text-to-video",
+    inputImages: 0,
+    settings: {
+      duration: seconds(["2", "3", "4", "5", "6", "8", "10"], "4"),
+      resolution: { type: "enum", label: "Resolution", values: ["1280x720", "720x1280"], default: "1280x720" },
+      generateAudio: audio(),
+    },
+  },
+
+  /* ── fal, reached directly ─────────────────────────────────────────── */
+  {
+    provider: "fal",
     id: "fal-ai/nano-banana-2",
     name: "Nano Banana 2",
     blurb: "Google's fast generation and editing model",
@@ -106,6 +198,7 @@ export const MODELS: readonly ModelCard[] = [
     },
   },
   {
+    provider: "fal",
     id: "fal-ai/flux-2-pro",
     name: "FLUX.2 Pro",
     blurb: "High quality text-to-image, tiered by megapixel",
@@ -115,6 +208,7 @@ export const MODELS: readonly ModelCard[] = [
     settings: { imageSize: imageSize(), outputFormat: format(["jpeg", "png"]) },
   },
   {
+    provider: "fal",
     id: "fal-ai/flux/dev",
     name: "FLUX.1 Dev",
     blurb: "Widely used general-purpose workhorse",
@@ -123,6 +217,7 @@ export const MODELS: readonly ModelCard[] = [
     settings: { imageSize: imageSize(), count: count(4), outputFormat: format(["jpeg", "png"]) },
   },
   {
+    provider: "fal",
     id: "fal-ai/flux/schnell",
     name: "FLUX.1 Schnell",
     blurb: "Distilled for speed, cheapest per image",
@@ -132,6 +227,7 @@ export const MODELS: readonly ModelCard[] = [
     settings: { imageSize: imageSize(), count: count(4), outputFormat: format(["jpeg", "png"]) },
   },
   {
+    provider: "fal",
     id: "fal-ai/z-image/turbo",
     name: "Z-Image Turbo",
     blurb: "Very fast, very cheap, good for iteration",
@@ -145,6 +241,7 @@ export const MODELS: readonly ModelCard[] = [
     },
   },
   {
+    provider: "fal",
     id: "fal-ai/flux-pro/kontext",
     name: "FLUX.1 Kontext",
     blurb: "Edit an image with an instruction, keeping the rest",
@@ -160,6 +257,7 @@ export const MODELS: readonly ModelCard[] = [
     },
   },
   {
+    provider: "fal",
     id: "fal-ai/kling-video/v3/pro/text-to-video",
     name: "Kling 3 Pro",
     blurb: "Premium text-to-video with strong motion",
@@ -173,6 +271,7 @@ export const MODELS: readonly ModelCard[] = [
     },
   },
   {
+    provider: "fal",
     id: "fal-ai/kling-video/v3/pro/image-to-video",
     name: "Kling 3 Pro — Animate",
     blurb: "Bring a still image to life",
@@ -186,6 +285,7 @@ export const MODELS: readonly ModelCard[] = [
     },
   },
   {
+    provider: "fal",
     id: "fal-ai/veo3.1",
     name: "Veo 3.1",
     blurb: "Google's flagship video model, with native audio",
@@ -200,6 +300,7 @@ export const MODELS: readonly ModelCard[] = [
     },
   },
   {
+    provider: "fal",
     id: "fal-ai/bytedance/seedance/v1/pro/text-to-video",
     name: "Seedance 1 Pro",
     blurb: "Fast, controllable video at a low rate",

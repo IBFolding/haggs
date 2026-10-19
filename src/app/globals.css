@@ -1098,3 +1098,15 @@ select.pill { appearance: none; padding-right: 26px; }
 @media (prefers-reduced-motion: reduce) {
   .shot-busy { animation: none; }
 }
+
+/* ─── key sheet: two providers ─────────────────────────────────────── */
+
+.sheet.wide { width: min(520px, calc(100vw - 32px)); }
+
+.key-row { padding: 14px 0; border-top: 1px solid var(--line); }
+.key-row header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.key-row header b { font-size: 14px; }
+.key-status { font-size: 12px; color: var(--text-3); }
+.key-blurb { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--text-2); }
+.key-blurb a { color: var(--volt); }
+.key-row .sheet-row input { flex: 1; min-width: 0; }

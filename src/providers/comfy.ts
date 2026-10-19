@@ -41,7 +41,16 @@ export type ComfyOptions = {
   endpoints?: Partial<Record<Capability, string>>;
   pollMs?: number;
   timeoutMs?: number;
+  /**
+   * Router models do not share a request shape, and the difference is not
+   * cosmetic: MiniMax H3 requires a `content` array, while FLUX 3 and LTX take
+   * a plain `prompt` string and refuse the other. The catalog knows which, so
+   * it says so here rather than this file guessing from the model id.
+   */
+  bodyStyle?: BodyStyle;
 };
+
+export type BodyStyle = "content" | "prompt";
 
 export function createComfyProvider(options: ComfyOptions): Provider {
   const doFetch = options.fetch ?? fetch;
@@ -85,7 +94,7 @@ export function createComfyProvider(options: ComfyOptions): Provider {
       const response = await doFetch(`${BASE}/${model}/estimate`, {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify(toRouterBody(request)),
+        body: JSON.stringify(toRouterBody(request, options.bodyStyle)),
       });
 
       // Not every model estimates. Saying so is the honest thing to show; a
@@ -119,7 +128,7 @@ export function createComfyProvider(options: ComfyOptions): Provider {
           await doFetch(`${BASE}/${model}/requests`, {
             method: "POST",
             headers: headers({ "Idempotency-Key": crypto.randomUUID() }),
-            body: JSON.stringify(toRouterBody(request)),
+            body: JSON.stringify(toRouterBody(request, options.bodyStyle)),
           }),
           "submit",
         ),
@@ -166,7 +175,18 @@ export function createComfyProvider(options: ComfyOptions): Provider {
  * text item, then any media items with the role that decides the operation —
  * a first frame animates, a reference image styles.
  */
-function toRouterBody(request: GenerationRequest): Record<string, unknown> {
+function toRouterBody(
+  request: GenerationRequest,
+  style: BodyStyle = "content",
+): Record<string, unknown> {
+  if (style === "prompt") {
+    return {
+      prompt: request.prompt,
+      ...(request.images?.length ? { images: request.images } : {}),
+      ...(request.passthrough ?? {}),
+    };
+  }
+
   const content: Array<Record<string, unknown>> = [{ type: "text", text: request.prompt }];
 
   for (const [index, url] of (request.images ?? []).entries()) {

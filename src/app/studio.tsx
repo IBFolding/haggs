@@ -7,7 +7,8 @@ import { coerceSettings, defaultSettings, type Settings } from "../catalog/setti
 import type { Capability } from "../providers/types";
 import { defaultKv } from "../story/kv";
 import { createRunStore, type Run } from "../story/runs";
-import { clearKey, hasKey, rates, run, saveKey, type Rate } from "./actions";
+import { keysHeld, rates, run, type Rate } from "./actions";
+import { KeySheet } from "./key-sheet";
 import { Nav } from "./nav";
 import { REUSE_KEY } from "./gallery/gallery";
 import { RunTile } from "./run-tile";
@@ -50,9 +51,8 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
   const [hunt, setHunt] = useState("");
 
   const [rateMap, setRateMap] = useState<Record<string, Rate>>({});
-  const [keyed, setKeyed] = useState(false);
+  const [held, setHeld] = useState({ comfy: false, fal: false });
   const [sheet, setSheet] = useState(false);
-  const [keyDraft, setKeyDraft] = useState("");
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [history, setHistory] = useState<Run[]>([]);
@@ -75,7 +75,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
 
   useEffect(() => {
     void rates().then((list) => setRateMap(Object.fromEntries(list.map((r) => [r.id, r]))));
-    void hasKey().then(setKeyed);
+    void keysHeld().then(setHeld);
     void runs
       .list()
       .then((list) => {
@@ -172,19 +172,12 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
     [runs],
   );
 
-  const commitKey = useCallback(async () => {
-    await saveKey(keyDraft);
-    setKeyed(true);
-    setKeyDraft("");
-    setSheet(false);
-  }, [keyDraft]);
-
   return (
     <div className="app">
       <Nav current={surface}>
         <button className="key-state" onClick={() => setSheet(true)}>
-          <span className={`lamp${keyed ? " live" : ""}`} />
-          {keyed ? "fal connected" : "no key"}
+          <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />
+          {held.comfy && held.fal ? "comfy + fal" : held.comfy ? "comfy" : held.fal ? "fal" : "no key"}
         </button>
       </Nav>
 
@@ -346,49 +339,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
         </div>
       </div>
 
-      {sheet && (
-        <div className="veil" onClick={() => setSheet(false)}>
-          <div className="sheet" onClick={(event) => event.stopPropagation()}>
-            <h3>{keyed ? "fal key connected" : "Connect a fal key"}</h3>
-            <p>
-              Generation runs on your own fal account. The key is posted once and
-              kept in an httpOnly cookie — it never reaches client JavaScript, and
-              we never see it. Create one at{" "}
-              <a href="https://fal.ai/dashboard/keys" target="_blank" rel="noreferrer">
-                fal.ai/dashboard/keys
-              </a>
-              .
-            </p>
-            <input
-              type="password"
-              value={keyDraft}
-              onChange={(event) => setKeyDraft(event.target.value)}
-              placeholder="fal key"
-              autoFocus
-            />
-            <div className="sheet-row">
-              <button className="fire" onClick={() => void commitKey()} disabled={!keyDraft.trim()}>
-                Save key
-              </button>
-              {keyed && (
-                <button
-                  className="plain"
-                  onClick={() => void clearKey().then(() => setKeyed(false))}
-                >
-                  Disconnect
-                </button>
-              )}
-              <button className="plain" onClick={() => setSheet(false)}>
-                Close
-              </button>
-            </div>
-            <div className="sheet-note">
-              Browsing and pricing work without a key — every rate on this page came
-              from fal&rsquo;s published prices. Only generation needs one.
-            </div>
-          </div>
-        </div>
-      )}
+      {sheet && <KeySheet held={held} onChange={setHeld} onClose={() => setSheet(false)} />}
     </div>
   );
 }
