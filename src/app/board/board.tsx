@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getModelCard, MODELS } from "../../catalog/models";
@@ -168,6 +169,9 @@ export function Board({ id }: { id: string }) {
           <span className="board-count">
             {project.shots.length} shot{project.shots.length === 1 ? "" : "s"}
           </span>
+          <Link className="plain cut-link" href={`/board/${id}/cut`}>
+            Open the cut
+          </Link>
           {stale.length > 0 && (
             <span className="board-stale">
               Moving a shot changed what {stale.length === 1 ? "one shot continues" : `${stale.length} shots continue`} from.

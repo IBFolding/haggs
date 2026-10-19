@@ -1110,3 +1110,162 @@ select.pill { appearance: none; padding-right: 26px; }
 .key-blurb { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--text-2); }
 .key-blurb a { color: var(--volt); }
 .key-row .sheet-row input { flex: 1; min-width: 0; }
+
+/* ─── the cut: editor ──────────────────────────────────────────────── */
+
+.cut { flex: 1; overflow-y: auto; padding: 26px 28px 60px; max-width: 1080px; width: 100%; margin: 0 auto; }
+.cut .board-head { padding: 0 0 16px; }
+.cut-title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.cut-link { margin-left: auto; color: var(--volt); }
+
+.stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-height: 52vh;
+  margin: 0 auto;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.stage img, .stage video { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.stage-slate {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  font-size: 12px;
+  color: var(--text-2);
+  background: rgba(10, 10, 11, 0.7);
+  backdrop-filter: blur(6px);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+
+.transport { display: flex; align-items: center; gap: 16px; margin: 14px 0; flex-wrap: wrap; }
+.transport .fire { margin-left: 0; min-width: 84px; justify-content: center; }
+
+.transport-time {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.transport-time i { font-style: normal; color: var(--text-3); margin: 0 3px; }
+.transport-note { font-size: 12.5px; color: var(--premium); }
+
+/* Each clip is as wide as it runs, so the strip reads as time. */
+.timeline {
+  position: relative;
+  display: flex;
+  gap: 3px;
+  height: 78px;
+  cursor: pointer;
+  touch-action: none;
+  border-radius: 10px;
+}
+
+.timeline:focus-visible { outline: 2px solid var(--volt); outline-offset: 3px; }
+
+.clip {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.clip img, .clip video { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.72; }
+.clip:hover img, .clip:hover video { opacity: 0.95; }
+.clip.picked { border-color: var(--volt); }
+.clip.picked img, .clip.picked video { opacity: 1; }
+
+.clip-label {
+  position: absolute;
+  left: 6px;
+  top: 5px;
+  right: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.clip-len {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-2);
+  background: rgba(10, 10, 11, 0.74);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.playhead {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--volt);
+  box-shadow: 0 0 8px var(--volt);
+  pointer-events: none;
+}
+
+.clip-inspect {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.clip-inspect label { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }
+
+.clip-inspect input {
+  width: 72px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-hot);
+  border-radius: 7px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 5px 8px;
+}
+
+.clip-inspect input:focus { outline: none; border-color: var(--volt); }
+
+.exports { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+.exports-note { font-size: 12.5px; color: var(--text-3); max-width: 56ch; }
+.exports-note code { font-family: var(--mono); color: var(--text-2); }
+
+@media (max-width: 720px) {
+  .cut { padding: 20px 16px 50px; }
+  .timeline { height: 64px; }
+  .clip-label { display: none; }
+}
+
+/* The studio's mobile rule stretches every .fire to the full width, which suits
+   the composer's Generate button and not a transport control. */
+.transport .fire { width: auto; }
+
+/* .plain is styled as a button; when it is a link it should not also underline. */
+a.plain { text-decoration: none; display: inline-flex; align-items: center; }
