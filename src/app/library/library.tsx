@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { defaultKv } from "../../story/kv";
@@ -19,6 +21,7 @@ function ago(at: number): string {
 }
 
 export function Library() {
+  const router = useRouter();
   const store = useMemo(() => createProjectStore(defaultKv()), []);
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -48,10 +51,8 @@ export function Library() {
   const create = useCallback(async () => {
     const project = createProject("Untitled");
     await store.save(project);
-    await refresh();
-    setEditing(project.id);
-    setDraft(project.name);
-  }, [store, refresh]);
+    router.push(`/board/${project.id}`);
+  }, [store, router]);
 
   const commitRename = useCallback(async () => {
     const id = editing;
@@ -177,15 +178,9 @@ export function Library() {
                       }}
                     />
                   ) : (
-                    <button
-                      className="library-name"
-                      onClick={() => {
-                        setEditing(summary.id);
-                        setDraft(summary.name);
-                      }}
-                    >
+                    <Link className="library-name" href={`/board/${summary.id}`}>
                       {summary.name}
-                    </button>
+                    </Link>
                   )}
 
                   <span className="library-meta">
@@ -195,6 +190,15 @@ export function Library() {
                   </span>
 
                   <span className="library-actions">
+                    <button
+                      className="plain"
+                      onClick={() => {
+                        setEditing(summary.id);
+                        setDraft(summary.name);
+                      }}
+                    >
+                      Rename
+                    </button>
                     <button className="plain" onClick={() => void download(summary)}>
                       Export
                     </button>

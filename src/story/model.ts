@@ -1,5 +1,3 @@
-import type { AspectRatio } from "../providers/types";
-
 /**
  * The craft constants that hold a set together — the same shape `direction`
  * takes on a product-photoshoot mode, promoted here because the storyboard
@@ -37,7 +35,8 @@ export type Shot = {
   beat: string;
   threadIds: string[];
   seconds: number | null;
-  model: { id: string; ratio: AspectRatio; count: number };
+  /** The endpoint and the settings it declared, as this shot will run. */
+  model: { id: string; settings: Record<string, string | number | boolean> };
   direction?: Partial<Direction>;
   render?: {
     url: string;
@@ -105,4 +104,31 @@ export function summarize(project: Project): ProjectSummary {
     updatedAt: project.updatedAt,
     shotCount: project.shots.length,
   };
+}
+
+const DEFAULT_MODEL_ID = "fal-ai/flux/schnell";
+
+export function newShot(): Shot {
+  return {
+    id: crypto.randomUUID(),
+    heading: "",
+    beat: "",
+    threadIds: [],
+    seconds: null,
+    model: { id: DEFAULT_MODEL_ID, settings: {} },
+  };
+}
+
+/**
+ * Moves a shot to a new position. Array order is story order, so this is the
+ * whole of "reorder" — there is no rank to renumber and nothing to keep in
+ * step with it.
+ */
+export function moveShot(shots: readonly Shot[], from: number, to: number): Shot[] {
+  if (from === to) return [...shots];
+  const next = [...shots];
+  const [moved] = next.splice(from, 1);
+  if (!moved) return [...shots];
+  next.splice(to, 0, moved);
+  return next;
 }
