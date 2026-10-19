@@ -5,13 +5,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MODELS, getModelCard, outputCount, searchModels } from "../catalog/models";
 import { coerceSettings, defaultSettings, type Settings } from "../catalog/settings";
 import type { Capability } from "../providers/types";
-import { clearKey, hasKey, rates, run, saveKey, type Rate, type Shot } from "./actions";
+import { defaultKv } from "../story/kv";
+import { createRunStore, type Run } from "../story/runs";
+import { clearKey, hasKey, rates, run, saveKey, type Rate } from "./actions";
 import { Nav } from "./nav";
+import { REUSE_KEY } from "./gallery/gallery";
+import { RunTile } from "./run-tile";
 import { SettingsRail } from "./settings-rail";
 
+/** In-flight work only. Anything finished is a Run and lives in storage. */
 type Slot =
   | { state: "working"; id: number }
-  | { state: "done"; id: number; shot: Shot; label: string }
   | { state: "failed"; id: number; reason: string };
 
 /** Which part of the catalog a surface shows. The nav items are these. */
@@ -51,17 +55,47 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
   const [keyDraft, setKeyDraft] = useState("");
 
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [history, setHistory] = useState<Run[]>([]);
   const [busy, setBusy] = useState(false);
   const nextId = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const runs = useMemo(() => createRunStore(defaultKv()), []);
 
   const card = useMemo(() => getModelCard(modelId), [modelId]);
   const rate = rateMap[modelId];
 
+  /** Put a past run back in the composer — model, prompt and the settings it ran with. */
+  const reuse = useCallback((item: Run) => {
+    setModelId(item.modelId);
+    setPrompt(item.prompt);
+    setSettings((held) =>
+      coerceSettings(getModelCard(item.modelId).settings, { ...held, ...item.settings }),
+    );
+  }, []);
+
   useEffect(() => {
     void rates().then((list) => setRateMap(Object.fromEntries(list.map((r) => [r.id, r]))));
     void hasKey().then(setKeyed);
-  }, []);
+    void runs
+      .list()
+      .then((list) => {
+        setHistory(list);
+
+        // Arriving from Reuse in the gallery: load that run into the composer.
+        // Read once and clear, so a later refresh does not silently overwrite
+        // whatever you have typed since.
+        let wanted: string | null = null;
+        try {
+          wanted = sessionStorage.getItem(REUSE_KEY);
+          if (wanted) sessionStorage.removeItem(REUSE_KEY);
+        } catch {
+          /* Private mode blocks sessionStorage; nothing to restore. */
+        }
+        const found = wanted ? list.find((item) => item.id === wanted) : undefined;
+        if (found) reuse(found);
+      })
+      .catch(() => setHistory([]));
+  }, [runs, reuse]);
 
   // Changing model means the settings you were holding belong to the model you
   // just left. Keep what the new one also declares, and default the rest.
@@ -100,19 +134,43 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
 
     setSlots((prior) => {
       const rest = prior.filter((slot) => slot.id !== id);
-      if (!result.ok) return [{ state: "failed", id, reason: result.reason }, ...rest];
-      const made = result.shots.map((shot, index) => ({
-        state: "done" as const,
-        id: nextId.current++,
-        shot,
-        label: `${card.name}${index > 0 ? ` · ${index + 1}` : ""}`,
-      }));
-      return [...made, ...rest];
+      return result.ok ? rest : [{ state: "failed", id, reason: result.reason }, ...rest];
     });
+
+    if (result.ok) {
+      // Recorded before it is shown, so what you are looking at is what
+      // survives a refresh — not a copy of it held in component state.
+      const kept: Run[] = [];
+      for (const shot of result.shots) {
+        kept.push(
+          await runs.record({
+            modelId,
+            modelName: card.name,
+            prompt,
+            settings,
+            url: shot.url,
+            kind: shot.kind,
+            usd: result.usd === null ? null : result.usd / result.shots.length,
+          }),
+        );
+      }
+      setHistory((prior) => [...kept.reverse(), ...prior]);
+    }
 
     if (!result.ok && result.needsKey) setSheet(true);
     setBusy(false);
-  }, [prompt, busy, needsImage, modelId, settings, images, card.name]);
+  }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs]);
+
+  const toggleKeep = useCallback(
+    async (item: Run) => {
+      const next = !item.favorite;
+      setHistory((prior) =>
+        prior.map((run) => (run.id === item.id ? { ...run, favorite: next } : run)),
+      );
+      await runs.setFavorite(item.id, next);
+    },
+    [runs],
+  );
 
   const commitKey = useCallback(async () => {
     await saveKey(keyDraft);
@@ -131,41 +189,37 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
       </Nav>
 
       <div className="canvas" onClick={() => setPicking(false)}>
-        {slots.length === 0 ? (
+        {slots.length === 0 && history.length === 0 ? (
           <div className="blank">
-            <div className="strip">
-              {[0, 1, 2, 3].map((index) => (
-                <div key={index} className="strip-cell" />
-              ))}
-            </div>
             <h1>
-              {surface === "Edit" ? "Edit with " : "Start creating with "}
-              <b>{card.name}</b>
+              {surface === "Edit" ? "Edit with " : "Start with "}
+              {card.name}
             </h1>
             <p>{BLURB[surface]}</p>
+            <p className="blank-rate">
+              This model runs at <b>{rate?.label ?? "a rate loading now"}</b>. Every run you
+              make is kept here with what it cost.
+            </p>
           </div>
         ) : (
           <div className="grid">
-            {slots.map((slot) => {
-              if (slot.state === "working") return <div key={slot.id} className="cell working" />;
-              if (slot.state === "failed") {
-                return (
-                  <div key={slot.id} className="cell failed">
-                    <span className="cell-err">{slot.reason}</span>
-                  </div>
-                );
-              }
-              return (
-                <div key={slot.id} className="cell">
-                  {slot.shot.kind === "video" ? (
-                    <video src={slot.shot.url} autoPlay loop muted playsInline />
-                  ) : (
-                    <img src={slot.shot.url} alt="" />
-                  )}
-                  <span className="cell-tag">{slot.label}</span>
+            {slots.map((slot) =>
+              slot.state === "working" ? (
+                <div key={slot.id} className="cell working" />
+              ) : (
+                <div key={slot.id} className="cell failed">
+                  <span className="cell-err">{slot.reason}</span>
                 </div>
-              );
-            })}
+              ),
+            )}
+            {history.map((item) => (
+              <RunTile
+                key={item.id}
+                run={item}
+                onFavorite={() => void toggleKeep(item)}
+                onReuse={() => reuse(item)}
+              />
+            ))}
           </div>
         )}
       </div>

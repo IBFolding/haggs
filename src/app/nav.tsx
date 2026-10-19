@@ -2,17 +2,18 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
- * One nav for every surface. Items that have somewhere to go are links; the
- * rest stay inert buttons until the surface behind them exists, because a nav
- * item that navigates to an empty page is worse than one that visibly doesn't
- * go anywhere yet.
+ * One nav for every surface.
+ *
+ * There is no Explore here. Higgsfield's Explore is a feed of other people's
+ * work, and we have no community to put in one — so the slot shows the thing
+ * we do have, which is your own runs and what they cost.
  */
 
 type Item = { label: string; href?: string };
 
 const ITEMS: readonly Item[] = [
   { label: "Create", href: "/" },
-  { label: "Explore" },
+  { label: "Gallery", href: "/gallery" },
   { label: "Video", href: "/video" },
   { label: "Edit", href: "/edit" },
   { label: "Library", href: "/library" },
