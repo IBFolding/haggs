@@ -22,7 +22,9 @@ export function RunTile({
   onDelete?: () => void;
 }) {
   return (
-    <figure className="cell">
+    // tabIndex makes the tile focusable, which is how a tap reveals the
+    // caption on touch, and how a keyboard reaches Reuse and Delete.
+    <figure className="cell" tabIndex={0}>
       {run.kind === "video" ? (
         <video src={run.url} loop muted playsInline onMouseOver={(e) => void e.currentTarget.play()} onMouseOut={(e) => e.currentTarget.pause()} />
       ) : (

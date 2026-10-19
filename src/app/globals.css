@@ -846,10 +846,31 @@ a.nav-item { text-decoration: none; display: inline-flex; align-items: center; }
 .library-meta i { display: none; }
 
 @media (max-width: 720px) {
-  .grid { columns: 2 150px; }
+  /* The nav is wider than a phone. Let it scroll rather than clipping the last
+     item, which hid Library entirely. */
+  .nav {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-item, .logo { flex: none; }
+
+  /* Narrower gutters buy back the width two columns need; at 24px each side
+     the tracks could not fit and the grid silently collapsed to one. */
+  .gallery, .library { padding-left: 16px; padding-right: 16px; }
+  .grid { columns: 2 136px; column-gap: 10px; }
+  .grid > * { margin-bottom: 10px; }
+
   .gallery-head { gap: 12px; }
   .tally { margin-left: 0; }
-  .library-actions { opacity: 1; }
+
+  /* Hover reveals nothing on a touch screen, so the small corner controls stay
+     visible. The caption is not forced on: covering every picture with its own
+     prompt hides the thing you came to look at. A tap focuses the tile and
+     brings it up. */
+  .library-actions, .cell-keep { opacity: 1; }
+  .cell-face { padding-top: 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -859,3 +880,5 @@ a.nav-item { text-decoration: none; display: inline-flex; align-items: center; }
 @media (prefers-reduced-motion: reduce) {
   .cell.working, .cell.failed { animation: none; }
 }
+
+.cell:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
