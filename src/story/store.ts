@@ -1,3 +1,4 @@
+import { normalize } from "./boards";
 import type { Kv } from "./kv";
 import { summarize, type Project, type ProjectSummary } from "./model";
 
@@ -72,8 +73,10 @@ export function createProjectStore(kv: Kv): ProjectStore {
       return readIndex();
     },
 
-    load(id) {
-      return kv.get<Project>(recordKey(id));
+    async load(id) {
+      const found = await kv.get<Project>(recordKey(id));
+      // Older projects keep their shots at the top level; they open as one board.
+      return found ? normalize(found) : undefined;
     },
 
     save(project) {

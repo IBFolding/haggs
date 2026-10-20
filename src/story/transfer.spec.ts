@@ -92,8 +92,9 @@ test("import accepts a well-formed project with real shots", () => {
   const shot = { id: "s1", heading: "INT. ALLEY", beat: "she turns", threadIds: [], seconds: null,
     model: { id: "m", ratio: "1:1", count: 1 } };
   const back = importProject(envelope({ ...wellFormed, shots: [shot] }));
-  assert.equal(back.shots.length, 1);
-  assert.equal(back.shots[0]!.id, "s1");
+  // A file from before boards opens with its shots on one board.
+  assert.equal(back.boards?.[0]?.shots.length, 1);
+  assert.equal(back.boards?.[0]?.shots[0]!.id, "s1");
 });
 
 test("a project file can carry its sheets and media, and both come back with it", async () => {

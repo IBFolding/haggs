@@ -1440,3 +1440,6 @@ a.logo { color: var(--text); text-decoration: none; }
   .sh-send { flex-direction: row; align-items: center; flex: none; margin: 0 8px 0 0; }
   .sh-send .fire { width: auto; padding: 8px 14px; }
 }
+.ptabs-board { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 13px; font-weight: 600; max-width: 260px; }
+.ptabs-board:focus { outline: none; border-color: var(--volt); }
+@media (max-width: 680px) { .ptabs-board { max-width: 150px; } }

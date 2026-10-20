@@ -295,3 +295,26 @@ test("the camera picker offers the named cinematic moves as prompt direction onl
   assert.throws(() => movePrompt("moonwalk"), /camera move/);
   assert.equal(movePrompt(""), "");
 });
+
+test("each board keeps its own beats and shots while characters and places stay shared", async () => {
+  const { normalizeSheets, putSheetsView, sheetsView } = await import("./sheets");
+  let sh = addBeat(sheetsWith({ title: "Series" }), { title: "Old beat", sceneIds: ["e2-s1"] });
+  sh = normalizeSheets(sh, "main");
+  assert.deepEqual(sh.story, [], "legacy beats move onto the first board");
+  assert.deepEqual(sheetsView(sh, "main").story.map((b) => b.title), ["Old beat"]);
+
+  let ep = sheetsView(sh, "ep1", { title: "Episode 1", seconds: 30 });
+  assert.deepEqual([ep.title, ep.seconds, ep.story.length], ["Episode 1", 30, 0]);
+  ep = addBeat(ep, { title: "Ferry", sceneIds: ["e2-s2"] });
+  ep = addShot(ep, at(ep.story, 0).id);
+  ep = fixCell(ep, "characters", "MAYA", "lock", "green raincoat");
+  sh = putSheetsView(sh, "ep1", ep);
+
+  assert.equal(at(sh.characters, 0).lock, "green raincoat", "a lock fixed on one board shows on every board");
+  assert.equal(sheetsView(sh, "main").characters[0]?.lock, "green raincoat");
+  assert.deepEqual(sheetsView(sh, "main").story.map((b) => b.title), ["Old beat"]);
+  assert.deepEqual(sheetsView(sh, "ep1").story.map((b) => b.title), ["Ferry"]);
+  assert.equal(sheetsView(sh, "ep1").title, "Episode 1");
+  assert.equal(sh.title, "Series", "the series title is not overwritten by a board's");
+  assert.deepEqual(importSheets(exportSheets(sh)), sh);
+});

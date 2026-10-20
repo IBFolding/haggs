@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
 import { defaultKv } from "../../../../story/kv";
 import type { Project } from "../../../../story/model";
+import { commit, view } from "../../../../story/boards";
 import { createProjectStore } from "../../../../story/store";
 import { createSaveQueue } from "../../../../story/use-autosave";
 import { Nav } from "../../../nav";
@@ -32,7 +33,9 @@ function download(name: string, text: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export function Editor({ id }: { id: string }) {
+export function Editor({ id, boardId }: { id: string; boardId?: string | undefined }) {
+  /** The whole project; the state below is one board's view of it. */
+  const full = useRef<Project | null>(null);
   const store = useMemo(() => createProjectStore(defaultKv()), []);
   const saves = useMemo(() => createSaveQueue(store), [store]);
 
@@ -48,10 +51,12 @@ export function Editor({ id }: { id: string }) {
 
   useEffect(() => {
     void store.load(id).then((found) => {
-      if (found) setProject(found);
-      else setMissing(true);
+      if (found) {
+        full.current = found;
+        setProject(view(found, boardId));
+      } else setMissing(true);
     });
-  }, [store, id]);
+  }, [store, id, boardId]);
 
   const cut = useMemo(() => (project ? buildCut(project) : null), [project]);
   const here = cut ? atTime(cut, t) : null;
@@ -103,7 +108,7 @@ export function Editor({ id }: { id: string }) {
           ...current,
           shots: current.shots.map((s) => (s.id === shotId ? { ...s, seconds } : s)),
         };
-        saves.queue(next);
+        saves.queue((full.current = commit(full.current ?? next, boardId, next)));
         return next;
       });
     },
@@ -146,7 +151,7 @@ export function Editor({ id }: { id: string }) {
   return (
     <div className="app">
       <Nav current="Projects" />
-      <ProjectTabs id={id} name={project.name} current="cut" />
+      <ProjectTabs project={full.current ?? project} boardId={boardId} current="cut" />
 
       <div className="cut">
         <header className="board-head">

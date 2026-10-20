@@ -88,9 +88,25 @@ export type Project = {
   direction: Direction;
   slotValues?: Record<string, string>;
   media?: Media[];
+  /** The project's storyboards. `shots`/`notes` above are only read from projects saved before boards existed. */
+  boards?: Board[];
   /** Set by an import tool; a later file with the same key offers to replace this project. */
   importKey?: string;
   source?: { templateId: string; name: string; author?: string };
+};
+
+/**
+ * One storyboard inside a project: a sizzle reel, an episode, a version.
+ * Characters, places, media and direction belong to the project and are
+ * shared; shots and notes belong to the board.
+ */
+export type Board = {
+  id: string;
+  name: string;
+  kind: "reel" | "episode" | "board";
+  /** Array order IS story order. */
+  shots: Shot[];
+  notes: Note[];
 };
 
 /** What the library list needs, without loading every project in full. */
@@ -99,6 +115,7 @@ export type ProjectSummary = {
   name: string;
   updatedAt: number;
   shotCount: number;
+  boardCount?: number;
 };
 
 const EMPTY_DIRECTION: Direction = {
@@ -127,7 +144,8 @@ export function summarize(project: Project): ProjectSummary {
     id: project.id,
     name: project.name,
     updatedAt: project.updatedAt,
-    shotCount: project.shots.length,
+    shotCount: project.boards ? project.boards.reduce((n, b) => n + b.shots.length, 0) : project.shots.length,
+    boardCount: project.boards?.length ?? 1,
   };
 }
 

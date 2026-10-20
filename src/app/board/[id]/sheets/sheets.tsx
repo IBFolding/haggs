@@ -7,9 +7,10 @@ import { cameraMove, cameraMoves, MOVE_GROUPS } from "../../../../sheets/camera"
 import { parseScreenplay, type Screenplay } from "../../../../sheets/screenplay";
 import {
   SHEETS, addBeat, addRow, addShot, alterRows, buildSheets, exportSheets, fixCell, importSheets,
-  moveRow, promptRows, qaSheet, removeRow, runtime, syncBoard, type SheetId, type Sheets, type ShotRow,
+  moveRow, normalizeSheets, promptRows, putSheetsView, qaSheet, removeRow, runtime, sheetsView, syncBoard, type SheetId, type Sheets, type ShotRow,
 } from "../../../../sheets/sheets";
 import { defaultKv } from "../../../../story/kv";
+import { boardOf, commit, view } from "../../../../story/boards";
 import type { Project } from "../../../../story/model";
 import { createProjectStore } from "../../../../story/store";
 import { Nav } from "../../../nav";
@@ -129,12 +130,32 @@ function AddByName({ label, onAdd }: { label: string; onAdd: (name: string) => v
   );
 }
 
-export function SheetsStudio({ id }: { id: string }) {
+/** Carries every board's beats and shots, and the locks already written, onto freshly uploaded sheets. */
+function keepWork(next: Sheets, before: Sheets): Sheets {
+  const kept = <T extends { id: string }>(rows: T[], old: T[], fields: (keyof T)[]) =>
+    rows.map((row) => {
+      const was = old.find((o) => o.id === row.id);
+      return was ? { ...row, ...Object.fromEntries(fields.map((f) => [f, was[f]])) } : row;
+    });
+  return {
+    ...next,
+    style: before.style,
+    rules: before.rules,
+    ...(before.reels ? { reels: before.reels } : {}),
+    story: before.story,
+    shots: before.shots,
+    characters: kept(next.characters, before.characters, ["look", "wardrobe", "voice", "lock", "never"]),
+    locations: kept(next.locations, before.locations, ["look", "light", "lock"]),
+  };
+}
+
+export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | undefined }) {
   const kv = useMemo(() => defaultKv(), []);
   const store = useMemo(() => createProjectStore(kv), [kv]);
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
-  const [sheets, setSheets] = useState<Sheets | null>(null);
+  /** The project's sheets, every board; `sheets` below is this board's view of them. */
+  const [all, setAll] = useState<Sheets | null>(null);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<SheetId>("script");
   const [picked, setPicked] = useState<string[]>([]);
@@ -150,7 +171,7 @@ export function SheetsStudio({ id }: { id: string }) {
     void kv.get<string>(keyFor(id)).then((raw) => {
       if (raw) {
         try {
-          setSheets(importSheets(raw));
+          setAll(importSheets(raw));
         } catch {
           // A record this version cannot read is left alone, not overwritten.
         }
@@ -160,15 +181,23 @@ export function SheetsStudio({ id }: { id: string }) {
   }, [kv, store, id]);
 
   useEffect(() => {
-    if (ready && sheets) void kv.set(keyFor(id), exportSheets(sheets));
-  }, [kv, ready, sheets, id]);
+    if (ready && all) void kv.set(keyFor(id), exportSheets(all));
+  }, [kv, ready, all, id]);
+
+  const board = project ? boardOf(project, boardId) : null;
+  const bid = board?.id ?? "main";
+  const sheets = useMemo(
+    () => (all ? sheetsView(normalizeSheets(all, project?.boards?.[0]?.id ?? "main"), bid, { title: board?.name ?? all.title }) : null),
+    [all, bid, board?.name, project?.boards],
+  );
 
   /** Every edit goes through here, so a refused edit says why and changes nothing. */
   const act = useCallback((change: (current: Sheets) => Sheets) => {
-    setSheets((current) => {
+    setAll((current) => {
       if (!current) return current;
       try {
-        const next = change(current);
+        const base = normalizeSheets(current, project?.boards?.[0]?.id ?? "main");
+        const next = putSheetsView(base, bid, change(sheetsView(base, bid, { title: board?.name ?? base.title })));
         setError(null);
         return next;
       } catch (caught) {
@@ -176,7 +205,7 @@ export function SheetsStudio({ id }: { id: string }) {
         return current;
       }
     });
-  }, []);
+  }, [bid, board?.name, project?.boards]);
 
   const qa = useMemo(() => (sheets ? qaSheet(sheets) : []), [sheets]);
   const prompts = useMemo(() => (sheets ? promptRows(sheets) : []), [sheets]);
@@ -193,7 +222,8 @@ export function SheetsStudio({ id }: { id: string }) {
         seconds: Number(setup.seconds),
         format: setup.format,
       });
-      setSheets(next);
+      // A new upload replaces the scripts but keeps every board's beats and shots, and any locks already written.
+      setAll((current) => (current ? keepWork(next, current) : next));
       setTab("script");
       setPicked([]);
       setError(null);
@@ -211,9 +241,10 @@ export function SheetsStudio({ id }: { id: string }) {
       // Load fresh: the board may have rendered or reordered shots since this page opened.
       const current = (await store.load(id)) ?? project;
       if (!current) throw new Error("This project isn't on this device any more.");
-      const result = syncBoard(current, sheets);
-      await store.save(result.project);
-      setProject(result.project);
+      const result = syncBoard(view(current, bid), sheets);
+      const saved = commit(current, bid, result.project);
+      await store.save(saved);
+      setProject(saved);
       setError(null);
       setNotice(
         [
@@ -228,7 +259,7 @@ export function SheetsStudio({ id }: { id: string }) {
 
   function download() {
     if (!sheets) return;
-    const url = URL.createObjectURL(new Blob([exportSheets(sheets)], { type: "application/json" }));
+    const url = URL.createObjectURL(new Blob([exportSheets(all ?? sheets)], { type: "application/json" }));
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `${sheets.title.replace(/[^\w.-]+/g, "-") || "sheets"}.sheets.json`;
@@ -253,7 +284,7 @@ export function SheetsStudio({ id }: { id: string }) {
           e.target.value = "";
           if (!file) return;
           try {
-            setSheets(importSheets(await file.text()));
+            setAll(importSheets(await file.text()));
             setNotice("Sheets opened.");
           } catch (caught) {
             setError(caught instanceof Error ? caught.message : "That file couldn't be read.");
@@ -272,7 +303,7 @@ export function SheetsStudio({ id }: { id: string }) {
     );
   }
   if (!ready || !project) return <div className="app"><Nav current="Projects" /></div>;
-  const tabs = <ProjectTabs id={id} name={project.name} current="sheets" />;
+  const tabs = <ProjectTabs project={project} boardId={boardId} current="sheets" />;
 
   if (!sheets) {
     return (

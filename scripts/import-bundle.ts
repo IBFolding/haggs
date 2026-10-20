@@ -21,11 +21,18 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { localUrl } from "../src/server/local-media";
 import { attachMedia, fromV1Board, type MediaInput, type V1Board } from "../src/sheets/import-v1";
 import { parseScreenplay } from "../src/sheets/screenplay";
-import { buildSheets, qaSheet, syncBoard } from "../src/sheets/sheets";
+import { buildSheets, normalizeSheets, putSheetsView, qaSheet, sheetsView, syncBoard } from "../src/sheets/sheets";
+import { addBoard, commit, normalize, renameBoard, view } from "../src/story/boards";
 import { createProject, type Media } from "../src/story/model";
 import { exportProject } from "../src/story/transfer";
 
 type Config = {
+  /** Name of the board the v1 storyboard lands on. */
+  boardName?: string;
+  /** Also make one empty board per uploaded episode, each with its own sheets. */
+  episodeBoards?: boolean;
+  /** Target length for each episode board, in seconds. */
+  episodeSeconds?: number;
   /** Stable name for this import, so importing a newer file offers to replace the old project. */
   key?: string;
   title: string;
@@ -56,7 +63,19 @@ let sheets = buildSheets(config.scripts.map((p) => parseScreenplay(readFileSync(
 });
 if (config.v1Board) sheets = fromV1Board(sheets, JSON.parse(readFileSync(at(config.v1Board), "utf8")) as V1Board);
 
-let project = syncBoard(createProject(config.title), sheets).project;
+let project = normalize(syncBoard(createProject(config.title), sheets).project);
+const first = project.boards![0]!;
+project = renameBoard(project, first.id, config.boardName ?? "Main");
+project = { ...project, boards: project.boards!.map((b) => (b.id === first.id ? { ...b, kind: "reel" as const } : b)) };
+let shared = normalizeSheets({ ...sheets, title: config.boardName ?? sheets.title }, first.id);
+if (config.episodeBoards) {
+  for (const source of sheets.sources) {
+    const made = addBoard(project, `Ep ${source.episode}${source.title ? ` · ${source.title}` : ""}`, "episode");
+    project = { ...made.project, boards: made.project.boards!.map((b) => (b.id === made.board.id ? { ...b, kind: "episode" as const } : b)) };
+    shared = putSheetsView(shared, made.board.id, sheetsView(shared, made.board.id, { title: made.board.name, seconds: config.episodeSeconds ?? 1800 }));
+  }
+}
+shared = { ...shared, title: config.title };
 const missing: string[] = [];
 const media: MediaInput[] = (config.media ?? []).flatMap(({ file, ...item }) => {
   const full = at(file, root);
@@ -66,14 +85,15 @@ const media: MediaInput[] = (config.media ?? []).flatMap(({ file, ...item }) => 
   }
   return [{ ...item, url: localUrl(...relative(root, full).split("/")) }];
 });
-project = attachMedia(project, media);
+// Media numbers refer to shots on the first board, where the v1 storyboard landed.
+project = commit(project, first.id, attachMedia(view(project, first.id), media));
 project.source = { templateId: "import", name: "Imported from Open Haggsfield v1" };
 if (config.key) project.importKey = config.key;
 
-writeFileSync(at(config.out, root), exportProject(project, sheets));
-const onShots = project.shots.filter((s) => s.render).length;
+writeFileSync(at(config.out, root), exportProject(project, shared));
+const onShots = project.boards!.flatMap((b) => b.shots).filter((s) => s.render).length;
 const count = (status: Media["status"]) => (project.media ?? []).filter((m) => m.status === status).length;
-console.log(`${project.name}: ${sheets.script.length} scenes, ${sheets.story.length} beats, ${project.shots.length} shots, ${onShots} with footage.`);
+console.log(`${project.name}: ${sheets.script.length} scenes; boards: ${project.boards!.map((b) => `${b.name} (${b.shots.length})`).join(", ")}; ${onShots} shots with footage.`);
 console.log(`Media: ${project.media?.length ?? 0} (${count("review")} to review, ${count("rejected")} rejected, ${count("reference")} reference).`);
 console.log(`QA: ${qaSheet(sheets).filter((q) => q.level === "error").length} to fix, ${qaSheet(sheets).length} findings.`);
 if (missing.length) console.log(`Not found, skipped: ${missing.join(", ")}`);

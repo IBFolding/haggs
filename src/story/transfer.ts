@@ -1,4 +1,5 @@
 import { importSheets, type Sheets } from "../sheets/sheets";
+import { normalize } from "./boards";
 import type { Direction, Media, Note, Project, Shot, Thread } from "./model";
 
 /**
@@ -94,6 +95,14 @@ export function importBundle(json: string): { project: Project; sheets?: Sheets 
     throw new TransferError("That project file has damaged media.");
   }
 
+  if (
+    project.boards !== undefined &&
+    (!Array.isArray(project.boards) ||
+      !project.boards.every((b) => isRecord(b) && typeof b.id === "string" && Array.isArray(b.shots) && Array.isArray(b.notes)))
+  ) {
+    throw new TransferError("That project file has damaged boards.");
+  }
+
   let sheets: Sheets | undefined;
   if (parsed.sheets !== undefined) {
     try {
@@ -122,5 +131,6 @@ export function importBundle(json: string): { project: Project; sheets?: Sheets 
     }) as Direction,
     ...(project.media ? { media: project.media as Media[] } : {}),
   };
-  return sheets ? { project: imported, sheets } : { project: imported };
+  const ready = normalize(imported);
+  return sheets ? { project: ready, sheets } : { project: ready };
 }

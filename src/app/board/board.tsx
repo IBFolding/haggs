@@ -8,13 +8,16 @@ import { coerceSettings } from "../../catalog/settings";
 import { hashPrompt, promptFor, staleShots } from "../../story/assemble";
 import { defaultKv } from "../../story/kv";
 import { moveShot, newShot, type Project, type Shot } from "../../story/model";
+import { commit, view } from "../../story/boards";
 import { createProjectStore } from "../../story/store";
 import { createSaveQueue } from "../../story/use-autosave";
 import { rates, run, type Rate } from "../actions";
 import { Nav, openKeys } from "../nav";
 import { ProjectTabs } from "../project-tabs";
 
-export function Board({ id }: { id: string }) {
+export function Board({ id, boardId }: { id: string; boardId?: string | undefined }) {
+  /** The whole project; the state below is one board's view of it. */
+  const full = useRef<Project | null>(null);
   const store = useMemo(() => createProjectStore(defaultKv()), []);
   const saves = useMemo(() => createSaveQueue(store), [store]);
 
@@ -28,11 +31,13 @@ export function Board({ id }: { id: string }) {
 
   useEffect(() => {
     void store.load(id).then((found) => {
-      if (found) setProject(found);
-      else setMissing(true);
+      if (found) {
+        full.current = found;
+        setProject(view(found, boardId));
+      } else setMissing(true);
     });
     void rates().then((list) => setRateMap(Object.fromEntries(list.map((r) => [r.id, r]))));
-  }, [store, id]);
+  }, [store, id, boardId]);
 
   /** Every edit goes through here, so nothing changes without being saved. */
   const edit = useCallback(
@@ -40,7 +45,7 @@ export function Board({ id }: { id: string }) {
       setProject((current) => {
         if (!current) return current;
         const next = change(current);
-        saves.queue(next);
+        saves.queue((full.current = commit(full.current ?? next, boardId, next)));
         return next;
       });
     },
@@ -153,7 +158,7 @@ export function Board({ id }: { id: string }) {
   return (
     <div className="app">
       <Nav current="Projects" />
-      <ProjectTabs id={id} name={project.name} current="board" />
+      <ProjectTabs project={full.current ?? project} boardId={boardId} current="board" />
 
       <div className="board">
         <header className="board-head">

@@ -79,6 +79,9 @@ export type ShotRow = {
   location: string;
   note: string;
 };
+/** One board's part of the sheets: its own beats, shots, title and length. */
+export type Reel = { title: string; seconds: number; story: Beat[]; shots: ShotRow[] };
+
 export type Sheets = {
   version: 1;
   title: string;
@@ -93,6 +96,8 @@ export type Sheets = {
   characters: CharacterRow[];
   locations: LocationRow[];
   shots: ShotRow[];
+  /** Per-board beats and shots, keyed by board id. Script, cast and places above are shared by all boards. */
+  reels?: Record<string, Reel>;
 };
 type Row = SceneRow | Beat | CharacterRow | LocationRow | ShotRow;
 type Patch = Record<string, unknown>;
@@ -479,6 +484,35 @@ export function toProject(sheets: Sheets): Project {
     source: { templateId: "script-sheets", name: "Script sheets" },
   };
   return syncBoard(empty, sheets).project;
+}
+
+/** Moves sheets saved before boards (beats and shots at the top level) onto the first board. Idempotent. */
+export function normalizeSheets(sheets: Sheets, firstBoardId: string): Sheets {
+  if (sheets.reels) return sheets;
+  return {
+    ...sheets,
+    story: [],
+    shots: [],
+    reels: { [firstBoardId]: { title: sheets.title, seconds: sheets.seconds, story: sheets.story, shots: sheets.shots } },
+  };
+}
+
+/** The sheets as one board sees them, so every sheet function works on that board unchanged. */
+export function sheetsView(sheets: Sheets, boardId: string, fresh: { title?: string; seconds?: number } = {}): Sheets {
+  const reel = sheets.reels?.[boardId] ?? { title: fresh.title ?? sheets.title, seconds: fresh.seconds ?? sheets.seconds, story: [], shots: [] };
+  return { ...sheets, title: reel.title, seconds: reel.seconds, story: reel.story, shots: reel.shots };
+}
+
+/** Writes a board's view back: its beats, shots, title and length to the board; everything else is shared. */
+export function putSheetsView(sheets: Sheets, boardId: string, seen: Sheets): Sheets {
+  return {
+    ...seen,
+    title: sheets.title,
+    seconds: sheets.seconds,
+    story: [],
+    shots: [],
+    reels: { ...(sheets.reels ?? {}), [boardId]: { title: seen.title, seconds: seen.seconds, story: seen.story, shots: seen.shots } },
+  };
 }
 
 export const exportSheets = (sheets: Sheets) => JSON.stringify(sheets, null, 1);

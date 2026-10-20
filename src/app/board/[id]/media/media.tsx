@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { hashPrompt, promptFor } from "../../../../story/assemble";
+import { commit, view } from "../../../../story/boards";
 import { defaultKv } from "../../../../story/kv";
 import type { Media, Project } from "../../../../story/model";
 import { createProjectStore } from "../../../../story/store";
@@ -30,7 +31,7 @@ function Thumb({ url, kind, name }: { url: string; kind: "image" | "video"; name
   );
 }
 
-export function MediaTab({ id }: { id: string }) {
+export function MediaTab({ id, boardId }: { id: string; boardId?: string | undefined }) {
   const store = useMemo(() => createProjectStore(defaultKv()), []);
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
@@ -62,34 +63,39 @@ export function MediaTab({ id }: { id: string }) {
     );
   }
   if (!project) return <div className="app"><Nav current="Projects" /></div>;
+  const full = project;
+  const board = view(full, boardId);
 
   const media = project.media ?? [];
   const show = (m: Media) => (kind === "all" || m.kind === kind) && !(hideRejected && m.status === "rejected");
-  const loose = media.filter((m) => !m.shotId || !project.shots.some((s) => s.id === m.shotId)).filter(show);
+  // Media for shots on other boards is shown on those boards, not here.
+  const everyShot = new Set((full.boards ?? []).flatMap((b) => b.shots.map((s) => s.id)));
+  const loose = media.filter((m) => !m.shotId || !everyShot.has(m.shotId)).filter(show);
   const counts = { image: media.filter((m) => m.kind === "image").length, video: media.filter((m) => m.kind === "video").length };
-  const covered = project.shots.filter((s) => s.render).length;
+  const covered = board.shots.filter((s) => s.render).length;
 
   const setStatus = (mediaId: string, status: Media["status"]) =>
     edit((p) => ({ ...p, media: (p.media ?? []).map((m) => (m.id === mediaId ? { ...m, status } : m)) }));
   const putOnShot = (m: Media, shotId: string) =>
     edit((p) => {
-      const at = p.shots.findIndex((s) => s.id === shotId);
+      const seen = view(p, boardId);
+      const at = seen.shots.findIndex((s) => s.id === shotId);
       if (at < 0) return p;
       // Hashed against the prompt as it stands, so imported footage does not read as out of date the moment it lands.
-      const render = { url: m.url, kind: m.kind, usd: null, promptHash: hashPrompt(promptFor(p, at)), at: Date.now() };
-      return { ...p, shots: p.shots.map((s) => (s.id === shotId ? { ...s, render } : s)) };
+      const render = { url: m.url, kind: m.kind, usd: null, promptHash: hashPrompt(promptFor(seen, at)), at: Date.now() };
+      return commit(p, boardId, { ...seen, shots: seen.shots.map((s) => (s.id === shotId ? { ...s, render } : s)) });
     });
 
   return (
     <div className="app">
       <Nav current="Projects" />
-      <ProjectTabs id={id} name={project.name} current="media" />
+      <ProjectTabs project={full} boardId={boardId} current="media" />
       <div className="canvas">
         <div className="md">
           <header className="md-head">
             <div>
               <h1>Media</h1>
-              <p>{counts.image} stills · {counts.video} videos · {covered} of {project.shots.length} shots have footage</p>
+              <p>{counts.image} stills · {counts.video} videos in the project · {covered} of {board.shots.length} shots on this board have footage</p>
             </div>
             <div className="md-filters" role="group" aria-label="Show">
               {(["all", "image", "video"] as const).map((k) => (
@@ -104,7 +110,7 @@ export function MediaTab({ id }: { id: string }) {
             </div>
           </header>
 
-          {media.length === 0 && project.shots.every((s) => !s.render) && (
+          {media.length === 0 && board.shots.every((s) => !s.render) && (
             <div className="library-blank">
               <p>No media yet.</p>
               <p className="library-blank-sub">
@@ -113,7 +119,7 @@ export function MediaTab({ id }: { id: string }) {
             </div>
           )}
 
-          {project.shots.map((shot, i) => {
+          {board.shots.map((shot, i) => {
             const own = media.filter((m) => m.shotId === shot.id).filter(show);
             const renderIsMedia = shot.render && media.some((m) => m.url === shot.render!.url);
             if (!own.length && !shot.render) return null;

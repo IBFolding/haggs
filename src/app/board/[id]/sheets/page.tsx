@@ -4,7 +4,8 @@ import { SheetsStudio } from "./sheets";
 
 export const metadata: Metadata = { title: "Sheets — haggs" };
 
-export default async function SheetsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SheetsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ b?: string }> }) {
   const { id } = await params;
-  return <SheetsStudio id={id} />;
+  const { b } = await searchParams;
+  return <SheetsStudio id={id} boardId={b} />;
 }
