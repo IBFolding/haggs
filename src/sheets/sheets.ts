@@ -395,50 +395,90 @@ export function qaSheet(sheets: Sheets): Finding[] {
 
 const COLORS = ["#d4f83a", "#7dd3fc", "#f5c451", "#f9a8d4", "#a78bfa", "#fb923c", "#34d399", "#f87171"];
 
+export type SyncResult = { project: Project; added: number; updated: number; removed: number; kept: number };
+
 /**
- * The sheets as a board project. Each shot keeps its action as the beat and
- * carries its frame, move, blocking and locks as direction, so the board's own
- * prompt assembly — continuity from the shot before included — does the rest.
- * Every shot starts on MiniMax H3 through Comfy.
+ * Sends the shot list to a project's board.
+ *
+ * Shots sent before are updated in place — same id, same render, same lock —
+ * so re-sending after a fix never throws away footage. Shots made by hand on
+ * the board are left where they are, after the sent ones. A sent shot whose
+ * row is gone is removed, unless it already has a render: then it stays,
+ * unlinked, because deleting paid-for footage should never be a side effect.
  */
+export function syncBoard(project: Project, sheets: Sheets): SyncResult {
+  const next = clone(project);
+  const threads: Thread[] = [...next.threads];
+  const threadFor = (name: string) => {
+    let thread = threads.find((t) => t.kind === "character" && t.name === name);
+    if (!thread) {
+      thread = { id: "thread-" + uid(), name, color: COLORS[threads.length % COLORS.length]!, kind: "character" };
+      threads.push(thread);
+    }
+    return thread.id;
+  };
+
+  const linked = new Map(next.shots.filter((s) => s.sheetShotId).map((s) => [s.sheetShotId!, s]));
+  const rows = new Set(sheets.shots.map((s) => s.id));
+  let added = 0;
+  let updated = 0;
+
+  const sent: Shot[] = sheets.shots.map((row) => {
+    const scene = sheets.script.find((x) => x.id === row.sceneId);
+    const place = sheets.locations.find((l) => l.id === row.location);
+    const frame = frameOf(row);
+    const fields = {
+      heading: scene?.heading ?? "",
+      beat: row.action.trim(),
+      threadIds: row.characters.map(threadFor),
+      seconds: row.seconds,
+      direction: {
+        camera: [frame && frame + ".", cameraMove(row.move)?.prompt].filter(Boolean).join(" "),
+        light: place?.light ?? "",
+        staging: row.blocking,
+        constants: locksOf(sheets, row).join(" "),
+      },
+    };
+    const existing = linked.get(row.id);
+    if (existing) {
+      updated++;
+      return { ...existing, ...fields };
+    }
+    added++;
+    return { id: crypto.randomUUID(), ...fields, model: { id: "minimax/minimax-h3", settings: {} }, sheetShotId: row.id };
+  });
+
+  let removed = 0;
+  let kept = 0;
+  const others: Shot[] = [];
+  for (const shot of next.shots) {
+    if (!shot.sheetShotId) others.push(shot);
+    else if (!rows.has(shot.sheetShotId)) {
+      if (shot.render) {
+        kept++;
+        const { sheetShotId: _gone, ...unlinked } = shot;
+        others.push(unlinked);
+      } else removed++;
+    }
+  }
+
+  next.shots = [...sent, ...others];
+  next.threads = threads;
+  if (!next.direction.constants && sheets.style) next.direction = { ...next.direction, constants: sheets.style };
+  next.updatedAt = Date.now();
+  return { project: next, added, updated, removed, kept };
+}
+
+/** A new board project from the sheets, named after the reel. */
 export function toProject(sheets: Sheets): Project {
   if (!sheets.shots.length) throw new Error("Add at least one shot before opening the board.");
   const now = Date.now();
-  const cast = [...new Set(sheets.shots.flatMap((s) => s.characters))];
-  const threads: Thread[] = cast.map((name, i) => ({ id: "thread-" + uid(), name, color: COLORS[i % COLORS.length]!, kind: "character" }));
-  const threadOf = new Map(threads.map((t) => [t.name, t.id]));
-
-  const shots: Shot[] = sheets.shots.map((s) => {
-    const scene = sheets.script.find((x) => x.id === s.sceneId);
-    const place = sheets.locations.find((l) => l.id === s.location);
-    const frame = frameOf(s);
-    return {
-      id: crypto.randomUUID(),
-      heading: scene?.heading ?? "",
-      beat: s.action.trim(),
-      threadIds: s.characters.map((name) => threadOf.get(name)).filter((id): id is string => Boolean(id)),
-      seconds: s.seconds,
-      model: { id: "minimax/minimax-h3", settings: {} },
-      direction: {
-        camera: [frame && frame + ".", cameraMove(s.move)?.prompt].filter(Boolean).join(" "),
-        light: place?.light ?? "",
-        staging: s.blocking,
-        constants: locksOf(sheets, s).join(" "),
-      },
-    };
-  });
-
-  return {
-    id: crypto.randomUUID(),
-    name: sheets.title || "Untitled reel",
-    createdAt: now,
-    updatedAt: now,
-    shots,
-    threads,
-    notes: [],
-    direction: { camera: "", light: "", staging: "", constants: sheets.style },
+  const empty: Project = {
+    id: crypto.randomUUID(), name: sheets.title || "Untitled reel", createdAt: now, updatedAt: now,
+    shots: [], threads: [], notes: [], direction: { camera: "", light: "", staging: "", constants: sheets.style },
     source: { templateId: "script-sheets", name: "Script sheets" },
   };
+  return syncBoard(empty, sheets).project;
 }
 
 export const exportSheets = (sheets: Sheets) => JSON.stringify(sheets, null, 1);

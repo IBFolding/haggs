@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { createProject } from "./model";
-import { TransferError, exportProject, importProject } from "./transfer";
+import { TransferError, exportProject, importBundle, importProject } from "./transfer";
 
 test("export then import round-trips the content", () => {
   const p = createProject("A");
@@ -94,4 +94,16 @@ test("import accepts a well-formed project with real shots", () => {
   const back = importProject(envelope({ ...wellFormed, shots: [shot] }));
   assert.equal(back.shots.length, 1);
   assert.equal(back.shots[0]!.id, "s1");
+});
+
+test("a project file can carry its sheets and media, and both come back with it", async () => {
+  const { buildSheets, exportSheets } = await import("../sheets/sheets");
+  const { parseScreenplay } = await import("../sheets/screenplay");
+  const sheets = buildSheets([parseScreenplay("EXT. DOCK — DAY\n\nRain.")], { title: "Dock" });
+  const project = { ...createProject("Dock"), media: [{ id: "m1", url: "/api/local/a.mp4", kind: "video" as const, name: "a", origin: "v1", status: "review" as const, note: "" }] };
+  const back = importBundle(exportProject(project, sheets));
+  assert.equal(back.project.media?.[0]?.url, "/api/local/a.mp4");
+  assert.equal(exportSheets(back.sheets!), exportSheets(sheets));
+  assert.equal(importBundle(exportProject(createProject("Plain"))).sheets, undefined);
+  assert.throws(() => importBundle(exportProject({ ...createProject("Bad"), media: [{ id: 1 } as never] })), /damaged media/);
 });

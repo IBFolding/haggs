@@ -52,6 +52,28 @@ export type Shot = {
   };
   /** Excluded from reorder recompute, so a finished shot stays finished. */
   locked?: boolean;
+  /** The shot-list row this shot was sent from, so a re-send updates it in place. */
+  sheetShotId?: string;
+};
+
+/**
+ * A still, take or cut that belongs to the project but was not generated on
+ * the board — imported footage, references, earlier cuts. It sits in the
+ * project's Media tab until it is put on a shot.
+ */
+export type Media = {
+  id: string;
+  url: string;
+  kind: "image" | "video";
+  name: string;
+  /** Where it came from, for a person to read: "v014 takes", "v011 journey cut". */
+  origin: string;
+  status: "review" | "approved" | "rejected" | "reference";
+  /** Why it was rejected or what to check, carried over from the review it came from. */
+  note: string;
+  /** The board shot it is meant for, if any. */
+  shotId?: string;
+  seconds?: number;
 };
 
 export type Project = {
@@ -65,6 +87,7 @@ export type Project = {
   notes: Note[];
   direction: Direction;
   slotValues?: Record<string, string>;
+  media?: Media[];
   source?: { templateId: string; name: string; author?: string };
 };
 

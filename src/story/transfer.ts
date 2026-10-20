@@ -1,4 +1,5 @@
-import type { Direction, Note, Project, Shot, Thread } from "./model";
+import { importSheets, type Sheets } from "../sheets/sheets";
+import type { Direction, Media, Note, Project, Shot, Thread } from "./model";
 
 /**
  * A project leaves as one readable file and comes back as a new project.
@@ -21,13 +22,16 @@ type Envelope = {
   format: string;
   exportedAt: number;
   project: Project;
+  /** The project's script sheets, when it has any. Older files simply lack it. */
+  sheets?: Sheets;
 };
 
-export function exportProject(project: Project): string {
+export function exportProject(project: Project, sheets?: Sheets): string {
   const envelope: Envelope = {
     format: PROJECT_FORMAT,
     exportedAt: Date.now(),
     project,
+    ...(sheets ? { sheets } : {}),
   };
   return JSON.stringify(envelope, null, 2);
 }
@@ -37,6 +41,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function importProject(json: string): Project {
+  return importBundle(json).project;
+}
+
+/** A project and, if the file carries them, its sheets. */
+export function importBundle(json: string): { project: Project; sheets?: Sheets } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -77,10 +86,27 @@ export function importProject(json: string): Project {
     throw new TransferError("That project file has a damaged direction.");
   }
 
+  if (
+    project.media !== undefined &&
+    (!Array.isArray(project.media) ||
+      !project.media.every((m) => isRecord(m) && typeof m.id === "string" && typeof m.url === "string" && (m.kind === "image" || m.kind === "video")))
+  ) {
+    throw new TransferError("That project file has damaged media.");
+  }
+
+  let sheets: Sheets | undefined;
+  if (parsed.sheets !== undefined) {
+    try {
+      sheets = importSheets(JSON.stringify(parsed.sheets));
+    } catch {
+      throw new TransferError("That project file has damaged sheets.");
+    }
+  }
+
   // A fresh id and fresh timestamps, so importing a file you already have adds
   // a second project rather than silently overwriting the first.
   const now = Date.now();
-  return {
+  const imported: Project = {
     ...(project as unknown as Project),
     id: crypto.randomUUID(),
     createdAt: now,
@@ -94,5 +120,7 @@ export function importProject(json: string): Project {
       staging: "",
       constants: "",
     }) as Direction,
+    ...(project.media ? { media: project.media as Media[] } : {}),
   };
+  return sheets ? { project: imported, sheets } : { project: imported };
 }

@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { promptFor } from "../story/assemble";
+import { hashPrompt, promptFor } from "../story/assemble";
+import { createProject } from "../story/model";
 import { cameraMoves, movePrompt, MOVE_GROUPS } from "./camera";
 import { parseScreenplay } from "./screenplay";
 import {
   SHEETS, addBeat, addRow, addShot, alterRows, buildSheets, exportSheets, fixCell, importSheets,
-  moveRow, promptForShot, qaSheet, removeRow, toProject,
+  moveRow, promptForShot, qaSheet, removeRow, syncBoard, toProject,
 } from "./sheets";
 
 const sample = readFileSync(new URL("./fixtures/sheets-sample.md", import.meta.url), "utf8");
@@ -226,6 +227,50 @@ test("the sheets open as a board project whose shots carry the cast, the locks a
   assert.equal(p.source?.templateId, "script-sheets");
   assert.match(promptFor(p, 1), /Continues from: EXT\. RIVER LANDING/);
   assert.throws(() => toProject(sheetsWith()), /shot/);
+});
+
+test("sending to an existing board updates linked shots in place and keeps their renders", () => {
+  let sh = sheetsWith();
+  sh = addBeat(sh, { title: "One", sceneIds: ["e2-s1"] });
+  sh = addShot(sh, at(sh.story, 0).id, { seconds: 5 });
+  sh = addBeat(sh, { title: "Two", sceneIds: ["e2-s2"] });
+  sh = addShot(sh, at(sh.story, 1).id, { seconds: 5 });
+  const first = syncBoard(createProject("Mine"), sh);
+  assert.deepEqual([first.added, first.updated, first.removed, first.kept], [2, 0, 0, 0]);
+  assert.equal(first.project.name, "Mine", "the project keeps its own name");
+
+  // Render shot 1 on the board, add a hand-made shot, then change the sheets.
+  const board = structuredClone(first.project);
+  const one = at(board.shots, 0);
+  one.render = { url: "u", kind: "video", usd: 0.4, promptHash: hashPrompt(promptFor(board, 0)), at: 1 };
+  one.locked = true;
+  board.shots.push({ id: "manual", heading: "INSERT", beat: "A hand", threadIds: [], seconds: 2, model: { id: "x", settings: {} } });
+  sh = fixCell(sh, "shots", at(sh.shots, 0).id, "action", "Maya alone at dawn.");
+  sh = removeRow(sh, "story", at(sh.story, 1).id);
+  sh = addBeat(sh, { title: "Three", sceneIds: ["e2-s4"] });
+  sh = addShot(sh, at(sh.story, 1).id, { seconds: 3 });
+
+  const next = syncBoard(board, sh);
+  assert.deepEqual([next.added, next.updated, next.removed, next.kept], [1, 1, 1, 0]);
+  const shots = next.project.shots;
+  assert.deepEqual(shots.map((s) => s.heading), ["EXT. RIVER LANDING — DAWN", "INT. FERRY — CABIN — LATER", "INSERT"]);
+  assert.equal(at(shots, 0).id, one.id);
+  assert.equal(at(shots, 0).beat, "Maya alone at dawn.");
+  assert.equal(at(shots, 0).render?.url, "u", "a render survives a re-send");
+  assert.equal(at(shots, 0).locked, true);
+  assert.equal(at(shots, 2).id, "manual", "shots made on the board are left alone");
+  assert.deepEqual(board.shots.length, 3, "the input project is not mutated");
+});
+
+test("a linked shot that has a render is kept, not deleted, when its row is removed", () => {
+  let sh = addBeat(sheetsWith(), { title: "One", sceneIds: ["e2-s1"] });
+  sh = addShot(sh, at(sh.story, 0).id);
+  const board = syncBoard(createProject("p"), sh).project;
+  at(board.shots, 0).render = { url: "u", kind: "image", usd: null, promptHash: "h", at: 1 };
+  const next = syncBoard(board, removeRow(sh, "story", at(sh.story, 0).id));
+  assert.deepEqual([next.removed, next.kept], [0, 1]);
+  assert.equal(next.project.shots.length, 1);
+  assert.equal(next.project.shots[0]?.sheetShotId, undefined, "it is unlinked so it reads as a board shot now");
 });
 
 test("sheets export and import as JSON and reject a wrong file", () => {
