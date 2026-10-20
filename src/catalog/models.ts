@@ -106,7 +106,8 @@ export const MODELS: readonly ModelCard[] = [
     blurb: "Video with native audio, from text or a first frame",
     badge: "new",
     capability: "text-to-video",
-    inputImages: 1,
+    // One first frame, or up to nine cast and place references.
+    inputImages: 9,
     settings: {
       duration: { type: "range", label: "Duration", min: 4, max: 15, default: 6, unit: "s" },
       resolution: { type: "enum", label: "Resolution", values: ["768P", "2K"], default: "768P" },

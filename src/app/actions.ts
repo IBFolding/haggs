@@ -1,6 +1,7 @@
 "use server";
 
-import { inlineLocal } from "../server/local-media";
+import { inlineLocal, localUrl } from "../server/local-media";
+import { cloudEstimate, createCloudProvider } from "../providers/cloud";
 import { formatById } from "../sheets/formats";
 import { askClaude, draftRequest, type ClaudeResult, type DraftRequest } from "../writer/draft";
 import { FILL_SCHEMA, type Fill } from "../writer/fill";
@@ -115,6 +116,12 @@ export async function rates(): Promise<Rate[]> {
          public page, and that call needs the workspace key — so these rows read
          "quoted at run" until a key is held, instead of showing a number
          scraped from somewhere that does not describe this model. */
+      if (useCloud(model.id)) {
+        // Comfy's published MiniMax H3 rate, for the model's default length.
+        const seconds = Number(model.settings.duration && "default" in model.settings.duration ? model.settings.duration.default : 6);
+        const usd = cloudEstimate({ seconds, resolution: "768P", references: 0 });
+        return { id: model.id, label: `about $${usd.toFixed(2)} for ${seconds}s`, usd, unit: null };
+      }
       if (model.provider === "comfy") {
         return { id: model.id, label: "quoted at run", usd: null, unit: null };
       }
@@ -127,6 +134,27 @@ export async function rates(): Promise<Rate[]> {
       };
     }),
   );
+}
+
+/**
+ * Models that run as Comfy Cloud workflows. Comfy Router is the cleaner route
+ * but isn't switched on for every account yet; COMFY_ROUTE=router uses it.
+ */
+const CLOUD_MODELS = new Set(["minimax/minimax-h3"]);
+function useCloud(modelId: string): boolean {
+  return CLOUD_MODELS.has(modelId) && process.env.COMFY_ROUTE !== "router";
+}
+
+/** Keeps a finished render in the local media folder, since provider links expire. */
+async function keepRender(bytes: Uint8Array, extension: "mp4" | "webm"): Promise<string> {
+  const root = process.env.HAGGS_LOCAL_MEDIA;
+  if (!root || process.env.NODE_ENV === "production") throw new Error("Set HAGGS_LOCAL_MEDIA so finished videos have somewhere to be kept.");
+  const { mkdir, writeFile } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const name = `${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+  await mkdir(join(root, "haggs-renders"), { recursive: true });
+  await writeFile(join(root, "haggs-renders", name), bytes);
+  return localUrl("haggs-renders", name);
 }
 
 export type Shot = { url: string; kind: "image" | "video" };
@@ -161,7 +189,9 @@ export async function run(
   }
 
   const provider: Provider =
-    card.provider === "comfy"
+    useCloud(card.id)
+      ? createCloudProvider({ apiKey: key, keep: keepRender })
+      : card.provider === "comfy"
       ? createComfyProvider({
           apiKey: key,
           endpoints: { [card.capability]: card.id },
