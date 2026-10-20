@@ -146,16 +146,15 @@ export function Library() {
 
   return (
     <div className="app">
-      <Nav current="Projects">
-        <button className="fire" onClick={() => void create()}>
-          New project
-        </button>
-      </Nav>
+      <Nav current="Projects" />
 
       <div className="canvas">
         <div className="library">
           <div className="library-head">
             <h1>Projects</h1>
+            <button className="fire" onClick={() => void create()}>
+              New project
+            </button>
             <button className="pill" onClick={() => fileInput.current?.click()}>
               Import
             </button>

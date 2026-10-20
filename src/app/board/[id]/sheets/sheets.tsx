@@ -328,19 +328,20 @@ export function SheetsStudio({ id }: { id: string }) {
 
   return (
     <div className="app">
-      <Nav current="Projects">
-        <span className={`sh-runtime${total === sheets.seconds ? " ok" : ""}`}>
-          {total}s <i>of {sheets.seconds}s</i>
-        </span>
-        <button className="fire" disabled={!sheets.shots.length} onClick={() => void sendToBoard()}>
-          Send to board
-        </button>
-      </Nav>
+      <Nav current="Projects" />
       {tabs}
       {fileInputs}
       <div className="sh-work">
         <nav className="sh-rail" aria-label="Sheets">
           <input className="sh-reel" aria-label="Reel title" value={sheets.title} maxLength={100} onChange={(e) => act((x) => ({ ...x, title: e.target.value }))} />
+          <div className="sh-send">
+            <span className={`sh-runtime${total === sheets.seconds ? " ok" : ""}`}>
+              {total}s <i>of {sheets.seconds}s</i>
+            </span>
+            <button className="fire" disabled={!sheets.shots.length} onClick={() => void sendToBoard()}>
+              Send to board
+            </button>
+          </div>
           {SHEETS.map((s, i) => (
             <button key={s.id} aria-current={tab === s.id ? "page" : undefined} onClick={() => { setTab(s.id); setPicked([]); }}>
               <span className="sh-step">{i + 1}</span>

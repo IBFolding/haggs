@@ -11,7 +11,7 @@ import { moveShot, newShot, type Project, type Shot } from "../../story/model";
 import { createProjectStore } from "../../story/store";
 import { createSaveQueue } from "../../story/use-autosave";
 import { rates, run, type Rate } from "../actions";
-import { Nav } from "../nav";
+import { Nav, openKeys } from "../nav";
 import { ProjectTabs } from "../project-tabs";
 
 export function Board({ id }: { id: string }) {
@@ -87,6 +87,7 @@ export function Board({ id }: { id: string }) {
       setRunning((prior) => prior.filter((runId) => runId !== target.id));
 
       if (!result.ok) {
+        if (result.needsKey) openKeys();
         setError(result.reason);
         return;
       }
@@ -151,13 +152,7 @@ export function Board({ id }: { id: string }) {
 
   return (
     <div className="app">
-      <Nav current="Projects">
-        {stale.length > 0 && (
-          <span className="stale-note">
-            {stale.length} shot{stale.length === 1 ? "" : "s"} out of date
-          </span>
-        )}
-      </Nav>
+      <Nav current="Projects" />
       <ProjectTabs id={id} name={project.name} current="board" />
 
       <div className="board">

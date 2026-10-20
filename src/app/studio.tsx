@@ -7,9 +7,8 @@ import { coerceSettings, defaultSettings, type Settings } from "../catalog/setti
 import type { Capability } from "../providers/types";
 import { defaultKv } from "../story/kv";
 import { createRunStore, type Run } from "../story/runs";
-import { keysHeld, rates, run, type Rate } from "./actions";
-import { KeySheet } from "./key-sheet";
-import { Nav } from "./nav";
+import { rates, run, type Rate } from "./actions";
+import { Nav, openKeys } from "./nav";
 import { REUSE_KEY } from "./gallery/gallery";
 import { RunTile } from "./run-tile";
 import { SettingsRail } from "./settings-rail";
@@ -51,8 +50,6 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
   const [hunt, setHunt] = useState("");
 
   const [rateMap, setRateMap] = useState<Record<string, Rate>>({});
-  const [held, setHeld] = useState({ comfy: false, fal: false });
-  const [sheet, setSheet] = useState(false);
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [history, setHistory] = useState<Run[]>([]);
@@ -75,7 +72,6 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
 
   useEffect(() => {
     void rates().then((list) => setRateMap(Object.fromEntries(list.map((r) => [r.id, r]))));
-    void keysHeld().then(setHeld);
     void runs
       .list()
       .then((list) => {
@@ -157,7 +153,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
       setHistory((prior) => [...kept.reverse(), ...prior]);
     }
 
-    if (!result.ok && result.needsKey) setSheet(true);
+    if (!result.ok && result.needsKey) openKeys();
     setBusy(false);
   }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs]);
 
@@ -174,12 +170,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
 
   return (
     <div className="app">
-      <Nav current={surface}>
-        <button className="key-state" onClick={() => setSheet(true)}>
-          <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />
-          {held.comfy && held.fal ? "comfy + fal" : held.comfy ? "comfy" : held.fal ? "fal" : "no key"}
-        </button>
-      </Nav>
+      <Nav current={surface} />
 
       <div className="canvas" onClick={() => setPicking(false)}>
         {slots.length === 0 && history.length === 0 ? (
@@ -339,7 +330,6 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
         </div>
       </div>
 
-      {sheet && <KeySheet held={held} onChange={setHeld} onClose={() => setSheet(false)} />}
     </div>
   );
 }
