@@ -18,13 +18,13 @@ import { KeySheet } from "./key-sheet";
 
 const ITEMS = [
   { label: "Projects", href: "/library" },
-  { label: "Create", href: "/" },
+  { label: "Create", href: "/create" },
   { label: "Video", href: "/video" },
   { label: "Edit", href: "/edit" },
   { label: "Gallery", href: "/gallery" },
 ] as const;
 
-export type Place = (typeof ITEMS)[number]["label"];
+export type Place = (typeof ITEMS)[number]["label"] | "Home" | "Account";
 
 const OPEN_KEYS = "haggs:open-keys";
 
@@ -50,7 +50,7 @@ export function Nav({ current }: { current: Place }) {
   return (
     <>
       <nav className="nav">
-        <Link className="logo" href="/library" aria-label="haggs — projects">
+        <Link className="logo" href="/" aria-label="haggs — home">
           haggs<i>.</i>
         </Link>
         {ITEMS.map((item) => (

@@ -173,7 +173,8 @@ export function createCloudProvider({ apiKey, fetch: fetchImpl = fetch, pollMs =
         const job = await call(`/api/jobs/${encodeURIComponent(id)}`);
         if (job.status === "completed") {
           const output = ((job.outputs as Record<string, Record<string, unknown>>) ?? {})["20"] ?? {};
-          const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
+          // Cloud files a finished video under "images" (with animated: true); older outputs used "video"/"videos".
+          const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
           const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm)$/i.test(f.filename) && f.type === "output");
           if (!file) throw fail("The job finished without a video.");
           const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });

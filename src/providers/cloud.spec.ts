@@ -43,7 +43,8 @@ test("a run uploads pictures, submits with the partner credential, waits, downlo
     if (url.endsWith("/api/prompt")) return Response.json({ prompt_id: "job-1", node_errors: {} });
     if (url.includes("/api/jobs/job-1")) {
       polls++;
-      return Response.json(polls < 2 ? { status: "in_progress" } : { status: "completed", outputs: { "20": { video: [{ filename: "haggs_minimax_0001.mp4", subfolder: "", type: "output" }] } } });
+      // The shape Comfy Cloud really returns: a video filed under "images", with a subfolder.
+      return Response.json(polls < 2 ? { status: "in_progress" } : { status: "completed", outputs: { "20": { animated: [true], images: [{ filename: "dd3e.mp4", subfolder: "haggs", type: "output", mime_type: "video/mp4" }] } } });
     }
     if (url.includes("/api/view")) return new Response(null, { status: 302, headers: { location: "https://storage.googleapis.com/bucket/out.mp4?sig=1" } });
     if (url.startsWith("https://storage.googleapis.com/")) return new Response(new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109]), { headers: { "content-type": "video/mp4" } });
@@ -54,6 +55,9 @@ test("a run uploads pictures, submits with the partner credential, waits, downlo
   const result = await cloud.run({ capability: "image-to-video", prompt: "She turns to the window", images: ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="], passthrough: { duration: 5, resolution: "768P" } });
 
   assert.deepEqual(result.assets, [{ url: "/api/local/haggs-renders/a.mp4", kind: "video" }]);
+  const view = calls.find((c) => c.url.includes("/api/view"))!;
+  assert.match(view.url, /filename=dd3e\.mp4/);
+  assert.match(view.url, /subfolder=haggs/);
   assert.equal(kept?.length, 12);
   const submit = calls.find((c) => c.url.endsWith("/api/prompt"))!;
   const body = JSON.parse(String(submit.init?.body));

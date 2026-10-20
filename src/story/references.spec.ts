@@ -23,3 +23,13 @@ test("the model's image limit is respected, still first", () => {
   assert.deepEqual(inputsFor(shot(), 0), { images: [], firstFrame: false });
   assert.deepEqual(inputsFor(shot({ refs: [] }), 3), { images: [], firstFrame: false });
 });
+
+test("a shot renders at its own length, rounded up to what the model allows", async () => {
+  const { renderSeconds } = await import("./references");
+  const range = { type: "range" as const, label: "Duration", min: 4, max: 15, default: 6, unit: "s" };
+  assert.equal(renderSeconds(shot({ seconds: 3 }), range), 4, "below the minimum rounds up, and the cut trims it");
+  assert.equal(renderSeconds(shot({ seconds: 6.5 }), range), 7);
+  assert.equal(renderSeconds(shot({ seconds: 30 }), range), 15);
+  assert.equal(renderSeconds(shot({ seconds: null }), range), null, "no length on the shot leaves the model's setting alone");
+  assert.equal(renderSeconds(shot({ seconds: 5 }), undefined), null);
+});

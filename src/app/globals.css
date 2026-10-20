@@ -1551,3 +1551,56 @@ a.logo { color: var(--text); text-decoration: none; }
 .md-change { border: 1px solid var(--line-hot); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; background: var(--surface); }
 .md-change .fire { margin-left: 0; }
 .md-shot-head .pill { margin-left: auto; flex: none; }
+
+/* ─── landing ──────────────────────────────────────────────────────── */
+
+.lp-main { flex: 1; overflow-y: auto; }
+.lp-main > section, .lp-foot { width: min(1180px, 100%); margin: 0 auto; padding: 0 28px; }
+.lp-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 40px; align-items: center; min-height: calc(100vh - 120px); padding-top: 40px !important; padding-bottom: 40px !important; }
+.lp-hero h1 { font-size: clamp(38px, 5.2vw, 66px); line-height: 1.02; letter-spacing: -0.045em; font-weight: 800; margin: 0 0 20px; }
+.lp-hero h1 b { color: var(--volt); font-weight: 800; }
+.lp-hero p { color: var(--text-2); font-size: 16.5px; line-height: 1.6; max-width: 50ch; margin: 0 0 26px; }
+.lp-cta { display: flex; gap: 10px; flex-wrap: wrap; }
+.lp-cta .fire { margin-left: 0; text-decoration: none; }
+.lp-cta .plain, .lp-honest .plain { text-decoration: none; display: inline-block; }
+.lp-board { border: 1px solid var(--line); border-radius: 16px; background: #0d0d0f; padding: 18px 12px; }
+.lp-board svg { width: 100%; height: auto; display: block; }
+.lp-lane-line { stroke: var(--line); stroke-dasharray: 3 5; }
+.lp-lane-name { fill: var(--text-2); font-family: var(--ui); font-size: 11px; font-weight: 600; }
+.lp-story { fill: none; stroke: var(--volt); stroke-width: 2; opacity: 0.6; stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: lp-draw 1.6s ease-out 0.4s forwards; }
+.lp-card { opacity: 0; animation: lp-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.lp-card-box { fill: var(--surface); stroke: var(--line-hot); }
+.lp-card-title { fill: var(--text); font-family: var(--ui); font-size: 10px; font-weight: 600; }
+@keyframes lp-draw { to { stroke-dashoffset: 0; } }
+@keyframes lp-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.lp-main h2 { font-size: 28px; letter-spacing: -0.03em; font-weight: 800; margin: 0 0 18px; }
+.lp-tabs, .lp-starts, .lp-honest { padding-top: 56px !important; padding-bottom: 20px !important; }
+.lp-tabs ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); }
+.lp-tabs li { padding: 20px 18px 8px 0; border-right: 1px solid var(--line); margin-right: 18px; }
+.lp-tabs li:last-child { border-right: 0; margin-right: 0; }
+.lp-step { font-family: var(--mono); font-size: 12px; color: var(--volt); }
+.lp-tabs h3, .lp-start-grid h3 { margin: 6px 0 8px; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+.lp-tabs p, .lp-start-grid p, .lp-honest p { color: var(--text-2); font-size: 14px; line-height: 1.6; margin: 0; }
+.lp-start-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 14px; }
+.lp-start-grid article { border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: var(--surface); }
+.lp-start-grid article:first-child { border-color: var(--line-hot); }
+.lp-formats { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.lp-formats div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lp-formats span { font-size: 11px; color: var(--text-3); width: 70px; }
+.lp-formats i { font-style: normal; font-size: 12px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-2); }
+.lp-honest p { max-width: 62ch; margin-bottom: 14px; }
+.lp-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 48px !important; padding-bottom: 40px !important; color: var(--text-3); font-size: 12.5px; }
+.lp-foot a { color: var(--text-2); }
+@media (max-width: 900px) {
+  .lp-hero { grid-template-columns: 1fr; min-height: 0; }
+  .lp-tabs ol { grid-template-columns: 1fr 1fr; }
+  .lp-tabs li:nth-child(2) { border-right: 0; margin-right: 0; }
+  .lp-start-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .lp-main > section, .lp-foot { padding-left: 16px; padding-right: 16px; }
+  .lp-tabs ol, .lp-start-grid { grid-template-columns: 1fr; }
+  .lp-tabs li { border-right: 0; margin-right: 0; border-bottom: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: reduce) { .lp-story { stroke-dashoffset: 0; } .lp-card { opacity: 1; } }

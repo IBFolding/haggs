@@ -6,10 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { hashPrompt, promptFor } from "../../../../story/assemble";
 import { commit, view } from "../../../../story/boards";
 import { addTake, chooseTake, takesOf } from "../../../../story/takes";
+import { renderSeconds } from "../../../../story/references";
 import { cloudEstimate } from "../../../../providers/cloud-price";
 import { shoot } from "../../../shoot";
 import { defaultKv } from "../../../../story/kv";
-import type { Media, Project } from "../../../../story/model";
+import type { Media, Project, Shot } from "../../../../story/model";
 import { createProjectStore } from "../../../../story/store";
 import { Nav, openKeys } from "../../../nav";
 import { ProjectTabs } from "../../../project-tabs";
@@ -47,8 +48,8 @@ function ChangeAndRoll({ project, boardId, shotId, onSaved }: { project: Project
   const [beat, setBeat] = useState(shot.beat);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const seconds = Number(shot.seconds ?? shot.model.settings.duration ?? 6);
-  const estimate = shot.model.id === "minimax/minimax-h3" ? `about $${cloudEstimate({ seconds: Math.max(4, Math.min(15, Math.round(seconds))), resolution: String(shot.model.settings.resolution ?? "768P"), references: 0 }).toFixed(2)}` : "priced at run";
+  const seconds = renderSeconds(shot, { type: "range", min: 4, max: 15 }) ?? Number(shot.model.settings.duration ?? 6);
+  const estimate = shot.model.id === "minimax/minimax-h3" ? `about $${cloudEstimate({ seconds, resolution: String(shot.model.settings.resolution ?? "768P"), references: 0 }).toFixed(2)} for ${seconds}s` : "priced at run";
 
   async function roll() {
     setBusy(true);
@@ -145,7 +146,12 @@ export function MediaTab({ id, boardId }: { id: string; boardId?: string | undef
       if (at < 0) return p;
       // Hashed against the prompt as it stands, so imported footage does not read as out of date the moment it lands.
       const render = { url: m.url, kind: m.kind, usd: null, promptHash: hashPrompt(promptFor(seen, at)), at: Date.now() };
-      return commit(p, boardId, { ...seen, shots: seen.shots.map((s) => (s.id === shotId ? { ...s, render } : s)) });
+      // Becomes a take, so the editor can flip back to what was there before.
+      const put = (s: Shot) => {
+        const existing = takesOf(s).find((t) => t.url === m.url);
+        return existing ? chooseTake(s, existing.id) : addTake(s, render, m.origin);
+      };
+      return commit(p, boardId, { ...seen, shots: seen.shots.map((s) => (s.id === shotId ? put(s) : s)) });
     });
 
   return (
