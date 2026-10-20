@@ -7,7 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { defaultKv } from "../../story/kv";
 import { createProject, type ProjectSummary } from "../../story/model";
 import { createProjectStore } from "../../story/store";
-import { TransferError, exportProject, importProject } from "../../story/transfer";
+import { exportSheets, importSheets } from "../../sheets/sheets";
+import { TransferError, exportProject, importBundle } from "../../story/transfer";
 import { Nav } from "../nav";
 
 function ago(at: number): string {
@@ -22,7 +23,8 @@ function ago(at: number): string {
 
 export function Library() {
   const router = useRouter();
-  const store = useMemo(() => createProjectStore(defaultKv()), []);
+  const kv = useMemo(() => defaultKv(), []);
+  const store = useMemo(() => createProjectStore(kv), [kv]);
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [ready, setReady] = useState(false);
@@ -82,7 +84,14 @@ export function Library() {
       const project = await store.load(summary.id);
       if (!project) return;
 
-      const blob = new Blob([exportProject(project)], { type: "application/json" });
+      const raw = await kv.get<string>(`sheets/${project.id}`);
+      let sheets;
+      try {
+        sheets = raw ? importSheets(raw) : undefined;
+      } catch {
+        sheets = undefined;
+      }
+      const blob = new Blob([exportProject(project, sheets)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -96,14 +105,17 @@ export function Library() {
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
-    [store],
+    [kv, store],
   );
 
   const upload = useCallback(
     async (file: File) => {
       setError(null);
       try {
-        await store.save(importProject(await file.text()));
+        const { project, sheets } = importBundle(await file.text());
+        await store.save(project);
+        // A project file can carry its script sheets; they belong to the new project's id.
+        if (sheets) await kv.set(`sheets/${project.id}`, exportSheets(sheets));
         await refresh();
       } catch (caught) {
         // TransferError messages are written to be read by a person; anything
@@ -115,7 +127,7 @@ export function Library() {
         );
       }
     },
-    [store, refresh],
+    [kv, store, refresh],
   );
 
   return (

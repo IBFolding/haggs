@@ -49,11 +49,13 @@ function Text({ label, value, onChange, rows = 2, hint }: { label: string; value
 }
 
 function Pick({ label, value, options, onChange }: { label: string; value: string; options: readonly string[]; onChange: (v: string) => void }) {
+  // A value from an import (65mm, "Medium two-shot") stays selectable instead of reading as blank.
+  const list = value && !options.includes(value) ? [value, ...options] : options;
   return (
     <Field label={label}>
       <select value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">—</option>
-        {options.map((option) => (
+        {list.map((option) => (
           <option key={option}>{option}</option>
         ))}
       </select>
@@ -601,6 +603,7 @@ function ShotCard({ sheets, shot, index, picked, onPick, set, remove }: {
             <Pick label="Lens" value={shot.lens} options={LENSES} onChange={(v) => set("lens", v)} />
           </div>
           <Text label="Blocking" value={shot.blocking} hint="Who is where, who moves" onChange={(v) => set("blocking", v)} />
+          <Text label="Notes — not sent to the model" value={shot.note} onChange={(v) => set("note", v)} />
         </div>
         <div>
           <Text label="Action — what we see" rows={4} value={shot.action} onChange={(v) => set("action", v)} />
