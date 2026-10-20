@@ -1,17 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { cameraMove, cameraMoves, MOVE_GROUPS } from "../../sheets/camera";
-import { parseScreenplay, type Screenplay } from "../../sheets/screenplay";
+import { cameraMove, cameraMoves, MOVE_GROUPS } from "../../../../sheets/camera";
+import { parseScreenplay, type Screenplay } from "../../../../sheets/screenplay";
 import {
   SHEETS, addBeat, addRow, addShot, alterRows, buildSheets, exportSheets, fixCell, importSheets,
-  moveRow, promptRows, qaSheet, removeRow, runtime, toProject, type SheetId, type Sheets, type ShotRow,
-} from "../../sheets/sheets";
-import { defaultKv } from "../../story/kv";
-import { createProjectStore } from "../../story/store";
-import { Nav } from "../nav";
+  moveRow, promptRows, qaSheet, removeRow, runtime, syncBoard, type SheetId, type Sheets, type ShotRow,
+} from "../../../../sheets/sheets";
+import { defaultKv } from "../../../../story/kv";
+import type { Project } from "../../../../story/model";
+import { createProjectStore } from "../../../../story/store";
+import { Nav } from "../../../nav";
+import { ProjectTabs } from "../../../project-tabs";
 
 /**
  * Script sheets: the front of the pipeline.
@@ -23,7 +25,7 @@ import { Nav } from "../nav";
  * Nothing on this page spends money or sends the script anywhere.
  */
 
-const KEY = "sheets/current";
+const keyFor = (id: string) => `sheets/${id}`;
 const SIZES = ["Extreme wide", "Wide", "Full", "Medium wide", "Medium", "Medium close-up", "Close-up", "Extreme close-up", "Insert", "Two-shot", "Over-the-shoulder"];
 const ANGLES = ["Eye level", "Low", "High", "Overhead", "Ground level", "Dutch", "POV"];
 const LENSES = ["14mm", "24mm", "35mm", "50mm", "85mm", "135mm", "100mm macro", "Anamorphic"];
@@ -125,10 +127,11 @@ function AddByName({ label, onAdd }: { label: string; onAdd: (name: string) => v
   );
 }
 
-export function SheetsStudio() {
-  const router = useRouter();
+export function SheetsStudio({ id }: { id: string }) {
   const kv = useMemo(() => defaultKv(), []);
   const store = useMemo(() => createProjectStore(kv), [kv]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [missing, setMissing] = useState(false);
   const [sheets, setSheets] = useState<Sheets | null>(null);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<SheetId>("script");
@@ -141,7 +144,8 @@ export function SheetsStudio() {
   const saved = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void kv.get<string>(KEY).then((raw) => {
+    void store.load(id).then((found) => (found ? setProject(found) : setMissing(true)));
+    void kv.get<string>(keyFor(id)).then((raw) => {
       if (raw) {
         try {
           setSheets(importSheets(raw));
@@ -151,11 +155,11 @@ export function SheetsStudio() {
       }
       setReady(true);
     });
-  }, [kv]);
+  }, [kv, store, id]);
 
   useEffect(() => {
-    if (ready && sheets) void kv.set(KEY, exportSheets(sheets));
-  }, [kv, ready, sheets]);
+    if (ready && sheets) void kv.set(keyFor(id), exportSheets(sheets));
+  }, [kv, ready, sheets, id]);
 
   /** Every edit goes through here, so a refused edit says why and changes nothing. */
   const act = useCallback((change: (current: Sheets) => Sheets) => {
@@ -183,7 +187,7 @@ export function SheetsStudio() {
       for (const file of files) parsed.push(parseScreenplay(await file.text()));
       const first = parsed[0]!;
       const next = buildSheets(parsed, {
-        title: setup.title || first.series || first.title || "Untitled reel",
+        title: setup.title || project?.name || first.series || first.title || "Untitled reel",
         seconds: Number(setup.seconds),
         format: setup.format,
       });
@@ -199,15 +203,24 @@ export function SheetsStudio() {
     }
   }
 
-  async function openBoard() {
+  async function sendToBoard() {
     if (!sheets) return;
     try {
-      const project = toProject(sheets);
-      await store.save(project);
-      router.push(`/board/${project.id}`);
+      // Load fresh: the board may have rendered or reordered shots since this page opened.
+      const current = (await store.load(id)) ?? project;
+      if (!current) throw new Error("This project isn't on this device any more.");
+      const result = syncBoard(current, sheets);
+      await store.save(result.project);
+      setProject(result.project);
+      setError(null);
+      setNotice(
+        [
+          `Board updated: ${result.added} added, ${result.updated} updated, ${result.removed} removed.`,
+          result.kept ? `${result.kept} shot${result.kept === 1 ? "" : "s"} with footage kept on the board, unlinked.` : "",
+        ].filter(Boolean).join(" "),
+      );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The board couldn't be made.");
-      setTab("qa");
+      setError(caught instanceof Error ? caught.message : "The board couldn't be updated.");
     }
   }
 
@@ -248,19 +261,29 @@ export function SheetsStudio() {
     </>
   );
 
-  if (!ready) return <div className="app"><Nav current="Sheets" /></div>;
+  if (missing) {
+    return (
+      <div className="app">
+        <Nav current="Projects" />
+        <div className="canvas"><div className="library"><div className="library-blank"><p>That project isn&rsquo;t here.</p></div></div></div>
+      </div>
+    );
+  }
+  if (!ready || !project) return <div className="app"><Nav current="Projects" /></div>;
+  const tabs = <ProjectTabs id={id} name={project.name} current="sheets" />;
 
   if (!sheets) {
     return (
       <div className="app">
-        <Nav current="Sheets" />
+        <Nav current="Projects" />
+        {tabs}
         <div className="canvas">
           <div className="sh-start">
-            <h1>Start from the <b>script</b>.</h1>
+            <h1>Start <b>{project.name}</b> from the script.</h1>
             <p>
               Upload one script or a whole season. haggs reads the scenes, the speaking characters and the places, then walks you
               through seven sheets: beats, identity locks, looks, shots, prompts and QA. Fix, alter or add on any of them. Nothing
-              is generated or paid for until you open the board.
+              is generated or paid for here; that happens on the board, shot by shot, at the price shown.
             </p>
             <div className="sh-setup">
               <Field label="Working title">
@@ -280,6 +303,7 @@ export function SheetsStudio() {
             <div className="sh-start-actions">
               <button className="fire" onClick={() => scripts.current?.click()}>Upload scripts</button>
               <button className="plain" onClick={() => saved.current?.click()}>Open saved sheets</button>
+              <Link className="plain" href={`/board/${id}`}>Skip — start on the board</Link>
             </div>
             <p className="sh-note">Plain text, Markdown or Fountain. Scenes start with INT. or EXT. Several files become episodes, ordered by the episode number on each title page.</p>
             {error && <p className="library-error" role="alert">{error}</p>}
@@ -302,14 +326,15 @@ export function SheetsStudio() {
 
   return (
     <div className="app">
-      <Nav current="Sheets">
+      <Nav current="Projects">
         <span className={`sh-runtime${total === sheets.seconds ? " ok" : ""}`}>
           {total}s <i>of {sheets.seconds}s</i>
         </span>
-        <button className="fire" disabled={!sheets.shots.length} onClick={() => void openBoard()}>
-          Open as board
+        <button className="fire" disabled={!sheets.shots.length} onClick={() => void sendToBoard()}>
+          Send to board
         </button>
       </Nav>
+      {tabs}
       {fileInputs}
       <div className="sh-work">
         <nav className="sh-rail" aria-label="Sheets">
@@ -518,7 +543,7 @@ export function SheetsStudio() {
                   ))}
                 </ul>
               ) : (
-                <p className="sh-empty">All clear. Open it as a board to see prices and generate.</p>
+                <p className="sh-empty">All clear. Send it to the board to see prices and generate.</p>
               )}
               <article className="sh-card">
                 <div className="sh-3">

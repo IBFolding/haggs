@@ -12,6 +12,7 @@ import { createProjectStore } from "../../story/store";
 import { createSaveQueue } from "../../story/use-autosave";
 import { rates, run, type Rate } from "../actions";
 import { Nav } from "../nav";
+import { ProjectTabs } from "../project-tabs";
 
 export function Board({ id }: { id: string }) {
   const store = useMemo(() => createProjectStore(defaultKv()), []);
@@ -130,7 +131,7 @@ export function Board({ id }: { id: string }) {
   if (missing) {
     return (
       <div className="app">
-        <Nav current="Library" />
+        <Nav current="Projects" />
         <div className="canvas">
           <div className="library">
             <div className="library-blank">
@@ -146,17 +147,18 @@ export function Board({ id }: { id: string }) {
     );
   }
 
-  if (!project) return <div className="app"><Nav current="Library" /></div>;
+  if (!project) return <div className="app"><Nav current="Projects" /></div>;
 
   return (
     <div className="app">
-      <Nav current="Library">
+      <Nav current="Projects">
         {stale.length > 0 && (
           <span className="stale-note">
             {stale.length} shot{stale.length === 1 ? "" : "s"} out of date
           </span>
         )}
       </Nav>
+      <ProjectTabs id={id} name={project.name} current="board" />
 
       <div className="board">
         <header className="board-head">
@@ -169,9 +171,6 @@ export function Board({ id }: { id: string }) {
           <span className="board-count">
             {project.shots.length} shot{project.shots.length === 1 ? "" : "s"}
           </span>
-          <Link className="plain cut-link" href={`/board/${id}/cut`}>
-            Open the cut
-          </Link>
           {stale.length > 0 && (
             <span className="board-stale">
               Moving a shot changed what {stale.length === 1 ? "one shot continues" : `${stale.length} shots continue`} from.

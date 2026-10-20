@@ -51,7 +51,7 @@ export function Library() {
   const create = useCallback(async () => {
     const project = createProject("Untitled");
     await store.save(project);
-    router.push(`/board/${project.id}`);
+    router.push(`/board/${project.id}/sheets`);
   }, [store, router]);
 
   const commitRename = useCallback(async () => {
@@ -120,7 +120,7 @@ export function Library() {
 
   return (
     <div className="app">
-      <Nav current="Library">
+      <Nav current="Projects">
         <button className="fire" onClick={() => void create()}>
           New project
         </button>

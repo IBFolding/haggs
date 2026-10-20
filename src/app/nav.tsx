@@ -12,12 +12,11 @@ import type { ReactNode } from "react";
 type Item = { label: string; href?: string };
 
 const ITEMS: readonly Item[] = [
-  { label: "Sheets", href: "/sheets" },
+  { label: "Projects", href: "/library" },
   { label: "Create", href: "/" },
-  { label: "Gallery", href: "/gallery" },
   { label: "Video", href: "/video" },
   { label: "Edit", href: "/edit" },
-  { label: "Library", href: "/library" },
+  { label: "Gallery", href: "/gallery" },
 ];
 
 export function Nav({ current, children }: { current: string; children?: ReactNode }) {

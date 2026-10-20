@@ -9,6 +9,7 @@ import type { Project } from "../../../../story/model";
 import { createProjectStore } from "../../../../story/store";
 import { createSaveQueue } from "../../../../story/use-autosave";
 import { Nav } from "../../../nav";
+import { ProjectTabs } from "../../../project-tabs";
 
 function clock(seconds: number): string {
   const whole = Math.max(0, seconds);
@@ -122,7 +123,7 @@ export function Editor({ id }: { id: string }) {
   if (missing) {
     return (
       <div className="app">
-        <Nav current="Library" />
+        <Nav current="Projects" />
         <div className="canvas">
           <div className="library">
             <div className="library-blank">
@@ -137,14 +138,15 @@ export function Editor({ id }: { id: string }) {
     );
   }
 
-  if (!project || !cut) return <div className="app"><Nav current="Library" /></div>;
+  if (!project || !cut) return <div className="app"><Nav current="Projects" /></div>;
 
   const selected = cut.clips.find((c) => c.shotId === picked) ?? here?.clip ?? null;
   const shot = selected ? project.shots.find((s) => s.id === selected.shotId) : undefined;
 
   return (
     <div className="app">
-      <Nav current="Library" />
+      <Nav current="Projects" />
+      <ProjectTabs id={id} name={project.name} current="cut" />
 
       <div className="cut">
         <header className="board-head">
@@ -152,9 +154,6 @@ export function Editor({ id }: { id: string }) {
           <span className="board-count">
             {cut.clips.length} clip{cut.clips.length === 1 ? "" : "s"} · {clock(cut.total)}
           </span>
-          <Link className="plain" href={`/board/${id}`}>
-            Back to the board
-          </Link>
         </header>
 
         {cut.clips.length === 0 ? (
