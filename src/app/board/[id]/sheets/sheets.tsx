@@ -12,8 +12,11 @@ import {
 import { defaultKv } from "../../../../story/kv";
 import { boardOf, commit, view } from "../../../../story/boards";
 import type { Project } from "../../../../story/model";
+import type { Fill } from "../../../../writer/fill";
 import { createProjectStore } from "../../../../story/store";
-import { keepPicture, run } from "../../../actions";
+import { fillLooks, keepPicture, run } from "../../../actions";
+import { applyFill, fillRequest } from "../../../../writer/fill";
+import { StartScreen } from "./start";
 import { Nav, openKeys } from "../../../nav";
 import { ProjectTabs } from "../../../project-tabs";
 
@@ -194,6 +197,32 @@ function RefStrip({ refs, pool, describe, onChange }: { refs: string[]; pool: st
         </div>
       )}
     </div>
+  );
+}
+
+/** Asks the writer to draft looks and locks for the cast and places; only empty fields are filled. */
+function FillButton({ sheets, onFilled, onProblem }: { sheets: Sheets; onFilled: (fill: Fill, message: string) => void; onProblem: (reason: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      className="pill on"
+      disabled={busy}
+      title="Claude reads how each person and place is introduced and drafts looks and identity locks. Only empty fields are filled."
+      onClick={async () => {
+        setBusy(true);
+        const result = await fillLooks(fillRequest(sheets));
+        setBusy(false);
+        if (!result.ok) {
+          if ("needsKey" in result && result.needsKey) openKeys();
+          onProblem(result.reason);
+          return;
+        }
+        const { changed } = applyFill(sheets, result.draft);
+        onFilled(result.draft, `Filled ${changed} empty field${changed === 1 ? "" : "s"} from the script. Claude used ${result.usage.input.toLocaleString()} + ${result.usage.output.toLocaleString()} tokens on your account. Everything you had written was left alone.`);
+      }}
+    >
+      {busy ? "Reading the script…" : "Fill looks with AI"}
+    </button>
   );
 }
 
@@ -396,34 +425,20 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
         <Nav current="Projects" />
         {tabs}
         <div className="canvas">
+          <StartScreen
+            projectName={project.name}
+            boardHref={`/board/${id}?b=${encodeURIComponent(bid)}`}
+            onUpload={() => scripts.current?.click()}
+            onOpenSaved={() => saved.current?.click()}
+            onSheets={(made, message) => {
+              // A start belongs to the board it was made on, not always the first one.
+              setAll(putSheetsView({ ...made, story: [], shots: [], reels: {} }, bid, made));
+              setTab(made.story.length ? "story" : "script");
+              setNotice(message);
+              setError(null);
+            }}
+          />
           <div className="sh-start">
-            <h1>Start <b>{project.name}</b> from the script.</h1>
-            <p>
-              Upload one script or a whole season. haggs reads the scenes, the speaking characters and the places, then walks you
-              through seven sheets: beats, identity locks, looks, shots, prompts and QA. Fix, alter or add on any of them. Nothing
-              is generated or paid for here; that happens on the board, shot by shot, at the price shown.
-            </p>
-            <div className="sh-setup">
-              <Field label="Working title">
-                <input maxLength={100} value={setup.title} placeholder="Taken from the script if blank" onChange={(e) => setSetup((s) => ({ ...s, title: e.target.value }))} />
-              </Field>
-              <Field label="Reel length (s)">
-                <input type="number" min={5} max={600} value={setup.seconds} onChange={(e) => setSetup((s) => ({ ...s, seconds: Number(e.target.value) }))} />
-              </Field>
-              <Field label="Format">
-                <select value={setup.format} onChange={(e) => setSetup((s) => ({ ...s, format: e.target.value }))}>
-                  {["16:9", "9:16", "1:1"].map((f) => (
-                    <option key={f}>{f}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div className="sh-start-actions">
-              <button className="fire" onClick={() => scripts.current?.click()}>Upload scripts</button>
-              <button className="plain" onClick={() => saved.current?.click()}>Open saved sheets</button>
-              <Link className="plain" href={`/board/${id}`}>Skip — start on the board</Link>
-            </div>
-            <p className="sh-note">Plain text, Markdown or Fountain. Scenes start with INT. or EXT. Several files become episodes, ordered by the episode number on each title page.</p>
             {error && <p className="library-error" role="alert">{error}</p>}
             {fileInputs}
           </div>
@@ -556,7 +571,10 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
 
           {tab === "characters" && (
             <>
-              <AddByName label="Add a character" onAdd={(name) => act((x) => addRow(x, "characters", { name }))} />
+              <div className="sh-tools">
+                <AddByName label="Add a character" onAdd={(name) => act((x) => addRow(x, "characters", { name }))} />
+                <FillButton sheets={sheets} onFilled={(fill, msg) => { act((x) => applyFill(x, fill).sheets); setNotice(msg); }} onProblem={setError} />
+              </div>
               {/* Leads first: the people with the most lines are the ones every shot depends on. */}
               {[...sheets.characters].sort((a, b) => b.lines - a.lines).map((c) => (
                 <article key={c.id} className="sh-card">
@@ -580,7 +598,10 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
 
           {tab === "locations" && (
             <>
-              <AddByName label="Add a place" onAdd={(name) => act((x) => addRow(x, "locations", { name }))} />
+              <div className="sh-tools">
+                <AddByName label="Add a place" onAdd={(name) => act((x) => addRow(x, "locations", { name }))} />
+                <FillButton sheets={sheets} onFilled={(fill, msg) => { act((x) => applyFill(x, fill).sheets); setNotice(msg); }} onProblem={setError} />
+              </div>
               {sheets.locations.map((l) => (
                 <article key={l.id} className="sh-card">
                   <div className="sh-card-top">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { clearComfyKey, clearKey, saveComfyKey, saveKey } from "./actions";
+import { clearClaudeKey, clearComfyKey, clearKey, saveClaudeKey, saveComfyKey, saveKey } from "./actions";
 
 /**
  * Both provider keys in one place. Comfy Router is the platform this app is
@@ -14,7 +14,7 @@ import { clearComfyKey, clearKey, saveComfyKey, saveKey } from "./actions";
  */
 
 type Row = {
-  id: "comfy" | "fal";
+  id: "comfy" | "fal" | "claude";
   name: string;
   blurb: string;
   href: string;
@@ -29,11 +29,11 @@ export function KeySheet({
   onChange,
   onClose,
 }: {
-  held: { comfy: boolean; fal: boolean };
-  onChange: (next: { comfy: boolean; fal: boolean }) => void;
+  held: { comfy: boolean; fal: boolean; claude: boolean };
+  onChange: (next: { comfy: boolean; fal: boolean; claude: boolean }) => void;
   onClose: () => void;
 }) {
-  const [drafts, setDrafts] = useState({ comfy: "", fal: "" });
+  const [drafts, setDrafts] = useState({ comfy: "", fal: "", claude: "" });
   const [busy, setBusy] = useState<string | null>(null);
 
   const rows: Row[] = [
@@ -56,6 +56,16 @@ export function KeySheet({
       held: held.fal,
       save: saveKey,
       clear: clearKey,
+    },
+    {
+      id: "claude",
+      name: "Claude",
+      blurb: "The writer: drafts scripts from your idea and fills the sheets, on your own Anthropic account.",
+      href: "https://console.anthropic.com/settings/keys",
+      place: "sk-ant-…",
+      held: held.claude,
+      save: saveClaudeKey,
+      clear: clearClaudeKey,
     },
   ];
 

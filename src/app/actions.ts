@@ -1,6 +1,9 @@
 "use server";
 
 import { inlineLocal } from "../server/local-media";
+import { formatById } from "../sheets/formats";
+import { askClaude, draftRequest, type ClaudeResult, type DraftRequest } from "../writer/draft";
+import { FILL_SCHEMA, type Fill } from "../writer/fill";
 import { cookies } from "next/headers";
 
 import { fetchPricing, formatRate } from "../catalog/pricing";
@@ -12,6 +15,8 @@ import type { Provider } from "../providers/types";
 
 const KEY_COOKIE = "fal_key";
 const COMFY_COOKIE = "comfy_key";
+/** The writer's key. Claude drafts scripts and fills sheets on your own Anthropic account. */
+const CLAUDE_COOKIE = "claude_key";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -46,11 +51,24 @@ export async function clearComfyKey(): Promise<void> {
   jar.set(COMFY_COOKIE, "", { ...COOKIE_OPTIONS, maxAge: 0 });
 }
 
-export async function keysHeld(): Promise<{ comfy: boolean; fal: boolean }> {
+export async function saveClaudeKey(key: string): Promise<void> {
+  const trimmed = key.trim();
+  if (!trimmed) return;
+  const jar = await cookies();
+  jar.set(CLAUDE_COOKIE, trimmed, COOKIE_OPTIONS);
+}
+
+export async function clearClaudeKey(): Promise<void> {
+  const jar = await cookies();
+  jar.set(CLAUDE_COOKIE, "", { ...COOKIE_OPTIONS, maxAge: 0 });
+}
+
+export async function keysHeld(): Promise<{ comfy: boolean; fal: boolean; claude: boolean }> {
   const jar = await cookies();
   return {
     comfy: Boolean(jar.get(COMFY_COOKIE)?.value),
     fal: Boolean(jar.get(KEY_COOKIE)?.value),
+    claude: Boolean(jar.get(CLAUDE_COOKIE)?.value),
   };
 }
 
@@ -184,4 +202,33 @@ export async function keepPicture(url: string): Promise<{ ok: true; dataUri: str
   } catch {
     return { ok: false, reason: "That result could not be downloaded." };
   }
+}
+
+/** Writes a draft for a format from an idea, on the writer's key. */
+export async function writeDraft(formatId: string, idea: string, notes: string): Promise<ClaudeResult | { ok: false; reason: string; needsKey: true }> {
+  const format = formatById(formatId);
+  if (!format) return { ok: false, reason: "Pick a format first." };
+  if (idea.trim().length < 12) return { ok: false, reason: "Say a little more about the idea — a sentence or two is enough." };
+  const jar = await cookies();
+  const key = jar.get(CLAUDE_COOKIE)?.value;
+  if (!key) return { ok: false, reason: "Add a Claude key in Keys to write with AI.", needsKey: true };
+  return askClaude({ key, request: draftRequest(format, idea.slice(0, 8000), notes.slice(0, 4000)) });
+}
+
+/** Drafts looks and locks for an uploaded script's cast and places, on the writer's key. */
+export async function fillLooks(request: DraftRequest): Promise<ClaudeResult<Fill> | { ok: false; reason: string; needsKey: true }> {
+  const jar = await cookies();
+  const key = jar.get(CLAUDE_COOKIE)?.value;
+  if (!key) return { ok: false, reason: "Add a Claude key in Keys to fill the sheets with AI.", needsKey: true };
+  if (request.user.length > 60_000 || request.system.length > 8_000) return { ok: false, reason: "That request is too large to send." };
+  return askClaude<Fill>({
+    key,
+    request: { ...request, maxTokens: Math.min(request.maxTokens, 12000) },
+    schema: FILL_SCHEMA,
+    read: (value) => {
+      const fill = value as Partial<Fill> | null;
+      if (!fill || !Array.isArray(fill.characters) || !Array.isArray(fill.locations)) throw new Error("The writer's reply had no looks to fill.");
+      return fill as Fill;
+    },
+  });
 }

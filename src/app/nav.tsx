@@ -34,7 +34,7 @@ export function openKeys() {
 }
 
 export function Nav({ current }: { current: Place }) {
-  const [held, setHeld] = useState({ comfy: false, fal: false });
+  const [held, setHeld] = useState({ comfy: false, fal: false, claude: false });
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -44,7 +44,8 @@ export function Nav({ current }: { current: Place }) {
     return () => window.removeEventListener(OPEN_KEYS, show);
   }, []);
 
-  const label = held.comfy && held.fal ? "Comfy + fal" : held.comfy ? "Comfy" : held.fal ? "fal" : "Add a key";
+  const names = [held.comfy && "Comfy", held.fal && "fal", held.claude && "Claude"].filter(Boolean);
+  const label = names.length ? names.join(" + ") : "Add a key";
 
   return (
     <>
