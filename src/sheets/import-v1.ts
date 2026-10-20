@@ -135,10 +135,18 @@ export function attachMedia(project: Project, items: MediaInput[]): Project {
   });
   next.media = [...(next.media ?? []), ...media];
   next.shots.forEach((shot, at) => {
-    const usable = media.filter((m) => m.shotId === shot.id && m.status !== "rejected" && !candidates.has(m.id));
+    const hash = hashPrompt(promptFor(next, at));
+    const offered = media.filter((m) => m.shotId === shot.id && m.status !== "rejected");
+    // Every usable picture is a take to flip between in the editor; candidates included, rejected never.
+    shot.takes = [
+      ...(shot.takes ?? []),
+      ...offered.map((m) => ({ id: "take-" + m.id.slice(0, 8), url: m.url, kind: m.kind, usd: null, promptHash: hash, at: Date.now(), origin: m.origin })),
+    ];
+    const usable = offered.filter((m) => !candidates.has(m.id));
     const best = usable.filter((m) => m.kind === "video").at(-1) ?? usable.at(-1);
     if (!best || shot.render) return;
-    shot.render = { url: best.url, kind: best.kind, usd: null, promptHash: hashPrompt(promptFor(next, at)), at: Date.now() };
+    const take = shot.takes.find((t) => t.url === best.url)!;
+    shot.render = { url: take.url, kind: take.kind, usd: null, promptHash: hash, at: take.at };
   });
   return next;
 }

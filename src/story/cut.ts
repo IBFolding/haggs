@@ -19,6 +19,8 @@ export type Clip = {
   kind: "image" | "video";
   /** Seconds from the start of the cut. */
   start: number;
+  /** Seconds into the footage where this clip begins. */
+  from: number;
   seconds: number;
 };
 
@@ -76,6 +78,7 @@ export function buildCut(project: Project): Cut {
       url: shot.render.url,
       kind: shot.render.kind,
       start: cursor,
+      from: positive(shot.trimIn) ?? 0,
       seconds,
     });
     cursor += seconds;
@@ -177,12 +180,13 @@ export function ffmpegScript(cut: Cut, name: string): string {
       );
     } else {
       // A video keeps its sound if it has any, and gets silence if it does not.
+      const seek = clip.from > 0 ? `-ss ${clip.from} ` : "";
       lines.push(
         `if ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 ${src} | grep -q .; then`,
-        `  ffmpeg -loglevel error -y -i ${src} -t ${clip.seconds} -vf "$norm" \\`,
+        `  ffmpeg -loglevel error -y ${seek}-i ${src} -t ${clip.seconds} -vf "$norm" \\`,
         `    -af "aresample=48000,apad" -ar 48000 -ac 2 -c:v libx264 -c:a aac -shortest ${dest}`,
         "else",
-        `  ffmpeg -loglevel error -y -i ${src} -f lavfi -t ${clip.seconds} -i anullsrc=r=48000:cl=stereo \\`,
+        `  ffmpeg -loglevel error -y ${seek}-i ${src} -f lavfi -t ${clip.seconds} -i anullsrc=r=48000:cl=stereo \\`,
         `    -t ${clip.seconds} -vf "$norm" -c:v libx264 -c:a aac -shortest ${dest}`,
         "fi",
       );

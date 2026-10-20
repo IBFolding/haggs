@@ -69,6 +69,9 @@ test("media attaches to shots by number, and each shot shows its best footage th
   assert.equal(one?.render?.url, "/a1.mp4", "video wins over a still");
   assert.equal(two?.render?.url, "/b.png", "a rejected take is never put on the shot");
   assert.equal(three?.render, undefined, "a candidate sits beside the shot but is never put on it");
+  assert.deepEqual(one?.takes?.map((t) => t.url), ["/a1.png", "/a1.mp4"], "every usable picture for a shot is a take to flip between");
+  assert.deepEqual(two?.takes?.map((t) => t.url), ["/b.png"], "a rejected take is not offered");
+  assert.deepEqual(three?.takes?.map((t) => t.url), ["/c.mp4"], "a candidate is offered as a take");
   assert.equal(out.media?.[5]?.shotId, three?.id);
   assert.equal(one?.render?.usd, null);
   assert.equal(out.media?.[4]?.shotId, undefined);

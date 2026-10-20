@@ -15,6 +15,8 @@ import { rates, run, type Rate } from "../actions";
 import { addSubplot, placeShot } from "../../story/flow";
 import { Nav, openKeys } from "../nav";
 import { FlowCanvas } from "./flow-canvas";
+import { shoot } from "../shoot";
+import { addTake } from "../../story/takes";
 import { ProjectTabs } from "../project-tabs";
 
 export function Board({ id, boardId }: { id: string; boardId?: string | undefined }) {
@@ -78,19 +80,9 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
     async (target: Shot) => {
       if (!project) return;
       const at = project.shots.findIndex((s) => s.id === target.id);
-      const text = promptFor(project, at);
-      if (!text.trim()) {
-        setError("Give the shot a beat before generating it.");
-        return;
-      }
-
       setError(null);
       setRunning((prior) => [...prior, target.id]);
-
-      const card = getModelCard(target.model.id);
-      const settings = coerceSettings(card.settings, target.model.settings);
-      const result = await run(target.model.id, text, settings);
-
+      const result = await shoot(project, at);
       setRunning((prior) => prior.filter((runId) => runId !== target.id));
 
       if (!result.ok) {
@@ -98,29 +90,10 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
         setError(result.reason);
         return;
       }
-
-      const first = result.shots[0];
-      if (!first) return;
-
+      // A new take is added, never written over the last one.
       edit((current) => ({
         ...current,
-        shots: current.shots.map((s) =>
-          s.id === target.id
-            ? {
-                ...s,
-                render: {
-                  url: first.url,
-                  kind: first.kind,
-                  usd: result.usd,
-                  // The hash of the prompt it was actually made from. This is
-                  // the whole of staleness: move the shot and this stops
-                  // matching, and the card says so.
-                  promptHash: hashPrompt(text),
-                  at: Date.now(),
-                },
-              }
-            : s,
-        ),
+        shots: current.shots.map((s) => (s.id === target.id ? addTake(s, result.render, result.origin) : s)),
       }));
     },
     [project, edit],

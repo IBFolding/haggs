@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
+import { newShot, type Shot } from "../../../../story/model";
+import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite } from "../../../../story/takes";
+import { shoot } from "../../../shoot";
 import { defaultKv } from "../../../../story/kv";
 import type { Project } from "../../../../story/model";
 import { commit, view } from "../../../../story/boards";
 import { createProjectStore } from "../../../../story/store";
 import { createSaveQueue } from "../../../../story/use-autosave";
-import { Nav } from "../../../nav";
+import { Nav, openKeys } from "../../../nav";
 import { ProjectTabs } from "../../../project-tabs";
 
 function clock(seconds: number): string {
@@ -90,7 +93,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   }, [playing, cut, seek]);
 
   const clipId = here?.clip.shotId;
-  const offset = here?.offset ?? 0;
+  // Where in the footage we are: a trimmed or split shot starts partway in.
+  const offset = (here?.clip.from ?? 0) + (here?.offset ?? 0);
 
   useEffect(() => {
     const el = video.current;
@@ -99,6 +103,39 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
     if (playing && el.paused) void el.play().catch(() => undefined);
     if (!playing && !el.paused) el.pause();
   }, [clipId, offset, playing]);
+
+  /** Any edit to the board from the editor, saved the same way the board saves. */
+  const apply = useCallback(
+    (change: (current: Project) => Project) => {
+      setProject((current) => {
+        if (!current) return current;
+        const next = change(current);
+        saves.queue((full.current = commit(full.current ?? next, boardId, next)));
+        return next;
+      });
+    },
+    [saves, boardId],
+  );
+  const onShot = useCallback(
+    (shotId: string, change: (shot: Shot) => Shot) =>
+      apply((current) => ({ ...current, shots: current.shots.map((s) => (s.id === shotId ? change(s) : s)) })),
+    [apply],
+  );
+  const [rolling, setRolling] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  async function rollAgain(shotId: string) {
+    if (!project) return;
+    setProblem(null);
+    setRolling(shotId);
+    const result = await shoot(project, project.shots.findIndex((s) => s.id === shotId));
+    setRolling(null);
+    if (!result.ok) {
+      if (result.needsKey) openKeys();
+      setProblem(result.reason);
+      return;
+    }
+    onShot(shotId, (s) => addTake(s, result.render, result.origin));
+  }
 
   const setSeconds = useCallback(
     (shotId: string, seconds: number | null) => {
@@ -224,6 +261,11 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               aria-valuenow={Math.round(t * 10) / 10}
               tabIndex={0}
               onKeyDown={(event) => {
+                // Up and down flip the clip under the playhead between its takes.
+                if ((event.key === "ArrowUp" || event.key === "ArrowDown") && here) {
+                  event.preventDefault();
+                  onShot(here.clip.shotId, (s) => cycleTake(s, event.key === "ArrowUp" ? -1 : 1));
+                }
                 if (event.key === "ArrowRight") seek(Math.min(cut.total, t + 0.5));
                 if (event.key === "ArrowLeft") seek(Math.max(0, t - 0.5));
                 if (event.key === " ") {
@@ -278,6 +320,51 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     Use the {selected.kind === "video" ? "model's" : "default"} length
                   </button>
                 )}
+                <div className="clip-actions">
+                  <button className="pill on" disabled={rolling === shot.id} onClick={() => void rollAgain(shot.id)}>
+                    {rolling === shot.id ? "Rolling…" : "Roll again"}
+                  </button>
+                  <button
+                    className="pill"
+                    disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)}
+                    title="Move the playhead inside this clip to split it there"
+                    onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}
+                  >
+                    Split at playhead
+                  </button>
+                  <button
+                    className="pill"
+                    onClick={() =>
+                      apply((current) => {
+                        const at = current.shots.findIndex((s) => s.id === shot.id);
+                        const shots = [...current.shots];
+                        shots.splice(at + 1, 0, { ...newShot(), heading: shot.heading, threadIds: [...shot.threadIds] });
+                        return { ...current, shots };
+                      })
+                    }
+                  >
+                    Insert a shot after
+                  </button>
+                </div>
+                {problem && <p className="library-error" role="alert">{problem}</p>}
+                <div className="takes" role="group" aria-label="Takes">
+                  {takesOf(shot).map((take, i) => {
+                    const on = take.url === shot.render?.url && take.at === shot.render?.at;
+                    return (
+                      <figure key={take.id} className={`take${on ? " on" : ""}`}>
+                        <button className="take-pick" onClick={() => onShot(shot.id, (s) => chooseTake(s, take.id))} aria-pressed={on} title={on ? "On the shot" : "Put this take on the shot"}>
+                          {take.kind === "video" ? <video src={`${take.url}#t=0.3`} muted preload="metadata" /> : <img src={take.url} alt="" />}
+                        </button>
+                        <figcaption>
+                          <span>Take {i + 1}{take.origin ? ` · ${take.origin}` : ""}{take.usd !== null ? ` · $${take.usd.toFixed(2)}` : ""}</span>
+                          <button className={`take-star${take.favorite ? " on" : ""}`} aria-label={take.favorite ? "Unstar" : "Star"} onClick={() => onShot(shot.id, (s) => toggleFavorite(s, take.id))}>★</button>
+                          {!on && <button className="take-x" aria-label="Remove take" onClick={() => onShot(shot.id, (s) => removeTake(s, take.id))}>×</button>}
+                        </figcaption>
+                      </figure>
+                    );
+                  })}
+                </div>
+                <p className="takes-note">↑ ↓ on the timeline flip between takes. Rolling again adds a take and never replaces one.</p>
               </div>
             )}
 

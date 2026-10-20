@@ -54,6 +54,23 @@ export type Shot = {
   locked?: boolean;
   /** The shot-list row this shot was sent from, so a re-send updates it in place. */
   sheetShotId?: string;
+  /** Every take this shot has had. `render` is the one on the shot. */
+  takes?: Take[];
+  /** Seconds into the take where the shot starts, after a trim or a split. */
+  trimIn?: number;
+};
+
+/** One version of a shot's footage — a generation, a reroll, an import. */
+export type Take = {
+  id: string;
+  url: string;
+  kind: "image" | "video";
+  usd: number | null;
+  promptHash: string;
+  at: number;
+  favorite?: boolean;
+  /** For a person: "MiniMax H3", "v011 take", "dropped picture". */
+  origin?: string;
 };
 
 /**
