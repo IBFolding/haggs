@@ -62,24 +62,30 @@ export function minimaxWorkflow({ prompt, seconds, resolution = "768P", ratio = 
 export { cloudEstimate } from "./cloud-price";
 import { cloudEstimate } from "./cloud-price";
 
+export type Kept = "mp4" | "webm" | "png" | "jpg" | "webp";
+
 export type CloudOptions = {
   apiKey: string;
   fetch?: typeof fetch;
   pollMs?: number;
   timeoutMs?: number;
   /** Keeps the finished file and returns the URL the app will play it from. */
-  keep: (bytes: Uint8Array, extension: "mp4" | "webm") => Promise<string>;
+  keep: (bytes: Uint8Array, extension: Kept) => Promise<string>;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function decodeDataUri(uri: string): { bytes: Uint8Array; mime: string } {
-  const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(uri);
-  if (!match) throw new Error("A reference picture isn't a PNG, JPEG or WebP.");
+  const match = /^data:((?:image\/(?:png|jpeg|webp))|(?:video\/(?:mp4|webm|quicktime)));base64,(.+)$/.exec(uri);
+  if (!match) throw new Error("A picture or video isn't in a format Comfy can take.");
   return { bytes: Uint8Array.from(Buffer.from(match[2]!, "base64")), mime: match[1]! };
 }
 
-export function createCloudProvider({ apiKey, fetch: fetchImpl = fetch, pollMs = 5000, timeoutMs = 15 * 60_000, keep }: CloudOptions): Provider {
+const EXTENSION: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" };
+const UPLOADED = /^[-\w.]{1,180}\.(png|jpe?g|webp|mp4|webm|mov)$/i;
+
+/** The Comfy Cloud transport: upload inputs, run a workflow, keep what it saves. Every edit tool uses this. */
+export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5000, timeoutMs = 15 * 60_000, keep }: CloudOptions) {
   const fail = (message: string, status?: number) => new ProviderError("comfy-cloud", message, status);
 
   async function call(path: string, body?: unknown) {
@@ -100,25 +106,33 @@ export function createCloudProvider({ apiKey, fetch: fetchImpl = fetch, pollMs =
     return response.json() as Promise<Record<string, unknown>>;
   }
 
-  async function upload(source: string): Promise<string> {
-    let bytes: Uint8Array;
-    let mime: string;
-    if (source.startsWith("data:")) ({ bytes, mime } = decodeDataUri(source));
-    else if (source.startsWith("https://")) {
-      const got = await fetchImpl(source, { redirect: "error", signal: AbortSignal.timeout(30_000) });
-      mime = (got.headers.get("content-type") ?? "").split(";")[0]!;
-      if (!got.ok || !/^image\/(png|jpeg|webp)$/.test(mime)) throw fail("A reference picture couldn't be fetched.");
-      bytes = new Uint8Array(await got.arrayBuffer());
-    } else throw fail("A reference picture must be a data URI or an https link.");
-    if (bytes.length > 4 * 1024 * 1024) throw fail("Each picture must be under 4 MB.");
+  /** Uploads bytes and returns the name a LoadImage or LoadVideo node uses. */
+  async function uploadBytes(bytes: Uint8Array, mime: string): Promise<string> {
+    const ext = EXTENSION[mime];
+    if (!ext) throw fail("That file type can't go to Comfy.");
+    const limit = mime.startsWith("video/") ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (bytes.length > limit) throw fail(mime.startsWith("video/") ? "That take is over 100 MB." : "Each picture must be under 10 MB.");
     const form = new FormData();
-    form.append("image", new Blob([Buffer.from(bytes)], { type: mime }), `ref.${mime === "image/jpeg" ? "jpg" : mime.split("/")[1]}`);
+    form.append("image", new Blob([Buffer.from(bytes)], { type: mime }), `haggs.${ext}`);
     form.append("type", "input");
-    const response = await fetchImpl(`${ORIGIN}/api/upload/image`, { method: "POST", headers: { "X-API-Key": apiKey }, body: form, redirect: "error", signal: AbortSignal.timeout(60_000) });
-    if (!response.ok) throw fail("Comfy Cloud didn't accept a picture. Nothing was submitted.");
+    const response = await fetchImpl(`${ORIGIN}/api/upload/image`, { method: "POST", headers: { "X-API-Key": apiKey }, body: form, redirect: "error", signal: AbortSignal.timeout(120_000) });
+    if (!response.ok) throw fail("Comfy Cloud didn't accept a file. Nothing was submitted.");
     const name = ((await response.json()) as { name?: unknown }).name;
-    if (typeof name !== "string" || !IMAGE_NAME.test(name)) throw fail("Comfy Cloud returned an unexpected picture name.");
+    if (typeof name !== "string" || !UPLOADED.test(name)) throw fail("Comfy Cloud returned an unexpected file name.");
     return name;
+  }
+
+  /** Uploads a data URI or an https file. */
+  async function upload(source: string): Promise<string> {
+    if (source.startsWith("data:")) {
+      const { bytes, mime } = decodeDataUri(source);
+      return uploadBytes(bytes, mime);
+    }
+    if (!source.startsWith("https://")) throw fail("A file must be a data URI or an https link.");
+    const got = await fetchImpl(source, { redirect: "error", signal: AbortSignal.timeout(60_000) });
+    const mime = (got.headers.get("content-type") ?? "").split(";")[0]!;
+    if (!got.ok || !EXTENSION[mime]) throw fail("A file couldn't be fetched.");
+    return uploadBytes(new Uint8Array(await got.arrayBuffer()), mime);
   }
 
   async function download(file: { filename: string; subfolder?: string }): Promise<Uint8Array> {
@@ -127,15 +141,49 @@ export function createCloudProvider({ apiKey, fetch: fetchImpl = fetch, pollMs =
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const target = new URL(response.headers.get("location") ?? "about:blank");
       // The signed storage link already authorises the file; the key never follows it.
-      if (target.protocol !== "https:" || target.hostname !== "storage.googleapis.com" || target.username || target.password) throw fail("Comfy Cloud sent an untrusted redirect for the video.");
+      if (target.protocol !== "https:" || target.hostname !== "storage.googleapis.com" || target.username || target.password) throw fail("Comfy Cloud sent an untrusted redirect for the result.");
       await response.body?.cancel();
       response = await fetchImpl(target.href, { redirect: "error", signal: AbortSignal.timeout(120_000) });
     }
-    if (!response.ok) throw fail("The finished video couldn't be downloaded. Download again; don't generate again.");
+    if (!response.ok) throw fail("The result couldn't be downloaded. Download again; don't generate again.");
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.length > 100 * 1024 * 1024) throw fail("The video is over 100 MB.");
+    if (bytes.length > 100 * 1024 * 1024) throw fail("The result is over 100 MB.");
     return bytes;
   }
+
+  /** Submits a workflow, waits, and keeps the file the output node saved. */
+  async function run(workflow: Workflow, outputNode = "20"): Promise<{ url: string; kind: "image" | "video"; jobId: string }> {
+    const submitted = await call("/api/prompt", { prompt: workflow, extra_data: { api_key_comfy_org: apiKey } });
+    const id = submitted.prompt_id;
+    if (typeof id !== "string" || !id || Object.keys((submitted.node_errors as object) ?? {}).length) throw fail("Comfy Cloud didn't accept the workflow. Nothing was generated.");
+    const started = Date.now();
+    for (;;) {
+      const job = await call(`/api/jobs/${encodeURIComponent(id)}`);
+      if (job.status === "completed") {
+        const output = ((job.outputs as Record<string, Record<string, unknown>>) ?? {})[outputNode] ?? {};
+        // Cloud files a finished video under "images" (with animated: true); older outputs used "video"/"videos".
+        const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
+        const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm|png|jpe?g|webp)$/i.test(f.filename) && f.type === "output");
+        if (!file) throw fail("The job finished without a result.");
+        const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });
+        const ext = file.filename!.split(".").pop()!.toLowerCase().replace("jpeg", "jpg") as Kept;
+        const url = await keep(bytes, ext);
+        return { url, kind: ext === "mp4" || ext === "webm" ? "video" : "image", jobId: id };
+      }
+      if (job.status === "failed" || job.status === "cancelled") {
+        const reason = (job.execution_error as { exception_message?: string } | undefined)?.exception_message ?? "";
+        throw fail(/unauthori|login/i.test(reason) ? "The job failed: Comfy's API nodes didn't accept the key." : `The job failed and nothing was made${reason ? ` (${reason.slice(0, 160)})` : ""}. Check your Comfy usage before trying again.`);
+      }
+      if (Date.now() - started > timeoutMs) throw fail(`Still running after ${Math.round(timeoutMs / 60000)} minutes. It may still finish; check your Comfy jobs (${id}).`);
+      await sleep(pollMs);
+    }
+  }
+
+  return { upload, uploadBytes, run };
+}
+
+export function createCloudProvider(options: CloudOptions): Provider {
+  const cloud = createCloudRunner(options);
 
   async function quote(request: GenerationRequest): Promise<Quote> {
     const seconds = Number(request.passthrough?.duration ?? 5);
@@ -155,7 +203,7 @@ export function createCloudProvider({ apiKey, fetch: fetchImpl = fetch, pollMs =
       // A first frame uses only the first picture; references can use nine.
       const asFirst = Boolean(request.images?.length) && request.firstFrame !== false;
       const uploaded = [];
-      for (const image of (request.images ?? []).slice(0, asFirst ? 1 : 9)) uploaded.push(await upload(image));
+      for (const image of (request.images ?? []).slice(0, asFirst ? 1 : 9)) uploaded.push(await cloud.upload(image));
       const workflow = minimaxWorkflow({
         prompt: request.prompt,
         seconds: Math.min(15, Math.max(4, seconds)),
@@ -164,31 +212,9 @@ export function createCloudProvider({ apiKey, fetch: fetchImpl = fetch, pollMs =
         seed: Math.floor(Math.random() * 2_000_000_000),
         ...(asFirst ? { firstFrame: uploaded[0]! } : uploaded.length ? { references: uploaded.slice(0, 9) } : {}),
       });
-      const submitted = await call("/api/prompt", { prompt: workflow, extra_data: { api_key_comfy_org: apiKey } });
-      const id = submitted.prompt_id;
-      if (typeof id !== "string" || !id || Object.keys((submitted.node_errors as object) ?? {}).length) throw fail("Comfy Cloud didn't accept the workflow. Nothing was generated.");
-
-      const started = Date.now();
-      for (;;) {
-        const job = await call(`/api/jobs/${encodeURIComponent(id)}`);
-        if (job.status === "completed") {
-          const output = ((job.outputs as Record<string, Record<string, unknown>>) ?? {})["20"] ?? {};
-          // Cloud files a finished video under "images" (with animated: true); older outputs used "video"/"videos".
-          const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
-          const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm)$/i.test(f.filename) && f.type === "output");
-          if (!file) throw fail("The job finished without a video.");
-          const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });
-          const url = await keep(bytes, /\.webm$/i.test(file.filename!) ? "webm" : "mp4");
-          const estimate = await quote(request);
-          return { provider: "comfy-cloud", endpoint: "MiniMax H3", assets: [{ url, kind: "video" }], usd: estimate.usd, raw: { jobId: id } } satisfies GenerationResult;
-        }
-        if (job.status === "failed" || job.status === "cancelled") {
-          const reason = (job.execution_error as { exception_message?: string } | undefined)?.exception_message ?? "";
-          throw fail(/unauthori|login/i.test(reason) ? "The job failed: Comfy's API nodes didn't accept the key." : "The job failed and no video was made. Check your Comfy usage before trying again.");
-        }
-        if (Date.now() - started > timeoutMs) throw fail(`Still running after ${Math.round(timeoutMs / 60000)} minutes. It may still finish; check your Comfy jobs (${id}).`);
-        await sleep(pollMs);
-      }
+      const result = await cloud.run(workflow);
+      const estimate = await quote(request);
+      return { provider: "comfy-cloud", endpoint: "MiniMax H3", assets: [{ url: result.url, kind: result.kind }], usd: estimate.usd, raw: { jobId: result.jobId } } satisfies GenerationResult;
     },
   };
 }

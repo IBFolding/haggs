@@ -1,7 +1,8 @@
 "use server";
 
 import { inlineLocal, localUrl } from "../server/local-media";
-import { cloudEstimate, createCloudProvider } from "../providers/cloud";
+import { cloudEstimate, createCloudProvider, createCloudRunner, type Kept } from "../providers/cloud";
+import { alephWorkflow, editEstimate, genjutsuWorkflow, kontextWorkflow, regenerateWorkflow, voiceWorkflow, type Line } from "../providers/cloud-edits";
 import { formatById } from "../sheets/formats";
 import { askClaude, draftRequest, type ClaudeResult, type DraftRequest } from "../writer/draft";
 import { FILL_SCHEMA, type Fill } from "../writer/fill";
@@ -146,7 +147,7 @@ function useCloud(modelId: string): boolean {
 }
 
 /** Keeps a finished render in the local media folder, since provider links expire. */
-async function keepRender(bytes: Uint8Array, extension: "mp4" | "webm"): Promise<string> {
+async function keepRender(bytes: Uint8Array, extension: Kept): Promise<string> {
   const root = process.env.HAGGS_LOCAL_MEDIA;
   if (!root || process.env.NODE_ENV === "production") throw new Error("Set HAGGS_LOCAL_MEDIA so finished videos have somewhere to be kept.");
   const { mkdir, writeFile } = await import("node:fs/promises");
@@ -274,4 +275,84 @@ export async function fillLooks(request: DraftRequest): Promise<ClaudeResult<Fil
       return fill as Fill;
     },
   });
+}
+
+export type EditRequest =
+  | { tool: "kontext"; frame: string; prompt: string; ratio?: string }
+  | { tool: "regenerate"; video: string; seconds: number; prompt: string; firstFrame?: string; references?: string[] }
+  | { tool: "aleph"; video: string; seconds: number; prompt: string; references?: string[] }
+  | { tool: "genjutsu"; video: string; seconds: number; prompt: string; references: string[]; resolution: "480p" | "720p" }
+  | { tool: "voice"; video: string; seconds: number; lines: Line[] };
+
+export type EditResult = { ok: true; url: string; kind: "image" | "video"; usd: number; origin: string } | { ok: false; reason: string; needsKey?: boolean };
+
+const TOOL_NAME = { kontext: "FLUX Kontext fix", regenerate: "MiniMax H3 regenerate", aleph: "Runway Aleph 2 swap", genjutsu: "Higgsfield Genjutsu recast", voice: "ElevenLabs + Sync lip-sync" } as const;
+
+/** Reads a file haggs plays — a local take or an https link — as bytes for upload. */
+async function bytesOf(url: string): Promise<{ bytes: Uint8Array; mime: string }> {
+  if (url.startsWith("data:")) {
+    const match = /^data:([\w/+.-]+);base64,(.+)$/.exec(url);
+    if (!match) throw new Error("That picture couldn't be read.");
+    return { bytes: Uint8Array.from(Buffer.from(match[2]!, "base64")), mime: match[1]! };
+  }
+  if (url.startsWith("/api/local/")) {
+    const [inlined] = await inlineLocal([url], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV).catch(async () => {
+      // inlineLocal only sends pictures; videos are read straight from disk.
+      const { readFile } = await import("node:fs/promises");
+      const segments = url.slice("/api/local/".length).split("/").map(decodeURIComponent);
+      const { localFile } = await import("../server/local-media");
+      const file = localFile(process.env.HAGGS_LOCAL_MEDIA, segments, process.env.NODE_ENV);
+      if (!file) throw new Error("That take isn't in the local media folder.");
+      return [`data:${file.type};base64,${(await readFile(file.path)).toString("base64")}`];
+    });
+    return bytesOf(inlined!);
+  }
+  const got = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60_000) });
+  if (!got.ok) throw new Error("That take couldn't be fetched.");
+  return { bytes: new Uint8Array(await got.arrayBuffer()), mime: (got.headers.get("content-type") ?? "").split(";")[0]! };
+}
+
+/** Prices an edit before it runs, from Comfy's published node prices. */
+export async function quoteEdit(request: EditRequest): Promise<number> {
+  const seconds = "seconds" in request ? request.seconds : 0;
+  const characters = request.tool === "voice" ? request.lines.reduce((n, l) => n + l.text.length, 0) : 0;
+  return editEstimate({ tool: request.tool, seconds, ...(request.tool === "genjutsu" ? { resolution: request.resolution } : {}), characters });
+}
+
+/** Runs one edit on Comfy Cloud and keeps the result. Never retried automatically. */
+export async function runEdit(request: EditRequest): Promise<EditResult> {
+  const jar = await cookies();
+  const key = keyIn(jar, COMFY_COOKIE);
+  if (!key) return { ok: false, reason: "Add a Comfy key to run edits.", needsKey: true };
+  const cloud = createCloudRunner({ apiKey: key, keep: keepRender });
+  const up = async (url: string) => {
+    const { bytes, mime } = await bytesOf(url);
+    return cloud.uploadBytes(bytes, mime);
+  };
+  const ups = async (urls: string[] = []) => Promise.all(urls.map(up));
+  const seed = Math.floor(Math.random() * 2_000_000_000);
+  try {
+    let workflow;
+    switch (request.tool) {
+      case "kontext":
+        workflow = kontextWorkflow({ image: await up(request.frame), prompt: request.prompt, ...(request.ratio ? { ratio: request.ratio } : {}), seed });
+        break;
+      case "regenerate":
+        workflow = regenerateWorkflow({ video: await up(request.video), prompt: request.prompt, ...(request.firstFrame ? { firstFrame: await up(request.firstFrame) } : {}), references: await ups(request.references) });
+        break;
+      case "aleph":
+        workflow = alephWorkflow({ video: await up(request.video), prompt: request.prompt, references: await ups(request.references), seed });
+        break;
+      case "genjutsu":
+        workflow = genjutsuWorkflow({ video: await up(request.video), prompt: request.prompt, references: await ups(request.references), resolution: request.resolution, seed });
+        break;
+      case "voice":
+        workflow = voiceWorkflow({ video: await up(request.video), lines: request.lines });
+        break;
+    }
+    const result = await cloud.run(workflow);
+    return { ok: true, url: result.url, kind: result.kind, usd: await quoteEdit(request), origin: TOOL_NAME[request.tool] };
+  } catch (caught) {
+    return { ok: false, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The edit didn't run." };
+  }
 }
