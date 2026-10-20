@@ -1443,3 +1443,37 @@ a.logo { color: var(--text); text-decoration: none; }
 .ptabs-board { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 13px; font-weight: 600; max-width: 260px; }
 .ptabs-board:focus { outline: none; border-color: var(--volt); }
 @media (max-width: 680px) { .ptabs-board { max-width: 150px; } }
+
+/* ─── flow board ───────────────────────────────────────────────────── */
+
+.board-tools { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; }
+.flow { border: 1px solid var(--line); border-radius: 12px; background: #0d0d0f; overflow: hidden; }
+.flow-tools { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.flow-hint { font-size: 12px; color: var(--text-3); margin-right: auto; }
+.flow-zoom { font-family: var(--mono); font-size: 11px; color: var(--text-2); min-width: 38px; text-align: center; }
+.flow-area { overflow: auto; max-height: calc(100vh - 300px); min-height: 260px; touch-action: none; }
+.flow-area.dropping { box-shadow: inset 0 0 0 2px var(--volt); }
+.flow-lane { position: absolute; left: 0; border-bottom: 1px dashed var(--line); }
+.flow-lane:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+.flow-lane-name { position: sticky; left: 0; display: inline-block; margin: 10px; padding: 3px 9px; border-left: 3px solid; font-size: 11.5px; font-weight: 600; color: var(--text-2); background: var(--surface); border-radius: 0 6px 6px 0; max-width: 136px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flow-lines { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.flow-story { fill: none; stroke: var(--volt); stroke-width: 2; opacity: 0.55; }
+.flow-thread { fill: none; stroke-width: 1.5; stroke-dasharray: 4 5; opacity: 0.8; }
+.flow-card { position: absolute; background: var(--surface); border: 1px solid var(--line-hot); border-radius: 10px; padding: 6px; cursor: grab; user-select: none; transition: box-shadow 0.15s; display: flex; flex-direction: column; gap: 5px; }
+.flow-card:hover { border-color: var(--text-3); }
+.flow-card.picked { border-color: var(--volt); box-shadow: 0 0 0 1px var(--volt); }
+.flow-card.stale { border-color: rgba(245, 196, 81, 0.6); }
+.flow-card.lifted { cursor: grabbing; z-index: 5; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6); transition: none; }
+.flow-card:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.flow-frame { position: relative; height: 96px; border-radius: 7px; overflow: hidden; background: var(--surface-2); display: grid; place-items: center; }
+.flow-frame img, .flow-frame video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.flow-no { position: absolute; top: 4px; left: 4px; font-family: var(--mono); font-size: 10px; background: rgba(8, 8, 9, 0.8); border-radius: 4px; padding: 1px 5px; color: var(--text-2); }
+.flow-secs { position: absolute; bottom: 4px; right: 4px; font-family: var(--mono); font-size: 10px; background: rgba(8, 8, 9, 0.8); border-radius: 4px; padding: 1px 5px; color: var(--text-2); }
+.flow-title { margin: 0; font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flow-cast { display: flex; gap: 3px; align-items: center; min-height: 16px; }
+.flow-cast i { font-style: normal; width: 16px; height: 16px; border-radius: 50%; color: var(--volt-ink); font-size: 9px; font-weight: 800; display: grid; place-items: center; }
+.flow-cast em { font-style: normal; font-size: 10px; color: var(--text-3); }
+.board .board-tools, .board .flow { margin-left: 28px; margin-right: 28px; }
+.flow-wrap { position: relative; }
+.flow-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; overflow: hidden; }
+.flow-labels .flow-lane-name { position: absolute; left: 0; margin: 0; }

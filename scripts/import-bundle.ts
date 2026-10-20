@@ -23,6 +23,7 @@ import { attachMedia, fromV1Board, type MediaInput, type V1Board } from "../src/
 import { parseScreenplay } from "../src/sheets/screenplay";
 import { buildSheets, normalizeSheets, putSheetsView, qaSheet, sheetsView, syncBoard } from "../src/sheets/sheets";
 import { addBoard, commit, normalize, renameBoard, view } from "../src/story/boards";
+import { addSubplot } from "../src/story/flow";
 import { createProject, type Media } from "../src/story/model";
 import { exportProject } from "../src/story/transfer";
 
@@ -31,6 +32,8 @@ type Config = {
   boardName?: string;
   /** Also make one empty board per uploaded episode, each with its own sheets. */
   episodeBoards?: boolean;
+  /** Story-beat title → subplot lane name, for the first board. Beats not listed stay on the main line. */
+  lanes?: Record<string, string>;
   /** Target length for each episode board, in seconds. */
   episodeSeconds?: number;
   /** Stable name for this import, so importing a newer file offers to replace the old project. */
@@ -85,6 +88,25 @@ const media: MediaInput[] = (config.media ?? []).flatMap(({ file, ...item }) => 
   }
   return [{ ...item, url: localUrl(...relative(root, full).split("/")) }];
 });
+if (config.lanes) {
+  let board = view(project, first.id);
+  const reel = sheetsView(shared, first.id);
+  const laneFor = new Map<string, string>();
+  for (const name of new Set(Object.values(config.lanes))) {
+    board = addSubplot(board, name);
+    laneFor.set(name, board.threads.at(-1)!.id);
+  }
+  board = {
+    ...board,
+    shots: board.shots.map((shot) => {
+      const row = reel.shots.find((r) => r.id === shot.sheetShotId);
+      const beat = reel.story.find((b) => b.id === row?.beatId);
+      const lane = beat ? laneFor.get(config.lanes![beat.title] ?? "") : undefined;
+      return lane ? { ...shot, threadIds: [...shot.threadIds, lane] } : shot;
+    }),
+  };
+  project = commit(project, first.id, board);
+}
 // Media numbers refer to shots on the first board, where the v1 storyboard landed.
 project = commit(project, first.id, attachMedia(view(project, first.id), media));
 project.source = { templateId: "import", name: "Imported from Open Haggsfield v1" };

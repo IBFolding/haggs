@@ -12,7 +12,9 @@ import { commit, view } from "../../story/boards";
 import { createProjectStore } from "../../story/store";
 import { createSaveQueue } from "../../story/use-autosave";
 import { rates, run, type Rate } from "../actions";
+import { addSubplot, placeShot } from "../../story/flow";
 import { Nav, openKeys } from "../nav";
+import { FlowCanvas } from "./flow-canvas";
 import { ProjectTabs } from "../project-tabs";
 
 export function Board({ id, boardId }: { id: string; boardId?: string | undefined }) {
@@ -181,50 +183,9 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
 
         {error && <p className="library-error" role="alert">{error}</p>}
 
-        <div className="spine" role="list">
-          {project.shots.map((item, at) => {
-            const isStale = stale.includes(item.id);
-            const busy = running.includes(item.id);
-            return (
-              <article
-                key={item.id}
-                role="listitem"
-                className={`shot${selected === item.id ? " picked" : ""}${isStale ? " stale" : ""}`}
-                draggable
-                onDragStart={() => {
-                  dragging.current = at;
-                }}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => drop(at)}
-                onClick={() => setSelected(item.id)}
-                tabIndex={0}
-              >
-                <span className="shot-no">{at + 1}</span>
-
-                <div className="shot-frame">
-                  {busy ? (
-                    <span className="shot-busy" />
-                  ) : item.render ? (
-                    item.render.kind === "video" ? (
-                      <video src={item.render.url} muted loop playsInline />
-                    ) : (
-                      <img src={item.render.url} alt="" />
-                    )
-                  ) : (
-                    <span className="shot-empty">not shot</span>
-                  )}
-                  {isStale && <span className="shot-badge">out of date</span>}
-                  {item.locked && <span className="shot-lock">locked</span>}
-                </div>
-
-                <p className="shot-heading">{item.heading || "Untitled shot"}</p>
-                <p className="shot-beat">{item.beat || "No beat yet"}</p>
-              </article>
-            );
-          })}
-
+        <div className="board-tools">
           <button
-            className="shot add"
+            className="pill on"
             onClick={() =>
               edit((current) => {
                 const made = newShot();
@@ -235,7 +196,46 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
           >
             + Add shot
           </button>
+          <button
+            className="pill"
+            onClick={() => {
+              const name = window.prompt("Name the subplot — e.g. “B plot: the ferry”");
+              if (name?.trim()) edit((current) => addSubplot(current, name));
+            }}
+          >
+            + Subplot
+          </button>
         </div>
+
+        <FlowCanvas
+          project={project}
+          selected={selected}
+          stale={stale}
+          running={running}
+          onSelect={setSelected}
+          onPlace={(shotId, col, lane) => edit((current) => placeShot(current, shotId, col, lane))}
+          onPictures={(pictures, col, lane) =>
+            edit((current) => {
+              // Each picture starts a shot with the picture as its frame; generating later can build from it.
+              const made: Shot[] = pictures.map((picture) => ({
+                ...newShot(),
+                heading: "",
+                beat: "",
+                threadIds: lane ? [lane] : [],
+                render: { url: picture.url, kind: "image" as const, usd: null, promptHash: "", at: Date.now() },
+              }));
+              const shots = [...current.shots];
+              shots.splice(Math.min(col, shots.length), 0, ...made);
+              if (made[0]) setSelected(made[0].id);
+              const next = { ...current, shots };
+              // Hash each against the prompt it now has, so a picture does not arrive already out of date.
+              return {
+                ...next,
+                shots: shots.map((s, i) => (made.some((m) => m.id === s.id) && s.render ? { ...s, render: { ...s.render, promptHash: hashPrompt(promptFor(next, i)) } } : s)),
+              };
+            })
+          }
+        />
       </div>
 
       {shot && (
