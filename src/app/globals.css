@@ -1548,3 +1548,6 @@ a.logo { color: var(--text); text-decoration: none; }
 .inbox-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--volt); border-radius: 10px; background: var(--volt-soft); }
 .inbox-item p { margin: 0; flex: 1; min-width: 200px; font-size: 13.5px; line-height: 1.45; }
 .inbox-from { font-family: var(--mono); font-size: 10.5px; color: var(--volt); }
+.md-change { border: 1px solid var(--line-hot); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; background: var(--surface); }
+.md-change .fire { margin-left: 0; }
+.md-shot-head .pill { margin-left: auto; flex: none; }
