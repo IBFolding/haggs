@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 type Item = { label: string; href?: string };
 
 const ITEMS: readonly Item[] = [
+  { label: "Sheets", href: "/sheets" },
   { label: "Create", href: "/" },
   { label: "Gallery", href: "/gallery" },
   { label: "Video", href: "/video" },
