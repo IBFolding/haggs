@@ -1642,3 +1642,25 @@ a.logo { color: var(--text); text-decoration: none; }
 .pr-current { font-size: 13px; font-weight: 700; color: var(--volt); text-align: center; padding: 10px; }
 @media (max-width: 900px) { .pr-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .pr-grid { grid-template-columns: 1fr; } }
+
+/* ─── edit tools ───────────────────────────────────────────────────── */
+
+.tools { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; }
+.tools-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tools-tabs button { background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.tools-tabs button:hover { color: var(--text); border-color: var(--line-hot); }
+.tools-tabs button[aria-selected="true"] { background: var(--volt-soft); border-color: var(--volt); color: var(--volt); }
+.tools-says { margin: 10px 0 0; font-size: 13px; color: var(--text-2); }
+.tools-body { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.tools-frames { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tools-frames figure { margin: 0; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--bg); }
+.tools-frames img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.tools-frames span { display: grid; place-items: center; aspect-ratio: 16 / 9; color: var(--text-3); font-size: 12px; }
+.tools-frames figcaption { padding: 5px 8px; font-size: 11px; color: var(--text-3); }
+.tools-run { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tools-run .fire { margin-left: 0; }
+.tools-opts { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); }
+.tools-opts input { accent-color: var(--volt); }
+.tools-line { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.tools-line select, .tools-line input { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13px; }
+@media (max-width: 680px) { .tools-line { grid-template-columns: 1fr; } .tools-frames { grid-template-columns: 1fr; } }

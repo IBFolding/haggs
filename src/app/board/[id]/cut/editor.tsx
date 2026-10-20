@@ -7,6 +7,7 @@ import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
 import { newShot, type Shot } from "../../../../story/model";
 import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite } from "../../../../story/takes";
 import { shoot } from "../../../shoot";
+import { EditTools } from "./tools";
 import { defaultKv } from "../../../../story/kv";
 import type { Project } from "../../../../story/model";
 import { commit, view } from "../../../../story/boards";
@@ -365,6 +366,13 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   })}
                 </div>
                 <p className="takes-note">↑ ↓ on the timeline flip between takes. Rolling again adds a take and never replaces one.</p>
+                <EditTools
+                  project={project}
+                  shot={shot}
+                  stage={video}
+                  playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0}
+                  onTake={(shotId, render, origin) => onShot(shotId, (s) => addTake(s, render, origin))}
+                />
               </div>
             )}
 
