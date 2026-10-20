@@ -112,7 +112,21 @@ export function Library() {
     async (file: File) => {
       setError(null);
       try {
-        const { project, sheets } = importBundle(await file.text());
+        const bundle = importBundle(await file.text());
+        let project = bundle.project;
+        const { sheets } = bundle;
+        if (project.importKey) {
+          const all = await Promise.all((await store.list()).map((s) => store.load(s.id)));
+          const earlier = all.find((p) => p?.importKey === project.importKey);
+          if (
+            earlier &&
+            window.confirm(
+              `Replace “${earlier.name}” with this file? OK replaces it, including its sheets. Cancel keeps both.`,
+            )
+          ) {
+            project = { ...project, id: earlier.id, createdAt: earlier.createdAt };
+          }
+        }
         await store.save(project);
         // A project file can carry its script sheets; they belong to the new project's id.
         if (sheets) await kv.set(`sheets/${project.id}`, exportSheets(sheets));

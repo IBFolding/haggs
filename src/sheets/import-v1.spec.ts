@@ -62,12 +62,14 @@ test("media attaches to shots by number, and each shot shows its best footage th
     { url: "/b.mp4", kind: "video", name: "B take", origin: "v1 takes", status: "rejected", note: "wrong eyeline", shot: 2 },
     { url: "/b.png", kind: "image", name: "B still", origin: "v1 stills", status: "review", note: "", shot: 2 },
     { url: "/cut.mp4", kind: "video", name: "Opening", origin: "v1 cuts", status: "reference", note: "" },
+    { url: "/c.mp4", kind: "video", name: "C maybe", origin: "older take", status: "review", note: "check direction", shot: 3, candidate: true },
   ]);
   const [one, two, three] = out.shots;
-  assert.equal(out.media?.length, 5);
+  assert.equal(out.media?.length, 6);
   assert.equal(one?.render?.url, "/a1.mp4", "video wins over a still");
   assert.equal(two?.render?.url, "/b.png", "a rejected take is never put on the shot");
-  assert.equal(three?.render, undefined);
+  assert.equal(three?.render, undefined, "a candidate sits beside the shot but is never put on it");
+  assert.equal(out.media?.[5]?.shotId, three?.id);
   assert.equal(one?.render?.usd, null);
   assert.equal(out.media?.[4]?.shotId, undefined);
   assert.equal(out.media?.[0]?.shotId, one?.id);

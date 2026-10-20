@@ -110,7 +110,12 @@ export function fromV1Board(base: Sheets, board: V1Board): Sheets {
   return sheets;
 }
 
-export type MediaInput = Omit<Media, "id" | "shotId"> & { /** 1-based shot number on the board. */ shot?: number };
+export type MediaInput = Omit<Media, "id" | "shotId"> & {
+  /** 1-based shot number on the board. */
+  shot?: number;
+  /** Belongs beside the shot for comparison, but is never put on it automatically. */
+  candidate?: boolean;
+};
 
 /**
  * Adds imported media to a project and puts each shot's best footage on it:
@@ -119,15 +124,18 @@ export type MediaInput = Omit<Media, "id" | "shotId"> & { /** 1-based shot numbe
  */
 export function attachMedia(project: Project, items: MediaInput[]): Project {
   const next = structuredClone(project);
-  const media: Media[] = items.map(({ shot, ...item }) => {
+  const candidates = new Set<string>();
+  const media: Media[] = items.map(({ shot, candidate, ...item }) => {
     if (shot === undefined) return { ...item, id: crypto.randomUUID() };
     const target = next.shots[shot - 1];
     if (!target) throw new Error(`There is no shot ${shot} on the board for "${item.name}".`);
-    return { ...item, id: crypto.randomUUID(), shotId: target.id };
+    const made = { ...item, id: crypto.randomUUID(), shotId: target.id };
+    if (candidate) candidates.add(made.id);
+    return made;
   });
   next.media = [...(next.media ?? []), ...media];
   next.shots.forEach((shot, at) => {
-    const usable = media.filter((m) => m.shotId === shot.id && m.status !== "rejected");
+    const usable = media.filter((m) => m.shotId === shot.id && m.status !== "rejected" && !candidates.has(m.id));
     const best = usable.filter((m) => m.kind === "video").at(-1) ?? usable.at(-1);
     if (!best || shot.render) return;
     shot.render = { url: best.url, kind: best.kind, usd: null, promptHash: hashPrompt(promptFor(next, at)), at: Date.now() };

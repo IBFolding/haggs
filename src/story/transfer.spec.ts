@@ -100,9 +100,10 @@ test("a project file can carry its sheets and media, and both come back with it"
   const { buildSheets, exportSheets } = await import("../sheets/sheets");
   const { parseScreenplay } = await import("../sheets/screenplay");
   const sheets = buildSheets([parseScreenplay("EXT. DOCK — DAY\n\nRain.")], { title: "Dock" });
-  const project = { ...createProject("Dock"), media: [{ id: "m1", url: "/api/local/a.mp4", kind: "video" as const, name: "a", origin: "v1", status: "review" as const, note: "" }] };
+  const project = { ...createProject("Dock"), importKey: "dock-v1", media: [{ id: "m1", url: "/api/local/a.mp4", kind: "video" as const, name: "a", origin: "v1", status: "review" as const, note: "" }] };
   const back = importBundle(exportProject(project, sheets));
   assert.equal(back.project.media?.[0]?.url, "/api/local/a.mp4");
+  assert.equal(back.project.importKey, "dock-v1");
   assert.equal(exportSheets(back.sheets!), exportSheets(sheets));
   assert.equal(importBundle(exportProject(createProject("Plain"))).sheets, undefined);
   assert.throws(() => importBundle(exportProject({ ...createProject("Bad"), media: [{ id: 1 } as never] })), /damaged media/);

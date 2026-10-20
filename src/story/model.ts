@@ -88,6 +88,8 @@ export type Project = {
   direction: Direction;
   slotValues?: Record<string, string>;
   media?: Media[];
+  /** Set by an import tool; a later file with the same key offers to replace this project. */
+  importKey?: string;
   source?: { templateId: string; name: string; author?: string };
 };
 

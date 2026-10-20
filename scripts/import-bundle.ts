@@ -26,6 +26,8 @@ import { createProject, type Media } from "../src/story/model";
 import { exportProject } from "../src/story/transfer";
 
 type Config = {
+  /** Stable name for this import, so importing a newer file offers to replace the old project. */
+  key?: string;
   title: string;
   seconds: number;
   format?: string;
@@ -66,6 +68,7 @@ const media: MediaInput[] = (config.media ?? []).flatMap(({ file, ...item }) => 
 });
 project = attachMedia(project, media);
 project.source = { templateId: "import", name: "Imported from Open Haggsfield v1" };
+if (config.key) project.importKey = config.key;
 
 writeFileSync(at(config.out, root), exportProject(project, sheets));
 const onShots = project.shots.filter((s) => s.render).length;
