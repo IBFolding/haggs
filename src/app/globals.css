@@ -1492,3 +1492,21 @@ a.logo { color: var(--text); text-decoration: none; }
 .take-star.on { color: var(--premium); }
 .take-x:hover { color: #f87171; }
 .takes-note { font-size: 11.5px; color: var(--text-3); margin: 6px 0 0; }
+.flow-face { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; border: 1.5px solid; }
+
+/* ─── references ───────────────────────────────────────────────────── */
+
+.refs { margin-top: 10px; }
+.refs-label { display: block; font-size: 11.5px; color: var(--text-3); margin-bottom: 6px; }
+.refs-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ref { position: relative; margin: 0; width: 84px; height: 84px; border-radius: 9px; overflow: hidden; border: 1px solid var(--line); }
+.ref.lead { border-color: var(--volt); }
+.ref img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ref span { position: absolute; top: 3px; right: 3px; display: flex; gap: 2px; }
+.ref button { width: 20px; height: 20px; border-radius: 5px; border: 0; background: rgba(8, 8, 9, 0.8); color: var(--text-2); cursor: pointer; font-size: 11px; }
+.ref button:hover { color: var(--text); }
+.refs-add { display: flex; gap: 6px; flex-wrap: wrap; }
+.refs-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin-top: 8px; max-height: 260px; overflow-y: auto; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.refs-pool button { padding: 0; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; cursor: pointer; background: none; aspect-ratio: 16 / 9; }
+.refs-pool button:hover { border-color: var(--volt); }
+.refs-pool img { width: 100%; height: 100%; object-fit: cover; display: block; }

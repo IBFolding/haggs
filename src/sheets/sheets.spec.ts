@@ -318,3 +318,17 @@ test("each board keeps its own beats and shots while characters and places stay 
   assert.equal(sh.title, "Series", "the series title is not overwritten by a board's");
   assert.deepEqual(importSheets(exportSheets(sh)), sh);
 });
+
+test("reference pictures on characters and places travel to every shot they are in, and become the character's face", () => {
+  let sh = addBeat(sheetsWith(), { title: "Dock", sceneIds: ["e2-s1"] });
+  sh = addShot(sh, at(sh.story, 0).id);
+  sh = fixCell(sh, "characters", "MAYA", "refs", ["maya-front.png", "maya-side.png"]);
+  sh = fixCell(sh, "locations", "RIVER LANDING", "refs", ["dock.png"]);
+  const p = syncBoard(createProject("p"), sh).project;
+  assert.deepEqual(p.shots[0]?.refs, ["maya-front.png", "dock.png"], "one picture per character, then the place");
+  assert.equal(p.threads.find((t) => t.name === "MAYA")?.ref, "maya-front.png");
+  assert.equal(p.threads.find((t) => t.name === "OTTO")?.ref, undefined);
+  assert.throws(() => fixCell(sh, "characters", "MAYA", "refs", "nope"), /pictures/);
+  const cleared = syncBoard(p, fixCell(sh, "characters", "MAYA", "refs", [])).project;
+  assert.equal(cleared.threads.find((t) => t.name === "MAYA")?.ref, undefined, "removing the reference removes the face");
+});

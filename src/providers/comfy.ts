@@ -193,7 +193,7 @@ function toRouterBody(
     content.push({
       type: "image_url",
       image_url: { url },
-      role: index === 0 ? "first_frame" : "reference_image",
+      role: index === 0 && request.firstFrame !== false ? "first_frame" : "reference_image",
     });
   }
 

@@ -2,6 +2,7 @@ import { getModelCard } from "../catalog/models";
 import { coerceSettings } from "../catalog/settings";
 import { hashPrompt, promptFor } from "../story/assemble";
 import type { Project, Shot } from "../story/model";
+import { inputsFor } from "../story/references";
 import { run } from "./actions";
 
 /**
@@ -18,7 +19,8 @@ export async function shoot(project: Project, index: number): Promise<
   const text = promptFor(project, index);
   if (!text.trim()) return { ok: false, reason: "Give the shot a beat before generating it." };
   const card = getModelCard(shot.model.id);
-  const result = await run(shot.model.id, text, coerceSettings(card.settings, shot.model.settings));
+  const { images, firstFrame } = inputsFor(shot, card.inputImages);
+  const result = await run(shot.model.id, text, coerceSettings(card.settings, shot.model.settings), images, firstFrame);
   if (!result.ok) return { ok: false, reason: result.reason, ...(result.needsKey ? { needsKey: true } : {}) };
   const first = result.shots[0];
   if (!first) return { ok: false, reason: "The provider finished without returning a picture." };

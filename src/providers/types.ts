@@ -12,6 +12,8 @@ export type GenerationRequest = {
   prompt: string;
   /** Public URLs. Providers that need their own CDN upload these first. */
   images?: string[];
+  /** Whether the first image is the opening frame (default) or just another reference. */
+  firstFrame?: boolean;
   count?: number;
   aspectRatio?: AspectRatio;
   /** Provider-specific escape hatch, merged last, never inspected by us. */

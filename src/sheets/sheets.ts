@@ -50,6 +50,8 @@ export type CharacterRow = {
   /** Written into every shot the character is in. */
   lock: string;
   never: string;
+  /** Reference pictures: the first is sent with every shot they are in, and is their face on the board. */
+  refs?: string[];
 };
 export type LocationRow = {
   id: string;
@@ -60,6 +62,7 @@ export type LocationRow = {
   look: string;
   light: string;
   lock: string;
+  refs?: string[];
 };
 export type ShotRow = {
   id: string;
@@ -191,7 +194,10 @@ function check(sheet: string, patch: Patch) {
     if (FIXED.has(key)) throw new Error(`The ${key} column cannot be changed.`);
     if (sheet === "shots" && key === "seconds" && !onFrame(value)) throw new Error("Shots run 0.5–15 seconds, on a 30fps frame.");
     if (sheet === "shots" && key === "move" && value && !cameraMove(String(value))) throw new Error("Choose a camera move from the list.");
-    if (typeof value === "string" && value.length > 4000) throw new Error("Keep each cell under 4,000 characters.");
+    if (typeof value === "string" && value.length > 4000 && key !== "refs") throw new Error("Keep each cell under 4,000 characters.");
+    if (key === "refs" && (!Array.isArray(value) || value.some((v) => typeof v !== "string") || value.length > 8)) {
+      throw new Error("References are a list of up to 8 pictures.");
+    }
   }
 }
 
@@ -420,6 +426,13 @@ export function syncBoard(project: Project, sheets: Sheets): SyncResult {
       thread = { id: "thread-" + uid(), name, color: COLORS[threads.length % COLORS.length]!, kind: "character" };
       threads.push(thread);
     }
+    const face = sheets.characters.find((c) => c.id === name)?.refs?.[0];
+    if (thread.ref !== face) {
+      const { ref: _old, ...plain } = thread;
+      const updated: Thread = face ? { ...plain, ref: face } : plain;
+      threads.splice(threads.indexOf(thread), 1, updated);
+      thread = updated;
+    }
     return thread.id;
   };
 
@@ -432,7 +445,12 @@ export function syncBoard(project: Project, sheets: Sheets): SyncResult {
     const scene = sheets.script.find((x) => x.id === row.sceneId);
     const place = sheets.locations.find((l) => l.id === row.location);
     const frame = frameOf(row);
+    const refs = [
+      ...row.characters.map((name) => sheets.characters.find((c) => c.id === name)?.refs?.[0]),
+      place?.refs?.[0],
+    ].filter((url): url is string => Boolean(url));
     const fields = {
+      refs,
       heading: scene?.heading ?? "",
       beat: row.action.trim(),
       threadIds: row.characters.map(threadFor),

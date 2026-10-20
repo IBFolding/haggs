@@ -128,6 +128,18 @@ test("images are sent as content items with a role", async () => {
   assert.equal(body.content[1]!.role, "first_frame");
 });
 
+test("references without a still are all sent as reference images, none as the first frame", async () => {
+  const { impl, calls } = fakeFetch([
+    { status: 201, body: { request_id: "r1", status_url: "https://x/s", response_url: "https://x/r" } },
+    { body: { status: "completed" } },
+    { body: { video: { url: "https://cdn.test/a.mp4" } } },
+  ]);
+  const comfy = createComfyProvider({ apiKey: "k", fetch: impl, pollMs: 0, endpoints: { "text-to-video": "minimax/minimax-h3" } });
+  await comfy.run({ capability: "text-to-video", prompt: "she waits", images: ["data:a", "data:b"], firstFrame: false });
+  const body = JSON.parse(String(calls[0]!.init?.body)) as { content: Array<Record<string, unknown>> };
+  assert.deepEqual(body.content.slice(1).map((c) => c.role), ["reference_image", "reference_image"]);
+});
+
 test("passthrough settings reach the request body", async () => {
   const { impl, calls } = fakeFetch([
     { status: 201, body: { request_id: "r1", status_url: "https://x/s", response_url: "https://x/r" } },

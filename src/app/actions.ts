@@ -1,5 +1,6 @@
 "use server";
 
+import { inlineLocal } from "../server/local-media";
 import { cookies } from "next/headers";
 
 import { fetchPricing, formatRate } from "../catalog/pricing";
@@ -108,6 +109,8 @@ export async function run(
   prompt: string,
   settings: Record<string, unknown>,
   images?: string[],
+  /** False when the images are references only, not the opening frame. */
+  firstFrame?: boolean,
 ): Promise<RunResult> {
   if (!prompt.trim()) return { ok: false, reason: "Describe something first." };
 
@@ -136,10 +139,12 @@ export async function run(
       : createFalProvider({ apiKey: key, endpoints: { [card.capability]: card.id } });
 
   try {
+    const sendable = images?.length ? await inlineLocal(images, process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV) : [];
     const result = await provider.run({
       capability: card.capability,
       prompt,
-      ...(images?.length ? { images } : {}),
+      ...(sendable.length ? { images: sendable } : {}),
+      ...(firstFrame === false ? { firstFrame: false } : {}),
       count: outputCount(card, settings),
       // Only the fields this endpoint declares, under the names it declares
       // them. Nothing the model did not ask for reaches the request.
@@ -159,5 +164,24 @@ export async function run(
       return { ok: false, reason: "Your Comfy workspace is out of credits.", needsKey: true };
     }
     return { ok: false, reason: message };
+  }
+}
+
+/**
+ * Keeps a generated picture. Provider results expire (Comfy's after a day), so
+ * a reference that must outlive the session is fetched once, here, and kept as
+ * a data URI inside the project.
+ */
+export async function keepPicture(url: string): Promise<{ ok: true; dataUri: string } | { ok: false; reason: string }> {
+  if (!/^https:\/\//.test(url)) return { ok: false, reason: "Only a provider's https result can be kept this way." };
+  try {
+    const response = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(30000) });
+    const type = response.headers.get("content-type") ?? "";
+    if (!response.ok || !type.startsWith("image/")) return { ok: false, reason: "That result could not be downloaded as a picture." };
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > 8_000_000) return { ok: false, reason: "That picture is over 8 MB, too large to keep in the project." };
+    return { ok: true, dataUri: `data:${type};base64,${bytes.toString("base64")}` };
+  } catch {
+    return { ok: false, reason: "That result could not be downloaded." };
   }
 }

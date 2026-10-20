@@ -197,7 +197,12 @@ export function FlowCanvas({ project, selected, stale, running, onSelect, onPlac
                   <p className="flow-title">{s.heading || s.beat.slice(0, 40) || "Untitled shot"}</p>
                   <div className="flow-cast">
                     {cast.slice(0, 4).map((c) => (
-                      <i key={c.id} style={{ background: c.color }} title={c.name}>{c.name.slice(0, 1)}</i>
+                      c.ref ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={c.id} className="flow-face" src={c.ref} alt={c.name} title={c.name} draggable={false} style={{ borderColor: c.color }} />
+                      ) : (
+                        <i key={c.id} style={{ background: c.color }} title={c.name}>{c.name.slice(0, 1)}</i>
+                      )
                     ))}
                     {cast.length > 4 && <em>+{cast.length - 4}</em>}
                   </div>

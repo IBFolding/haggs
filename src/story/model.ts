@@ -17,6 +17,8 @@ export type Thread = {
   name: string;
   color: string;
   kind: "character" | "plot" | "motif";
+  /** A character's reference picture, shown as their face on the board. */
+  ref?: string;
 };
 
 /** A free-floating annotation. Deliberately not part of the story order. */
@@ -58,6 +60,8 @@ export type Shot = {
   takes?: Take[];
   /** Seconds into the take where the shot starts, after a trim or a split. */
   trimIn?: number;
+  /** Reference images for the cast and place in this shot, sent with it when it is generated. */
+  refs?: string[];
 };
 
 /** One version of a shot's footage — a generation, a reroll, an import. */

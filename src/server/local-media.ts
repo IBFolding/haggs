@@ -63,3 +63,20 @@ export function parseRange(header: string | null, size: number): { start: number
   return { start, end };
 }
 
+
+/**
+ * Remote models cannot reach this machine, so a local media URL is read here
+ * and sent as a data URI. Public URLs and data URIs pass through unchanged.
+ */
+export async function inlineLocal(urls: string[], root: string | undefined, env: string | undefined): Promise<string[]> {
+  const { readFile } = await import("node:fs/promises");
+  return Promise.all(
+    urls.map(async (url) => {
+      if (!url.startsWith("/api/local/")) return url;
+      const segments = url.slice("/api/local/".length).split("/").map(decodeURIComponent);
+      const file = localFile(root, segments, env);
+      if (!file || file.type === "application/json") throw new Error("A local picture on this shot can't be sent to the model.");
+      return `data:${file.type};base64,${(await readFile(file.path)).toString("base64")}`;
+    }),
+  );
+}

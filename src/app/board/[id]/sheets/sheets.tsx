@@ -13,7 +13,8 @@ import { defaultKv } from "../../../../story/kv";
 import { boardOf, commit, view } from "../../../../story/boards";
 import type { Project } from "../../../../story/model";
 import { createProjectStore } from "../../../../story/store";
-import { Nav } from "../../../nav";
+import { keepPicture, run } from "../../../actions";
+import { Nav, openKeys } from "../../../nav";
 import { ProjectTabs } from "../../../project-tabs";
 
 /**
@@ -27,6 +28,8 @@ import { ProjectTabs } from "../../../project-tabs";
  */
 
 const keyFor = (id: string) => `sheets/${id}`;
+/** Pictures of people and places come from FLUX 3 on Comfy unless the sheet says otherwise. */
+const REF_MODEL = "bfl/flux-3-image";
 const SIZES = ["Extreme wide", "Wide", "Full", "Medium wide", "Medium", "Medium close-up", "Close-up", "Extreme close-up", "Insert", "Two-shot", "Over-the-shoulder"];
 const ANGLES = ["Eye level", "Low", "High", "Overhead", "Ground level", "Dutch", "POV"];
 const LENSES = ["14mm", "24mm", "35mm", "50mm", "85mm", "135mm", "100mm macro", "Anamorphic"];
@@ -106,6 +109,88 @@ function CameraPicker({ value, onChange }: { value: string; onChange: (id: strin
               Clear move
             </button>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Shrinks an uploaded picture so a sheet full of references stays small enough to keep. */
+async function shrinkFile(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.86);
+}
+
+/**
+ * A row of reference pictures for a character or a place: pick from the
+ * project's media, upload one, or generate one from what the sheet says.
+ * The first picture is the one sent with every shot.
+ */
+function RefStrip({ refs, pool, describe, onChange }: { refs: string[]; pool: string[]; describe: string; onChange: (refs: string[]) => void }) {
+  const [picking, setPicking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const upload = useRef<HTMLInputElement>(null);
+  const add = (url: string) => onChange([...refs.filter((r) => r !== url), url].slice(0, 8));
+
+  async function generate() {
+    if (!describe.trim()) {
+      setProblem("Write a look or an identity lock first; the picture is made from it.");
+      return;
+    }
+    setBusy(true);
+    setProblem(null);
+    const result = await run(REF_MODEL, `Character and location reference sheet, neutral light, clear face and full costume, no text. ${describe}`, {});
+    if (!result.ok) {
+      setBusy(false);
+      if (result.needsKey) openKeys();
+      setProblem(result.reason);
+      return;
+    }
+    const kept = await keepPicture(result.shots[0]!.url);
+    setBusy(false);
+    if (!kept.ok) {
+      setProblem(kept.reason);
+      return;
+    }
+    add(kept.dataUri);
+  }
+
+  return (
+    <div className="refs">
+      <span className="refs-label">References — the first one goes with every shot</span>
+      <div className="refs-row">
+        {refs.map((url, i) => (
+          <figure key={url.slice(-40) + i} className={`ref${i === 0 ? " lead" : ""}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt="" />
+            <span>
+              {i > 0 && <button aria-label="Make this the main reference" onClick={() => onChange([url, ...refs.filter((r) => r !== url)])}>★</button>}
+              <button aria-label="Remove reference" onClick={() => onChange(refs.filter((r) => r !== url))}>×</button>
+            </span>
+          </figure>
+        ))}
+        <div className="refs-add">
+          <button className="pill" disabled={!pool.length} onClick={() => setPicking((p) => !p)}>Pick from media</button>
+          <button className="pill" onClick={() => upload.current?.click()}>Upload</button>
+          <button className="pill" disabled={busy} onClick={() => void generate()}>{busy ? "Making…" : "Generate"}</button>
+        </div>
+        <input ref={upload} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) add(await shrinkFile(f)); }} />
+      </div>
+      {problem && <p className="library-error" role="alert">{problem}</p>}
+      {picking && (
+        <div className="refs-pool">
+          {pool.map((url) => (
+            <button key={url.slice(-60)} onClick={() => { add(url); setPicking(false); }} aria-label="Use this picture">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" loading="lazy" />
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -354,6 +439,13 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
     locations: sheets.locations.length, shots: sheets.shots.length, prompts: prompts.length, qa: qa.length,
   };
   const meta = SHEETS.find((s) => s.id === tab)!;
+  // Every still the project has — imported media and image takes on any board — to pick references from.
+  const pool = [
+    ...new Set([
+      ...(project.media ?? []).filter((m) => m.kind === "image" && m.status !== "rejected").map((m) => m.url),
+      ...(project.boards ?? []).flatMap((b) => b.shots.flatMap((s) => (s.takes ?? []).filter((t) => t.kind === "image").map((t) => t.url))),
+    ]),
+  ];
   const needle = filter.toLowerCase();
   const scenes = sheets.script.filter((s) => !needle || `${s.heading} ${s.action} ${s.characters.join(" ")}`.toLowerCase().includes(needle));
 
@@ -465,7 +557,8 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
           {tab === "characters" && (
             <>
               <AddByName label="Add a character" onAdd={(name) => act((x) => addRow(x, "characters", { name }))} />
-              {sheets.characters.map((c) => (
+              {/* Leads first: the people with the most lines are the ones every shot depends on. */}
+              {[...sheets.characters].sort((a, b) => b.lines - a.lines).map((c) => (
                 <article key={c.id} className="sh-card">
                   <div className="sh-card-top">
                     <b className="sh-title">{c.name}</b>
@@ -479,6 +572,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                   </div>
                   <Text label="Identity lock — written into every shot they are in" rows={3} value={c.lock} hint="age, face, hair, skin, build, wardrobe" onChange={(v) => act((x) => fixCell(x, "characters", c.id, "lock", v))} />
                   <Text label="Never show" value={c.never} onChange={(v) => act((x) => fixCell(x, "characters", c.id, "never", v))} />
+                  <RefStrip refs={c.refs ?? []} pool={pool} describe={[c.lock, c.look, c.wardrobe].filter(Boolean).join(". ")} onChange={(refs) => act((x) => fixCell(x, "characters", c.id, "refs", refs))} />
                 </article>
               ))}
             </>
@@ -499,6 +593,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                     <Text label="Light" value={l.light} onChange={(v) => act((x) => fixCell(x, "locations", l.id, "light", v))} />
                   </div>
                   <Text label="Look lock — written into every shot here" rows={3} value={l.lock} onChange={(v) => act((x) => fixCell(x, "locations", l.id, "lock", v))} />
+                  <RefStrip refs={l.refs ?? []} pool={pool} describe={[l.lock, l.look, l.light].filter(Boolean).join(". ")} onChange={(refs) => act((x) => fixCell(x, "locations", l.id, "refs", refs))} />
                 </article>
               ))}
             </>

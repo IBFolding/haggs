@@ -37,3 +37,15 @@ test("byte ranges are read so video can seek", () => {
   assert.equal(parseRange("bytes=2000-", 1000), "unsatisfiable");
   assert.equal(parseRange(null, 1000), null);
 });
+
+test("a local media URL becomes a data URI so a remote model can read it; anything else passes through", async () => {
+  const { inlineLocal } = await import("./local-media");
+  writeFileSync(join(root, "takes", "still.png"), Buffer.from([1, 2, 3]));
+  assert.deepEqual(await inlineLocal(["/api/local/takes/still.png", "https://cdn.test/x.png", "data:image/png;base64,AA"], root, "development"), [
+    "data:image/png;base64,AQID",
+    "https://cdn.test/x.png",
+    "data:image/png;base64,AA",
+  ]);
+  await assert.rejects(inlineLocal(["/api/local/notes.md"], root, "development"), /can't be sent/);
+  await assert.rejects(inlineLocal(["/api/local/takes/still.png"], root, "production"), /can't be sent/);
+});
