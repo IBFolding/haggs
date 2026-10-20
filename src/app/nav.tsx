@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { keysHeld } from "./actions";
+import { useSession } from "./session";
 import { KeySheet } from "./key-sheet";
 
 /**
@@ -35,6 +36,7 @@ export function openKeys() {
 
 export function Nav({ current }: { current: Place }) {
   const [held, setHeld] = useState({ comfy: false, fal: false, claude: false });
+  const { session } = useSession();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -63,6 +65,13 @@ export function Nav({ current }: { current: Place }) {
             <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />
             {label}
           </button>
+          {session ? (
+            <Link className="nav-account" href="/account" aria-current={current === "Account"} title={session.user.email ?? "Account"}>
+              {(session.user.email ?? "?").slice(0, 1).toUpperCase()}
+            </Link>
+          ) : (
+            <Link className="nav-signin" href="/signin">Sign in</Link>
+          )}
         </span>
       </nav>
       {open && <KeySheet held={held} onChange={setHeld} onClose={() => setOpen(false)} />}

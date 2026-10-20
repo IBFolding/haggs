@@ -1604,3 +1604,41 @@ a.logo { color: var(--text); text-decoration: none; }
   .lp-tabs li { border-right: 0; margin-right: 0; border-bottom: 1px solid var(--line); }
 }
 @media (prefers-reduced-motion: reduce) { .lp-story { stroke-dashoffset: 0; } .lp-card { opacity: 1; } }
+
+/* ─── accounts and plans ───────────────────────────────────────────── */
+
+.nav-signin { font-size: 13px; color: var(--text-2); text-decoration: none; padding: 5px 10px; border-radius: 8px; }
+.nav-signin:hover { color: var(--text); background: var(--surface-2); }
+.nav-account { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--volt); color: var(--volt-ink); font-weight: 800; font-size: 13px; text-decoration: none; }
+.au { width: min(440px, 100%); margin: 0 auto; padding: 64px 20px; }
+.au h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.035em; margin: 0 0 8px; }
+.au > p { color: var(--text-2); line-height: 1.55; margin: 0 0 22px; }
+.au form .fire, .au-row .fire { margin-left: 0; justify-content: center; text-decoration: none; }
+.au form .fire { width: 100%; margin-top: 8px; }
+.au-google { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line-hot); background: var(--text); color: var(--bg); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+.au-google:disabled { opacity: 0.6; }
+.au-or { display: flex; align-items: center; gap: 10px; margin: 18px 0 6px; color: var(--text-3); font-size: 12px; }
+.au-or::before, .au-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.au-switch { font-size: 13px; color: var(--text-2); margin-top: 16px; }
+.au-switch a, .au a { color: var(--volt); }
+.au-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.au-row .plain { text-decoration: none; }
+.au-plan { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-bottom: 16px; }
+.au-plan span { font-size: 11.5px; color: var(--text-3); }
+.au-plan b { font-size: 18px; }
+.au-plan i { font-style: normal; font-size: 12.5px; color: var(--text-2); }
+.pr { width: min(1080px, 100%); margin: 0 auto; padding: 48px 24px 80px; }
+.pr h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.035em; margin: 0 0 10px; }
+.pr-lead { color: var(--text-2); max-width: 60ch; line-height: 1.55; margin: 0 0 24px; }
+.pr-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.pr-plan { border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; }
+.pr-plan.on { border-color: var(--volt); }
+.pr-plan h2 { margin: 0; font-size: 17px; font-weight: 800; }
+.pr-price { margin: 4px 0 0; color: var(--text-2); }
+.pr-price b { font-size: 30px; color: var(--text); letter-spacing: -0.03em; }
+.pr-credits { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--volt); }
+.pr-blurb { margin: 6px 0 12px; font-size: 13.5px; color: var(--text-2); line-height: 1.5; flex: 1; }
+.pr-plan .fire, .pr-plan .plain { margin-left: 0; justify-content: center; width: 100%; }
+.pr-current { font-size: 13px; font-weight: 700; color: var(--volt); text-align: center; padding: 10px; }
+@media (max-width: 900px) { .pr-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .pr-grid { grid-template-columns: 1fr; } }
