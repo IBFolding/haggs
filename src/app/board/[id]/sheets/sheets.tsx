@@ -16,6 +16,8 @@ import type { Fill } from "../../../../writer/fill";
 import { createProjectStore } from "../../../../story/store";
 import { fillLooks, keepPicture, run } from "../../../actions";
 import { applyFill, fillRequest } from "../../../../writer/fill";
+import { applyDraft, validateDraft } from "../../../../writer/draft";
+import { formatById } from "../../../../sheets/formats";
 import { StartScreen } from "./start";
 import { Nav, openKeys } from "../../../nav";
 import { ProjectTabs } from "../../../project-tabs";
@@ -226,6 +228,39 @@ function FillButton({ sheets, onFilled, onProblem }: { sheets: Sheets; onFilled:
   );
 }
 
+type Proposal = { id: string; kind: "draft" | "fill" | "edits"; summary: string; payload: unknown; boardId?: string; formatId?: string; at: number };
+
+/** Polls the local bridge for what Claude has sent this project over MCP. Development only. */
+function useInbox(projectId: string) {
+  const [items, setItems] = useState<Proposal[]>([]);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    let live = true;
+    const check = async () => {
+      try {
+        const res = await fetch(`/api/bridge/inbox?project=${encodeURIComponent(projectId)}`);
+        const body = (await res.json()) as { items?: Proposal[] };
+        if (live) setItems(body.items ?? []);
+      } catch {
+        // No bridge, no inbox; the page works the same.
+      }
+    };
+    void check();
+    const timer = setInterval(check, 4000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [projectId]);
+  const drop = async (id: string) => {
+    setItems((list) => list.filter((i) => i.id !== id));
+    await fetch(`/api/bridge/inbox?project=${encodeURIComponent(projectId)}&id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => undefined);
+  };
+  return { items, drop };
+}
+
+const KIND: Record<Proposal["kind"], string> = { draft: "A draft", fill: "Looks and locks", edits: "Sheet edits" };
+
 function AddByName({ label, onAdd }: { label: string; onAdd: (name: string) => void }) {
   const [name, setName] = useState("");
   return (
@@ -279,6 +314,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
   const [setup, setSetup] = useState({ title: "", seconds: 60, format: "16:9" });
   const scripts = useRef<HTMLInputElement>(null);
   const saved = useRef<HTMLInputElement>(null);
+  const claude = useInbox(id);
 
   useEffect(() => {
     void store.load(id).then((found) => (found ? setProject(found) : setMissing(true)));
@@ -320,6 +356,56 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
       }
     });
   }, [bid, board?.name, project?.boards]);
+
+  /** Applies what Claude sent, to the board it was meant for, then clears it from the inbox. */
+  function applyProposal(item: Proposal) {
+    const target = item.boardId ?? bid;
+    const first = project?.boards?.[0]?.id ?? "main";
+    const name = project?.boards?.find((b) => b.id === target)?.name;
+    try {
+      if (item.kind === "draft") {
+        const format = formatById(item.formatId ?? "");
+        if (!format) throw new Error("That draft names a format this version doesn't have.");
+        const { sheets: made, problems } = applyDraft(validateDraft(item.payload), format);
+        if (all && !window.confirm("Use Claude's draft? It replaces the project's script and this board's beats and shots. Other boards keep theirs, but their scenes may no longer match.")) return;
+        setAll((current) => {
+          const base = current ? normalizeSheets({ ...made, reels: current.reels ?? {}, style: current.style, rules: current.rules }, first) : { ...made, story: [], shots: [], reels: {} };
+          return putSheetsView(base, target, made);
+        });
+        setNotice(`Applied Claude's draft: ${made.script.length} scenes, ${made.story.length} beats, ${made.shots.length} shots.${problems.length ? ` Fixed on the way in: ${problems.join(" ")}` : ""}`);
+      } else if (item.kind === "fill") {
+        if (!all) throw new Error("There are no sheets to fill yet.");
+        setAll((current) => {
+          if (!current) return current;
+          const base = normalizeSheets(current, first);
+          return putSheetsView(base, bid, applyFill(sheetsView(base, bid), item.payload as Fill).sheets);
+        });
+        setNotice("Applied Claude's looks and locks to empty fields. Anything you had written was left alone.");
+      } else {
+        if (!all) throw new Error("There are no sheets to edit yet.");
+        const edits = item.payload as { sheet: string; id: string; key: string; value: unknown }[];
+        const refused: string[] = [];
+        setAll((current) => {
+          if (!current) return current;
+          const base = normalizeSheets(current, first);
+          let view = sheetsView(base, target, { title: name ?? base.title });
+          for (const e of edits) {
+            try {
+              view = fixCell(view, e.sheet, e.id, e.key, e.value);
+            } catch (caught) {
+              refused.push(caught instanceof Error ? caught.message : String(caught));
+            }
+          }
+          return putSheetsView(base, target, view);
+        });
+        setNotice(`Applied ${edits.length} edit${edits.length === 1 ? "" : "s"} from Claude${name ? ` to ${name}` : ""}.`);
+      }
+      void claude.drop(item.id);
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "That couldn't be applied.");
+    }
+  }
 
   const qa = useMemo(() => (sheets ? qaSheet(sheets) : []), [sheets]);
   const prompts = useMemo(() => (sheets ? promptRows(sheets) : []), [sheets]);
@@ -425,6 +511,18 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
         <Nav current="Projects" />
         {tabs}
         <div className="canvas">
+          <div className="sh-start">{claude.items.length > 0 && (
+            <div className="inbox" role="region" aria-label="From Claude">
+              {claude.items.map((item) => (
+                <div key={item.id} className="inbox-item">
+                  <span className="inbox-from">From Claude</span>
+                  <p><b>{KIND[item.kind]}</b> — {item.summary}{item.boardId && project.boards?.find((b) => b.id === item.boardId) ? ` · for ${project.boards.find((b) => b.id === item.boardId)!.name}` : ""}</p>
+                  <button className="pill on" onClick={() => applyProposal(item)}>Apply</button>
+                  <button className="plain" onClick={() => void claude.drop(item.id)}>Dismiss</button>
+                </div>
+              ))}
+            </div>
+          )}</div>
           <StartScreen
             projectName={project.name}
             boardHref={`/board/${id}?b=${encodeURIComponent(bid)}`}
@@ -502,6 +600,18 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
             <h1>{meta.label}</h1>
             <p>{meta.hint}</p>
           </header>
+          {claude.items.length > 0 && (
+            <div className="inbox" role="region" aria-label="From Claude">
+              {claude.items.map((item) => (
+                <div key={item.id} className="inbox-item">
+                  <span className="inbox-from">From Claude</span>
+                  <p><b>{KIND[item.kind]}</b> — {item.summary}{item.boardId && project.boards?.find((b) => b.id === item.boardId) ? ` · for ${project.boards.find((b) => b.id === item.boardId)!.name}` : ""}</p>
+                  <button className="pill on" onClick={() => applyProposal(item)}>Apply</button>
+                  <button className="plain" onClick={() => void claude.drop(item.id)}>Dismiss</button>
+                </div>
+              ))}
+            </div>
+          )}
           {error && <p className="library-error" role="alert">{error}</p>}
           {notice && <p className="sh-notice" role="status">{notice}</p>}
 

@@ -18,6 +18,19 @@ const COMFY_COOKIE = "comfy_key";
 /** The writer's key. Claude drafts scripts and fills sheets on your own Anthropic account. */
 const CLAUDE_COOKIE = "claude_key";
 
+/**
+ * In local development a key can also come from .env.local, so a machine that
+ * already holds its keys doesn't need them typed again. A key in the browser
+ * always wins; in production only the browser's key is ever used.
+ */
+const ENV_FOR: Record<string, string> = { [COMFY_COOKIE]: "COMFY_API_KEY", [KEY_COOKIE]: "FAL_KEY", [CLAUDE_COOKIE]: "ANTHROPIC_API_KEY" };
+function keyIn(jar: Awaited<ReturnType<typeof cookies>>, cookie: string): string | undefined {
+  const own = jar.get(cookie)?.value;
+  if (own) return own;
+  if (process.env.NODE_ENV === "production") return undefined;
+  return process.env[ENV_FOR[cookie] ?? ""]?.trim() || undefined;
+}
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -66,9 +79,9 @@ export async function clearClaudeKey(): Promise<void> {
 export async function keysHeld(): Promise<{ comfy: boolean; fal: boolean; claude: boolean }> {
   const jar = await cookies();
   return {
-    comfy: Boolean(jar.get(COMFY_COOKIE)?.value),
-    fal: Boolean(jar.get(KEY_COOKIE)?.value),
-    claude: Boolean(jar.get(CLAUDE_COOKIE)?.value),
+    comfy: Boolean(keyIn(jar, COMFY_COOKIE)),
+    fal: Boolean(keyIn(jar, KEY_COOKIE)),
+    claude: Boolean(keyIn(jar, CLAUDE_COOKIE)),
   };
 }
 
@@ -79,12 +92,12 @@ export async function clearKey(): Promise<void> {
 
 export async function hasKey(): Promise<boolean> {
   const jar = await cookies();
-  return Boolean(jar.get(KEY_COOKIE)?.value);
+  return Boolean(keyIn(jar, KEY_COOKIE));
 }
 
 async function readKey(): Promise<string> {
   const jar = await cookies();
-  const key = jar.get(KEY_COOKIE)?.value;
+  const key = keyIn(jar, KEY_COOKIE);
   if (!key) throw new Error("NO_KEY");
   return key;
 }
@@ -135,7 +148,7 @@ export async function run(
   const card = getModelCard(modelId);
   const wanted = card.provider === "comfy" ? COMFY_COOKIE : KEY_COOKIE;
   const jar = await cookies();
-  const key = jar.get(wanted)?.value;
+  const key = keyIn(jar, wanted);
   if (!key) {
     return {
       ok: false,
@@ -210,7 +223,7 @@ export async function writeDraft(formatId: string, idea: string, notes: string):
   if (!format) return { ok: false, reason: "Pick a format first." };
   if (idea.trim().length < 12) return { ok: false, reason: "Say a little more about the idea — a sentence or two is enough." };
   const jar = await cookies();
-  const key = jar.get(CLAUDE_COOKIE)?.value;
+  const key = keyIn(jar, CLAUDE_COOKIE);
   if (!key) return { ok: false, reason: "Add a Claude key in Keys to write with AI.", needsKey: true };
   return askClaude({ key, request: draftRequest(format, idea.slice(0, 8000), notes.slice(0, 4000)) });
 }
@@ -218,7 +231,7 @@ export async function writeDraft(formatId: string, idea: string, notes: string):
 /** Drafts looks and locks for an uploaded script's cast and places, on the writer's key. */
 export async function fillLooks(request: DraftRequest): Promise<ClaudeResult<Fill> | { ok: false; reason: string; needsKey: true }> {
   const jar = await cookies();
-  const key = jar.get(CLAUDE_COOKIE)?.value;
+  const key = keyIn(jar, CLAUDE_COOKIE);
   if (!key) return { ok: false, reason: "Add a Claude key in Keys to fill the sheets with AI.", needsKey: true };
   if (request.user.length > 60_000 || request.system.length > 8_000) return { ok: false, reason: "That request is too large to send." };
   return askClaude<Fill>({

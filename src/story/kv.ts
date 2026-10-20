@@ -113,6 +113,8 @@ export function resilient(primary: Kv, spare: Kv): Kv {
   };
 }
 
+import { bridged } from "./bridge-client";
+
 let browser: Kv | undefined;
 
 /**
@@ -122,6 +124,6 @@ let browser: Kv | undefined;
  */
 export function defaultKv(): Kv {
   if (typeof indexedDB === "undefined") return memoryKv();
-  browser ??= resilient(idbKv(), memoryKv());
+  browser ??= process.env.NODE_ENV === "production" ? resilient(idbKv(), memoryKv()) : bridged(resilient(idbKv(), memoryKv()));
   return browser;
 }

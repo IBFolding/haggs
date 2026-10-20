@@ -12,3 +12,4 @@ tsconfig.tsbuildinfo
 .catalog-cache/
 .idea
 .superpowers/
+.haggs/

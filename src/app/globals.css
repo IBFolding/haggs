@@ -1541,3 +1541,10 @@ a.logo { color: var(--text); text-decoration: none; }
 .st-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .sh-tools form.sh-tools { flex: 1; margin: 0; }
 @media (max-width: 680px) { .st-ways { grid-template-columns: 1fr; } .st-group { grid-template-columns: 1fr; } .st-group-name { padding: 0; } .st-timeline span:nth-child(n + 5) b { display: none; } }
+
+/* ─── inbox from Claude ────────────────────────────────────────────── */
+
+.inbox { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; }
+.inbox-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--volt); border-radius: 10px; background: var(--volt-soft); }
+.inbox-item p { margin: 0; flex: 1; min-width: 200px; font-size: 13.5px; line-height: 1.45; }
+.inbox-from { font-family: var(--mono); font-size: 10.5px; color: var(--volt); }
