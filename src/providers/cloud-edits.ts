@@ -110,6 +110,21 @@ export function genjutsuWorkflow({ video, references, prompt, resolution, seed }
   return w;
 }
 
+/** FLUX 3 Image: a new still that holds faces and places from up to ten reference pictures. */
+export function flux3Workflow({ prompt, references = [], ratio = "16:9", resolution = "1.5K", seed }: { prompt: string; references?: string[]; ratio?: string; resolution?: "0.75K" | "1K" | "1.5K" | "2K"; seed: number }): Workflow {
+  if (references.length > 10) throw new Error("FLUX 3 takes up to ten reference pictures.");
+  const node: Record<string, unknown> = { prompt: say(prompt), aspect_ratio: ratio, resolution, grounding: false, safety_tolerance: 2, seed };
+  const w: Workflow = {};
+  references.forEach((image, i) => {
+    const id = String(3 + i);
+    w[id] = { class_type: "LoadImage", inputs: { image } };
+    node[`images.image_${i + 1}`] = [id, 0];
+  });
+  w["1"] = { class_type: "Flux3ImageNode", inputs: node };
+  w["20"] = { class_type: "SaveImage", inputs: { images: ["1", 0], filename_prefix: "haggs/still" } };
+  return w;
+}
+
 export type Line = { text: string; voice: string };
 
 export function voiceWorkflow({ video, lines, model = "eleven_v4" }: { video: string; lines: Line[]; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo" }): Workflow {
@@ -138,18 +153,21 @@ export function voiceWorkflow({ video, lines, model = "eleven_v4" }: { video: st
   return w;
 }
 
-export type Tool = "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
+export type Tool = "flux3" | "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
 
 /**
  * Comfy's node price badges (2026-10-20): Regenerate $0.0715/s, Aleph 2
  * $0.4004/s, Genjutsu $0.45474/s at 480p and $0.97383/s at 720p, ElevenLabs
  * v4 $0.1144 per 1K characters, Sync 3 $0.19019/s. Kontext Pro carries no
  * badge in Comfy; $0.04 is BFL's list price. Kling Omni Pro edit is $0.126/s
- * at 720p and $0.168/s at 1080p. Estimates, not invoices.
+ * at 720p and $0.168/s at 1080p. A FLUX 3 still is $0.0586 at 0.75K, $0.0686
+ * at 1K, $0.1001 at 1.5K and $0.143 at 2K. Estimates, not invoices.
  */
 export function editEstimate({ tool, seconds, resolution = "720p", characters = 0 }: { tool: Tool; seconds: number; resolution?: string; characters?: number }): number {
   const r = (n: number) => Math.round(n * 1000) / 1000;
   switch (tool) {
+    case "flux3":
+      return ({ "0.75K": 0.0586, "1K": 0.0686, "1.5K": 0.1001, "2K": 0.143 } as Record<string, number>)[resolution] ?? 0.1001;
     case "kontext":
       return 0.04;
     case "regenerate":

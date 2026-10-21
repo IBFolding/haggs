@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { alephWorkflow, editEstimate, klingEditWorkflow, genjutsuWorkflow, kontextWorkflow, regenerateWorkflow, VOICES, voiceWorkflow } from "./cloud-edits";
+import { alephWorkflow, editEstimate, flux3Workflow, klingEditWorkflow, genjutsuWorkflow, kontextWorkflow, regenerateWorkflow, VOICES, voiceWorkflow } from "./cloud-edits";
 
 test("fix a frame: FLUX Kontext edits the uploaded frame and saves a picture", () => {
   const w = kontextWorkflow({ image: "frame.png", prompt: "Remove the extra hand on the truck", ratio: "16:9", seed: 3 });
@@ -95,4 +95,21 @@ test("edit with Kling Omni: the instruction, the take, and references batched in
   assert.throws(() => klingEditWorkflow({ video: "t.mp4", prompt: "x x x x", references: Array(5).fill("a.png"), resolution: "720p", seed: 1 }), /four/);
   assert.equal(editEstimate({ tool: "kling", seconds: 5 }), 0.63);
   assert.equal(editEstimate({ tool: "kling", seconds: 5, resolution: "1080p" }), 0.84);
+});
+
+test("flux3Workflow loads each reference into the images autogrow and saves a still", () => {
+  const w = flux3Workflow({ prompt: "Rowan laughing at the river", references: ["a.png", "b.png"], ratio: "16:9", resolution: "1.5K", seed: 7 });
+  assert.equal(w["1"]!.class_type, "Flux3ImageNode");
+  assert.deepEqual(w["1"]!.inputs["images.image_1"], ["3", 0]);
+  assert.deepEqual(w["1"]!.inputs["images.image_2"], ["4", 0]);
+  assert.equal(w["3"]!.inputs.image, "a.png");
+  assert.equal(w["1"]!.inputs.resolution, "1.5K");
+  assert.equal(w["1"]!.inputs.grounding, false);
+  assert.equal(w["20"]!.class_type, "SaveImage");
+  assert.throws(() => flux3Workflow({ prompt: "x x x x", references: Array(11).fill("a.png"), seed: 1 }), /ten/);
+});
+
+test("editEstimate prices a FLUX 3 still by resolution", () => {
+  assert.equal(editEstimate({ tool: "flux3", seconds: 0, resolution: "1.5K" }), 0.1001);
+  assert.equal(editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" }), 0.0686);
 });

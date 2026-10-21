@@ -17,6 +17,7 @@ import { createProjectStore } from "../../../../story/store";
 import { fillLooks, keepPicture, run } from "../../../actions";
 import { applyFill, fillRequest } from "../../../../writer/fill";
 import { applyDraft, validateDraft } from "../../../../writer/draft";
+import { applyBoardProposal, validateBoardProposal } from "../../../../story/proposed-board";
 import { formatById } from "../../../../sheets/formats";
 import { StartScreen } from "./start";
 import { Nav, openKeys } from "../../../nav";
@@ -228,7 +229,7 @@ function FillButton({ sheets, onFilled, onProblem }: { sheets: Sheets; onFilled:
   );
 }
 
-type Proposal = { id: string; kind: "draft" | "fill" | "edits"; summary: string; payload: unknown; boardId?: string; formatId?: string; at: number };
+type Proposal = { id: string; kind: "draft" | "fill" | "edits" | "board"; summary: string; payload: unknown; boardId?: string; formatId?: string; at: number };
 
 /** Polls the local bridge for what Claude has sent this project over MCP. Development only. */
 function useInbox(projectId: string) {
@@ -259,7 +260,7 @@ function useInbox(projectId: string) {
   return { items, drop };
 }
 
-const KIND: Record<Proposal["kind"], string> = { draft: "A draft", fill: "Looks and locks", edits: "Sheet edits" };
+const KIND: Record<Proposal["kind"], string> = { draft: "A draft", fill: "Looks and locks", edits: "Sheet edits", board: "A new board" };
 
 function AddByName({ label, onAdd }: { label: string; onAdd: (name: string) => void }) {
   const [name, setName] = useState("");
@@ -359,6 +360,24 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
 
   /** Applies what Claude sent, to the board it was meant for, then clears it from the inbox. */
   function applyProposal(item: Proposal) {
+    if (item.kind === "board") {
+      void (async () => {
+        try {
+          // Load fresh, so a board added from Claude never overwrites work saved since this page opened.
+          const current = (await store.load(id)) ?? project;
+          if (!current) throw new Error("This project isn't on this device any more.");
+          const { project: saved, board: added } = applyBoardProposal(current, validateBoardProposal(item.payload));
+          await store.save(saved);
+          setProject(saved);
+          void claude.drop(item.id);
+          setError(null);
+          setNotice(`Added the board “${added.name}” with ${added.shots.length} shots. Pick it from the boards above.`);
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : "That board couldn't be added.");
+        }
+      })();
+      return;
+    }
     const target = item.boardId ?? bid;
     const first = project?.boards?.[0]?.id ?? "main";
     const name = project?.boards?.find((b) => b.id === target)?.name;

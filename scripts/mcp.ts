@@ -19,6 +19,7 @@ import { cameraMoves } from "../src/sheets/camera";
 import { FORMATS, formatById } from "../src/sheets/formats";
 import { fixCell, normalizeSheets, promptRows, qaSheet, sheetsView, type Sheets } from "../src/sheets/sheets";
 import { bridgeRoot, inbox, listSnapshots, propose, readSnapshot } from "../src/server/bridge";
+import { applyBoardProposal, validateBoardProposal } from "../src/story/proposed-board";
 import { applyDraft, validateDraft } from "../src/writer/draft";
 import { applyFill, type Fill } from "../src/writer/fill";
 
@@ -219,6 +220,49 @@ server.registerTool(
       if (!kept.length) return fail(`No edit could be made:\n${refused.join("\n")}`);
       const item = await propose(root, project, { kind: "edits", summary, payload: kept, ...(board ? { boardId: board } : {}) });
       return text({ sent: item.id, edits: kept.length, refused });
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);
+
+server.registerTool(
+  "haggs_list_shots",
+  { description: "List every shot on every board with its id, beat, seconds and what it currently shows, so a new board can reuse them by id.", inputSchema: { project: z.string() }, annotations: readOnly },
+  async ({ project }) => {
+    try {
+      const snap = await load(project);
+      return text((snap.project.boards ?? []).map((b) => ({ board: b.name, shots: b.shots.map((s, i) => ({ n: i + 1, id: s.id, beat: s.beat.slice(0, 120), seconds: s.seconds, shows: s.render ? `${s.render.kind} ${s.render.url.split("/").pop()}` : null, takes: s.takes?.length ?? 0 })) })));
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);
+
+server.registerTool(
+  "haggs_propose_board",
+  {
+    description:
+      "Send a whole new board to a project's inbox: shots in order, each reusing an existing shot by id (it keeps every take) or starting from a picture (/api/local/… or https), with seconds and an optional spoken line. It is checked against the project here. Applied, it is added as a new board; nothing already there changes.",
+    inputSchema: {
+      project: z.string(),
+      summary: z.string().max(300),
+      board: z.object({
+        name: z.string(),
+        kind: z.enum(["reel", "episode", "board"]).optional(),
+        shots: z.array(z.object({ beat: z.string(), seconds: z.number(), heading: z.string().optional(), from: z.string().optional(), picture: z.object({ url: z.string(), kind: z.enum(["image", "video"]), origin: z.string().optional() }).optional(), dialogue: z.string().optional() })).max(200),
+      }),
+    },
+    annotations: proposes,
+  },
+  async ({ project, summary, board }) => {
+    try {
+      const snap = await load(project);
+      const checked = validateBoardProposal(board);
+      const { board: made } = applyBoardProposal(snap.project, checked);
+      const seconds = made.shots.reduce((n, s) => n + (s.seconds ?? 0), 0);
+      const item = await propose(root, project, { kind: "board", summary, payload: checked });
+      return text({ sent: item.id, shots: made.shots.length, seconds, empty: made.shots.filter((s) => !s.render).length, next: "The person opens the project's Sheets and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
     }
