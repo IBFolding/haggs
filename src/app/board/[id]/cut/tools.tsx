@@ -74,6 +74,7 @@ export function EditTools({
   const [tool, setTool] = useState<ToolId | null>(null);
   const [prompt, setPrompt] = useState("");
   const [frame, setFrame] = useState<string | null>(null);
+  const [grabbedAt, setGrabbedAt] = useState(0);
   const [fixed, setFixed] = useState<string | null>(null);
   const [refs, setRefs] = useState<string[]>([]);
   const [engine, setEngine] = useState<"regenerate" | "aleph">("regenerate");
@@ -125,6 +126,7 @@ export function EditTools({
     canvas.getContext("2d")!.drawImage(el, 0, 0);
     try {
       setFrame(canvas.toDataURL("image/png"));
+      setGrabbedAt(el.currentTime);
       setFixed(null);
       setProblem(null);
     } catch {
@@ -216,8 +218,12 @@ export function EditTools({
                     onClick={() =>
                       void go(
                         "regen",
-                        { tool: "regenerate", video, seconds: len, prompt: `${prompt}. Keep the shot, the motion, the faces and the light the same.`, references: [fixed] },
-                        (r) => { take(shot, r.url, r.kind, r.usd, r.origin); setDone("Re-rendered with the fix. It's a new take; the old one is still there."); },
+                        // A frame from the very start of the take is the take's first frame, which the model holds to;
+                        // from later on it can only be a reference, so the change goes in the prompt as well.
+                        grabbedAt <= 0.25
+                          ? { tool: "regenerate", video, seconds: len, prompt: `${prompt}. Keep the shot, the motion, the faces and the light the same.`, firstFrame: fixed }
+                          : { tool: "regenerate", video, seconds: len, prompt: `${prompt}. Keep the shot, the motion, the faces and the light the same.`, references: [fixed] },
+                        (r) => { take(shot, r.url, r.kind, r.usd, r.origin); setDone("Re-rendered as a new take, with the original kept. Check that it shows the fix before you use it."); },
                       )
                     }
                   >
@@ -263,7 +269,7 @@ export function EditTools({
                   if (!ok) break;
                   made++;
                 }
-                if (made) setDone(`Swapped ${made} take${made === 1 ? "" : "s"}. Each is a new take; the originals are still there.`);
+                if (made) setDone(`Swapped ${made} take${made === 1 ? "" : "s"}, each as a new take with the original kept. Check each one shows the change.`);
               }}
             >
               {busy?.startsWith("swap") ? `Swapping ${busy.slice(5)}…` : scope === "scene" ? `Swap in ${scene.length} takes` : "Swap in this take"}
