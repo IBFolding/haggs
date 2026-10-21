@@ -56,3 +56,11 @@ test("a proposal is refused when it names a shot the project doesn't have, or a 
   assert.throws(() => validateBoardProposal({ name: "v2", shots: [] }), /1–200/);
   assert.throws(() => validateBoardProposal({ name: "v2", shots: [{ beat: "x", seconds: 0 }] }), /seconds/);
 });
+
+test("reused takes are not stale on arrival, though their old board's prompts differ", () => {
+  const p = waylight();
+  const from = p.boards![0]!.shots[0]!.id;
+  const { project, board } = applyBoardProposal(p, validateBoardProposal({ name: "v2", shots: [{ beat: "Black", seconds: 2, picture: { url: "/api/local/black.png", kind: "image" } }, { beat: "Checks the light", seconds: 2, from }] }));
+  assert.deepEqual(staleShots(view(project, board.id)), []);
+  assert.equal(board.shots[1]!.render!.url, "/api/local/a.mp4");
+});

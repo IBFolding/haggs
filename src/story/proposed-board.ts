@@ -72,14 +72,18 @@ export function applyBoardProposal(project: Project, proposal: BoardProposal): {
   });
   const board: Board = { ...made.board, shots };
   let next: Project = { ...made.project, boards: made.project.boards!.map((b) => (b.id === board.id ? board : b)) };
-  // A picture is what the shot is now, so it is stamped with the prompt it will be judged against.
+  // What each shot shows was chosen for this board, so it is stamped with the
+  // prompt it will be judged against here; only later changes make it stale.
   const seen = view(next, board.id);
   shots.forEach((shot, i) => {
-    if (!pictured.has(i)) return;
     const hash = hashPrompt(promptFor(seen, i));
-    shot.takes = shot.takes!.map((t, at) => (at === shot.takes!.length - 1 ? { ...t, promptHash: hash } : t));
-    const t = shot.takes.at(-1)!;
-    shot.render = { url: t.url, kind: t.kind, usd: null, promptHash: hash, at: t.at };
+    if (pictured.has(i)) {
+      shot.takes = shot.takes!.map((t, at) => (at === shot.takes!.length - 1 ? { ...t, promptHash: hash } : t));
+      const t = shot.takes.at(-1)!;
+      shot.render = { url: t.url, kind: t.kind, usd: null, promptHash: hash, at: t.at };
+    } else if (shot.render) {
+      shot.render = { ...shot.render, promptHash: hash };
+    }
   });
   next = { ...next, boards: next.boards!.map((b) => (b.id === board.id ? { ...board, shots } : b)) };
   return { project: next, board: next.boards!.find((b) => b.id === board.id)! };
