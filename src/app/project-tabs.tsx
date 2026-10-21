@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
-import { addBoard, boardOf, normalize } from "../story/boards";
+import { addBoard, boardOf, normalize, removeBoard } from "../story/boards";
 import { defaultKv } from "../story/kv";
 import type { Project } from "../story/model";
 import { createProjectStore } from "../story/store";
@@ -26,6 +26,7 @@ const TABS = [
 export type ProjectTab = (typeof TABS)[number]["id"];
 
 const NEW = "__new__";
+const DELETE = "__delete__";
 
 export function ProjectTabs({ project, boardId, current }: { project: Project; boardId?: string | undefined; current: ProjectTab }) {
   const router = useRouter();
@@ -36,6 +37,19 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
   const href = (tabPath: string, b = board.id) => `/board/${project.id}${tabPath}?b=${encodeURIComponent(b)}`;
 
   async function choose(value: string) {
+    if (value === DELETE) {
+      const latest = (await store.load(project.id)) ?? project;
+      const doomed = boardOf(latest, board.id);
+      if (!window.confirm(`Delete the board “${doomed.name}” and its ${doomed.shots.length} shot${doomed.shots.length === 1 ? "" : "s"}? The picture and video files aren't deleted, but the board can't be brought back.`)) return;
+      try {
+        const kept = removeBoard(latest, doomed.id);
+        await store.save(kept);
+        router.push(href(path, kept.boards![0]!.id));
+      } catch (caught) {
+        window.alert(caught instanceof Error ? caught.message : "That board couldn't be deleted.");
+      }
+      return;
+    }
     if (value !== NEW) {
       router.push(href(path, value));
       return;
@@ -62,6 +76,7 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
           </option>
         ))}
         <option value={NEW}>+ New board…</option>
+        {boards.length > 1 && <option value={DELETE}>Delete this board…</option>}
       </select>
       <nav className="ptabs-list" aria-label="Project">
         {TABS.map((tab, i) => (
