@@ -232,7 +232,7 @@ server.registerTool(
   async ({ project }) => {
     try {
       const snap = await load(project);
-      return text((snap.project.boards ?? []).map((b) => ({ board: b.name, shots: b.shots.map((s, i) => ({ n: i + 1, id: s.id, beat: s.beat.slice(0, 120), seconds: s.seconds, shows: s.render ? `${s.render.kind} ${s.render.url.split("/").pop()}` : null, takes: s.takes?.length ?? 0 })) })));
+      return text((snap.project.boards ?? []).map((b) => ({ board: b.name, shots: b.shots.map((s, i) => ({ n: i + 1, id: s.id, beat: s.beat.slice(0, 120), seconds: s.seconds, kind: s.render?.kind ?? null, url: s.render?.url ?? null, takes: s.takes?.length ?? 0 })) })));
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
     }
