@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { alephWorkflow, editEstimate, genjutsuWorkflow, kontextWorkflow, regenerateWorkflow, VOICES, voiceWorkflow } from "./cloud-edits";
+import { alephWorkflow, editEstimate, klingEditWorkflow, genjutsuWorkflow, kontextWorkflow, regenerateWorkflow, VOICES, voiceWorkflow } from "./cloud-edits";
 
 test("fix a frame: FLUX Kontext edits the uploaded frame and saves a picture", () => {
   const w = kontextWorkflow({ image: "frame.png", prompt: "Remove the extra hand on the truck", ratio: "16:9", seed: 3 });
@@ -77,4 +77,22 @@ test("every tool is quoted from Comfy's published node prices", () => {
   assert.equal(editEstimate({ tool: "genjutsu", seconds: 5, resolution: "480p" }), 2.274);
   assert.equal(editEstimate({ tool: "voice", seconds: 5, characters: 1000 }), Math.round((0.1144 + 0.19019 * 5) * 1000) / 1000);
   assert.equal(editEstimate({ tool: "kontext", seconds: 0 }), 0.04);
+});
+
+test("edit with Kling Omni: the instruction, the take, and references batched into one input", () => {
+  const w = klingEditWorkflow({ video: "take.mp4", prompt: "His jacket is olive green; nothing else changes", references: ["fixed.png", "ellis.png"], resolution: "720p", seed: 2 });
+  assert.equal(w["1"]!.class_type, "KlingOmniProEditVideoNode");
+  assert.deepEqual(
+    [w["1"]!.inputs.model_name, w["1"]!.inputs.video, w["1"]!.inputs.resolution, w["1"]!.inputs.keep_original_sound],
+    ["kling-v3-omni", ["2", 0], "720p", true],
+  );
+  assert.equal(w["50"]!.class_type, "ImageBatch", "two pictures are batched into the single reference input");
+  assert.deepEqual(w["1"]!.inputs.reference_images, ["50", 0]);
+  const one = klingEditWorkflow({ video: "t.mp4", prompt: "make it rain hard", references: ["a.png"], resolution: "720p", seed: 1 });
+  assert.deepEqual(one["1"]!.inputs.reference_images, ["3", 0], "one picture goes straight in");
+  const none = klingEditWorkflow({ video: "t.mp4", prompt: "make it rain hard", references: [], resolution: "720p", seed: 1 });
+  assert.equal("reference_images" in none["1"]!.inputs, false);
+  assert.throws(() => klingEditWorkflow({ video: "t.mp4", prompt: "x x x x", references: Array(5).fill("a.png"), resolution: "720p", seed: 1 }), /four/);
+  assert.equal(editEstimate({ tool: "kling", seconds: 5 }), 0.63);
+  assert.equal(editEstimate({ tool: "kling", seconds: 5, resolution: "1080p" }), 0.84);
 });

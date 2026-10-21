@@ -5,8 +5,10 @@ import type { Workflow } from "./cloud";
  * nodes and checked against Cloud's node catalog (2026-10-20):
  *
  *  - fix a frame  FLUX Kontext Pro edits one still from the take
- *  - regenerate   MiniMax H3 Regenerate re-renders a take with a change,
- *                 a fixed first or last frame, and references
+ *  - regenerate   MiniMax H3 Regenerate re-renders a take at 2K. It refreshes
+ *                 footage; tested 2026-10-21, it does not apply changes.
+ *  - kling        Kling Omni Pro edit changes what an instruction says and
+ *                 keeps the rest — the standard engine for fixes and swaps
  *  - swap         Runway Aleph 2 changes something across a whole take
  *  - recast       Higgsfield Genjutsu keeps the motion, recasts from references
  *  - voice        ElevenLabs dialogue, lip-synced onto the take with Sync 3
@@ -49,6 +51,29 @@ export function regenerateWorkflow({ video, prompt, firstFrame, lastFrame, refer
   if (lastFrame) node.last_frame = load(lastFrame);
   references.forEach((image, i) => (node[`model.reference_images.image_${i + 1}`] = load(image)));
   w["1"] = { class_type: "MinimaxHailuo03RegenerateNode", inputs: node };
+  w["20"] = saveVideo("1");
+  return w;
+}
+
+/** Kling Omni Pro edit: changes what the instruction says and keeps the rest, the take's length and its sound. */
+export function klingEditWorkflow({ video, prompt, references = [], resolution, seed }: { video: string; prompt: string; references?: string[]; resolution: "720p" | "1080p"; seed: number }): Workflow {
+  if (references.length > 4) throw new Error("Kling takes up to four reference pictures.");
+  const w: Workflow = { "2": { class_type: "LoadVideo", inputs: { file: video } } };
+  const node: Record<string, unknown> = { model_name: "kling-v3-omni", prompt: say(prompt), video: ["2", 0], keep_original_sound: true, resolution, seed };
+  const loaded = references.map((image, i) => {
+    const id = String(3 + i);
+    w[id] = { class_type: "LoadImage", inputs: { image } };
+    return id;
+  });
+  // Kling's reference input is one image batch; ImageBatch joins pictures, matching later ones to the first one's size.
+  let batch = loaded[0];
+  loaded.slice(1).forEach((id, i) => {
+    const join = String(50 + i);
+    w[join] = { class_type: "ImageBatch", inputs: { image1: [batch!, 0], image2: [id, 0] } };
+    batch = join;
+  });
+  if (batch) node.reference_images = [batch, 0];
+  w["1"] = { class_type: "KlingOmniProEditVideoNode", inputs: node };
   w["20"] = saveVideo("1");
   return w;
 }
@@ -113,13 +138,14 @@ export function voiceWorkflow({ video, lines, model = "eleven_v4" }: { video: st
   return w;
 }
 
-export type Tool = "kontext" | "regenerate" | "aleph" | "genjutsu" | "voice";
+export type Tool = "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
 
 /**
  * Comfy's node price badges (2026-10-20): Regenerate $0.0715/s, Aleph 2
  * $0.4004/s, Genjutsu $0.45474/s at 480p and $0.97383/s at 720p, ElevenLabs
  * v4 $0.1144 per 1K characters, Sync 3 $0.19019/s. Kontext Pro carries no
- * badge in Comfy; $0.04 is BFL's list price. Estimates, not invoices.
+ * badge in Comfy; $0.04 is BFL's list price. Kling Omni Pro edit is $0.126/s
+ * at 720p and $0.168/s at 1080p. Estimates, not invoices.
  */
 export function editEstimate({ tool, seconds, resolution = "720p", characters = 0 }: { tool: Tool; seconds: number; resolution?: string; characters?: number }): number {
   const r = (n: number) => Math.round(n * 1000) / 1000;
@@ -128,6 +154,8 @@ export function editEstimate({ tool, seconds, resolution = "720p", characters = 
       return 0.04;
     case "regenerate":
       return r(0.0715 * seconds);
+    case "kling":
+      return r((resolution === "1080p" ? 0.168 : 0.126) * seconds);
     case "aleph":
       return r(0.4004 * seconds);
     case "genjutsu":

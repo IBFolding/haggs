@@ -77,7 +77,7 @@ export function EditTools({
   const [grabbedAt, setGrabbedAt] = useState(0);
   const [fixed, setFixed] = useState<string | null>(null);
   const [refs, setRefs] = useState<string[]>([]);
-  const [engine, setEngine] = useState<"regenerate" | "aleph">("regenerate");
+  const [engine, setEngine] = useState<"kling" | "aleph">("kling");
   const [scope, setScope] = useState<"take" | "scene">("take");
   const [resolution, setResolution] = useState<"480p" | "720p">("480p");
   const [lines, setLines] = useState<Line[]>([]);
@@ -85,6 +85,7 @@ export function EditTools({
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const upload = useRef<HTMLInputElement>(null);
+  const fixedUpload = useRef<HTMLInputElement>(null);
 
   const video = shot.render?.kind === "video" ? shot.render.url : undefined;
   const seconds = useSeconds(video);
@@ -156,7 +157,7 @@ export function EditTools({
   const chars = lines.reduce((n, l) => n + l.text.length, 0);
   const quotes = {
     fix: editEstimate({ tool: "kontext", seconds: 0 }),
-    regenerate: editEstimate({ tool: "regenerate", seconds: len }),
+    regenerate: editEstimate({ tool: "kling", seconds: len }),
     swapOne: editEstimate({ tool: engine, seconds: len }),
     recast: editEstimate({ tool: "genjutsu", seconds: len, resolution }),
     voice: editEstimate({ tool: "voice", seconds: len, characters: chars }),
@@ -192,7 +193,27 @@ export function EditTools({
               <figcaption>After the fix</figcaption>
             </figure>
           </div>
-          <button className="pill" onClick={grab}>Grab the frame under the playhead</button>
+          <div className="tools-run">
+            <button className="pill" onClick={grab}>Grab the frame under the playhead</button>
+            <button className="pill" onClick={() => fixedUpload.current?.click()} title="A frame you fixed somewhere else, to re-render the take from">
+              Use a fixed picture you already have
+            </button>
+            <input
+              ref={fixedUpload}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              hidden
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                setFixed(await fileToDataUri(f));
+                // A picture you bring is treated as the take's opening frame.
+                setGrabbedAt(0);
+                setProblem(null);
+              }}
+            />
+          </div>
           <label className="sh-field">
             <span>What's wrong, and what it should be</span>
             <textarea rows={2} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. He has six fingers on his left hand; give him five. Keep everything else the same." />
@@ -220,9 +241,7 @@ export function EditTools({
                         "regen",
                         // A frame from the very start of the take is the take's first frame, which the model holds to;
                         // from later on it can only be a reference, so the change goes in the prompt as well.
-                        grabbedAt <= 0.25
-                          ? { tool: "regenerate", video, seconds: len, prompt: `${prompt}. Keep the shot, the motion, the faces and the light the same.`, firstFrame: fixed }
-                          : { tool: "regenerate", video, seconds: len, prompt: `${prompt}. Keep the shot, the motion, the faces and the light the same.`, references: [fixed] },
+                        { tool: "kling", video, seconds: len, prompt: `${prompt.replace(/[.\s]+$/, "")}. Match the reference picture. Keep the shot, the motion, the faces and the light the same.`, references: [fixed] },
                         (r) => { take(shot, r.url, r.kind, r.usd, r.origin); setDone("Re-rendered as a new take, with the original kept. Check that it shows the fix before you use it."); },
                       )
                     }
@@ -243,9 +262,9 @@ export function EditTools({
             <span>What to change</span>
             <textarea rows={2} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. Replace the blue pickup with a rust-red one. Change nothing else." />
           </label>
-          <RefPicker refs={refs} setRefs={setRefs} upload={upload} max={5} />
+          <RefPicker refs={refs} setRefs={setRefs} upload={upload} max={engine === "kling" ? 4 : 5} />
           <div className="tools-opts">
-            <label><input type="radio" checked={engine === "regenerate"} onChange={() => setEngine("regenerate")} /> MiniMax H3 regenerate — faster, cheaper</label>
+            <label><input type="radio" checked={engine === "kling"} onChange={() => setEngine("kling")} /> Kling Omni edit — cheaper</label>
             <label><input type="radio" checked={engine === "aleph"} onChange={() => setEngine("aleph")} /> Runway Aleph 2 — most faithful to the original</label>
           </div>
           <div className="tools-opts">
