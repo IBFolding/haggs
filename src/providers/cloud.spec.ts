@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { cloudEstimate, createCloudProvider, minimaxWorkflow } from "./cloud";
+import { cloudEstimate, createCloudProvider, createCloudRunner, minimaxWorkflow } from "./cloud";
 
 test("text to video uses MiniMax H3's text node with the settings inside the model option", () => {
   const w = minimaxWorkflow({ prompt: "A hill at night", seconds: 6, resolution: "768P", ratio: "16:9", seed: 7 });
@@ -85,4 +85,18 @@ test("a failed job and an untrusted redirect both stop with a reason", async () 
     return new Response("{}");
   }) as unknown as typeof fetch;
   await assert.rejects(createCloudProvider({ apiKey: "k", fetch: sneaky, pollMs: 0, keep: async () => "x" }).run({ capability: "text-to-video", prompt: "a hill at night" }), /redirect/);
+});
+
+test("a run that saves audio keeps an MP3 and says so", async () => {
+  const fake = (async (url: string) => {
+    if (url.endsWith("/api/prompt")) return Response.json({ prompt_id: "job-a", node_errors: {} });
+    if (url.includes("/api/jobs/job-a")) return Response.json({ status: "completed", outputs: { "20": { audio: [{ filename: "line_0001.mp3", subfolder: "haggs", type: "output" }] } } });
+    if (url.includes("/api/view")) return new Response(new Uint8Array([73, 68, 51]), { headers: { "content-type": "audio/mpeg" } });
+    return new Response("unexpected", { status: 500 });
+  }) as unknown as typeof fetch;
+  let ext = "";
+  const runner = createCloudRunner({ apiKey: "ck", fetch: fake, pollMs: 0, keep: async (_bytes, e) => { ext = e; return "/api/local/haggs-renders/line.mp3"; } });
+  const result = await runner.run({ "20": { class_type: "SaveAudioMP3", inputs: {} } });
+  assert.equal(ext, "mp3");
+  assert.equal(result.kind, "audio");
 });

@@ -125,6 +125,17 @@ export function flux3Workflow({ prompt, references = [], ratio = "16:9", resolut
   return w;
 }
 
+/** One line of voice-over: ElevenLabs speech in a chosen voice, saved as an MP3 to lay under the cut. */
+export function speechWorkflow({ text, voice, model = "eleven_v4", seed }: { text: string; voice: string; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo"; seed: number }): Workflow {
+  if (!text.trim() || text.length > 2000) throw new Error("Write the line to speak, up to 2,000 characters.");
+  if (!(VOICES as readonly string[]).includes(voice)) throw new Error("Pick a voice from the list.");
+  return {
+    "40": { class_type: "ElevenLabsVoiceSelector", inputs: { voice } },
+    "1": { class_type: "ElevenLabsTextToSpeech", inputs: { voice: ["40", 0], text: text.trim(), stability: 0.5, apply_text_normalization: "auto", model, "model.similarity_boost": 0.75, language_code: "", seed, output_format: "mp3_44100_192" } },
+    "20": { class_type: "SaveAudioMP3", inputs: { audio: ["1", 0], filename_prefix: "haggs/line", quality: "V0" } },
+  };
+}
+
 export type Line = { text: string; voice: string };
 
 export function voiceWorkflow({ video, lines, model = "eleven_v4" }: { video: string; lines: Line[]; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo" }): Workflow {
@@ -153,7 +164,7 @@ export function voiceWorkflow({ video, lines, model = "eleven_v4" }: { video: st
   return w;
 }
 
-export type Tool = "flux3" | "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
+export type Tool = "flux3" | "speech" | "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
 
 /**
  * Comfy's node price badges (2026-10-20): Regenerate $0.0715/s, Aleph 2
@@ -168,6 +179,8 @@ export function editEstimate({ tool, seconds, resolution = "720p", characters = 
   switch (tool) {
     case "flux3":
       return ({ "0.75K": 0.0586, "1K": 0.0686, "1.5K": 0.1001, "2K": 0.143 } as Record<string, number>)[resolution] ?? 0.1001;
+    case "speech":
+      return r((0.1144 * characters) / 1000);
     case "kontext":
       return 0.04;
     case "regenerate":

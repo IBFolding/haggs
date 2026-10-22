@@ -19,6 +19,11 @@ const TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
+  ".mp3": "audio/mpeg",
+  ".m4a": "audio/mp4",
+  ".wav": "audio/wav",
+  ".flac": "audio/flac",
+  ".aac": "audio/aac",
 };
 
 export type LocalFile = { path: string; type: string; size: number };

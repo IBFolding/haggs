@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { alephWorkflow, editEstimate, flux3Workflow, klingEditWorkflow, genjutsuWorkflow, kontextWorkflow, regenerateWorkflow, VOICES, voiceWorkflow } from "./cloud-edits";
+import { alephWorkflow, editEstimate, flux3Workflow, speechWorkflow, klingEditWorkflow, genjutsuWorkflow, kontextWorkflow, regenerateWorkflow, VOICES, voiceWorkflow } from "./cloud-edits";
 
 test("fix a frame: FLUX Kontext edits the uploaded frame and saves a picture", () => {
   const w = kontextWorkflow({ image: "frame.png", prompt: "Remove the extra hand on the truck", ratio: "16:9", seed: 3 });
@@ -112,4 +112,21 @@ test("flux3Workflow loads each reference into the images autogrow and saves a st
 test("editEstimate prices a FLUX 3 still by resolution", () => {
   assert.equal(editEstimate({ tool: "flux3", seconds: 0, resolution: "1.5K" }), 0.1001);
   assert.equal(editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" }), 0.0686);
+});
+
+test("speechWorkflow speaks one line in a chosen voice and saves an MP3, no video involved", () => {
+  const w = speechWorkflow({ text: "Tell me what I missed.", voice: "Chris (male, american)", seed: 4 });
+  assert.equal(w["40"]!.class_type, "ElevenLabsVoiceSelector");
+  assert.equal(w["1"]!.class_type, "ElevenLabsTextToSpeech");
+  assert.deepEqual(w["1"]!.inputs.voice, ["40", 0]);
+  assert.equal(w["1"]!.inputs.text, "Tell me what I missed.");
+  assert.equal(w["1"]!.inputs.model, "eleven_v4");
+  assert.equal(w["20"]!.class_type, "SaveAudioMP3");
+  assert.deepEqual(w["20"]!.inputs.audio, ["1", 0]);
+  assert.throws(() => speechWorkflow({ text: "Hi there", voice: "Nobody", seed: 1 }), /voice/);
+  assert.throws(() => speechWorkflow({ text: "", voice: "Chris (male, american)", seed: 1 }), /line/);
+});
+
+test("a spoken line is priced by its characters", () => {
+  assert.equal(editEstimate({ tool: "speech", seconds: 0, characters: 1000 }), 0.114);
 });

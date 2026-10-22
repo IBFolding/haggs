@@ -62,7 +62,7 @@ export function minimaxWorkflow({ prompt, seconds, resolution = "768P", ratio = 
 export { cloudEstimate } from "./cloud-price";
 import { cloudEstimate } from "./cloud-price";
 
-export type Kept = "mp4" | "webm" | "png" | "jpg" | "webp";
+export type Kept = "mp4" | "webm" | "png" | "jpg" | "webp" | "mp3" | "flac" | "wav";
 
 export type CloudOptions = {
   apiKey: string;
@@ -152,7 +152,7 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
   }
 
   /** Submits a workflow, waits, and keeps the file the output node saved. */
-  async function run(workflow: Workflow, outputNode = "20"): Promise<{ url: string; kind: "image" | "video"; jobId: string }> {
+  async function run(workflow: Workflow, outputNode = "20"): Promise<{ url: string; kind: "image" | "video" | "audio"; jobId: string }> {
     const submitted = await call("/api/prompt", { prompt: workflow, extra_data: { api_key_comfy_org: apiKey } });
     const id = submitted.prompt_id;
     if (typeof id !== "string" || !id || Object.keys((submitted.node_errors as object) ?? {}).length) throw fail("Comfy Cloud didn't accept the workflow. Nothing was generated.");
@@ -162,13 +162,13 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
       if (job.status === "completed") {
         const output = ((job.outputs as Record<string, Record<string, unknown>>) ?? {})[outputNode] ?? {};
         // Cloud files a finished video under "images" (with animated: true); older outputs used "video"/"videos".
-        const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
-        const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm|png|jpe?g|webp)$/i.test(f.filename) && f.type === "output");
+        const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? []), ...((output.audio as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
+        const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm|png|jpe?g|webp|mp3|flac|wav)$/i.test(f.filename) && f.type === "output");
         if (!file) throw fail("The job finished without a result.");
         const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });
         const ext = file.filename!.split(".").pop()!.toLowerCase().replace("jpeg", "jpg") as Kept;
         const url = await keep(bytes, ext);
-        return { url, kind: ext === "mp4" || ext === "webm" ? "video" : "image", jobId: id };
+        return { url, kind: ext === "mp4" || ext === "webm" ? "video" : ext === "mp3" || ext === "flac" || ext === "wav" ? "audio" : "image", jobId: id };
       }
       if (job.status === "failed" || job.status === "cancelled") {
         const reason = (job.execution_error as { exception_message?: string } | undefined)?.exception_message ?? "";
@@ -213,6 +213,7 @@ export function createCloudProvider(options: CloudOptions): Provider {
         ...(asFirst ? { firstFrame: uploaded[0]! } : uploaded.length ? { references: uploaded.slice(0, 9) } : {}),
       });
       const result = await cloud.run(workflow);
+      if (result.kind === "audio") throw new ProviderError("comfy-cloud", "MiniMax H3 returned sound without video.");
       const estimate = await quote(request);
       return { provider: "comfy-cloud", endpoint: "MiniMax H3", assets: [{ url: result.url, kind: result.kind }], usd: estimate.usd, raw: { jobId: result.jobId } } satisfies GenerationResult;
     },

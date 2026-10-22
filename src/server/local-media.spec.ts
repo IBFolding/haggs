@@ -49,3 +49,11 @@ test("a local media URL becomes a data URI so a remote model can read it; anythi
   await assert.rejects(inlineLocal(["/api/local/notes.md"], root, "development"), /can't be sent/);
   await assert.rejects(inlineLocal(["/api/local/takes/still.png"], root, "production"), /can't be sent/);
 });
+
+test("voice lines and soundtracks are served too", () => {
+  const root = mkdtempSync(join(tmpdir(), "haggs-audio-"));
+  writeFileSync(join(root, "line.mp3"), "ID3");
+  writeFileSync(join(root, "score.wav"), "RIFF");
+  assert.equal(localFile(root, ["line.mp3"], "development")?.type, "audio/mpeg");
+  assert.equal(localFile(root, ["score.wav"], "development")?.type, "audio/wav");
+});
