@@ -1,105 +1,104 @@
 # haggs
 
-Higgsfield's create flow, mimicked and sharpened, running on fal.
+An open-source film studio on Comfy: write it, board it, shoot it, cut it.
+Higgsfield's speed, with the whole production in one place and every price
+shown in dollars before you press.
 
-## What it is
+Built for Comfy's **#OpenSourceHiggsfield** challenge. MIT licensed.
 
-Their shape, because it works and people already know it:
+## What you can do
 
-- top nav, a canvas that stays empty until you make something
-- a persistent bottom composer — attach, prompt, model pill, aspect pill, count stepper
-- a searchable model picker that opens upward, rows badged with one-line descriptions
-- a Generate button carrying the cost
+Every project has four tabs, and each project can hold several boards — a
+sizzle, each episode — that share one cast and one set of places.
 
-## What's sharpened
+**Sheets** — the plan. Drop in scripts and haggs breaks them into scenes,
+characters, places, story beats and a shot list. Or start from nothing: pick
+a format (30-minute comedy, vertical drama, 60-minute drama, romance and
+more), say your idea, and Claude drafts the script with the beats where the
+hits put them, then fills the blanks you leave. Characters and places carry
+identity locks and reference pictures, sent with every shot they're in.
 
-| | Higgsfield | haggs |
-| --- | --- | --- |
-| Button | `Generate ⚡ 6.5` | `Generate $0.080` |
-| Model picker | no prices shown | live rate on every row |
-| Catalog | ~50 curated | window onto fal's ~1,499 |
-| Access | $19–59/mo subscription | your own key, no subscription |
-| Prompt | assembled server-side, never returned | yours |
+**Board** — the story as a flow chart: a main line and subplot lanes, cards
+you drag to re-work the order, threads that show each character's path.
+Drop pictures anywhere to start scenes from them. **Animate stills** turns
+every still on the board into video in one go, priced as a whole first.
 
-Their button reads 6.5 credits. A credit is a unit you cannot value without
-knowing your tier — `$1 = 15` credits on Starter, `$1 = 33` on Team. Ours reads
-a dollar figure pulled from the provider at request time.
+**Cut** — the editor. Every take a shot has had is kept: roll again, star
+favourites, flip between takes with ↑ ↓, trim, split at the playhead. Then:
 
-And because their picker hides the per-model rate, you cannot see that FLUX.1
-Schnell runs at `$0.0030/megapixel` against FLUX.2 Pro's `$0.030` — a 10x
-spread. Run `npm run demo` to see it.
+- **Fix a frame** — grab one frame, fix it (FLUX Kontext), re-render the take from the fix
+- **Swap across the scene** — change one thing in a take or the whole scene (Kling Omni, Runway Aleph)
+- **Recast** — keep the performance, change who's in it (Higgsfield Genjutsu)
+- **Voice and lip-sync** — dialogue from the sheets, spoken and synced onto the take (ElevenLabs, Sync)
+- **Voice-over** — lines placed on shots that move with them when you reorder
+- **Soundtrack** — your music under the whole cut, dipped under the voices
+- **Render MP4** — the film, mixed, in one click (or an ffmpeg script to run anywhere)
+
+**Media** — everything the project is made of. Change a shot's prompt and
+roll it again from here.
+
+**Create and Video** — the quick studio, with templates (AI influencer,
+character sheet, product hero, product placement, product 360, bring a still
+to life, dolly zoom…). **Save to project** puts anything you make to work: as
+a take on a shot, a new shot, a character's face, a place's look, or in Media.
+
+**Claude, over MCP.** `scripts/mcp.ts` is an MCP server: Claude can read your
+projects and send drafts, looks, sheet edits, whole boards and finished takes
+to a project's inbox. Nothing changes until you press Apply.
+
+## What runs where
+
+Generation runs on **Comfy** — Comfy Cloud workflows built from Comfy's own
+API nodes (MiniMax H3, FLUX 3, FLUX Kontext, Kling Omni, Runway Aleph,
+Higgsfield Genjutsu, ElevenLabs, Sync), or Comfy Router where your account
+has it (`COMFY_ROUTE=router`). fal is a second route for the models it hosts.
+You use your own keys; each run's price is on its button, from the providers'
+published rates. Estimates, not invoices.
+
+Projects live in your browser (IndexedDB). Export and import them as files.
 
 ## Run it
 
 ```bash
 npm install
 npm run dev          # http://localhost:3111
-npm run demo         # live price table, no key used
-npm run prices       # drift alarm against fal's live catalog
+npm test             # the suite
 npm run typecheck
 ```
 
-Browsing and pricing need no key — fal publishes prices openly. Only generation
-needs one. Click **no key** in the top right and paste a fal key from
-[fal.ai/dashboard/keys](https://fal.ai/dashboard/keys); it is posted once to a
-server action and held in an httpOnly cookie, so it never reaches client JS.
+Add keys from the key chip in the header, or in `.env.local` for development:
+
+| Variable | For |
+| --- | --- |
+| `COMFY_API_KEY` | generation on Comfy |
+| `FAL_KEY` | fal models (optional) |
+| `ANTHROPIC_API_KEY` | Claude drafting scripts and filling sheets (optional) |
+| `HAGGS_LOCAL_MEDIA` | a folder for finished renders, uploads and local footage (development) |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | sign-in (optional) |
+| `STRIPE_API_KEY`, `STRIPE_PRICE_*` | subscriptions (optional; checkout stays off without them) |
+
+To use Claude with your projects, the repo's `.mcp.json` registers the haggs
+MCP server for Claude Code; for other clients run `npx tsx scripts/mcp.ts`.
+
+### Development only
+
+Keeping finished renders on disk, serving local footage (`/api/local`),
+uploads, **Render MP4** and the Claude bridge all run only under `npm run dev`,
+on this machine. A hosted deployment needs a file store in their place.
 
 ## Layout
 
 ```
 src/
-  app/          the studio: nav, canvas, composer, model picker, key sheet
-                actions.ts holds the key and is the only caller of the provider
-  catalog/      models.ts is the picker; pricing.ts parses fal's live rates
-  providers/    types.ts is the seam, fal.ts implements it
+  app/        pages: landing, projects, the four project tabs, Create/Video/Edit, account
+  sheets/     screenplay parsing, the sheets, formats, camera moves, v1 import
+  story/      projects, boards, flow, takes, cut, references, proposals from Claude
+  providers/  Comfy Cloud workflows and prices, Comfy Router, fal
+  server/     local media, the Claude bridge, rendering, billing, auth
+  writer/     Claude drafting and filling
+scripts/      the MCP server, project import
 ```
 
-### The seam
+## Licence
 
-`providers/types.ts` defines a provider as something that can `quote` and
-`run`. fal implements it. Higgsfield would slot in beside it unchanged.
-
-This is the one thing a provider-owned studio cannot ship: Higgsfield can never
-route a generation to a cheaper provider, because the routing is the margin.
-Same reason OpenRouter beat every individual LLM provider's playground.
-
-### Pricing
-
-fal publishes each model's schema and price at
-`fal.ai/models/<endpoint>/llms.txt`, generated from the same metadata the
-platform serves, so it cannot drift from the real endpoint.
-
-The prices are prose and the prose is not uniform — four shapes across the
-catalog (per image, per training run, tiered per megapixel, per second of
-video, per clip). `pricing.ts` parses all four and keeps `usdPerUnit` null
-rather than guess when a sentence will not yield one. `npm run prices` runs it
-against the live catalog as a drift alarm.
-
-## State
-
-Working: model picker with live rates, cost on the button, aspect options
-derived from the selected endpoint, count stepper clamped per model, key sheet,
-generation wired end to end through fal's queue (submit → poll → collect),
-errors surfaced into the grid.
-
-**Never executed:** there is no fal key on this machine, so `run()` has been
-typechecked and wired but never actually generated. Add a key to prove it.
-
-Not built: the `+` attach button is a stub — image-to-video and editing need
-fal CDN upload. No history, no gallery, no favourites.
-
-### Dead code
-
-`src/workflows/product-photoshoot/` (347 lines: a 10-mode taxonomy and a prompt
-enhancer) is orphaned — nothing imports it since the composer rewrite. The
-photographic direction in `modes.ts` is good and could seed a preset layer
-later. Delete it or use it; leaving it is the worst of the three.
-
-## Provenance
-
-The flow is Higgsfield's and they were right about it. The mode taxonomy in the
-orphaned workflow came from `higgsfield-ai/skills`, which is MIT. Their own
-repos are MIT and Apache-2.0 throughout.
-
-`wide-trace/open-higgsfield` — the "open-source alternative" — has **no licence
-at all**, so it is all rights reserved. No code was taken from it.
+MIT. See `LICENSE`.
