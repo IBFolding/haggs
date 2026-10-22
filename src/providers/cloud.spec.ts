@@ -100,3 +100,9 @@ test("a run that saves audio keeps an MP3 and says so", async () => {
   assert.equal(ext, "mp3");
   assert.equal(result.kind, "audio");
 });
+
+test("out of Comfy credits says so, and that nothing was made", async () => {
+  const fake = (async () => new Response("Payment Required", { status: 402 })) as unknown as typeof fetch;
+  const runner = createCloudRunner({ apiKey: "ck", fetch: fake, pollMs: 0, keep: async () => "" });
+  await assert.rejects(runner.run({ "20": { class_type: "SaveVideo", inputs: {} } }), /credits have run out.*Nothing was generated/);
+});

@@ -102,6 +102,7 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
       throw fail(body ? "Comfy Cloud didn't confirm the job. Check your Comfy jobs before trying again." : "Comfy Cloud couldn't be reached.");
     }
     if (response.status === 401 || response.status === 403) throw fail("Comfy Cloud refused the key.", response.status);
+    if (response.status === 402) throw fail("Your Comfy credits have run out. Add credits in your Comfy account, then try again. Nothing was generated.", 402);
     if (!response.ok) throw fail(`Comfy Cloud answered ${response.status}.`, response.status);
     return response.json() as Promise<Record<string, unknown>>;
   }
