@@ -15,6 +15,8 @@ export type Template = {
   fromPicture?: boolean;
   /** The aspect it is usually made in, when the model offers it. */
   aspect?: "16:9" | "9:16" | "1:1" | "4:5";
+  /** An example of what it makes, shown on its square. */
+  sample?: string;
 };
 
 export const TEMPLATES: Template[] = [

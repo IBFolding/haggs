@@ -1815,3 +1815,22 @@ a.logo { color: var(--text); text-decoration: none; }
 @media (max-width: 860px) { .wf-body { grid-template-columns: 1fr; } }
 @keyframes pulse { from { opacity: 0.45; } to { opacity: 0.9; } }
 .wf-card-note { margin: 0; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); color: var(--text-2); font-size: 11.5px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; }
+
+/* ─── the squares ──────────────────────────────────────────────────── */
+
+.squares { width: 100%; margin: 0 0 18px; }
+.blank .squares { width: min(1040px, 100%); margin-top: 18px; text-align: left; }
+.squares header { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.squares header b { font-size: 14px; margin-right: auto; }
+.squares-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+.square { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); text-decoration: none; padding: 0; font: inherit; cursor: pointer; text-align: left; display: block; }
+.square img, .square video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 400ms ease; }
+.square:hover img, .square:hover video { transform: scale(1.04); }
+.square:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.square.bare { background: radial-gradient(120% 90% at 0% 0%, var(--volt-soft), transparent 60%), var(--surface-2); }
+.square-face { position: absolute; inset: auto 0 0 0; padding: 30px 12px 11px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.8)); display: flex; flex-direction: column; gap: 2px; }
+.square.bare .square-face { background: none; inset: 0; justify-content: flex-end; }
+.square-face b { font-size: 13.5px; line-height: 1.25; }
+.square-face small { font-size: 11.5px; color: rgba(255, 255, 255, 0.72); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.square.bare .square-face small { color: var(--text-2); }
+.square-tag { position: absolute; top: 8px; left: 8px; padding: 3px 7px; border-radius: 6px; background: rgba(0, 0, 0, 0.6); color: var(--volt); font-size: 10.5px; font-weight: 700; }
