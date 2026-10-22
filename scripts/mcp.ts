@@ -20,7 +20,7 @@ import { FORMATS, formatById } from "../src/sheets/formats";
 import { fixCell, normalizeSheets, promptRows, qaSheet, sheetsView, type Sheets } from "../src/sheets/sheets";
 import { bridgeRoot, inbox, listSnapshots, propose, readSnapshot } from "../src/server/bridge";
 import { applyBoardProposal, validateBoardProposal } from "../src/story/proposed-board";
-import { applyTakes, validateTakes } from "../src/story/proposed-takes";
+import { applyTakes, applyVoices, validateTakes, validateVoices } from "../src/story/proposed-takes";
 import { applyDraft, validateDraft } from "../src/writer/draft";
 import { applyFill, type Fill } from "../src/writer/fill";
 
@@ -290,6 +290,31 @@ server.registerTool(
       const { added } = applyTakes(snap.project, checked);
       const item = await propose(root, project, { kind: "takes", summary, payload: checked, boardId: board });
       return text({ sent: item.id, newTakes: added, next: "The person opens the project's Sheets and presses Apply." });
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);
+
+server.registerTool(
+  "haggs_propose_voices",
+  {
+    description: "Send spoken voice-over lines (sound files already on this machine, /api/local/…) to a board's shots: each names its shot, who speaks, the words, the voice and seconds after the shot starts. Applied, they play in the Cut and the render.",
+    inputSchema: {
+      project: z.string(),
+      summary: z.string().max(300),
+      board: z.string(),
+      lines: z.array(z.object({ shot: z.string(), speaker: z.string(), text: z.string(), voice: z.string(), url: z.string(), offset: z.number().optional() })).max(100),
+    },
+    annotations: proposes,
+  },
+  async ({ project, summary, board, lines }) => {
+    try {
+      const snap = await load(project);
+      const checked = validateVoices({ board, lines });
+      const { added } = applyVoices(snap.project, checked);
+      const item = await propose(root, project, { kind: "voices", summary, payload: checked, boardId: board });
+      return text({ sent: item.id, newLines: added, next: "The person opens the project's Sheets and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
     }

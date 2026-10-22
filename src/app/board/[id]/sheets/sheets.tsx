@@ -18,7 +18,7 @@ import { fillLooks, keepPicture, run } from "../../../actions";
 import { applyFill, fillRequest } from "../../../../writer/fill";
 import { applyDraft, validateDraft } from "../../../../writer/draft";
 import { applyBoardProposal, validateBoardProposal } from "../../../../story/proposed-board";
-import { applyTakes, validateTakes } from "../../../../story/proposed-takes";
+import { applyTakes, applyVoices, validateTakes, validateVoices } from "../../../../story/proposed-takes";
 import { formatById } from "../../../../sheets/formats";
 import { StartScreen } from "./start";
 import { Nav, openKeys } from "../../../nav";
@@ -231,7 +231,7 @@ function FillButton({ sheets, onFilled, onProblem }: { sheets: Sheets; onFilled:
   );
 }
 
-type Proposal = { id: string; kind: "draft" | "fill" | "edits" | "board" | "takes"; summary: string; payload: unknown; boardId?: string; formatId?: string; at: number };
+type Proposal = { id: string; kind: "draft" | "fill" | "edits" | "board" | "takes" | "voices"; summary: string; payload: unknown; boardId?: string; formatId?: string; at: number };
 
 /** Polls the local bridge for what Claude has sent this project over MCP. Development only. */
 function useInbox(projectId: string) {
@@ -262,7 +262,7 @@ function useInbox(projectId: string) {
   return { items, drop };
 }
 
-const KIND: Record<Proposal["kind"], string> = { draft: "A draft", fill: "Looks and locks", edits: "Sheet edits", board: "A new board", takes: "New takes" };
+const KIND: Record<Proposal["kind"], string> = { draft: "A draft", fill: "Looks and locks", edits: "Sheet edits", board: "A new board", takes: "New takes", voices: "Voice-over lines" };
 
 function AddByName({ label, onAdd }: { label: string; onAdd: (name: string) => void }) {
   const [name, setName] = useState("");
@@ -371,6 +371,24 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
 
   /** Applies what Claude sent, to the board it was meant for, then clears it from the inbox. */
   function applyProposal(item: Proposal) {
+    if (item.kind === "voices") {
+      void (async () => {
+        try {
+          const current = (await store.load(id)) ?? project;
+          if (!current) throw new Error("This project isn't on this device any more.");
+          const sent = validateVoices(item.payload);
+          const { project: saved, added } = applyVoices(current, sent);
+          await store.save(saved);
+          setProject(saved);
+          void claude.drop(item.id);
+          setError(null);
+          setNotice(added ? `Put ${added} voice-over line${added === 1 ? "" : "s"} on their shots. Hear them in the Cut.` : "Those lines were already on their shots.");
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : "Those lines couldn't be added.");
+        }
+      })();
+      return;
+    }
     if (item.kind === "takes") {
       void (async () => {
         try {

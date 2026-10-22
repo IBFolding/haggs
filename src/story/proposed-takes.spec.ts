@@ -49,3 +49,18 @@ test("takes for a missing board or shot, or from off this machine, are refused",
   assert.throws(() => validateTakes({ board: "b1", takes: [{ shot: "s", url: "file:///etc/passwd", kind: "video" }] }), /Take 1 must be/);
   assert.throws(() => validateTakes({ board: "b1", takes: [] }), /1–100/);
 });
+
+test("sent voice lines land on their shots, spoken, and the same file twice is one line", async () => {
+  const { applyVoices, validateVoices } = await import("./proposed-takes");
+  const p = project();
+  const id = p.boards![0]!.shots[0]!.id;
+  const sent = validateVoices({ board: "b1", lines: [{ shot: id, speaker: "ellis", text: "Stop counting.", voice: "Chris (male, american)", url: "/api/local/v/stop.mp3", offset: 0.5 }] });
+  const once = applyVoices(p, sent);
+  assert.equal(once.added, 1);
+  const line = once.project.boards![0]!.shots[0]!.voices![0]!;
+  assert.equal(line.speaker, "ELLIS");
+  assert.equal(line.url, "/api/local/v/stop.mp3");
+  assert.equal(applyVoices(once.project, sent).added, 0);
+  assert.throws(() => validateVoices({ board: "b1", lines: [{ shot: id, speaker: "X", text: "hi", voice: "v", url: "https://evil.test/x.mp3" }] }), /line 1/i);
+  assert.throws(() => applyVoices(p, validateVoices({ board: "b1", lines: [{ shot: "nope", speaker: "X", text: "hi", voice: "v", url: "/api/local/a.mp3" }] })), /no shot/);
+});
