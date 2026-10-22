@@ -18,6 +18,8 @@ export type ProposedShot = {
   picture?: { url: string; kind: "image" | "video"; origin?: string };
   /** A line spoken over the shot: "ELLIS: Stop counting." */
   dialogue?: string;
+  /** Finished as it is — a title card, black — so batch tools leave it alone. */
+  locked?: boolean;
 };
 export type BoardProposal = { name: string; kind?: Board["kind"]; shots: ProposedShot[] };
 
@@ -41,6 +43,7 @@ export function validateBoardProposal(raw: unknown): BoardProposal {
       ...(typeof s.from === "string" && s.from ? { from: s.from } : {}),
       ...(s.picture ? { picture: { url: s.picture.url, kind: s.picture.kind, ...(s.picture.origin ? { origin: String(s.picture.origin) } : {}) } } : {}),
       ...(typeof s.dialogue === "string" && s.dialogue.trim() ? { dialogue: s.dialogue.trim() } : {}),
+      ...(s.locked === true ? { locked: true } : {}),
     };
   });
   return { name, kind: p.kind === "episode" || p.kind === "board" ? p.kind : "reel", shots };
@@ -63,6 +66,7 @@ export function applyBoardProposal(project: Project, proposal: BoardProposal): {
     shot.beat = p.dialogue ? `${p.beat} — ${p.dialogue}` : p.beat;
     shot.seconds = p.seconds;
     if (p.heading) shot.heading = p.heading;
+    if (p.locked) shot.locked = true;
     if (p.picture) {
       const take = { id: "take-" + crypto.randomUUID().slice(0, 8), url: p.picture.url, kind: p.picture.kind, usd: null, promptHash: "", at: Date.now(), ...(p.picture.origin ? { origin: p.picture.origin } : {}) };
       shot.takes = [...(shot.takes ?? (shot.render ? [{ id: "take-first", ...shot.render }] : [])), take];

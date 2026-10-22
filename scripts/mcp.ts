@@ -251,7 +251,7 @@ server.registerTool(
       board: z.object({
         name: z.string(),
         kind: z.enum(["reel", "episode", "board"]).optional(),
-        shots: z.array(z.object({ beat: z.string(), seconds: z.number(), heading: z.string().optional(), from: z.string().optional(), picture: z.object({ url: z.string(), kind: z.enum(["image", "video"]), origin: z.string().optional() }).optional(), dialogue: z.string().optional() })).max(200),
+        shots: z.array(z.object({ beat: z.string(), seconds: z.number(), heading: z.string().optional(), from: z.string().optional(), picture: z.object({ url: z.string(), kind: z.enum(["image", "video"]), origin: z.string().optional() }).optional(), dialogue: z.string().optional(), locked: z.boolean().optional() })).max(200),
       }),
     },
     annotations: proposes,

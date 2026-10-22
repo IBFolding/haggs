@@ -64,3 +64,9 @@ test("reused takes are not stale on arrival, though their old board's prompts di
   assert.deepEqual(staleShots(view(project, board.id)), []);
   assert.equal(board.shots[1]!.render!.url, "/api/local/a.mp4");
 });
+
+test("a proposed title card can arrive locked, so batch tools leave it alone", () => {
+  const { board } = applyBoardProposal(waylight(), validateBoardProposal({ name: "v2", shots: [{ beat: "Card: WAYLIGHT", seconds: 4, locked: true, picture: { url: "/api/local/title.png", kind: "image" } }, { beat: "x", seconds: 2, locked: "yes" }] }));
+  assert.equal(board.shots[0]!.locked, true);
+  assert.equal(board.shots[1]!.locked, undefined);
+});

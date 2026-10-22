@@ -18,6 +18,8 @@ import { FlowCanvas } from "./flow-canvas";
 import { shoot } from "../shoot";
 import { addTake } from "../../story/takes";
 import { ProjectTabs } from "../project-tabs";
+import { animatePlan, readyToAnimate } from "../../story/animate-all";
+import { AnimateAll } from "./animate-all";
 
 export function Board({ id, boardId }: { id: string; boardId?: string | undefined }) {
   /** The whole project; the state below is one board's view of it. */
@@ -32,6 +34,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
   const [rateMap, setRateMap] = useState<Record<string, Rate>>({});
   const [error, setError] = useState<string | null>(null);
   const dragging = useRef<number | null>(null);
+  const [animating, setAnimating] = useState(false);
 
   useEffect(() => {
     void store.load(id).then((found) => {
@@ -97,6 +100,33 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
       }));
     },
     [project, edit],
+  );
+
+  const plan = useMemo(() => (project ? animatePlan(project) : { shots: [], total: 0 }), [project]);
+
+  /** Animates one still: the shot moves to MiniMax H3 and its clip lands as a new take. */
+  const animateOne = useCallback(
+    async (shotId: string): Promise<string | null> => {
+      // The latest saved board, so takes that landed earlier in the run are kept.
+      const latest = full.current ? view(full.current, boardId) : project;
+      if (!latest) return "The board isn't loaded.";
+      const at = latest.shots.findIndex((s) => s.id === shotId);
+      if (at < 0) return "That shot is not on the board any more.";
+      const prepared = { ...latest, shots: latest.shots.map((s, i) => (i === at ? readyToAnimate(s) : s)) };
+      setRunning((prior) => [...prior, shotId]);
+      const result = await shoot(prepared, at);
+      setRunning((prior) => prior.filter((runId) => runId !== shotId));
+      if (!result.ok) {
+        if (result.needsKey) openKeys();
+        return result.reason;
+      }
+      edit((current) => ({
+        ...current,
+        shots: current.shots.map((s) => (s.id === shotId ? addTake(readyToAnimate(s), result.render, result.origin) : s)),
+      }));
+      return null;
+    },
+    [project, boardId, edit],
   );
 
   const drop = useCallback(
@@ -178,7 +208,13 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
           >
             + Subplot
           </button>
+          {plan.shots.length > 0 && (
+            <button className="pill" onClick={() => setAnimating(true)} title="Turn the board's stills into video in one go">
+              Animate stills · {plan.shots.length}
+            </button>
+          )}
         </div>
+        {animating && <AnimateAll plan={plan} onRun={animateOne} onClose={() => setAnimating(false)} />}
 
         <FlowCanvas
           project={project}
