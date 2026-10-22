@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MODELS, getModelCard, outputCount, searchModels } from "../catalog/models";
@@ -207,10 +208,16 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
 
   return (
     <div className="app">
-      <Nav current={surface} />
+      <Nav current={surface === "Video" ? "Video" : "Photos"} />
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
       <div className="canvas" onClick={() => setPicking(false)}>
+        {surface !== "Video" && (
+          <nav className="modes" aria-label="Photos">
+            <Link href="/photos" aria-current={surface === "Create" ? "page" : undefined}>Make</Link>
+            <Link href="/edit" aria-current={surface === "Edit" ? "page" : undefined}>Edit a photo</Link>
+          </nav>
+        )}
         {slots.length === 0 && history.length === 0 ? (
           <div className="blank">
             <h1>

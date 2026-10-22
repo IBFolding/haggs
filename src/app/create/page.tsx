@@ -1,5 +1,6 @@
-import { Studio } from "../studio";
+import { redirect } from "next/navigation";
 
+/** Create is called Photos now. */
 export default function CreatePage() {
-  return <Studio />;
+  redirect("/photos");
 }

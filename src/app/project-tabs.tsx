@@ -25,6 +25,7 @@ const TABS = [
 
 export type ProjectTab = (typeof TABS)[number]["id"];
 
+export const LAST_BOARD = "haggs.last-board";
 const NEW = "__new__";
 const DELETE = "__delete__";
 
@@ -52,6 +53,14 @@ function useWaiting(projectId: string): number {
 export function ProjectTabs({ project, boardId, current }: { project: Project; boardId?: string | undefined; current: ProjectTab }) {
   const router = useRouter();
   const waiting = useWaiting(project.id);
+  // Remembered so Editor in the header can take you straight back to this board's cut.
+  useEffect(() => {
+    try {
+      localStorage.setItem(LAST_BOARD, JSON.stringify({ project: project.id, board: boardOf(project, boardId).id }));
+    } catch {
+      // A convenience only.
+    }
+  }, [project, boardId]);
   const store = useMemo(() => createProjectStore(defaultKv()), []);
   const boards = normalize(project).boards!;
   const board = boardOf(project, boardId);

@@ -78,7 +78,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   },
   {
     name: "open_page",
-    description: "Take the person to a page in haggs: /library, /create, /video, /swap, /workflows, /workflows/<name>, /board/<project>?b=<board>, /board/<project>/sheets?b=<board>, /board/<project>/cut?b=<board>, /board/<project>/media?b=<board>, /gallery.",
+    description: "Take the person to a page in haggs: /library, /photos (make pictures), /edit (edit a picture), /video, /swap (put a character into a video), /editor (the Cut of their last board), /workflows, /workflows/<name>, /board/<project>?b=<board>, /board/<project>/sheets?b=<board>, /board/<project>/cut?b=<board>, /board/<project>/media?b=<board>, /gallery.",
     input_schema: { type: "object", properties: { path: { type: "string" } }, required: ["path"], additionalProperties: false },
   },
 ];

@@ -21,10 +21,9 @@ import { KeySheet } from "./key-sheet";
 
 const ITEMS = [
   { label: "Projects", href: "/library" },
-  { label: "Create", href: "/create" },
+  { label: "Photos", href: "/photos" },
   { label: "Video", href: "/video" },
-  { label: "Swap", href: "/swap" },
-  { label: "Edit", href: "/edit" },
+  { label: "Editor", href: "/editor" },
   { label: "Workflows", href: "/workflows" },
   { label: "Gallery", href: "/gallery" },
 ] as const;

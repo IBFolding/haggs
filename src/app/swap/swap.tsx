@@ -113,7 +113,7 @@ export function Swap() {
 
   return (
     <div className="app">
-      <Nav current="Swap" />
+      <Nav current="Workflows" />
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
       <div className="canvas">
         <div className="swap">

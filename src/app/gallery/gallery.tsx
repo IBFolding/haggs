@@ -43,7 +43,7 @@ const EMPTY: Record<Scope, { head: string; body: string }> = {
 
 /** Where a run was made, so Reuse lands on the surface that can run it again. */
 const SURFACE_PATH: Record<string, string> = {
-  "text-to-image": "/",
+  "text-to-image": "/photos",
   "image-edit": "/edit",
   "text-to-video": "/video",
   "image-to-video": "/video",

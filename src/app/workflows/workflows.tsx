@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Entry } from "../../server/comfy-library";
 import { Nav, openKeys } from "../nav";
+import { SWAP_THUMB } from "../squares";
 import { listWorkflows, type Listing } from "../workflow-actions";
 
 /**
@@ -60,6 +61,13 @@ export function Workflows() {
             </div>
             <Link className="pill" href="/workflows/import">Open your own workflow</Link>
           </header>
+
+          <section className="wf-apps" aria-label="Apps">
+            <Link className="wf-app" href="/swap">
+              <img src={SWAP_THUMB} alt="" />
+              <span><b>Swap a character</b><small>Drop a video and a picture, say who to replace. The scene, camera and sound stay.</small></span>
+            </Link>
+          </section>
 
           <div className="wf-bar">
             <input className="wf-hunt" value={hunt} onChange={(e) => setHunt(e.target.value)} placeholder="Search: character swap, product video, upscale…" aria-label="Search workflows" />

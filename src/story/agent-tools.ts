@@ -23,7 +23,7 @@ export type ToolContext = {
 
 export type ToolOutcome = { result: unknown; change?: { label: string; before: Project }; error?: boolean };
 
-const PAGES = /^\/(library|create|video|swap|edit|gallery|workflows(\/[\w.-]+)?|board\/[\w-]+(\/(sheets|cut|media))?)(\?b=[\w-]+)?$/;
+const PAGES = /^\/(library|photos|create|video|swap|edit|editor|gallery|workflows(\/[\w.-]+)?|board\/[\w-]+(\/(sheets|cut|media))?)(\?b=[\w-]+)?$/;
 
 async function project(ctx: ToolContext, id: unknown): Promise<Project> {
   const found = typeof id === "string" ? await ctx.load(id) : null;

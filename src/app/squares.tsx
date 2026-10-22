@@ -23,6 +23,8 @@ const FIRST: Record<string, string[]> = {
   Create: [],
 };
 
+export const SWAP_THUMB = "https://cloud.comfy.org/templates/api_higgsfield_genjutsu_motion_transfer-1.webp";
+
 const isVideo = (url: string) => /\.(mp4|webm)$/i.test(url);
 
 export function Squares({ surface, templates, onPick }: { surface: string; templates: Template[]; onPick: (t: Template) => void }) {
@@ -81,7 +83,17 @@ export function Squares({ surface, templates, onPick }: { surface: string; templ
               </span>
             </button>
           ))}
-          {comfy.map((e) => (
+          {surface === "Video" && (
+            <Link className="square" href="/swap">
+              <img src={SWAP_THUMB} alt="" loading="lazy" />
+              <span className="square-tag">App</span>
+              <span className="square-face">
+                <b>Swap a character</b>
+                <small>Put anyone into any video, from one picture</small>
+              </span>
+            </Link>
+          )}
+          {comfy.filter((e) => e.name !== "api_higgsfield_genjutsu_motion_transfer").map((e) => (
             <Link key={e.name} className="square" href={`/workflows/${encodeURIComponent(e.name)}`}>
               <img src={e.thumb} alt="" loading="lazy" />
               <span className="square-tag">Comfy workflow</span>
