@@ -152,3 +152,33 @@ test("a project name with shell metacharacters stays inert in the script", () =>
 test("an empty cut refuses to produce a script that does nothing", () => {
   assert.throws(() => ffmpegScript(buildCut(board()), "x"), /nothing to export/i);
 });
+
+test("voice lines play from their shot's start plus their offset, and move with the shot", () => {
+  const a = shot({ seconds: 3, render: image() });
+  const b = shot({ seconds: 4, render: video(), voices: [{ id: "v1", url: "/api/local/line.mp3", text: "Stop counting.", speaker: "ELLIS", voice: "Chris (male, american)", offset: 0.5 }] });
+  const cut = buildCut(board(a, b));
+  assert.deepEqual(cut.voices.map((v) => [v.text, v.start]), [["Stop counting.", 3.5]]);
+  const moved = buildCut(board(b, a));
+  assert.equal(moved.voices[0]!.start, 0.5);
+});
+
+test("a line not spoken yet, or on a shot with nothing to show, is left out of the cut", () => {
+  const unspoken = shot({ seconds: 2, render: image(), voices: [{ id: "v", text: "Be brave.", speaker: "VOICE", voice: "Laura (female, american)", offset: 0 }] });
+  const empty = shot({ seconds: 2, voices: [{ id: "w", url: "/api/local/w.mp3", text: "x", speaker: "X", voice: "Laura (female, american)", offset: 0 }] });
+  assert.deepEqual(buildCut(board(unspoken, empty)).voices, []);
+});
+
+test("the board's soundtrack runs under the whole cut", () => {
+  const p = { ...board(shot({ seconds: 2, render: image() })), music: { url: "/api/local/score.mp3", name: "Score", gain: -4 } };
+  assert.deepEqual(buildCut(p).music, { url: "/api/local/score.mp3", name: "Score", gain: -4 });
+  assert.equal(buildCut(board(shot({ seconds: 2, render: image() }))).music, null);
+});
+
+test("the export script mixes voices over the clips and dips the soundtrack under them", () => {
+  const p = { ...board(shot({ seconds: 2, render: image("/api/local/a.png"), voices: [{ id: "v", url: "/api/local/v.mp3", text: "Hi", speaker: "A", voice: "Laura (female, american)", offset: 0.25 }] })), music: { url: "/api/local/score.mp3", name: "Score", gain: -6 } };
+  const script = ffmpegScript(buildCut(p), "Sizzle", "http://localhost:3111");
+  assert.match(script, /curl -fsSL 'http:\/\/localhost:3111\/api\/local\/a\.png'/, "local media is fetched from the app");
+  assert.match(script, /adelay=250\|250/);
+  assert.match(script, /sidechaincompress/);
+  assert.match(script, /volume=-6dB/);
+});

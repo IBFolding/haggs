@@ -62,7 +62,27 @@ export type Shot = {
   trimIn?: number;
   /** Reference images for the cast and place in this shot, sent with it when it is generated. */
   refs?: string[];
+  /** Voice-over lines spoken over this shot; they move with it when the board is reordered. */
+  voices?: VoiceLine[];
 };
+
+/** One spoken line, placed from the start of its shot. `url` is empty until it has been spoken. */
+export type VoiceLine = {
+  id: string;
+  text: string;
+  /** Who says it, as the script names them: ELLIS, VOICE. */
+  speaker: string;
+  /** The ElevenLabs voice it is spoken in. */
+  voice: string;
+  url?: string;
+  /** Seconds after the shot starts. */
+  offset: number;
+  /** Loudness change in dB. */
+  gain?: number;
+};
+
+/** A board's soundtrack: one file under the whole cut, dipped under the voices. */
+export type Music = { url: string; name: string; gain: number };
 
 /** One version of a shot's footage — a generation, a reroll, an import. */
 export type Take = {
@@ -111,6 +131,8 @@ export type Project = {
   media?: Media[];
   /** The project's storyboards. `shots`/`notes` above are only read from projects saved before boards existed. */
   boards?: Board[];
+  /** The soundtrack of the board being viewed. Stored on the board; only a view carries it here. */
+  music?: Music;
   /** Set by an import tool; a later file with the same key offers to replace this project. */
   importKey?: string;
   source?: { templateId: string; name: string; author?: string };
@@ -128,6 +150,7 @@ export type Board = {
   /** Array order IS story order. */
   shots: Shot[];
   notes: Note[];
+  music?: Music;
 };
 
 /** What the library list needs, without loading every project in full. */

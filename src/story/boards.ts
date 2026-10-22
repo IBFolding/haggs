@@ -25,18 +25,24 @@ export function boardOf(project: Project, boardId?: string | null): Board {
 /** The project with this board's shots and notes in the places board code reads them. */
 export function view(project: Project, boardId?: string | null): Project {
   const board = boardOf(project, boardId);
-  return { ...normalize(project), shots: board.shots, notes: board.notes };
+  const { music: _project, ...base } = normalize(project);
+  return { ...base, shots: board.shots, notes: board.notes, ...(board.music ? { music: board.music } : {}) };
 }
 
 /** Writes a view back: its shots and notes to the board, everything else to the project. */
 export function commit(project: Project, boardId: string | null | undefined, seen: Project): Project {
   const base = normalize(project);
   const target = boardOf(base, boardId).id;
+  const { music, ...rest } = seen;
   return {
-    ...seen,
+    ...rest,
     shots: [],
     notes: [],
-    boards: base.boards!.map((b) => (b.id === target ? { ...b, shots: seen.shots, notes: seen.notes } : b)),
+    boards: base.boards!.map((b) => {
+      if (b.id !== target) return b;
+      const { music: _old, ...kept } = b;
+      return { ...kept, shots: seen.shots, notes: seen.notes, ...(music ? { music } : {}) };
+    }),
   };
 }
 

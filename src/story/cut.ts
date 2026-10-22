@@ -1,4 +1,4 @@
-import type { Project, Shot } from "./model";
+import type { Music, Project, Shot } from "./model";
 
 /**
  * The cut: the board's shots, in story order, laid end to end.
@@ -24,9 +24,14 @@ export type Clip = {
   seconds: number;
 };
 
+/** A spoken line placed on the cut's clock. */
+export type Voice = { shotId: string; id: string; url: string; text: string; start: number; gain: number };
+
 export type Cut = {
   clips: Clip[];
   total: number;
+  voices: Voice[];
+  music: Music | null;
   /** Shots with nothing to show yet, so a gap in the cut is never a surprise. */
   skipped: string[];
 };
@@ -63,6 +68,7 @@ export function clipSeconds(shot: Shot): number {
 export function buildCut(project: Project): Cut {
   const clips: Clip[] = [];
   const skipped: string[] = [];
+  const voices: Voice[] = [];
   let cursor = 0;
 
   for (const shot of project.shots) {
@@ -81,10 +87,14 @@ export function buildCut(project: Project): Cut {
       from: positive(shot.trimIn) ?? 0,
       seconds,
     });
+    for (const line of shot.voices ?? []) {
+      // A line that hasn't been spoken yet has nothing to play.
+      if (line.url) voices.push({ shotId: shot.id, id: line.id, url: line.url, text: line.text, start: Math.round((cursor + Math.max(0, line.offset)) * 1000) / 1000, gain: line.gain ?? 0 });
+    }
     cursor += seconds;
   }
 
-  return { clips, total: cursor, skipped };
+  return { clips, total: cursor, skipped, voices, music: project.music ?? null };
 }
 
 /**
@@ -145,7 +155,45 @@ function slug(name: string): string {
  * URLs and the project name go into a shell script, so both are quoted rather
  * than interpolated.
  */
-export function ffmpegScript(cut: Cut, name: string): string {
+/**
+ * The sound mix as one ffmpeg filter graph over the joined picture (input 0,
+ * with the clips' own sound), each voice line (inputs 1…n) and the
+ * soundtrack (the last input). Voices are delayed to their places; the
+ * soundtrack is trimmed to the cut, faded out, and pressed down by the
+ * voices so every line is heard over it. Null when there is nothing to mix.
+ */
+export function mixFilter(cut: Cut): { inputs: string[]; filter: string } | null {
+  if (!cut.voices.length && !cut.music) return null;
+  const parts: string[] = [];
+  const inputs = cut.voices.map((v) => v.url);
+  cut.voices.forEach((v, i) => {
+    const ms = Math.round(v.start * 1000);
+    parts.push(`[${i + 1}:a]aresample=48000,adelay=${ms}|${ms},volume=${v.gain}dB[v${i}]`);
+  });
+  const vo = cut.voices.length > 1 ? (parts.push(`${cut.voices.map((_, i) => `[v${i}]`).join("")}amix=inputs=${cut.voices.length}:normalize=0[vo]`), "[vo]") : cut.voices.length ? "[v0]" : null;
+  let bed: string | null = null;
+  if (cut.music) {
+    const m = inputs.length + 1;
+    inputs.push(cut.music.url);
+    const fade = Math.max(0, cut.total - 2);
+    parts.push(`[${m}:a]aresample=48000,atrim=0:${cut.total},volume=${cut.music.gain}dB,afade=t=out:st=${fade}:d=2[mus]`);
+    if (vo) {
+      parts.push(`${vo}asplit[vo1][vo2]`, `[mus][vo1]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=450[bed]`);
+      bed = "[bed]";
+    } else bed = "[mus]";
+  }
+  const voice = vo && cut.music ? "[vo2]" : vo;
+  const layers = ["[0:a]", bed, voice].filter(Boolean) as string[];
+  parts.push(`${layers.join("")}amix=inputs=${layers.length}:normalize=0:duration=first[mix]`);
+  return { inputs, filter: parts.join(";") };
+}
+
+/** Local media (/api/local/…) is fetched from the running app, so the script needs its address. */
+function absolute(url: string, origin: string | undefined): string {
+  return url.startsWith("/") && origin ? `${origin.replace(/\/$/, "")}${url}` : url;
+}
+
+export function ffmpegScript(cut: Cut, name: string, origin?: string): string {
   if (cut.clips.length === 0) {
     throw new Error("There is nothing to export yet — shoot at least one shot first.");
   }
@@ -170,7 +218,7 @@ export function ffmpegScript(cut: Cut, name: string): string {
     const dest = `"$work/clip-${n}.mp4"`;
 
     lines.push(`# ${n}: ${clip.heading.replace(/[\r\n]+/g, " ") || "untitled shot"}`);
-    lines.push(`curl -fsSL ${sh(clip.url)} -o ${src}`);
+    lines.push(`curl -fsSL ${sh(absolute(clip.url, origin))} -o ${src}`);
 
     if (clip.kind === "image") {
       lines.push(
@@ -201,10 +249,22 @@ export function ffmpegScript(cut: Cut, name: string): string {
       return `echo "file 'clip-${n}.mp4'" >> "$work/list.txt"`;
     }),
     "",
-    `ffmpeg -loglevel error -y -f concat -safe 0 -i "$work/list.txt" -c copy ${sh(out)}`,
-    `echo "wrote ${out}"`,
-    "",
   );
+  const mix = mixFilter(cut);
+  if (!mix) {
+    lines.push(`ffmpeg -loglevel error -y -f concat -safe 0 -i "$work/list.txt" -c copy ${sh(out)}`);
+  } else {
+    lines.push(
+      `ffmpeg -loglevel error -y -f concat -safe 0 -i "$work/list.txt" -c copy "$work/picture.mp4"`,
+      "",
+      "# The sound: voice lines in their places, the soundtrack dipped under them.",
+      ...mix.inputs.map((url, i) => `curl -fsSL ${sh(absolute(url, origin))} -o "$work/sound-${i + 1}"`),
+      `ffmpeg -loglevel error -y -i "$work/picture.mp4" ${mix.inputs.map((_, i) => `-i "$work/sound-${i + 1}"`).join(" ")} \\`,
+      `  -filter_complex ${sh(mix.filter)} \\`,
+      `  -map 0:v -map "[mix]" -c:v copy -c:a aac -b:a 192k ${sh(out)}`,
+    );
+  }
+  lines.push(`echo "wrote ${out}"`, "");
 
   return lines.join("\n");
 }

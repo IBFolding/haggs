@@ -56,3 +56,17 @@ test("the library counts shots across every board", () => {
   assert.equal(summarize(p).shotCount, 3);
   assert.equal(summarize(p).boardCount, 2);
 });
+
+test("each board keeps its own soundtrack through a view and a commit", () => {
+  const p: Project = { ...createProject("W"), boards: [
+    { id: "a", name: "Sizzle", kind: "reel", shots: [], notes: [], music: { url: "/api/local/score.mp3", name: "Score", gain: -6 } },
+    { id: "b", name: "Ep 1", kind: "episode", shots: [], notes: [] },
+  ] };
+  assert.equal(view(p, "a").music?.name, "Score");
+  assert.equal(view(p, "b").music, undefined);
+  const seen = { ...view(p, "b"), music: { url: "/api/local/ep1.mp3", name: "Ep 1 theme", gain: 0 } };
+  const back = commit(p, "b", seen);
+  assert.equal(back.boards![1]!.music?.name, "Ep 1 theme");
+  assert.equal(back.boards![0]!.music?.name, "Score");
+  assert.equal(back.music, undefined, "the soundtrack lives on the board, not the project");
+});
