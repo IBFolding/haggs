@@ -1747,3 +1747,71 @@ a.logo { color: var(--text); text-decoration: none; }
 @media (max-width: 760px) { .voice-line { grid-template-columns: 1fr 1fr; } .voice-text { grid-column: 1 / -1; } }
 .clip-lock { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-2); }
 .clip-lock input { accent-color: var(--volt); }
+
+/* ─── workflows ────────────────────────────────────────────────────── */
+
+.wf { width: min(1240px, 100%); margin: 0 auto; padding: 32px 24px 90px; }
+.wf-head { display: flex; gap: 20px; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; }
+.wf-head h1 { margin: 0 0 6px; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
+.wf-head p { margin: 0; color: var(--text-2); font-size: 14px; max-width: 64ch; line-height: 1.5; }
+.wf-back { color: var(--text-3); font-size: 13px; text-decoration: none; display: inline-block; margin-bottom: 6px; }
+.wf-back:hover { color: var(--text); }
+.wf-bar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+.wf-hunt { padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line-hot); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; max-width: 520px; }
+.wf-hunt:focus-visible { outline: none; border-color: var(--volt); box-shadow: 0 0 0 3px var(--volt-soft); }
+.wf-shelves, .wf-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.wf-shelves button, .wf-tabs button { padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.wf-shelves button.on, .wf-tabs button.on { background: var(--volt); color: var(--volt-ink); border-color: var(--volt); }
+.wf-shelves button:focus-visible, .wf-tabs button:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.wf-note { color: var(--text-2); font-size: 13.5px; }
+.wf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.wf-tile { position: relative; display: block; aspect-ratio: 4 / 5; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); text-decoration: none; }
+.wf-tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 400ms ease; }
+.wf-tile:hover img { transform: scale(1.03); }
+.wf-tile:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.wf-tile.ghost { animation: pulse 1.4s ease-in-out infinite alternate; }
+.wf-tile-face { position: absolute; inset: auto 0 0 0; padding: 40px 14px 13px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.82)); display: flex; flex-direction: column; gap: 3px; }
+.wf-tile-face b { font-size: 14.5px; line-height: 1.25; }
+.wf-tile-face small { font-size: 11.5px; color: rgba(255, 255, 255, 0.72); }
+.wf-credit { margin-top: 26px; font-size: 12px; color: var(--text-3); }
+.wf-credit a { color: var(--text-2); }
+.wf-body { display: grid; grid-template-columns: minmax(320px, 440px) 1fr; gap: 22px; align-items: start; }
+.wf-form { display: flex; flex-direction: column; gap: 14px; }
+.wf-drops { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.wf-drop { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px dashed var(--line-hot); border-radius: 14px; background: var(--surface); }
+.wf-drop.over { border-color: var(--volt); background: var(--volt-soft); }
+.wf-drop-label { font-size: 12px; font-weight: 700; color: var(--text-2); }
+.wf-drop-face { aspect-ratio: 1; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--surface-2); cursor: pointer; display: grid; place-items: center; }
+.wf-drop-face img, .wf-drop-face video { width: 100%; height: 100%; object-fit: cover; }
+.wf-drop-face audio { width: 92%; }
+.wf-drop-face:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.wf-drop-empty { color: var(--text-3); font-size: 12px; padding: 10px; text-align: center; }
+.wf-drop-foot { font-size: 11.5px; color: var(--text-3); }
+.wf-field { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--text-2); }
+.wf-field textarea, .wf-field select, .wf-field input { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-hot); background: var(--surface); color: var(--text); font: inherit; font-size: 13.5px; resize: vertical; }
+.wf-field-inline { flex-direction: row; align-items: center; justify-content: space-between; }
+.wf-field-inline select, .wf-field-inline input { width: 12em; }
+.wf-field textarea:focus-visible, .wf-field select:focus-visible, .wf-field input:focus-visible { outline: none; border-color: var(--volt); box-shadow: 0 0 0 3px var(--volt-soft); }
+.wf-run { margin-left: 0; justify-content: center; padding: 13px 18px; font-size: 14.5px; }
+.wf-small { margin: -6px 0 0; font-size: 11.5px; color: var(--text-3); }
+.wf-result { min-height: 380px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.wf-result video, .wf-result img { width: 100%; max-height: 68vh; object-fit: contain; border-radius: 10px; background: #000; }
+.wf-result-wait { margin: auto; color: var(--text-3); font-size: 13.5px; text-align: center; max-width: 34ch; }
+.wf-example { margin: 0; opacity: 0.85; }
+.wf-example figcaption { font-size: 12px; color: var(--text-3); margin-top: 8px; }
+.wf-nodes { border: 1px solid var(--line); border-radius: 16px; background: radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0) 0 0 / 22px 22px, var(--surface); padding: 18px; overflow: auto; max-height: 78vh; }
+.wf-nodes-stage { position: relative; width: 100%; min-width: 640px; }
+.wf-nodes-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.wf-card { position: absolute; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 12px; border: 1px solid var(--line-hot); background: var(--surface-2); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); overflow: hidden; }
+.wf-card.out { border-color: var(--volt); }
+.wf-card-title { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px; background: var(--bg, #0b0b0c); color: var(--volt); font-size: 11px; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.wf-card-title::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--volt); flex: none; }
+.wf-card img, .wf-card video { flex: 1; min-height: 0; width: 100%; object-fit: cover; border-radius: 8px; }
+.wf-wire { fill: none; stroke: var(--volt); stroke-width: 2; opacity: 0.8; }
+.wf-import { width: 100%; min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 2px dashed var(--line-hot); border-radius: 18px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.wf-import.over { border-color: var(--volt); background: var(--volt-soft); }
+.wf-import b { font-size: 16px; }
+.wf-import span { color: var(--text-3); font-size: 13px; }
+@media (max-width: 860px) { .wf-body { grid-template-columns: 1fr; } }
+@keyframes pulse { from { opacity: 0.45; } to { opacity: 0.9; } }
+.wf-card-note { margin: 0; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); color: var(--text-2); font-size: 11.5px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; }

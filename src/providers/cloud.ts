@@ -81,8 +81,8 @@ function decodeDataUri(uri: string): { bytes: Uint8Array; mime: string } {
   return { bytes: Uint8Array.from(Buffer.from(match[2]!, "base64")), mime: match[1]! };
 }
 
-const EXTENSION: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" };
-const UPLOADED = /^[-\w.]{1,180}\.(png|jpe?g|webp|mp4|webm|mov)$/i;
+const EXTENSION: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/flac": "flac", "audio/ogg": "ogg", "audio/mp4": "m4a" };
+const UPLOADED = /^[-\w.]{1,180}\.(png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|flac|ogg|m4a)$/i;
 
 /** The Comfy Cloud transport: upload inputs, run a workflow, keep what it saves. Every edit tool uses this. */
 export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5000, timeoutMs = 15 * 60_000, keep }: CloudOptions) {
@@ -111,7 +111,7 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
   async function uploadBytes(bytes: Uint8Array, mime: string): Promise<string> {
     const ext = EXTENSION[mime];
     if (!ext) throw fail("That file type can't go to Comfy.");
-    const limit = mime.startsWith("video/") ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    const limit = mime.startsWith("image/") ? 10 * 1024 * 1024 : 100 * 1024 * 1024;
     if (bytes.length > limit) throw fail(mime.startsWith("video/") ? "That take is over 100 MB." : "Each picture must be under 10 MB.");
     const form = new FormData();
     form.append("image", new Blob([Buffer.from(bytes)], { type: mime }), `haggs.${ext}`);

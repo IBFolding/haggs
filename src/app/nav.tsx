@@ -22,6 +22,7 @@ const ITEMS = [
   { label: "Create", href: "/create" },
   { label: "Video", href: "/video" },
   { label: "Edit", href: "/edit" },
+  { label: "Workflows", href: "/workflows" },
   { label: "Gallery", href: "/gallery" },
 ] as const;
 
