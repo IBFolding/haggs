@@ -106,3 +106,12 @@ test("out of Comfy credits says so, and that nothing was made", async () => {
   const runner = createCloudRunner({ apiKey: "ck", fetch: fake, pollMs: 0, keep: async () => "" });
   await assert.rejects(runner.run({ "20": { class_type: "SaveVideo", inputs: {} } }), /credits have run out.*Nothing was generated/);
 });
+
+test("a last frame makes MiniMax end on a picture, so a new shot can bridge two others", () => {
+  const w = minimaxWorkflow({ prompt: "She walks to the door", seconds: 4, firstFrame: "end-of-a.png", lastFrame: "start-of-b.png", seed: 1 });
+  assert.equal(w["1"]!.class_type, "MinimaxHailuo03FirstLastFrameNode");
+  assert.deepEqual(w["1"]!.inputs.first_frame, ["2", 0]);
+  assert.deepEqual(w["1"]!.inputs.last_frame, ["3", 0]);
+  assert.deepEqual(w["3"], { class_type: "LoadImage", inputs: { image: "start-of-b.png" } });
+  assert.throws(() => minimaxWorkflow({ prompt: "x x x x", seconds: 4, lastFrame: "b.png", seed: 1 }), /first frame/);
+});

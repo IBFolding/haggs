@@ -155,6 +155,8 @@ export async function run(
   images?: string[],
   /** False when the images are references only, not the opening frame. */
   firstFrame?: boolean,
+  /** A picture to end on (a bridge between two shots). */
+  lastFrame?: string,
 ): Promise<RunResult> {
   if (!prompt.trim()) return { ok: false, reason: "Describe something first." };
 
@@ -191,6 +193,7 @@ export async function run(
       prompt,
       ...(sendable.length ? { images: sendable } : {}),
       ...(firstFrame === false ? { firstFrame: false } : {}),
+      ...(lastFrame ? { lastFrame: (await inlineLocal([lastFrame], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV))[0]! } : {}),
       count: outputCount(card, settings),
       // Only the fields this endpoint declares, under the names it declares
       // them. Nothing the model did not ask for reaches the request.

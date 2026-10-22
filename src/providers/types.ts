@@ -14,6 +14,8 @@ export type GenerationRequest = {
   images?: string[];
   /** Whether the first image is the opening frame (default) or just another reference. */
   firstFrame?: boolean;
+  /** A picture the video should end on. Only models with a last-frame input use it. */
+  lastFrame?: string;
   count?: number;
   aspectRatio?: AspectRatio;
   /** Provider-specific escape hatch, merged last, never inspected by us. */

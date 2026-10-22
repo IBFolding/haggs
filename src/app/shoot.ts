@@ -24,7 +24,7 @@ export async function shoot(project: Project, index: number): Promise<
   // The shot's own length, not the model's default, so the price shown is the price sent.
   const seconds = renderSeconds(shot, card.settings.duration);
   if (seconds !== null) settings.duration = seconds;
-  const result = await run(shot.model.id, text, settings, images, firstFrame);
+  const result = await run(shot.model.id, text, settings, images, firstFrame, firstFrame && shot.endsOn ? shot.endsOn : undefined);
   if (!result.ok) return { ok: false, reason: result.reason, ...(result.needsKey ? { needsKey: true } : {}) };
   const first = result.shots[0];
   if (!first) return { ok: false, reason: "The provider finished without returning a picture." };

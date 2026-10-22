@@ -1885,3 +1885,5 @@ a.logo { color: var(--text); text-decoration: none; }
 .producer-say textarea { flex: 1; resize: none; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line-hot); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13.5px; }
 .producer-say textarea:focus-visible { outline: none; border-color: var(--volt); box-shadow: 0 0 0 3px var(--volt-soft); }
 .producer-say .fire { margin: 0; align-self: flex-end; }
+.clip.drop { box-shadow: inset 3px 0 0 var(--volt); }
+.clip[draggable="true"] { cursor: grab; }

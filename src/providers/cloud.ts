@@ -24,6 +24,8 @@ export type MinimaxOptions = {
   seed: number;
   /** An uploaded Comfy image name; the video starts from it. */
   firstFrame?: string;
+  /** An uploaded Comfy image name; the video ends on it. Needs a first frame. */
+  lastFrame?: string;
   /** Uploaded Comfy image names: cast and place references, up to nine. */
   references?: string[];
 };
@@ -31,12 +33,13 @@ export type MinimaxOptions = {
 const IMAGE_NAME = /^[-\w.]{1,180}\.(png|jpe?g|webp)$/i;
 
 /** MiniMax H3 as a Comfy workflow: text, first frame, or references. Verified against Cloud's node catalog. */
-export function minimaxWorkflow({ prompt, seconds, resolution = "768P", ratio = "16:9", seed, firstFrame, references = [] }: MinimaxOptions): Workflow {
+export function minimaxWorkflow({ prompt, seconds, resolution = "768P", ratio = "16:9", seed, firstFrame, lastFrame, references = [] }: MinimaxOptions): Workflow {
   if (prompt.trim().length < 4 || prompt.length > 4000) throw new Error("Describe the take in 4–4000 characters.");
   if (!Number.isInteger(seconds) || seconds < 4 || seconds > 15) throw new Error("MiniMax H3 takes 4–15 whole seconds.");
   if (references.length > 9) throw new Error("MiniMax H3 takes up to nine reference pictures.");
   if (firstFrame && references.length) throw new Error("Use a first frame or reference pictures, not both.");
-  for (const name of [firstFrame, ...references].filter(Boolean)) if (!IMAGE_NAME.test(name!)) throw new Error("A picture didn't upload properly.");
+  if (lastFrame && !firstFrame) throw new Error("A last frame needs a first frame to start from.");
+  for (const name of [firstFrame, lastFrame, ...references].filter(Boolean)) if (!IMAGE_NAME.test(name!)) throw new Error("A picture didn't upload properly.");
 
   const model: Record<string, unknown> = { model: "MiniMax H3", "model.prompt": prompt.trim(), "model.resolution": resolution, "model.ratio": ratio, "model.duration": seconds, seed, watermark: false };
   const workflow: Workflow = {
@@ -47,6 +50,10 @@ export function minimaxWorkflow({ prompt, seconds, resolution = "768P", ratio = 
     workflow["1"] = { class_type: "MinimaxHailuo03FirstLastFrameNode", inputs: { ...model, first_frame: ["2", 0] } };
     delete workflow["1"].inputs["model.ratio"];
     workflow["2"] = { class_type: "LoadImage", inputs: { image: firstFrame } };
+    if (lastFrame) {
+      workflow["1"].inputs.last_frame = ["3", 0];
+      workflow["3"] = { class_type: "LoadImage", inputs: { image: lastFrame } };
+    }
   } else if (references.length) {
     workflow["1"] = { class_type: "MinimaxHailuo03ReferenceNode", inputs: { ...model, "model.ratio": "adaptive" } };
     if (ratio !== "adaptive") workflow["1"].inputs["model.ratio"] = ratio;
@@ -205,13 +212,14 @@ export function createCloudProvider(options: CloudOptions): Provider {
       const asFirst = Boolean(request.images?.length) && request.firstFrame !== false;
       const uploaded = [];
       for (const image of (request.images ?? []).slice(0, asFirst ? 1 : 9)) uploaded.push(await cloud.upload(image));
+      const last = asFirst && request.lastFrame ? await cloud.upload(request.lastFrame) : undefined;
       const workflow = minimaxWorkflow({
         prompt: request.prompt,
         seconds: Math.min(15, Math.max(4, seconds)),
         resolution,
         ratio,
         seed: Math.floor(Math.random() * 2_000_000_000),
-        ...(asFirst ? { firstFrame: uploaded[0]! } : uploaded.length ? { references: uploaded.slice(0, 9) } : {}),
+        ...(asFirst ? { firstFrame: uploaded[0]!, ...(last ? { lastFrame: last } : {}) } : uploaded.length ? { references: uploaded.slice(0, 9) } : {}),
       });
       const result = await cloud.run(workflow);
       if (result.kind === "audio") throw new ProviderError("comfy-cloud", "MiniMax H3 returned sound without video.");

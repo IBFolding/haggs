@@ -62,6 +62,8 @@ export type Shot = {
   trimIn?: number;
   /** Reference images for the cast and place in this shot, sent with it when it is generated. */
   refs?: string[];
+  /** A picture this shot should end on: the next shot's first frame, when it bridges two shots. */
+  endsOn?: string;
   /** Voice-over lines spoken over this shot; they move with it when the board is reordered. */
   voices?: VoiceLine[];
 };

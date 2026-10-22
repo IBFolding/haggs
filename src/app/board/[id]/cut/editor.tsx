@@ -5,7 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
 import { Soundtrack, usePreviewSound, VoiceLines } from "./sound";
-import { newShot, type Shot } from "../../../../story/model";
+import { moveShot, newShot, type Shot } from "../../../../story/model";
+import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
+import { cloudEstimate } from "../../../../providers/cloud-price";
+import { frameAt } from "../../../cut-actions";
 import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite } from "../../../../story/takes";
 import { shoot } from "../../../shoot";
 import { EditTools } from "./tools";
@@ -157,6 +160,54 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
     onShot(shotId, (s) => addTake(s, result.render, result.origin));
   }
 
+  /** Bridge to the next shot, or extend this one: frames taken, a shot made between, rendered as its first take. */
+  const [expanding, setExpanding] = useState<string | null>(null);
+  const expandPrice = cloudEstimate({ seconds: 4, resolution: "768P", references: 0 });
+  async function expand(shotId: string, mode: "bridge" | "extend") {
+    const latest = full.current ? view(full.current, boardId) : project;
+    if (!latest) return;
+    setProblem(null);
+    setExpanding(`${shotId}:${mode}`);
+    try {
+      const plan = bridgeFrames(latest, shotId, mode);
+      const start = await frameAt(plan.start.url, plan.start.at, plan.start.kind);
+      if (!start.ok) throw new Error(start.reason);
+      const end = plan.end ? await frameAt(plan.end.url, plan.end.at, plan.end.kind) : null;
+      if (end && !end.ok) throw new Error(end.reason);
+      const made = bridgingShot(latest.shots[plan.insertAt - 1]!, start, end && end.ok ? end : null, plan.nextBeat);
+      const shots = [...latest.shots];
+      shots.splice(plan.insertAt, 0, made);
+      const placed = { ...latest, shots };
+      apply(() => placed);
+      setPicked(made.id);
+      const result = await shoot(placed, plan.insertAt);
+      if (!result.ok) {
+        if (result.needsKey) openKeys();
+        throw new Error(`The new shot is on the board, but it didn't render: ${result.reason}`);
+      }
+      onShot(made.id, (s) => addTake(s, result.render, result.origin));
+    } catch (caught) {
+      setProblem(caught instanceof Error ? caught.message : "That couldn't be made.");
+    } finally {
+      setExpanding(null);
+    }
+  }
+
+  // Dragging a clip on the timeline moves its shot on the board.
+  const dragged = useRef<string | null>(null);
+  const [dropAt, setDropAt] = useState<string | null>(null);
+  const dropOn = (targetId: string) => {
+    const from = dragged.current;
+    dragged.current = null;
+    setDropAt(null);
+    if (!from || from === targetId) return;
+    apply((current) => {
+      const a = current.shots.findIndex((s) => s.id === from);
+      const b = current.shots.findIndex((s) => s.id === targetId);
+      return a < 0 || b < 0 ? current : { ...current, shots: moveShot(current.shots, a, b) };
+    });
+  };
+
   const setSeconds = useCallback(
     (shotId: string, seconds: number | null) => {
       setProject((current) => {
@@ -297,7 +348,13 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               {cut.clips.map((clip) => (
                 <button
                   key={clip.shotId}
-                  className={`clip${selected?.shotId === clip.shotId ? " picked" : ""}`}
+                  draggable
+                  onDragStart={(e) => { dragged.current = clip.shotId; e.dataTransfer.effectAllowed = "move"; }}
+                  onDragOver={(e) => { if (dragged.current) { e.preventDefault(); setDropAt(clip.shotId); } }}
+                  onDragLeave={() => setDropAt((d) => (d === clip.shotId ? null : d))}
+                  onDrop={(e) => { e.preventDefault(); dropOn(clip.shotId); }}
+                  onDragEnd={() => { dragged.current = null; setDropAt(null); }}
+                  className={`clip${selected?.shotId === clip.shotId ? " picked" : ""}${dropAt === clip.shotId ? " drop" : ""}`}
                   style={{ flexGrow: clip.seconds, flexBasis: 0 }}
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={() => {
@@ -368,6 +425,22 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     }
                   >
                     Insert a shot after
+                  </button>
+                  <button
+                    className="pill"
+                    disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)}
+                    title="Make a shot between this one and the next: it starts on this shot's last frame and ends on the next one's first"
+                    onClick={() => void expand(shot.id, "bridge")}
+                  >
+                    {expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · $${expandPrice.toFixed(2)}`}
+                  </button>
+                  <button
+                    className="pill"
+                    disabled={expanding !== null}
+                    title="Carry this shot on from its last frame"
+                    onClick={() => void expand(shot.id, "extend")}
+                  >
+                    {expanding === `${shot.id}:extend` ? "Extending…" : `Extend · $${expandPrice.toFixed(2)}`}
                   </button>
                 </div>
                 {problem && <p className="library-error" role="alert">{problem}</p>}
