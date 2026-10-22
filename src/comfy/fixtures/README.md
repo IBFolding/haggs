@@ -1,0 +1,1 @@
+Workflow templates from [Comfy-Org/workflow_templates](https://github.com/Comfy-Org/workflow_templates) (MIT, © Comfy Org), and the slice of Comfy Cloud's node catalog they use, for the converter's tests.
