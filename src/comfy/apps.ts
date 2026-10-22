@@ -108,3 +108,17 @@ export function fill(prompt: ApiPrompt, app: App, values: Values): ApiPrompt {
   }
   return next;
 }
+
+/** The prompt without some of its file inputs: each loader is removed with the wires it fed, for inputs a person chooses to leave empty. */
+export function leaveOut(prompt: ApiPrompt, app: App, keys: string[]): ApiPrompt {
+  const next = structuredClone(prompt);
+  for (const key of keys) {
+    const field = app.fields.find((f) => `${f.node}/${f.input}` === key);
+    if (!field || field.kind !== "media") throw new Error("You can leave out only a file input.");
+    delete next[field.node];
+  }
+  for (const node of Object.values(next)) {
+    for (const [k, v] of Object.entries(node.inputs)) if (Array.isArray(v) && typeof v[0] === "string" && !next[v[0]]) delete node.inputs[k];
+  }
+  return next;
+}

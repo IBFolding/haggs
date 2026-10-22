@@ -21,6 +21,7 @@ const ITEMS = [
   { label: "Projects", href: "/library" },
   { label: "Create", href: "/create" },
   { label: "Video", href: "/video" },
+  { label: "Swap", href: "/swap" },
   { label: "Edit", href: "/edit" },
   { label: "Workflows", href: "/workflows" },
   { label: "Gallery", href: "/gallery" },

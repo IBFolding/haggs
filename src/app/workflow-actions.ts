@@ -4,7 +4,8 @@ import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { cookies } from "next/headers";
 
-import { fill, type App, type Values } from "../comfy/apps";
+import { fill, leaveOut, type App, type Values } from "../comfy/apps";
+import { validate } from "../comfy/convert";
 import { toApiPrompt, type UiWorkflow } from "../comfy/convert";
 import { priceOf } from "../comfy/price";
 import { createCloudRunner, type Kept } from "../providers/cloud";
@@ -186,15 +187,20 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     const { prompt } = toApiPrompt(opened.ui, opened.catalog);
     const cloud = createCloudRunner({ apiKey: key, keep });
     const uploaded: Values = {};
+    // An empty choice leaves that input out of the run, with the wire it fed.
+    const skipped = Object.entries(files).filter(([, v]) => v === "").map(([k]) => k);
     for (const field of opened.app.fields) {
       if (field.kind !== "media") continue;
       const k = `${field.node}/${field.input}`;
+      if (skipped.includes(k)) continue;
       const source = files[k] ?? field.sample;
       if (!source) return { ok: false, reason: `Add ${field.label.toLowerCase()} first.` };
       const { bytes, mime } = await mediaBytes(source);
       uploaded[k] = await cloud.uploadBytes(bytes, mime);
     }
-    const ready = fill(prompt, opened.app, { ...values, ...uploaded });
+    const ready = leaveOut(fill(prompt, opened.app, { ...values, ...uploaded }), opened.app, skipped);
+    const missing = validate(ready, opened.catalog);
+    if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
     const price = (await priceOf(ready, opened.catalog)).label;
     const result = await cloud.run(ready, opened.app.output);
     return { ok: true, url: result.url, kind: result.kind, price };

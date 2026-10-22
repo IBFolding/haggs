@@ -280,8 +280,9 @@ export function validate(prompt: ApiPrompt, catalog: Catalog): string[] {
       for (const [name, spec] of Object.entries(inputs.required ?? {})) {
         const key = prefix + name;
         if (spec[0] === "COMFY_AUTOGROW_V3") {
-          const min = Number(options(spec).min ?? 0);
-          const names = ((options(spec).template as { names?: string[] })?.names ?? []).slice(0, min);
+          const t = options(spec).template as { names?: string[]; min?: number } | undefined;
+          const min = Number(options(spec).min ?? t?.min ?? 0);
+          const names = (t?.names ?? []).slice(0, min);
           names.forEach((n) => required.add(`${key}.${n}`));
           continue;
         }

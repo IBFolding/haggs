@@ -35,3 +35,17 @@ test("filling an app changes only what it offers, and refuses values it doesn't"
   assert.throws(() => fill(prompt, app, { "9/model.resolution": "8k" }), /can't be/);
   assert.throws(() => fill(prompt, app, { "14/image": "../../etc/passwd" }), /didn't upload/);
 });
+
+test("leaving out an input removes its loader and the wire it fed, and the rest still validates", async () => {
+  const { leaveOut } = await import("./apps");
+  const { validate } = await import("./convert");
+  const { prompt } = toApiPrompt(ui, catalog);
+  const app = appOf(ui, prompt, catalog);
+  const without = leaveOut(prompt, app, ["15/image"]);
+  assert.equal(without["15"], undefined);
+  assert.equal(without["9"]!.inputs["model.reference_images.image_2"], undefined);
+  assert.deepEqual(without["9"]!.inputs["model.reference_images.image_1"], ["14", 0]);
+  assert.deepEqual(validate(without, catalog), []);
+  assert.deepEqual(validate(leaveOut(prompt, app, ["14/image", "15/image"]), catalog).length > 0, true, "Genjutsu needs at least one reference");
+  assert.throws(() => leaveOut(prompt, app, ["9/model.prompt"]), /only a file/);
+});
