@@ -9,6 +9,7 @@ import { defaultKv } from "../../story/kv";
 import { createRunStore, type Run } from "../../story/runs";
 import { Nav } from "../nav";
 import { RunTile } from "../run-tile";
+import { SaveToProject } from "../save-to-project";
 
 const SCOPES = ["All", "Images", "Video", "Kept"] as const;
 type Scope = (typeof SCOPES)[number];
@@ -54,6 +55,7 @@ export function Gallery() {
   const router = useRouter();
   const runs = useMemo(() => createRunStore(defaultKv()), []);
   const [all, setAll] = useState<Run[]>([]);
+  const [saving, setSaving] = useState<Run | null>(null);
   const [ready, setReady] = useState(false);
   const [scope, setScope] = useState<Scope>("All");
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +118,7 @@ export function Gallery() {
   return (
     <div className="app">
       <Nav current="Gallery" />
+      {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
       <div className="canvas">
         <div className="gallery">
@@ -165,6 +168,7 @@ export function Gallery() {
                   onFavorite={() => void keep(run)}
                   onReuse={() => reuse(run)}
                   onDelete={() => void drop(run)}
+                  onSave={() => setSaving(run)}
                 />
               ))}
             </div>

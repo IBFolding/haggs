@@ -11,6 +11,7 @@ import { rates, run, type Rate } from "./actions";
 import { Nav, openKeys } from "./nav";
 import { REUSE_KEY } from "./gallery/gallery";
 import { RunTile } from "./run-tile";
+import { SaveToProject } from "./save-to-project";
 import { SettingsRail } from "./settings-rail";
 
 /** In-flight work only. Anything finished is a Run and lives in storage. */
@@ -53,6 +54,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [history, setHistory] = useState<Run[]>([]);
+  const [saving, setSaving] = useState<Run | null>(null);
   const [busy, setBusy] = useState(false);
   const nextId = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -171,6 +173,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
   return (
     <div className="app">
       <Nav current={surface} />
+      {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
       <div className="canvas" onClick={() => setPicking(false)}>
         {slots.length === 0 && history.length === 0 ? (
@@ -202,6 +205,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
                 run={item}
                 onFavorite={() => void toggleKeep(item)}
                 onReuse={() => reuse(item)}
+                onSave={() => setSaving(item)}
               />
             ))}
           </div>

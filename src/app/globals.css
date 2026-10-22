@@ -485,8 +485,8 @@ button { font-family: inherit; }
   position: fixed;
   inset: 0;
   z-index: 80;
-  background: rgba(4, 4, 5, 0.8);
-  backdrop-filter: blur(5px);
+  /* No backdrop blur: over playing video tiles it makes Chromium draw the tiles above the dialog. */
+  background: rgba(4, 4, 5, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1110,6 +1110,7 @@ select.pill { appearance: none; padding-right: 26px; }
 .key-blurb { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--text-2); }
 .key-blurb a { color: var(--volt); }
 .key-row .sheet-row input { flex: 1; min-width: 0; }
+.key-row .sheet-row button { flex: none; width: auto; }
 
 /* ─── the cut: editor ──────────────────────────────────────────────── */
 
@@ -1667,3 +1668,26 @@ a.logo { color: var(--text); text-decoration: none; }
 .tools-line { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .tools-line select, .tools-line input { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13px; }
 @media (max-width: 680px) { .tools-line { grid-template-columns: 1fr; } .tools-frames { grid-template-columns: 1fr; } }
+
+/* ─── save to project ──────────────────────────────────────────────── */
+
+.save-to { max-height: calc(100vh - 40px); overflow-y: auto; }
+.save-to-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.save-to-head img, .save-to-head video { width: 112px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; flex: none; background: var(--surface-2); }
+.save-to-head p { margin: 0; font-size: 12.5px; }
+.save-to-field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; font-size: 12.5px; color: var(--text-2); }
+.save-to-field select { padding: 9px 10px; border-radius: 9px; border: 1px solid var(--line-hot); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13.5px; }
+.save-to-field select:focus-visible { outline: none; border-color: var(--volt); box-shadow: 0 0 0 3px var(--volt-soft); }
+.save-to-uses { border: 0; padding: 0; margin: 0 0 14px; display: grid; gap: 6px; }
+.save-to-uses legend { font-size: 12.5px; color: var(--text-2); margin-bottom: 6px; }
+.save-to-uses label { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.save-to-uses label.on { border-color: var(--volt); background: var(--volt-soft); }
+.save-to-uses label:focus-within { outline: 2px solid var(--volt); outline-offset: 1px; }
+.save-to-uses input { grid-row: span 2; margin-top: 3px; accent-color: var(--volt); }
+.save-to-uses b { font-size: 13.5px; }
+.save-to-uses small { color: var(--text-3); font-size: 12px; }
+.save-to-check { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--text-2); margin: -4px 0 14px; }
+.save-to-check input { accent-color: var(--volt); margin-top: 2px; }
+.save-to-note { font-size: 12.5px; color: var(--text-3); }
+.save-to-done { color: var(--text) !important; font-weight: 600; }
+.save-to .fire { text-decoration: none; display: inline-flex; align-items: center; }

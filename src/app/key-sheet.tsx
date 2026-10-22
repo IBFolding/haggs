@@ -5,7 +5,7 @@ import { useState } from "react";
 import { clearClaudeKey, clearComfyKey, clearKey, saveClaudeKey, saveComfyKey, saveKey } from "./actions";
 
 /**
- * Both provider keys in one place. Comfy Router is the platform this app is
+ * Every key in one place. Comfy (Cloud, or Router where enabled) is the platform this app is
  * built on, so it comes first; fal stays as a second route for the models it
  * hosts directly.
  *
@@ -40,7 +40,7 @@ export function KeySheet({
     {
       id: "comfy",
       name: "Comfy",
-      blurb: "Runs MiniMax H3, FLUX 3 and LTX through Comfy Router. Pay per use from your own workspace credits.",
+      blurb: "Runs MiniMax H3, FLUX 3, Kling, Genjutsu, ElevenLabs and the edit tools on Comfy Cloud. Pay per use from your own Comfy credits.",
       href: "https://platform.comfy.org",
       place: "comfyui-…",
       held: held.comfy,
@@ -134,8 +134,8 @@ export function KeySheet({
           </button>
         </div>
         <div className="sheet-note">
-          Browsing works without a key. Fal models show their published rate up front;
-          Comfy models are quoted by Router at run time.
+          Browsing works without a key. Every generation shows its price on the button
+          before you press it.
         </div>
       </div>
     </div>

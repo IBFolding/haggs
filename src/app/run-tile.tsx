@@ -15,8 +15,10 @@ export function RunTile({
   onFavorite,
   onReuse,
   onDelete,
+  onSave,
 }: {
   run: Run;
+  onSave?: () => void;
   onFavorite?: () => void;
   onReuse?: () => void;
   onDelete?: () => void;
@@ -48,6 +50,11 @@ export function RunTile({
         <span className="cell-prompt">{run.prompt}</span>
         <span className="cell-foot">
           <span className="cell-model">{run.modelName}</span>
+          {onSave && (
+            <button className="plain cell-save" onClick={onSave}>
+              Save to project
+            </button>
+          )}
           {onReuse && (
             <button className="plain" onClick={onReuse}>
               Reuse
