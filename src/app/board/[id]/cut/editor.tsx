@@ -325,6 +325,10 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     Use the {selected.kind === "video" ? "model's" : "default"} length
                   </button>
                 )}
+                <label className="clip-lock" title="Title cards, black, anything finished: Animate stills leaves it alone">
+                  <input type="checkbox" checked={shot.locked === true} onChange={(e) => onShot(shot.id, (s) => { const { locked: _l, ...rest } = s; return e.target.checked ? { ...rest, locked: true } : rest; })} />
+                  Keep as it is
+                </label>
                 <div className="clip-actions">
                   <button className="pill on" disabled={rolling === shot.id} onClick={() => void rollAgain(shot.id)}>
                     {rolling === shot.id ? "Rolling…" : "Roll again"}
