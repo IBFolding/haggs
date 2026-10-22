@@ -45,7 +45,7 @@ async function open(key: string, source: Source): Promise<Opened> {
 }
 
 /** An API-format prompt as a minimal editor graph: values become a dict, wires become links. */
-function apiToUi(api: Record<string, { class_type: string; inputs: Record<string, unknown> }>): UiWorkflow {
+function apiToUi(api: Record<string, { class_type: string; inputs: Record<string, unknown>; _meta?: { title?: string } }>): UiWorkflow {
   if (!api || typeof api !== "object" || !Object.values(api).every((n) => n && typeof n.class_type === "string")) throw new Error("That isn't a Comfy workflow file.");
   const links: [number, string, number, string, number, string][] = [];
   const nodes = Object.entries(api).map(([id, n], i) => {
@@ -57,7 +57,7 @@ function apiToUi(api: Record<string, { class_type: string; inputs: Record<string
         inputs.push({ name, link: links.length });
       } else values[name] = v;
     }
-    return { id, type: n.class_type, inputs, widgets_values: values, pos: [(i % 4) * 360, Math.floor(i / 4) * 260], size: [300, 160] };
+    return { id, type: n.class_type, inputs, widgets_values: values, pos: [(i % 4) * 360, Math.floor(i / 4) * 260], size: [300, 160], ...(n._meta?.title ? { title: n._meta.title } : {}) };
   });
   return { nodes, links } as unknown as UiWorkflow;
 }
@@ -98,7 +98,7 @@ function graphOf(ui: UiWorkflow, samples: Record<string, string>): Graph {
   return { nodes, links };
 }
 
-export type OpenedApp = { ok: true; name: string; title: string; description: string; thumb: string | null; app: App; problems: string[]; price: string; graph: Graph } | { ok: false; reason: string; needsKey?: boolean };
+export type OpenedApp = { ok: true; name: string; title: string; description: string; thumb: string | null; app: App; problems: string[]; price: string; graph: Graph; workflow: string } | { ok: false; reason: string; needsKey?: boolean };
 
 export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const key = await comfyKey();
@@ -118,6 +118,7 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
       problems: opened.problems,
       price: (await priceOf(prompt, opened.catalog)).label,
       graph: graphOf(opened.ui, samples),
+      workflow: JSON.stringify(opened.ui),
     };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "That workflow couldn't be opened." };

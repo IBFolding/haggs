@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { Entry } from "../../server/comfy-library";
 import { Nav, openKeys } from "../nav";
 import { SWAP_THUMB } from "../squares";
+import { createAppStore, type SavedApp } from "../../story/apps";
+import { defaultKv } from "../../story/kv";
 import { listWorkflows, type Listing } from "../workflow-actions";
 
 /**
@@ -21,6 +23,10 @@ export function Workflows() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [shelf, setShelf] = useState<(typeof SHELVES)[number]>("Featured");
   const [hunt, setHunt] = useState("");
+  const [mine, setMine] = useState<SavedApp[]>([]);
+  useEffect(() => {
+    void createAppStore(defaultKv()).list().then(setMine).catch(() => setMine([]));
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -59,8 +65,26 @@ export function Workflows() {
               <h1>Comfy workflows, ready to run</h1>
               <p>Pick one, drop in your files, press Run. The price is on the button. Every workflow here runs on Comfy Cloud with your key, and the nodes are a tab away.</p>
             </div>
-            <Link className="pill" href="/workflows/import">Open your own workflow</Link>
+            <div className="sheet-row">
+              <Link className="fire" href="/workflows/build">Build your own</Link>
+              <Link className="pill" href="/workflows/import">Open a workflow or app</Link>
+            </div>
           </header>
+
+          {mine.length > 0 && (
+            <section className="wf-mine" aria-label="Your apps">
+              <h2>Your apps</h2>
+              <div className="squares-grid">
+                {mine.map((a) => (
+                  <Link key={a.id} className={`square${a.cover ? "" : " bare"}`} href={`/workflows/mine?id=${a.id}`}>
+                    {a.cover && (a.cover.kind === "video" ? <video src={a.cover.url} muted loop autoPlay playsInline /> : <img src={a.cover.url} alt="" />)}
+                    <span className="square-tag">{a.recipe ? "Built here" : "Your app"}</span>
+                    <span className="square-face"><b>{a.name}</b>{a.description && <small>{a.description}</small>}</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className="wf-apps" aria-label="Apps">
             <Link className="wf-app" href="/swap">

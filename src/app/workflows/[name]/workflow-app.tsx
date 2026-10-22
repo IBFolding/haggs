@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Field } from "../../../comfy/apps";
 import { defaultKv } from "../../../story/kv";
 import { createRunStore, type Run } from "../../../story/runs";
+import { appFile, createAppStore, type Cover, type SavedApp } from "../../../story/apps";
+import type { Recipe } from "../../../comfy/recipe";
 import { Nav, openKeys } from "../../nav";
 import { SaveToProject } from "../../save-to-project";
 import { openWorkflow, quoteWorkflow, runWorkflow, type Graph, type OpenedApp, type Quote, type Source, type WorkflowResult } from "../../workflow-actions";
@@ -118,7 +120,20 @@ function Nodes({ graph, media, output }: { graph: Graph; media: Record<string, s
   );
 }
 
-export function WorkflowApp({ name, file }: { name: string; file?: string }) {
+/** A file as a data URI, so an app's cover travels inside its file. Covers over 8 MB are left out. */
+async function embed(url: string): Promise<string | null> {
+  if (url.startsWith("data:")) return url;
+  const blob = await fetch(url).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
+  if (!blob || blob.size > 8 * 1024 * 1024) return null;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
+export function WorkflowApp({ name, file, recipe, saved: savedApp, onBack }: { name: string; file?: string; recipe?: Recipe; saved?: SavedApp; onBack?: () => void }) {
   const source: Source = useMemo(() => (file ? { file } : { template: name }), [name, file]);
   const [opened, setOpened] = useState<OpenedApp | null>(null);
   const [tab, setTab] = useState<"app" | "nodes">("app");
@@ -131,6 +146,37 @@ export function WorkflowApp({ name, file }: { name: string; file?: string }) {
   const [saving, setSaving] = useState<Run | null>(null);
   const [kept, setKept] = useState<Run | null>(null);
   const runs = useMemo(() => createRunStore(defaultKv()), []);
+  const apps = useMemo(() => createAppStore(defaultKv()), []);
+  const [mine, setMine] = useState<SavedApp | null>(savedApp ?? null);
+  const [appNote, setAppNote] = useState<string | null>(null);
+
+  /** Save this workflow as one of your apps; the latest result becomes its cover. */
+  async function saveApp() {
+    if (!opened?.ok) return;
+    const title = window.prompt("Name your app:", mine?.name ?? (opened.title === "your workflow" ? name : opened.title));
+    if (!title?.trim()) return;
+    const cover: Cover | undefined = result?.ok && result.kind !== "audio" ? { url: result.url, kind: result.kind } : mine?.cover;
+    const workflow = file ?? opened.workflow;
+    const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: title.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(cover ? { cover } : {}) });
+    setMine(app);
+    setAppNote(cover ? "Saved to your apps, with this result as its cover." : "Saved to your apps. Run it and save again to give it a cover.");
+  }
+
+  /** The app as one file anyone can open in haggs, its cover inside. */
+  async function shareApp() {
+    if (!mine) return;
+    const cover = mine.cover ? await embed(mine.cover.url) : null;
+    const text = appFile({ ...mine, ...(cover && mine.cover ? { cover: { url: cover, kind: mine.cover.kind } } : { cover: undefined }) } as SavedApp);
+    const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${mine.name.replace(/[^\w.-]+/g, "-") || "app"}.haggs-app.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setAppNote(cover || !mine.cover ? "App file downloaded. Anyone can open it in haggs: Workflows → Open your own." : "App file downloaded without its cover (the cover is over 8 MB).");
+  }
 
   useEffect(() => {
     let live = true;
@@ -209,9 +255,13 @@ export function WorkflowApp({ name, file }: { name: string; file?: string }) {
         <div className="wf wf-one">
           <header className="wf-head">
             <div>
-              <Link className="wf-back" href="/workflows">Workflows</Link>
+              {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to the steps</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
               <h1>{opened.title}</h1>
               {opened.description && <p>{opened.description}</p>}
+            </div>
+            <div className="wf-appbar">
+              <button className="pill" onClick={() => void saveApp()}>{mine ? "Save app" : "Save as my app"}</button>
+              {mine && <button className="pill" onClick={() => void shareApp()}>Share app file</button>}
             </div>
             <div className="wf-tabs" role="tablist" aria-label="View">
               <button role="tab" aria-selected={tab === "app"} className={tab === "app" ? "on" : ""} onClick={() => setTab("app")}>App</button>
@@ -219,6 +269,7 @@ export function WorkflowApp({ name, file }: { name: string; file?: string }) {
             </div>
           </header>
 
+          {appNote && <p className="wf-note" role="status">{appNote}</p>}
           {tab === "nodes" ? (
             <Nodes
               graph={opened.graph}
@@ -274,6 +325,7 @@ export function WorkflowApp({ name, file }: { name: string; file?: string }) {
                     {result.kind === "video" ? <video src={result.url} controls autoPlay loop playsInline /> : result.kind === "image" ? <img src={result.url} alt="The result" /> : <audio src={result.url} controls autoPlay />}
                     <div className="sheet-row">
                       {kept && <button className="pill on" onClick={() => setSaving(kept)}>Save to project</button>}
+                      <button className="pill" onClick={() => void saveApp()}>{mine ? "Save app with this cover" : "Save as my app"}</button>
                       <a className="pill" href={result.url} download>Download</a>
                       <button className="pill" onClick={() => void run()}>Run again</button>
                     </div>

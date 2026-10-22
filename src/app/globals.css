@@ -1905,3 +1905,30 @@ a.logo { color: var(--text); text-decoration: none; }
 .wf-app b { font-size: 16px; }
 .wf-app small { color: var(--text-2); font-size: 12.5px; line-height: 1.4; }
 .wf-app:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.wf-appbar { display: flex; gap: 8px; margin-left: auto; }
+.build-name { max-width: 420px; margin-bottom: 16px; }
+.build-chain { list-style: none; margin: 0 0 18px; padding: 0; display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; align-items: stretch; }
+.build-step { position: relative; flex: 0 0 260px; display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line-hot); border-radius: 14px; background: var(--surface); }
+.build-step + .build-step::before, .build-add::before { content: ""; position: absolute; left: -15px; top: 30px; width: 14px; height: 2px; background: var(--volt); }
+.build-add { position: relative; flex: 0 0 240px; display: flex; }
+.build-step header { display: flex; align-items: center; gap: 8px; }
+.build-step header b { font-size: 14px; }
+.build-step header small { margin-left: auto; padding: 2px 7px; border-radius: 6px; background: var(--volt-soft); color: var(--volt); font-size: 10.5px; font-weight: 700; }
+.build-n { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--volt); color: var(--volt-ink); font-size: 11.5px; font-weight: 800; }
+.build-blurb { margin: 0; font-size: 12px; color: var(--text-3); line-height: 1.4; }
+.build-step textarea, .build-opts select, .build-opts input { padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line-hot); background: var(--surface-2); color: var(--text); font: inherit; font-size: 12.5px; resize: vertical; min-width: 0; }
+.build-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.build-opts label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.build-opts input { width: 4.5em; }
+.build-step footer { margin-top: auto; display: flex; gap: 6px; }
+.build-step footer .danger { margin-left: auto; }
+.build-plus { flex: 1; border: 2px dashed var(--line-hot); border-radius: 14px; background: none; color: var(--text-2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 160px; }
+.build-plus:hover, .build-plus:focus-visible { border-color: var(--volt); color: var(--text); outline: none; }
+.build-menu { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--volt); border-radius: 14px; background: var(--surface); }
+.build-menu button[role="menuitem"] { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 0; border-radius: 9px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.build-menu button[role="menuitem"]:hover, .build-menu button[role="menuitem"]:focus-visible { background: var(--surface-2); outline: none; }
+.build-menu b { font-size: 13px; }
+.build-menu span { font-size: 11.5px; color: var(--text-3); }
+.wf-mine { margin-bottom: 22px; }
+.wf-mine h2 { margin: 0 0 10px; font-size: 15px; }
+.wf-head .fire { text-decoration: none; margin-left: 0; }
