@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { addBoard, boardOf, normalize, removeBoard } from "../story/boards";
 import { defaultKv } from "../story/kv";
@@ -28,8 +28,30 @@ export type ProjectTab = (typeof TABS)[number]["id"];
 const NEW = "__new__";
 const DELETE = "__delete__";
 
+/** How many things Claude has sent this project and the person hasn't applied or dismissed. Development only. */
+function useWaiting(projectId: string): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    let live = true;
+    const check = () =>
+      fetch(`/api/bridge/inbox?project=${encodeURIComponent(projectId)}`)
+        .then((r) => r.json() as Promise<{ items?: unknown[] }>)
+        .then((b) => live && setCount(b.items?.length ?? 0))
+        .catch(() => undefined);
+    void check();
+    const timer = setInterval(check, 5000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [projectId]);
+  return count;
+}
+
 export function ProjectTabs({ project, boardId, current }: { project: Project; boardId?: string | undefined; current: ProjectTab }) {
   const router = useRouter();
+  const waiting = useWaiting(project.id);
   const store = useMemo(() => createProjectStore(defaultKv()), []);
   const boards = normalize(project).boards!;
   const board = boardOf(project, boardId);
@@ -78,6 +100,11 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
         <option value={NEW}>+ New board…</option>
         {boards.length > 1 && <option value={DELETE}>Delete this board…</option>}
       </select>
+      {waiting > 0 && current !== "sheets" && (
+        <Link className="ptabs-claude" href={href("/sheets")}>
+          From Claude · {waiting} to review
+        </Link>
+      )}
       <nav className="ptabs-list" aria-label="Project">
         {TABS.map((tab, i) => (
           <Link key={tab.id} href={href(tab.path)} aria-current={tab.id === current ? "page" : undefined}>

@@ -20,6 +20,7 @@ import { FORMATS, formatById } from "../src/sheets/formats";
 import { fixCell, normalizeSheets, promptRows, qaSheet, sheetsView, type Sheets } from "../src/sheets/sheets";
 import { bridgeRoot, inbox, listSnapshots, propose, readSnapshot } from "../src/server/bridge";
 import { applyBoardProposal, validateBoardProposal } from "../src/story/proposed-board";
+import { applyTakes, validateTakes } from "../src/story/proposed-takes";
 import { applyDraft, validateDraft } from "../src/writer/draft";
 import { applyFill, type Fill } from "../src/writer/fill";
 
@@ -263,6 +264,32 @@ server.registerTool(
       const seconds = made.shots.reduce((n, s) => n + (s.seconds ?? 0), 0);
       const item = await propose(root, project, { kind: "board", summary, payload: checked });
       return text({ sent: item.id, shots: made.shots.length, seconds, empty: made.shots.filter((s) => !s.render).length, next: "The person opens the project's Sheets and presses Apply." });
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);
+
+server.registerTool(
+  "haggs_propose_takes",
+  {
+    description:
+      "Send finished renders to a board's shots as new takes: each names a shot id (haggs_list_shots), a file (/api/local/… or https), image or video, and optionally where it came from and what it cost. Applied, each joins that shot's takes and goes on the shot (use: false only shelves it). Nothing is lost.",
+    inputSchema: {
+      project: z.string(),
+      summary: z.string().max(300),
+      board: z.string(),
+      takes: z.array(z.object({ shot: z.string(), url: z.string(), kind: z.enum(["image", "video"]), origin: z.string().optional(), usd: z.number().optional(), use: z.boolean().optional() })).max(100),
+    },
+    annotations: proposes,
+  },
+  async ({ project, summary, board, takes }) => {
+    try {
+      const snap = await load(project);
+      const checked = validateTakes({ board, takes });
+      const { added } = applyTakes(snap.project, checked);
+      const item = await propose(root, project, { kind: "takes", summary, payload: checked, boardId: board });
+      return text({ sent: item.id, newTakes: added, next: "The person opens the project's Sheets and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
     }
