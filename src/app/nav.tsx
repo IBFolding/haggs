@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+
+import { Producer } from "./agent";
 import { useEffect, useState } from "react";
 
 import { keysHeld } from "./actions";
@@ -77,6 +79,7 @@ export function Nav({ current }: { current: Place }) {
         </span>
       </nav>
       {open && <KeySheet held={held} onChange={setHeld} onClose={() => setOpen(false)} />}
+      <Producer />
     </>
   );
 }

@@ -22,6 +22,7 @@ import { applyTakes, validateTakes } from "../../../../story/proposed-takes";
 import { formatById } from "../../../../sheets/formats";
 import { StartScreen } from "./start";
 import { Nav, openKeys } from "../../../nav";
+import { PROJECT_SAVED } from "../../../agent";
 import { ProjectTabs } from "../../../project-tabs";
 
 /**
@@ -317,6 +318,15 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
   const scripts = useRef<HTMLInputElement>(null);
   const saved = useRef<HTMLInputElement>(null);
   const claude = useInbox(id);
+
+  // The producer changed this project from the chat: load it again, so this page's next save keeps the change.
+  useEffect(() => {
+    const reload = (e: Event) => {
+      if ((e as CustomEvent<{ id: string }>).detail?.id === id) void store.load(id).then((found) => found && setProject(found));
+    };
+    window.addEventListener(PROJECT_SAVED, reload);
+    return () => window.removeEventListener(PROJECT_SAVED, reload);
+  }, [store, id]);
 
   useEffect(() => {
     void store.load(id).then((found) => (found ? setProject(found) : setMissing(true)));

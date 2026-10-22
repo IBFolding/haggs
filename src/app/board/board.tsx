@@ -17,6 +17,7 @@ import { Nav, openKeys } from "../nav";
 import { FlowCanvas } from "./flow-canvas";
 import { shoot } from "../shoot";
 import { addTake } from "../../story/takes";
+import { PROJECT_SAVED } from "../agent";
 import { ProjectTabs } from "../project-tabs";
 import { animatePlan, readyToAnimate } from "../../story/animate-all";
 import { AnimateAll } from "./animate-all";
@@ -35,6 +36,20 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
   const [error, setError] = useState<string | null>(null);
   const dragging = useRef<number | null>(null);
   const [animating, setAnimating] = useState(false);
+
+  // The producer changed this project from the chat: load it again, so this page's next save keeps the change.
+  useEffect(() => {
+    const reload = (e: Event) => {
+      if ((e as CustomEvent<{ id: string }>).detail?.id !== id) return;
+      void store.load(id).then((found) => {
+        if (!found) return;
+        full.current = found;
+        setProject(view(found, boardId));
+      });
+    };
+    window.addEventListener(PROJECT_SAVED, reload);
+    return () => window.removeEventListener(PROJECT_SAVED, reload);
+  }, [store, id, boardId]);
 
   useEffect(() => {
     void store.load(id).then((found) => {
