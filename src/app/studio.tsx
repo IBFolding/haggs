@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MODELS, getModelCard, outputCount, searchModels } from "../catalog/models";
 import { coerceSettings, defaultSettings, type Settings } from "../catalog/settings";
+import { slotIn, templatesFor, type Template } from "../catalog/templates";
 import type { Capability } from "../providers/types";
 import { defaultKv } from "../story/kv";
 import { createRunStore, type Run } from "../story/runs";
@@ -55,6 +56,11 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [history, setHistory] = useState<Run[]>([]);
   const [saving, setSaving] = useState<Run | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const say = useRef<HTMLTextAreaElement>(null);
+  /** A template's prompt waiting to be in the box, so its first [bracket] can be selected. */
+  const pendingSlot = useRef<string | null>(null);
+  const templates = useMemo(() => templatesFor(surface), [surface]);
   const [busy, setBusy] = useState(false);
   const nextId = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -159,6 +165,34 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
     setBusy(false);
   }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs]);
 
+  useEffect(() => {
+    if (pendingSlot.current === null || pendingSlot.current !== prompt) return;
+    pendingSlot.current = null;
+    const slot = slotIn(prompt);
+    say.current?.focus();
+    if (slot) say.current?.setSelectionRange(slot.start, slot.end);
+  }, [prompt]);
+
+  /** Fill the composer from a template and select the first part to make your own. */
+  const applyTemplate = useCallback(
+    (t: Template) => {
+      // A template that starts from a picture needs a model that takes one.
+      const model = t.fromPicture && getModelCard(modelId).inputImages === 0 ? catalog.find((m) => getModelCard(m.id).inputImages > 0) : undefined;
+      const target = getModelCard(model?.id ?? modelId);
+      if (model) setModelId(model.id);
+      setSettings((held) => {
+        const next = coerceSettings(target.settings, held);
+        const key = Object.entries(target.settings).find(([, f]) => f.input === "aspect_ratio" && "values" in f && (f.values as readonly string[]).includes(t.aspect ?? ""))?.[0];
+        return key && t.aspect ? { ...next, [key]: t.aspect } : next;
+      });
+      pendingSlot.current = t.prompt;
+      setPrompt(t.prompt);
+      setShowTemplates(false);
+      if (t.fromPicture && !images.length) requestAnimationFrame(() => fileInput.current?.click());
+    },
+    [modelId, catalog, images.length],
+  );
+
   const toggleKeep = useCallback(
     async (item: Run) => {
       const next = !item.favorite;
@@ -187,6 +221,17 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
               This model runs at <b>{rate?.label ?? "a rate loading now"}</b>. Every run you
               make is kept here with what it cost.
             </p>
+            {templates.length > 0 && (
+              <div className="tpl-grid" aria-label="Start from a template">
+                {templates.map((t) => (
+                  <button key={t.id} className="tpl" onClick={() => applyTemplate(t)}>
+                    <b>{t.name}</b>
+                    <span>{t.blurb}</span>
+                    {t.fromPicture && <small>Starts from your picture</small>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid">
@@ -292,7 +337,25 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
                 if (file) attach(file);
               }}
             />
+            {templates.length > 0 && (
+              <div className="tpl-wrap" onClick={(e) => e.stopPropagation()}>
+                <button className="tpl-open" aria-expanded={showTemplates} onClick={() => setShowTemplates((v) => !v)}>
+                  Templates
+                </button>
+                {showTemplates && (
+                  <div className="tpl-menu" role="menu">
+                    {templates.map((t) => (
+                      <button key={t.id} role="menuitem" onClick={() => applyTemplate(t)}>
+                        <b>{t.name}</b>
+                        <span>{t.blurb}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <textarea
+              ref={say}
               className="say"
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
