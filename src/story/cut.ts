@@ -80,7 +80,8 @@ export function buildCut(project: Project): Cut {
     clips.push({
       shotId: shot.id,
       index: clips.length,
-      heading: shot.heading,
+      // A shot with no scene heading is named by its beat, without any spoken line on it.
+      heading: shot.heading || shot.beat.split(" — ")[0]!.slice(0, 80),
       url: shot.render.url,
       kind: shot.render.kind,
       start: cursor,

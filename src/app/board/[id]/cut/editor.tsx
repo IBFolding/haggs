@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
+import { Soundtrack, usePreviewSound, VoiceLines } from "./sound";
 import { newShot, type Shot } from "../../../../story/model";
 import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite } from "../../../../story/takes";
 import { shoot } from "../../../shoot";
@@ -64,6 +65,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
   const cut = useMemo(() => (project ? buildCut(project) : null), [project]);
   const here = cut ? atTime(cut, t) : null;
+  usePreviewSound(cut, t, playing);
+  const [rendering, setRendering] = useState(false);
+  const [rendered, setRendered] = useState<{ url: string } | { reason: string } | null>(null);
 
   const seek = useCallback((to: number) => {
     tRef.current = to;
@@ -366,6 +370,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   })}
                 </div>
                 <p className="takes-note">↑ ↓ on the timeline flip between takes. Rolling again adds a take and never replaces one.</p>
+                <VoiceLines shot={shot} project={project} onChange={(voices) => onShot(shot.id, (s) => ({ ...s, voices }))} />
                 <EditTools
                   project={project}
                   shot={shot}
@@ -376,7 +381,33 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               </div>
             )}
 
+            <Soundtrack
+              music={project.music}
+              onChange={(music) =>
+                apply((current) => {
+                  const { music: _old, ...rest } = current;
+                  return music ? { ...rest, music } : rest;
+                })
+              }
+            />
+
             <div className="exports">
+              {process.env.NODE_ENV !== "production" && (
+                <button
+                  className="pill on"
+                  disabled={rendering}
+                  onClick={async () => {
+                    setRendering(true);
+                    setRendered(null);
+                    const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut }) }).catch(() => null);
+                    const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
+                    setRendered(body?.ok && body.url ? { url: body.url } : { reason: body?.reason ?? "The render didn't finish." });
+                    setRendering(false);
+                  }}
+                >
+                  {rendering ? "Rendering…" : "Render MP4"}
+                </button>
+              )}
               <button
                 className="pill"
                 onClick={() => download(`${project.name}.cut.json`, cutList(cut, project.name), "application/json")}
@@ -384,14 +415,22 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                 Cut list (.json)
               </button>
               <button
-                className="pill on"
-                onClick={() => download(`${project.name}.sh`, ffmpegScript(cut, project.name), "text/x-shellscript")}
+                className="pill"
+                onClick={() => download(`${project.name}.sh`, ffmpegScript(cut, project.name, window.location.origin), "text/x-shellscript")}
               >
                 Export as MP4 (ffmpeg script)
               </button>
+              {rendered && ("url" in rendered ? (
+                <span className="exports-done" role="status">
+                  Rendered. <a href={rendered.url} target="_blank" rel="noreferrer">Watch it</a> · <a href={rendered.url} download>Download</a>
+                </span>
+              ) : (
+                <span className="library-error" role="alert">{rendered.reason}</span>
+              ))}
               <span className="exports-note">
-                The script downloads each clip and joins them at 1920×1080 with ffmpeg
-                installed. Run it with <code>bash</code>.
+                Render MP4 makes the film on this machine, voices and soundtrack mixed in, and keeps it
+                next to your media. The script does the same anywhere ffmpeg is installed: run it with{" "}
+                <code>bash</code> while haggs is open.
               </span>
             </div>
           </>

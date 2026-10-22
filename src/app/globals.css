@@ -1723,3 +1723,25 @@ a.logo { color: var(--text); text-decoration: none; }
 .animate-meta { font-family: var(--mono); font-size: 11.5px; color: var(--text-2); }
 .animate-list li.running { background: var(--volt-soft); }
 .animate-list li.running .animate-meta, .animate-list li.done .animate-meta { color: var(--volt); }
+
+/* ─── sound in the cut ─────────────────────────────────────────────── */
+
+.sound-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; margin: 14px 0 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.sound-row b { font-size: 13.5px; }
+.sound-name { font-size: 13px; color: var(--text); max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sound-hint { font-size: 12.5px; color: var(--text-3); flex: 1; }
+.sound-level { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); }
+.sound-level input { accent-color: var(--volt); width: 120px; }
+.sound-level span { font-family: var(--mono); font-size: 11.5px; min-width: 4.5em; }
+.voices { margin: 14px 0; padding: 12px 0 0; border-top: 1px solid var(--line); }
+.voices-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.voices-head b { font-size: 13.5px; margin-right: auto; }
+.voice-line { display: grid; grid-template-columns: 8em 1fr 13em auto auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+.voice-line input, .voice-line select { padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line-hot); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13px; min-width: 0; }
+.voice-line input:focus-visible, .voice-line select:focus-visible { outline: none; border-color: var(--volt); box-shadow: 0 0 0 3px var(--volt-soft); }
+.voice-speaker { font-family: var(--mono); font-size: 12px !important; }
+.voice-at { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-3); }
+.voice-at input { width: 4.5em; }
+.exports-done { font-size: 13px; color: var(--text); }
+.exports-done a { color: var(--volt); }
+@media (max-width: 760px) { .voice-line { grid-template-columns: 1fr 1fr; } .voice-text { grid-column: 1 / -1; } }
