@@ -217,5 +217,7 @@ test("a deeper duck presses the soundtrack harder under the voice", async () => 
   const { mixFilter } = await import("./cut");
   const base = { ...buildCut(board(shot({ render: video(), voices: [{ id: "a", text: "hi", speaker: "X", voice: "v", offset: 0, url: "/api/local/a.mp3" } as never] }))), music: { url: "/api/local/m.wav", name: "m", gain: 0 } };
   const ratio = (duck: number) => Number(/ratio=(\d+)/.exec(mixFilter({ ...base, sound: { duck } })!.filter)![1]);
-  assert.ok(ratio(1) > ratio(0));
+  assert.ok(ratio(1) > ratio(0.1));
+  const none = mixFilter({ ...base, sound: { duck: 0 } })!.filter;
+  assert.doesNotMatch(none, /sidechaincompress/);
 });

@@ -186,8 +186,11 @@ function voiceChain(sound: Sound | undefined): string[] {
   if (clarity !== undefined && clarity <= 0 && (warmth || squeeze || room)) out.push("equalizer=f=7500:t=q:w=2:g=-3");
   if (squeeze) out.push(`acompressor=threshold=${Math.round(-18 - 6 * clamp(squeeze, 0, 1))}dB:ratio=${(2 + 4 * clamp(squeeze, 0, 1)).toFixed(1)}:attack=8:release=160:makeup=${Math.round(2 + 4 * clamp(squeeze, 0, 1))}`);
   if (room) {
+    // Dense taps under ~60ms read as the air of a room, never as an echo.
     const r = clamp(room, 0, 1);
-    out.push(`aecho=0.8:0.88:${Math.round(40 + 60 * r)}|${Math.round(90 + 110 * r)}:${(0.15 + 0.3 * r).toFixed(2)}|${(0.1 + 0.2 * r).toFixed(2)}`);
+    const taps = [11, 17, 23, 29, 37, 43, 53, 61];
+    const decays = [0.35, 0.3, 0.28, 0.25, 0.2, 0.18, 0.15, 0.12];
+    out.push(`aecho=0.85:0.75:${taps.map((t) => Math.round(t * (0.6 + 0.4 * r))).join("|")}:${decays.map((d) => (d * (0.3 + 0.7 * r)).toFixed(2)).join("|")}`);
   }
   return out;
 }
@@ -207,14 +210,14 @@ export function mixFilter(cut: Cut): { inputs: string[]; filter: string } | null
     inputs.push(cut.music.url);
     const fade = Math.max(0, cut.total - 2);
     parts.push(`[${m}:a]aresample=48000,atrim=0:${cut.total},volume=${cut.music.gain}dB,afade=t=out:st=${fade}:d=2[mus]`);
-    if (vo) {
+    if (vo && cut.sound?.duck !== 0) {
       parts.push(`${vo}asplit[vo1][vo2]`, `[mus][vo1]sidechaincompress=threshold=0.04:ratio=${Math.round(4 + 8 * clamp(cut.sound?.duck ?? 0.5, 0, 1))}:attack=20:release=450[bed]`);
       bed = "[bed]";
     } else bed = "[mus]";
   }
-  const voice = vo && cut.music ? "[vo2]" : vo;
+  const voice = vo && bed === "[bed]" ? "[vo2]" : vo;
   const layers = ["[0:a]", bed, voice].filter(Boolean) as string[];
-  parts.push(`${layers.join("")}amix=inputs=${layers.length}:normalize=0:duration=first${cut.sound?.loud ? "[pre];[pre]loudnorm=I=-16:TP=-1.5:LRA=11" : ""}[mix]`);
+  parts.push(`${layers.join("")}amix=inputs=${layers.length}:normalize=0:duration=first${cut.sound?.loud ? "[pre];[pre]acompressor=threshold=-20dB:ratio=1.8:attack=30:release=250:makeup=1,loudnorm=I=-16:TP=-1.5:LRA=11" : ""}[mix]`);
   return { inputs, filter: parts.join(";") };
 }
 

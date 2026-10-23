@@ -15,7 +15,8 @@ import { createComfyProvider } from "../providers/comfy";
 import { createFalProvider } from "../providers/fal";
 import type { Provider } from "../providers/types";
 
-import { CLAUDE_COOKIE, COMFY_COOKIE, KEY_COOKIE, keyIn } from "../server/keys";
+import { CLAUDE_COOKIE, COMFY_COOKIE, KEY_COOKIE, LOCAL_COOKIE, keyIn, localIn } from "../server/keys";
+import { localBase } from "../providers/local";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -60,6 +61,39 @@ export async function saveClaudeKey(key: string): Promise<void> {
 export async function clearClaudeKey(): Promise<void> {
   const jar = await cookies();
   jar.set(CLAUDE_COOKIE, "", { ...COOKIE_OPTIONS, maxAge: 0 });
+}
+
+export type LocalComfy = { ok: true; base: string; gpu: string } | { ok: false; reason: string };
+
+/** Checks that a ComfyUI answers at this address, and keeps the address if it does. */
+export async function saveLocalComfy(address: string): Promise<LocalComfy> {
+  let base: string;
+  try {
+    base = localBase(address);
+  } catch (caught) {
+    return { ok: false, reason: caught instanceof Error ? caught.message : "That address won't work." };
+  }
+  try {
+    const stats = (await (await fetch(`${base}/system_stats`, { redirect: "error", signal: AbortSignal.timeout(5000) })).json()) as { devices?: { name?: string }[] };
+    const gpu = stats.devices?.find((d) => d.name)?.name?.replace(/^cuda:\d+\s*/, "") ?? "your GPU";
+    (await cookies()).set(LOCAL_COOKIE, base, COOKIE_OPTIONS);
+    return { ok: true, base, gpu };
+  } catch {
+    return { ok: false, reason: `Nothing answered at ${base}. Start ComfyUI (add --listen if it's on another computer) and try again.` };
+  }
+}
+
+export async function clearLocalComfy(): Promise<void> {
+  (await cookies()).set(LOCAL_COOKIE, "", { ...COOKIE_OPTIONS, maxAge: 0 });
+}
+
+export async function localComfy(): Promise<string | null> {
+  const address = localIn(await cookies());
+  try {
+    return address ? localBase(address) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function keysHeld(): Promise<{ comfy: boolean; fal: boolean; claude: boolean }> {

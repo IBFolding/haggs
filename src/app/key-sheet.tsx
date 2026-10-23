@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { clearClaudeKey, clearComfyKey, clearKey, saveClaudeKey, saveComfyKey, saveKey } from "./actions";
+import { clearClaudeKey, clearComfyKey, clearKey, clearLocalComfy, localComfy, saveClaudeKey, saveComfyKey, saveKey, saveLocalComfy } from "./actions";
 
 /**
  * Every key in one place. Comfy (Cloud, or Router where enabled) is the platform this app is
@@ -35,6 +35,12 @@ export function KeySheet({
 }) {
   const [drafts, setDrafts] = useState({ comfy: "", fal: "", claude: "" });
   const [busy, setBusy] = useState<string | null>(null);
+  const [gpu, setGpu] = useState<{ base: string; note: string } | null>(null);
+  const [address, setAddress] = useState("127.0.0.1:8188");
+  const [gpuError, setGpuError] = useState<string | null>(null);
+  useEffect(() => {
+    void localComfy().then((base) => base && setGpu({ base, note: "" }));
+  }, []);
 
   const rows: Row[] = [
     {
@@ -127,6 +133,40 @@ export function KeySheet({
             </div>
           </section>
         ))}
+
+        <section className="key-row">
+          <header>
+            <b>Your own GPU</b>
+            <span className={`lamp${gpu ? " live" : ""}`} />
+            <span className="key-status">{gpu ? `connected${gpu.note ? ` · ${gpu.note}` : ""}` : "not connected"}</span>
+          </header>
+          <p className="key-blurb">
+            Point haggs at a ComfyUI running on your computer or network. Open-weights workflows (no partner nodes) then run there, free, instead of on Comfy Cloud. Workflows that use partner models like Kling or ElevenLabs still go to Comfy Cloud.
+          </p>
+          <div className="sheet-row">
+            <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="127.0.0.1:8188" autoComplete="off" aria-label="ComfyUI address" />
+            <button
+              className="fire"
+              disabled={!address.trim() || busy === "gpu"}
+              onClick={async () => {
+                setBusy("gpu");
+                setGpuError(null);
+                const r = await saveLocalComfy(address);
+                setBusy(null);
+                if (r.ok) setGpu({ base: r.base, note: r.gpu });
+                else setGpuError(r.reason);
+              }}
+            >
+              {busy === "gpu" ? "Checking…" : "Connect"}
+            </button>
+            {gpu && (
+              <button className="plain" onClick={async () => { await clearLocalComfy(); setGpu(null); }}>
+                Disconnect
+              </button>
+            )}
+          </div>
+          {gpuError && <p className="library-error" role="alert">{gpuError}</p>}
+        </section>
 
         <div className="sheet-row">
           <button className="plain" onClick={onClose}>

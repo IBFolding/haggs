@@ -12,7 +12,9 @@ import { createCloudRunner, type Kept } from "../providers/cloud";
 import { appOf } from "../comfy/apps";
 import { catalogOf, checked, indexOf, openTemplate, type Entry, type Opened } from "../server/comfy-library";
 import { keepResult } from "../server/keep";
-import { COMFY_COOKIE, keyIn } from "../server/keys";
+import { partnerNodes } from "../comfy/partner";
+import { createLocalRunner, localBase } from "../providers/local";
+import { COMFY_COOKIE, keyIn, localIn } from "../server/keys";
 import { localFile, localUrl } from "../server/local-media";
 
 /**
@@ -175,8 +177,18 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     if (opened.problems.length) return { ok: false, reason: opened.problems[0]! };
     if (!opened.app.output) return { ok: false, reason: "This workflow doesn't save a result haggs can show." };
     if (opened.app.produces === "3d" || opened.app.produces === "text") return { ok: false, reason: `This workflow makes ${opened.app.produces === "3d" ? "a 3D model" : "text"}; open it in ComfyUI. haggs shows pictures, video and sound.` };
-    const { prompt } = prepare(opened.ui, opened.catalog);
-    const cloud = createCloudRunner({ apiKey: key, keep: keepResult });
+    let { prompt } = prepare(opened.ui, opened.catalog);
+    // Open weights only, and your own ComfyUI set: run there, free, on your own GPU.
+    const address = localIn(await cookies());
+    const mine = address && !partnerNodes(prompt, opened.catalog).length ? localBase(address) : null;
+    let catalog = opened.catalog;
+    if (mine) {
+      catalog = (await (await fetch(`${mine}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30_000) })).json()) as typeof opened.catalog;
+      const local = prepare(opened.ui, catalog);
+      if (local.problems.length) return { ok: false, reason: `Your ComfyUI can't run this yet: ${local.problems[0]}` };
+      prompt = local.prompt;
+    }
+    const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key, keep: keepResult });
     const uploaded: Values = {};
     // An empty choice leaves that input out of the run, with the wire it fed.
     const skipped = Object.entries(files).filter(([, v]) => v === "").map(([k]) => k);
@@ -190,9 +202,9 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
       uploaded[k] = await cloud.uploadBytes(bytes, mime);
     }
     const ready = leaveOut(fill(prompt, opened.app, { ...values, ...uploaded }), opened.app, skipped);
-    const missing = validate(ready, opened.catalog);
+    const missing = validate(ready, catalog);
     if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
-    const price = (await priceOf(ready, opened.catalog)).label;
+    const price = mine ? "Your GPU · free" : (await priceOf(ready, opened.catalog)).label;
     const result = await cloud.run(ready, opened.app.output);
     return { ok: true, url: result.url, kind: result.kind, price };
   } catch (caught) {
