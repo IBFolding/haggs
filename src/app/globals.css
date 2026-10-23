@@ -2244,3 +2244,6 @@ a.logo { color: var(--text); text-decoration: none; }
 .cv-bar .fire { margin-left: auto; white-space: nowrap; }
 @media (min-width: 1250px) { .cv-hint { flex: 1; order: 0; } .cv-menu { top: 68px; } }
 .cv-plane { top: 110px; }
+.cv-sent { position: absolute; z-index: 6; right: 16px; top: 118px; display: grid; gap: 8px; max-width: 420px; padding: 10px 12px; border: 1px solid var(--volt); border-radius: 12px; background: var(--surface); font-size: 13px; }
+.cv-sent > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cv-sent span { color: var(--text-2); flex-basis: 100%; }

@@ -151,3 +151,21 @@ export function planToCanvas(plan: Plan, offered: string[]): Canvas {
   }
   return { name: plan.name.slice(0, 80) || "My app", nodes, links };
 }
+
+/** A plan from outside (Claude over MCP), checked before anything of it is used. */
+export function checkPlan(raw: unknown): Plan {
+  const p = raw as { name?: unknown; steps?: unknown } | null;
+  if (!p || typeof p !== "object" || !Array.isArray(p.steps) || !p.steps.length) throw new Error("A plan needs at least one step.");
+  if (p.steps.length > 12) throw new Error("Keep a plan to 12 steps or fewer.");
+  const steps: PlanStep[] = p.steps.map((s: Record<string, unknown>) => {
+    if (typeof s?.template === "string") {
+      if (!/^[\w.-]{1,120}$/.test(s.template)) throw new Error(`“${s.template.slice(0, 40)}” isn't a library workflow name.`);
+      return { template: s.template };
+    }
+    const kind = String(s?.kind ?? "");
+    if (!STEPS.some((k) => k.kind === kind)) throw new Error(`“${kind}” isn't a step. Use ${STEPS.map((k) => k.kind).join(", ")}.`);
+    const seconds = typeof s.seconds === "number" && Number.isFinite(s.seconds) ? Math.min(15, Math.max(4, Math.round(s.seconds))) : undefined;
+    return { kind, ...(typeof s.prompt === "string" && s.prompt.trim() ? { prompt: s.prompt.trim().slice(0, 2000) } : {}), ...(seconds ? { seconds } : {}), ...(typeof s.resolution === "string" ? { resolution: s.resolution.slice(0, 8) } : {}), ...(typeof s.voice === "string" ? { voice: s.voice.slice(0, 60) } : {}) };
+  });
+  return { name: typeof p.name === "string" && p.name.trim() ? p.name.trim().slice(0, 80) : "My app", steps };
+}

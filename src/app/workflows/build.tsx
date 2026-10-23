@@ -8,7 +8,7 @@ import type { Entry } from "../../server/comfy-library";
 import { VOICES } from "../../providers/cloud-edits";
 import { Nav, openKeys } from "../nav";
 import { libraryPrompts, listWorkflows, planCanvas } from "../workflow-actions";
-import { planToCanvas } from "../../comfy/canvas";
+import { planToCanvas, type Plan } from "../../comfy/canvas";
 import { WorkflowApp } from "./[name]/workflow-app";
 
 /**
@@ -37,6 +37,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   const [trying, setTrying] = useState(false);
   const [goal, setGoal] = useState("");
   const [planning, setPlanning] = useState(false);
+  const [sent, setSent] = useState<{ id: string; summary: string; plan: Plan }[]>([]);
   const surface = useRef<HTMLDivElement>(null);
 
   // Library workflows already on a saved canvas need loading before it can compile.
@@ -48,6 +49,25 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
       setLibrary((l) => ({ ...l, ...r.prompts }));
     });
   }, [canvas.nodes, library]);
+
+  // What Claude has sent over MCP, waiting to be applied.
+  useEffect(() => {
+    let live = true;
+    const look = () => fetch("/api/bridge/inbox?project=canvas").then((r) => (r.ok ? r.json() : null)).then((b: { items?: { id: string; kind: string; summary: string; payload: Plan }[] } | null) => live && b?.items && setSent(b.items.filter((i) => i.kind === "canvas").map((i) => ({ id: i.id, summary: i.summary, plan: i.payload })))).catch(() => undefined);
+    void look();
+    const t = setInterval(look, 4000);
+    return () => { live = false; clearInterval(t); };
+  }, []);
+
+  async function applySent(item: { id: string; plan: Plan }) {
+    const names = item.plan.steps.flatMap((s) => (s.template ? [s.template] : []));
+    const next = planToCanvas(item.plan, names);
+    await fetch(`/api/bridge/inbox?project=canvas&id=${encodeURIComponent(item.id)}`, { method: "DELETE" }).catch(() => undefined);
+    setSent((all) => all.filter((x) => x.id !== item.id));
+    if (!next.nodes.length) return setNote("That plan had nothing the canvas could use.");
+    setCanvas(next);
+    setPan({ x: 0, y: 0 });
+  }
 
   useEffect(() => {
     if (!menu || entries.length) return;
@@ -123,6 +143,12 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
     setNote(null);
     const r = await planCanvas(goal);
     setPlanning(false);
+    if (!r.ok && r.needsKey && /Claude/.test(r.reason)) {
+      // No Claude key needed: the connected Claude plans it over MCP and sends it here.
+      const ask = `Use haggs_find_workflows and haggs_propose_canvas to lay out this app in haggs: ${goal.trim()}`;
+      await navigator.clipboard?.writeText(ask).catch(() => undefined);
+      return setNote("Copied a request. Paste it to Claude (the haggs MCP is connected) and its plan lands here for you to apply.");
+    }
     if (!r.ok) return r.needsKey ? openKeys() : setNote(r.reason);
     const next = planToCanvas(r.plan, r.offered);
     if (!next.nodes.length) return setNote("Haggy couldn't turn that into steps. Try saying it another way.");
@@ -161,6 +187,18 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
           <span className="cv-hint">{linking ? "Now click the node it should feed." : "Drag a node to move it. Click a node's right dot, then another node, to link them."}</span>
           <button className="fire" disabled={!compiled.json} onClick={() => setTrying(true)}>Turn it into an app</button>
         </div>
+
+        {sent.length > 0 && (
+          <div className="cv-sent" role="status">
+            {sent.map((i) => (
+              <div key={i.id}>
+                <b>Claude sent a canvas</b> <span>{i.summary}</span>
+                <button className="pill on" onClick={() => void applySent(i)}>Apply</button>
+                <button className="plain" onClick={() => { void fetch(`/api/bridge/inbox?project=canvas&id=${encodeURIComponent(i.id)}`, { method: "DELETE" }); setSent((all) => all.filter((x) => x.id !== i.id)); }}>Dismiss</button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {menu && (
           <div className="cv-menu" role="menu">

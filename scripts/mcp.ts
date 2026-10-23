@@ -19,6 +19,8 @@ import { cameraMoves } from "../src/sheets/camera";
 import { FORMATS, formatById } from "../src/sheets/formats";
 import { fixCell, normalizeSheets, promptRows, qaSheet, sheetsView, type Sheets } from "../src/sheets/sheets";
 import { bridgeRoot, inbox, listSnapshots, propose, readSnapshot } from "../src/server/bridge";
+import { checkPlan } from "../src/comfy/canvas";
+import { indexOf } from "../src/server/comfy-library";
 import { applyBoardProposal, validateBoardProposal } from "../src/story/proposed-board";
 import { applyTakes, applyVoices, validateTakes, validateVoices } from "../src/story/proposed-takes";
 import { applyDraft, validateDraft } from "../src/writer/draft";
@@ -328,3 +330,50 @@ server.registerTool(
 );
 
 await server.connect(new StdioServerTransport());
+
+server.registerTool(
+  "haggs_find_workflows",
+  {
+    description: "Search Comfy's public workflow templates by words (a model, a job, a tag) so a canvas can stack them. Returns each one's name (use it as `template` in haggs_propose_canvas), title, what it makes and the models it uses. Open-weights ones list models like Wan, Qwen, FLUX.2 klein or LTX.",
+    inputSchema: { query: z.string().max(100), limit: z.number().int().min(1).max(30).optional() },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ query, limit }) => {
+    try {
+      const words = query.toLowerCase().split(/\W+/).filter(Boolean);
+      const all = await indexOf(join(dirname(fileURLToPath(import.meta.url)), ".."));
+      const hits = all
+        .filter((e) => e.kind === "image" || e.kind === "video")
+        .map((e) => ({ e, s: words.reduce((n, w) => n + (`${e.title} ${e.description} ${e.tags.join(" ")} ${e.models.join(" ")}`.toLowerCase().includes(w) ? 1 : 0), 0) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s || b.e.usage - a.e.usage)
+        .slice(0, limit ?? 12);
+      return text(hits.map(({ e }) => ({ template: e.name, title: e.title, makes: e.kind, models: e.models.slice(0, 3), takes: e.inputs.map((i) => i.media) })));
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);
+
+server.registerTool(
+  "haggs_propose_canvas",
+  {
+    description:
+      "Lay out an app on haggs's Build-your-own canvas: a chain of steps and library workflows. Steps: picture-in, video-in, make-picture, edit-picture, animate (seconds 4-15, resolution 768P|2K), recast, speak (voice). Or {template} from haggs_find_workflows to stack a whole Comfy workflow. Each step takes what earlier steps made (animate needs a picture, recast a video and a picture, speak a video). The person opens Workflows → Build your own and presses Apply; nothing runs or costs anything until they run the app.",
+    inputSchema: {
+      summary: z.string().max(300),
+      name: z.string().max(80),
+      steps: z.array(z.object({ kind: z.string().optional(), template: z.string().optional(), prompt: z.string().max(2000).optional(), seconds: z.number().optional(), resolution: z.string().optional(), voice: z.string().optional() })).min(1).max(12),
+    },
+    annotations: proposes,
+  },
+  async ({ summary, name, steps }) => {
+    try {
+      const plan = checkPlan({ name, steps });
+      const item = await propose(root, "canvas", { kind: "canvas", summary, payload: plan });
+      return text({ sent: item.id, steps: plan.steps.length, next: "The person opens Workflows → Build your own and presses Apply." });
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);

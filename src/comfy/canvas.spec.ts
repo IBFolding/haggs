@@ -88,3 +88,15 @@ test("a plan only uses steps and library workflows that exist", () => {
   const c = planToCanvas({ name: "x", steps: [{ kind: "picture-in" }, { kind: "teleport" }, { template: "upscale" }, { template: "made_up" }] }, ["upscale"]);
   assert.deepEqual(c.nodes.map((n) => n.kind === "library" ? n.template : n.kind), ["picture-in", "upscale"]);
 });
+
+import { checkPlan } from "./canvas";
+
+test("a plan sent over MCP is checked: known steps, library names that look like names, sane numbers", () => {
+  const plan = checkPlan({ name: "Ad", steps: [{ kind: "picture-in" }, { kind: "animate", prompt: "slow", seconds: 6, resolution: "768P" }, { template: "video_wan2_2_14B_i2v" }] });
+  assert.equal(plan.steps.length, 3);
+  assert.throws(() => checkPlan({ name: "x", steps: [{ kind: "teleport" }] }), /teleport/);
+  assert.throws(() => checkPlan({ name: "x", steps: [{ template: "../../etc/passwd" }] }), /library workflow/i);
+  assert.throws(() => checkPlan({ name: "x", steps: [] }), /at least one/i);
+  assert.throws(() => checkPlan({ name: "x", steps: Array.from({ length: 13 }, () => ({ kind: "picture-in" })) }), /12/);
+  assert.equal(checkPlan({ name: "x", steps: [{ kind: "animate", seconds: 99 }] }).steps[0]!.seconds, 15);
+});
