@@ -49,7 +49,7 @@ export default function Landing() {
               costs before you press it.
             </p>
             <div className="lp-cta">
-              <Link className="fire" href="/signup">Start a project</Link>
+              <Link className="fire" href="/library">Start a project</Link>
               <Link className="plain" href="/workflows">See the Comfy workflows</Link>
             </div>
           </div>
