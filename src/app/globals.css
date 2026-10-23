@@ -2405,3 +2405,10 @@ a.logo { color: var(--text); text-decoration: none; }
 .recreate-presets .quick-card { text-align: left; cursor: pointer; font: inherit; color: var(--text); }
 .ed-marker { position: absolute; top: 2px; z-index: 4; transform: translateX(-3px); max-width: 110px; padding: 0 6px; height: 16px; border: 0; border-left: 2px solid #ff6b6b; border-radius: 0 4px 4px 0; background: #ff6b6b33; color: #ffc9c9; font: inherit; font-size: 10px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .ed-marker-at { font-family: var(--mono); font-size: 12px; color: #ff9b9b; }
+
+.ed-version-new { display: flex; gap: 6px; margin-bottom: 8px; }
+.ed-version-new input { flex: 1; min-width: 0; }
+.ed-versions { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow: auto; }
+.ed-versions li { display: flex; align-items: center; gap: 6px; }
+.ed-versions li span { flex: 1; display: grid; font-size: 13px; }
+.ed-versions li small { color: var(--muted, #8a8a8a); font-size: 11px; }

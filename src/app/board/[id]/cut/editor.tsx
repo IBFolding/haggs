@@ -1,5 +1,6 @@
 "use client";
 
+import { listVersions, removeVersion, restoreVersion, saveVersion, type Version } from "../../../../story/versions";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -48,13 +49,16 @@ function download(name: string, text: string, type: string) {
 export function Editor({ id, boardId }: { id: string; boardId?: string | undefined }) {
   /** The whole project; the state below is one board's view of it. */
   const full = useRef<Project | null>(null);
-  const store = useMemo(() => createProjectStore(defaultKv()), []);
+  const kv = useMemo(() => defaultKv(), []);
+  const store = useMemo(() => createProjectStore(kv), [kv]);
   const saves = useMemo(() => createSaveQueue(store), [store]);
 
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
   const [t, setT] = useState(0);
   const [card, setCard] = useState<{ text: string; sub: string; busy: boolean } | null>(null);
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [versionName, setVersionName] = useState("");
   const [markerEdit, setMarkerEdit] = useState<string | null>(null);
   const [fxDrag, setFxDrag] = useState<{ id: string; start: number } | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -141,6 +145,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   // The latest board, readable outside React's updaters (which run twice in development and so can't change history).
   const now = useRef<Project | null>(null);
   useEffect(() => { now.current = project; }, [project]);
+  useEffect(() => { void listVersions(kv, id, boardId).then(setVersions); }, [kv, id, boardId]);
   /** Any edit to the board from the editor, saved the same way the board saves. */
   const apply = useCallback(
     (change: (current: Project) => Project) => {
@@ -415,6 +420,25 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
           {rendering ? "Rendering…" : "Render MP4"}
         </button>
       )}
+      <details className="ed-more">
+        <summary>Versions{versions.length ? ` · ${versions.length}` : ""}</summary>
+        <div>
+          <form className="ed-version-new" onSubmit={(e) => { e.preventDefault(); const cur = now.current; if (!cur) return; void saveVersion(kv, id, boardId, cur, versionName).then(setVersions); setVersionName(""); }}>
+            <input value={versionName} onChange={(e) => setVersionName(e.target.value)} placeholder="Name this cut, e.g. Director's cut" aria-label="Version name" />
+            <button className="plain" type="submit">Save a version</button>
+          </form>
+          {versions.length === 0 && <p>Save a version before a big change. Restoring one keeps today's cut as a safety copy first.</p>}
+          <ul className="ed-versions">
+            {versions.map((v) => (
+              <li key={v.id}>
+                <span>{v.name}<small>{new Date(v.at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}{v.auto ? " · safety copy" : ""}</small></span>
+                <button className="plain" onClick={() => { const cur = now.current; if (!cur) return; void restoreVersion(kv, id, boardId, v.id, cur).then((out) => { if (!out) return; setVersions(out.versions); apply(() => out.project); }); }}>Restore</button>
+                <button className="plain" aria-label={`Delete ${v.name}`} onClick={() => void removeVersion(kv, id, boardId, v.id).then(setVersions)}>×</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
       <details className="ed-more">
         <summary>Export</summary>
         <div>
