@@ -273,7 +273,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
           <header className="wf-head">
             <div>
               {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to the canvas</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
-              <h1>{opened.title}</h1>
+              <h1>{opened.title === "your workflow" ? name : opened.title}</h1>
               {opened.description && <p>{opened.description}</p>}
             </div>
             <div className="wf-appbar">

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Entry } from "../../server/comfy-library";
 import { Nav, openKeys } from "../nav";
 import { SWAP_THUMB } from "../swap/thumb";
+import { QUICK_APPS } from "../../comfy/quick";
 import { createAppStore, type SavedApp } from "../../story/apps";
 import { defaultKv } from "../../story/kv";
 import { listWorkflows, type Listing } from "../workflow-actions";
@@ -71,6 +72,18 @@ export function Workflows() {
             </div>
           </header>
 
+          <section className="quick" aria-label="Ready-made apps">
+            <h2>Start with one that works</h2>
+            <div className="quick-grid">
+              {QUICK_APPS.map((a) => (
+                <Link key={a.id} className="quick-card" href={`/workflows/build?quick=${a.id}`}>
+                  <b>{a.name}</b>
+                  <span>{a.says}</span>
+                  <small>{a.canvas.nodes.every((n) => n.kind !== "library" || (n.template && !n.template.startsWith("api_"))) && a.canvas.nodes.some((n) => n.kind === "library") ? "Open weights · runs on your GPU" : `Makes a ${a.makes}`}</small>
+                </Link>
+              ))}
+            </div>
+          </section>
           <p className="wf-small"><Link href="/workflows/community">Community apps</Link> · made by people using haggs, free or up to 12¢ a run.</p>
           {mine.length > 0 && (
             <section className="wf-mine" aria-label="Your apps">

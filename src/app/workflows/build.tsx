@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { compileCanvas, portsOf, type Canvas, type CNode, type Library } from "../../comfy/canvas";
@@ -10,6 +11,7 @@ import { Nav, openKeys } from "../nav";
 import { libraryPrompts, listWorkflows, planCanvas } from "../workflow-actions";
 import { planToCanvas, type Plan } from "../../comfy/canvas";
 import { alternativesFor, isOpen } from "../../comfy/alternatives";
+import { quickById } from "../../comfy/quick";
 import { WorkflowApp } from "./[name]/workflow-app";
 
 /**
@@ -26,7 +28,9 @@ const newId = () => `n${Math.random().toString(36).slice(2, 8)}`;
 const FIRST: CNode[] = [{ id: "start", kind: "picture-in", x: 40, y: 80 }];
 
 export function BuildWorkflow({ start }: { start?: Canvas }) {
-  const [canvas, setCanvas] = useState<Canvas>(start ?? { name: "My app", nodes: FIRST, links: [] });
+  // A ready-made app opens straight as a simple form; its canvas is one tap away.
+  const quick = quickById(useSearchParams().get("quick") ?? "");
+  const [canvas, setCanvas] = useState<Canvas>(start ?? quick?.canvas ?? { name: "My app", nodes: FIRST, links: [] });
   const [library, setLibrary] = useState<Library>({});
   const [titles, setTitles] = useState<Record<string, string>>({});
   const [linking, setLinking] = useState<string | null>(null);
@@ -36,6 +40,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [trying, setTrying] = useState(false);
+  const autoTried = useRef(false);
   const [goal, setGoal] = useState("");
   const [planning, setPlanning] = useState(false);
   const [sent, setSent] = useState<{ id: string; summary: string; plan: Plan }[]>([]);
@@ -82,6 +87,13 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
       return { json: null, error: caught instanceof Error ? caught.message : "That canvas can't run." };
     }
   }, [canvas, library]);
+
+  useEffect(() => {
+    if (quick && !start && compiled.json && !autoTried.current) {
+      autoTried.current = true;
+      setTrying(true);
+    }
+  }, [quick, start, compiled.json]);
 
   const patch = (id: string, p: Partial<CNode>) => setCanvas((c) => ({ ...c, nodes: c.nodes.map((n) => (n.id === id ? { ...n, ...p } : n)) }));
   const remove = (id: string) => setCanvas((c) => ({ ...c, nodes: c.nodes.filter((n) => n.id !== id), links: c.links.filter((l) => l.from !== id && l.to !== id) }));
