@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { LESSONS } from "../academy/lessons";
 import { FORMATS } from "../sheets/formats";
 import { HeroStage } from "./hero-stage";
 import { Nav } from "./nav";
@@ -24,6 +25,15 @@ const TABS = [
   { name: "Media", says: "Everything the project is made of, by shot: takes, stills and references. Change what a shot should show and roll it again." },
 ];
 
+const TILES = [
+  { name: "Photos", says: "Make, edit, build characters and places.", href: "/photos" },
+  { name: "Video", says: "A clip from words or a picture.", href: "/video" },
+  { name: "Series", says: "A topic into short vertical videos, faceless channels too.", href: "/series" },
+  { name: "Workflows", says: "26 ready-made apps: swap, relight, try on, upscale.", href: "/workflows" },
+  { name: "Editor", says: "Cut, reshoot, restyle, sound and render.", href: "/library" },
+  { name: "Academy", says: "Seven short lessons. Your first video in lesson one.", href: "/academy" },
+] as const;
+
 export default function Landing() {
   const groups = ["Half-hour", "Hour", "Vertical", "Short"] as const;
   return (
@@ -44,6 +54,18 @@ export default function Landing() {
             </div>
           </div>
           <HeroStage />
+        </section>
+
+        <section className="lp-tiles" aria-label="Make something now">
+          <h2>Make something now</h2>
+          <div className="lp-tile-grid">
+            {TILES.map((t) => (
+              <Link key={t.href} href={t.href} className="lp-tile">
+                <b>{t.name}</b>
+                <span>{t.says}</span>
+              </Link>
+            ))}
+          </div>
         </section>
 
         <section className="lp-wall" aria-label="What it makes">
@@ -107,6 +129,33 @@ export default function Landing() {
               <p>Drop stills on the board, one per scene, drag them into order and subplots, then animate from them.</p>
             </article>
           </div>
+        </section>
+
+        <section className="lp-academy" id="academy">
+          <h2>Learn it by making it</h2>
+          <p>The Academy is seven short lessons, about 90 minutes in all. You make a video in the first one, and every lesson ends in something real in haggs. Finish all seven for a certificate.</p>
+          <ol className="lp-lessons">
+            {LESSONS.map((l) => (
+              <li key={l.id}><b>{l.title}</b><span>{l.minutes} min · {l.goal}</span></li>
+            ))}
+          </ol>
+          <Link className="fire" href="/academy">Start lesson one</Link>
+        </section>
+
+        <section className="lp-mcp" id="mcp">
+          <h2>Works with Claude over MCP</h2>
+          <p>
+            haggs ships an MCP server. Connect Claude and it can read your projects, then send you work to apply: a whole board, takes,
+            voice lines, a series, or an app laid out on the canvas. Nothing changes until you press Apply, and nothing is spent until you
+            press a button that shows its price. No separate API key needed.
+          </p>
+          <div className="lp-mcp-grid">
+            <article><h3>Read</h3><p>Projects, sheets, boards and shots, so Claude knows the film it is helping with.</p></article>
+            <article><h3>Propose</h3><p>Drafts, boards, edits, takes, voices, canvases and series land in an inbox in the app.</p></article>
+            <article><h3>Find</h3><p>Search Comfy&rsquo;s workflow library, open weights included, and stack what fits.</p></article>
+          </div>
+          <pre className="lp-code" aria-label="Connect Claude Code">claude mcp add haggs -- npx tsx scripts/mcp.ts</pre>
+          <p className="lp-small">Claude Code picks it up from the repo&rsquo;s <code>.mcp.json</code> automatically. Any other MCP client can run <code>npx tsx scripts/mcp.ts</code>.</p>
         </section>
 
         <section className="lp-honest">

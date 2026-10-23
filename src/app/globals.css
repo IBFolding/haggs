@@ -2306,3 +2306,21 @@ a.logo { color: var(--text); text-decoration: none; }
 .voice-mix label.sound-level:last-child { justify-content: flex-start; }
 .voice-mix label.sound-level input[type="checkbox"] { flex: none; width: auto; }
 .quick-group { font-size: 13px; color: var(--text-2); margin: 14px 0 8px; font-weight: 600; }
+
+.lp-tiles, .lp-academy, .lp-mcp { padding-top: 56px !important; padding-bottom: 20px !important; }
+.lp-tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-top: 14px; }
+.lp-tile { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); text-decoration: none; }
+.lp-tile:hover { border-color: var(--volt); }
+.lp-tile b { font-size: 16px; }
+.lp-tile span, .lp-academy p, .lp-mcp p { color: var(--text-2); font-size: 14px; line-height: 1.6; margin: 0; }
+.lp-academy p, .lp-mcp > p { max-width: 64ch; margin-bottom: 14px; }
+.lp-lessons { list-style: none; padding: 0; margin: 0 0 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; counter-reset: l; }
+.lp-lessons li { counter-increment: l; display: grid; gap: 2px; padding: 12px 14px 12px 44px; position: relative; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.lp-lessons li::before { content: counter(l); position: absolute; left: 12px; top: 12px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--volt); color: var(--volt); font-size: 12px; display: grid; place-items: center; }
+.lp-lessons li span { color: var(--text-2); font-size: 12.5px; }
+.lp-lessons + .fire { display: inline-block; text-decoration: none; }
+.lp-mcp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin: 0 0 14px; }
+.lp-mcp-grid article { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.lp-mcp-grid h3 { margin: 0 0 4px; font-size: 15px; }
+.lp-code { margin: 8px 0; padding: 12px 16px; border: 1px solid var(--line); border-radius: 10px; background: #0d0d0d; color: var(--volt); font: 13px var(--mono); overflow-x: auto; }
+.lp-small { font-size: 12.5px !important; }
