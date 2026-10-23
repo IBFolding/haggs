@@ -22,5 +22,6 @@ test("a style reel is a new board with one labelled clip per style, in order, or
   assert.deepEqual(board.shots.map((s) => s.render?.url), ["/a.mp4", "/c.mp4"]);
   assert.equal(board.shots[0]!.seconds, 4.5);
   assert.equal(board.kind, "reel");
+  assert.deepEqual(board.shots.map((s) => s.heading), ["Cel anime", "Claymation"], "each clip is named by its look");
   assert.ok(board.shots.every((s) => s.render?.kind === "video"));
 });

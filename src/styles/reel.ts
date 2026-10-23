@@ -15,8 +15,8 @@ export function addStyleReel(project: Project, name: string, clips: StyledClip[]
     ...made.board,
     shots: clips.map((c) => ({
       ...newShot(),
-      heading: "",
-      beat: `${c.style.name}: ${c.style.says}`,
+      heading: c.style.name,
+      beat: c.style.says,
       caption: c.style.name,
       seconds: c.seconds,
       render: { url: c.url, kind: "video" as const, usd: c.usd, promptHash: "", at: Date.now() },

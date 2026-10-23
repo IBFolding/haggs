@@ -2355,3 +2355,4 @@ a.logo { color: var(--text); text-decoration: none; }
 .nudge span { flex: 1; color: var(--text-2); }
 .nudge b { color: var(--text); }
 .nudge .pill { text-decoration: none; white-space: nowrap; }
+.ed-empty { white-space: nowrap; }
