@@ -17,12 +17,14 @@ import { listWorkflows, type Listing } from "../workflow-actions";
  * what it makes. Picking one opens it as a simple form; the nodes are a tab away.
  */
 
+const TABS = ["Quick start", "Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const SHELVES = ["Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const FEATURED = ["api_higgsfield_genjutsu_motion_transfer", "template_seedance2_0_viral_videos_character_swap", "video_wan21_scail2_character_replacement", "video_minimax_h3_r2v", "api_bria_video_replace_background"];
 
 export function Workflows() {
   const [listing, setListing] = useState<Listing | null>(null);
-  const [shelf, setShelf] = useState<(typeof SHELVES)[number]>("Featured");
+  const [tab, setTab] = useState<(typeof TABS)[number]>("Quick start");
+  const shelf = (tab === "Quick start" ? "Featured" : tab) as (typeof SHELVES)[number];
   const [hunt, setHunt] = useState("");
   const [group, setGroup] = useState<(typeof GROUPS)[number]>(GROUPS[0]);
   const [mine, setMine] = useState<SavedApp[]>([]);
@@ -65,35 +67,55 @@ export function Workflows() {
           <header className="wf-head">
             <div>
               <h1>Comfy workflows, ready to run</h1>
-              <p>Pick one, drop in your files, press Run. The price is on the button. Every workflow here runs on Comfy Cloud with your key, and the nodes are a tab away.</p>
+              <p>Pick one, drop in your files, press Run. The price is on the button.</p>
             </div>
-            <div className="sheet-row">
-              <Link className="fire" href="/workflows/build">Build your own</Link>
-              <Link className="pill" href="/workflows/import">Open a workflow or app</Link>
-            </div>
+            <Link className="fire" href="/workflows/build">Build your own</Link>
           </header>
+          <p className="wf-links">
+            <Link href="/workflows/import">Open a workflow or app</Link>
+            <Link href="/workflows/community">Community apps</Link>
+            {mine.length > 0 && <a href="#your-apps">Your apps ({mine.length})</a>}
+          </p>
 
-          <section className="quick" aria-label="Ready-made apps">
-            <div className="quick-head">
-              <h2>Start with one that works</h2>
+          <div className="wf-bar">
+            <div className="wf-shelves" role="tablist" aria-label="What to browse">
+              {TABS.map((t) => (
+                <button key={t} role="tab" aria-selected={!hunt && tab === t} className={!hunt && tab === t ? "on" : ""} onClick={() => { setTab(t); setHunt(""); }}>{t}</button>
+              ))}
+            </div>
+            <input className="wf-hunt" value={hunt} onChange={(e) => setHunt(e.target.value)} placeholder="Search workflows" aria-label="Search workflows" />
+          </div>
+
+          {!hunt && tab === "Quick start" && (
+            <section className="quick" aria-label="Ready-made apps">
               <div className="quick-tabs" role="tablist" aria-label="Kind of job">
                 {GROUPS.map((g) => (
                   <button key={g} role="tab" aria-selected={group === g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{g}</button>
                 ))}
               </div>
-              <Link className="plain" href="/workflows/community">Community apps</Link>
-            </div>
-            <div className="quick-row">
-              {QUICK_APPS.filter((a) => a.group === group).map((a) => (
-                <Link key={a.id} className="quick-card" href={`/workflows/build?quick=${a.id}`} title={a.says}>
-                  <b>{a.name}</b>
-                  <small>{isOpenApp(a) ? "Open weights" : a.makes === "video" ? "Video" : "Picture"}</small>
-                </Link>
-              ))}
-            </div>
-          </section>
-          {mine.length > 0 && (
-            <section className="wf-mine" aria-label="Your apps">
+              <div className="quick-row">
+                {QUICK_APPS.filter((a) => a.group === group).map((a) => (
+                  <Link key={a.id} className="quick-card" href={`/workflows/build?quick=${a.id}`}>
+                    <b>{a.name}</b>
+                    <span>{a.says}</span>
+                    <small>{isOpenApp(a) ? "Open weights" : a.makes === "video" ? "Video" : "Picture"}</small>
+                  </Link>
+                ))}
+                {group === "Swap and faces" && (
+                  <Link className="quick-card swap" href="/swap">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={SWAP_THUMB} alt="" />
+                    <b>Swap a character</b>
+                    <span>Drop a video and a picture, say who to replace. The scene, camera and sound stay.</span>
+                    <small>Video</small>
+                  </Link>
+                )}
+              </div>
+            </section>
+          )}
+
+          {!hunt && tab === "Quick start" && mine.length > 0 && (
+            <section className="wf-mine" id="your-apps" aria-label="Your apps">
               <h2>Your apps</h2>
               <div className="squares-grid">
                 {mine.map((a) => (
@@ -107,28 +129,12 @@ export function Workflows() {
             </section>
           )}
 
-          <section className="wf-apps" aria-label="Apps">
-            <Link className="wf-app" href="/swap">
-              <img src={SWAP_THUMB} alt="" />
-              <span><b>Swap a character</b><small>Drop a video and a picture, say who to replace. The scene, camera and sound stay.</small></span>
-            </Link>
-          </section>
-
-          <div className="wf-bar">
-            <input className="wf-hunt" value={hunt} onChange={(e) => setHunt(e.target.value)} placeholder="Search: character swap, product video, upscale…" aria-label="Search workflows" />
-            <div className="wf-shelves" role="tablist" aria-label="What it makes">
-              {SHELVES.map((s) => (
-                <button key={s} role="tab" aria-selected={!hunt && shelf === s} className={!hunt && shelf === s ? "on" : ""} onClick={() => { setShelf(s); setHunt(""); }}>{s}</button>
-              ))}
-            </div>
-          </div>
-
           {listing?.needsKey && (
             <p className="wf-note">Add a Comfy key to see which of these run on your account. <button className="plain" onClick={() => openKeys()}>Add a key</button></p>
           )}
           {listing && !listing.checked && !listing.needsKey && <p className="wf-note" role="status">Checking which workflows run on Comfy Cloud. This takes a minute the first time.</p>}
 
-          {!listing ? (
+          {!hunt && tab === "Quick start" ? null : !listing ? (
             <div className="wf-grid">{Array.from({ length: 12 }, (_, i) => <div key={i} className="wf-tile ghost" />)}</div>
           ) : !shown.length ? (
             <p className="wf-note">Nothing matches “{hunt}”. Try a model name, or what you want to make.</p>

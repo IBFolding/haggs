@@ -7,7 +7,7 @@ import type { Lesson } from "../academy/lessons";
 
 /** The seven lessons as a road you walk: pick a stop to see what you will have made by the end of it. */
 
-const MADE: Record<string, string> = {
+export const MADE: Record<string, string> = {
   "first-video": "/templates/poster-animate-still.webp",
   prompting: "/templates/poster-dolly-zoom.webp",
   camera: "/templates/storyboard-frame.webp",
@@ -49,7 +49,7 @@ export function AcademyPath({ lessons }: { lessons: Lesson[] }) {
           <h3>{lesson.title}</h3>
           <p>{lesson.goal}</p>
           <p className="ap-make"><b>You make</b> {lesson.homework}</p>
-          <Link className="fire" href={at === 0 ? "/academy" : `/academy/${lesson.id}`}>{at === 0 ? "Start lesson one" : `Open lesson ${at + 1}`}</Link>
+          <Link className="fire" href={`/academy/learn/${lesson.id}`}>{at === 0 ? "Start lesson one" : `Open lesson ${at + 1}`}</Link>
         </div>
       </article>
       <p className="ap-total">{total} minutes in all. Finish all seven for a certificate.</p>

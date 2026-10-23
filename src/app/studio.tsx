@@ -17,6 +17,8 @@ import { defaultKv } from "../story/kv";
 import { createRunStore, type Run } from "../story/runs";
 import { rates, run, type Rate } from "./actions";
 import { Nav, openKeys } from "./nav";
+import { BuildLink } from "./return-bar";
+import { readPick } from "../story/handoff";
 import { REUSE_KEY } from "./gallery/gallery";
 import { useStartProject } from "./start-project";
 import { RunTile } from "./run-tile";
@@ -88,8 +90,9 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
   const [tile, setTile] = useState<"character" | "location" | "wardrobe" | null>(null);
   const [custom, setCustom] = useState("");
   useEffect(() => {
-    void createCharacterStore(defaultKv()).list().then(setPeople).catch(() => undefined);
-    void createPlaceStore(defaultKv()).list().then(setPlaces).catch(() => undefined);
+    const pick = readPick(window.location.search);
+    void createCharacterStore(defaultKv()).list().then((all) => { setPeople(all); const c = pick?.kind === "character" ? all.find((x) => x.id === pick.id) : undefined; if (c) setWho(c); }).catch(() => undefined);
+    void createPlaceStore(defaultKv()).list().then((all) => { setPlaces(all); const p = pick?.kind === "place" ? all.find((x) => x.id === pick.id) : undefined; if (p) setWhere(p); }).catch(() => undefined);
   }, []);
   useEffect(() => {
     try {
@@ -448,10 +451,10 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
             <div className="cast-pick" onClick={(e) => e.stopPropagation()}>
               {tile === "character" && (people.length ? (
                 <div className="cast-list">{people.map((c) => <button key={c.id} onClick={() => { setWho(c); setTile(null); }}><img src={c.sheet} alt="" /><span>{c.traits.name}</span></button>)}</div>
-              ) : <p className="wf-small">No characters yet. <Link href="/characters">Build one</Link> and they&rsquo;ll be here.</p>)}
+              ) : <p className="wf-small">No characters yet. <BuildLink href="/characters" label={surface === "Video" ? "Video" : "Photos"}>Build one</BuildLink> and they&rsquo;ll be here.</p>)}
               {tile === "location" && (places.length ? (
                 <div className="cast-list">{places.map((c) => <button key={c.id} onClick={() => { setWhere(c); setTile(null); }}><img src={c.plate} alt="" /><span>{c.traits.name}</span></button>)}</div>
-              ) : <p className="wf-small">No places yet. <Link href="/locations">Build one</Link> and it&rsquo;ll be here.</p>)}
+              ) : <p className="wf-small">No places yet. <BuildLink href="/locations" label={surface === "Video" ? "Video" : "Photos"}>Build one</BuildLink> and it&rsquo;ll be here.</p>)}
               {tile === "wardrobe" && (
                 <div className="cast-wardrobe">
                   <p className="wf-small">What the character wears or carries. Added to the words, so it works with any model.</p>

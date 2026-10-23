@@ -12,6 +12,8 @@ import { createProjectStore } from "../../story/store";
 import { STYLES } from "../../styles/style";
 import { run as runModel, speakLine } from "../actions";
 import { Nav, openKeys } from "../nav";
+import { BuildLink } from "../return-bar";
+import { readPick } from "../../story/handoff";
 import { draftSeries, makeStill } from "../series-actions";
 
 /**
@@ -57,7 +59,7 @@ export function SeriesMaker() {
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   useEffect(() => {
-    void characters.list().then(setCast);
+    void characters.list().then((all) => { setCast(all); const pick = readPick(window.location.search); if (pick?.kind === "character" && all.some((c) => c.id === pick.id)) setWho(pick.id); });
   }, [characters]);
 
   // What Claude has sent over MCP, waiting to be applied.
@@ -282,7 +284,7 @@ export function SeriesMaker() {
                   {cast.map((c) => (
                     <button key={c.id} className={who === c.id ? "on" : ""} onClick={() => setWho(c.id)} title={c.traits.name}><img src={c.sheet} alt="" />{c.traits.name}</button>
                   ))}
-                  <Link href="/characters" className="plain">+ Build a character</Link>
+                  <BuildLink href="/characters" className="plain" label="your series">+ Build a character</BuildLink>
                 </div>
               </div>
               <div className="series-pick">

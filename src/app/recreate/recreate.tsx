@@ -9,6 +9,8 @@ import { EDIT_PRESETS, buildRecreation, presetShots, type RefShot } from "../../
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { Nav, openKeys } from "../nav";
+import { BuildLink } from "../return-bar";
+import { readPick } from "../../story/handoff";
 import { analyzeEdit } from "../recreate-actions";
 
 /**
@@ -39,7 +41,7 @@ export function Recreate() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void createCharacterStore(defaultKv()).list().then(setCast).catch(() => undefined);
+    void createCharacterStore(defaultKv()).list().then((all) => { setCast(all); const pick = readPick(window.location.search); if (pick?.kind === "character" && all.some((c) => c.id === pick.id)) setWho(pick.id); }).catch(() => undefined);
     void defaultKv().get<typeof mine>("recreate/presets").then((p) => setMine(p ?? [])).catch(() => undefined);
   }, []);
 
@@ -163,7 +165,7 @@ export function Recreate() {
                       <div className="series-chips">
                         <button className={!who ? "on" : ""} onClick={() => setWho(null)}>Nobody in particular</button>
                         {cast.map((c) => <button key={c.id} className={who === c.id ? "on" : ""} onClick={() => setWho(c.id)}><img src={c.sheet} alt="" />{c.traits.name}</button>)}
-                        <Link className="plain" href="/characters">+ Build a character</Link>
+                        <BuildLink className="plain" href="/characters" label="Recreate an edit">+ Build a character</BuildLink>
                       </div>
                     </div>
                     <label className="wf-field"><span>Anything to change (place, outfit, mood)</span><textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Set it in Tokyo at night. She wears a red coat." maxLength={500} /></label>

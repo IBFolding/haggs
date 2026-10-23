@@ -8,6 +8,7 @@ import { defaultKv } from "../../story/kv";
 import type { Run } from "../../story/runs";
 import { runEdit } from "../actions";
 import { Nav, openKeys } from "../nav";
+import { ReturnBar } from "../return-bar";
 import { ReshootPanel } from "../reshoot-panel";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
@@ -114,6 +115,7 @@ export function Locations() {
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
       <div className="canvas">
         <div className="chars">
+          <ReturnBar kind="place" savedId={current?.id} savedName={current?.traits.name} />
           <nav className="modes" aria-label="Photos">
             <Link href="/photos">Make</Link>
             <Link href="/edit">Edit a photo</Link>
