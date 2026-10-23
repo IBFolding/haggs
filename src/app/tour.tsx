@@ -38,7 +38,9 @@ export function Tour() {
   useEffect(() => {
     let first: ReturnType<typeof setTimeout> | undefined;
     try {
-      if (!localStorage.getItem(DONE)) first = setTimeout(() => setAt(0), 1100);
+      // ?notour is for demos and tests: it marks the tour done and carries on.
+      if (new URLSearchParams(window.location.search).has("notour")) localStorage.setItem(DONE, "skipped");
+      else if (!localStorage.getItem(DONE)) first = setTimeout(() => setAt(0), 1100);
     } catch { /* private window */ }
     const start = () => setAt(0);
     window.addEventListener(TOUR_EVENT, start);

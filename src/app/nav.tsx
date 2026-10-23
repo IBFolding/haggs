@@ -47,6 +47,8 @@ export function Nav({ current }: { current: Place }) {
 
   useEffect(() => {
     void keysHeld().then(setHeld);
+    // On a phone the page-level tabs scroll sideways: bring the current one into view.
+    document.querySelector(".modes [aria-current='page']")?.scrollIntoView({ inline: "center", block: "nearest" });
     const show = () => setOpen(true);
     window.addEventListener(OPEN_KEYS, show);
     return () => window.removeEventListener(OPEN_KEYS, show);
