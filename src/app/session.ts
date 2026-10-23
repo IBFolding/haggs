@@ -10,11 +10,27 @@ import { useEffect, useState } from "react";
 
 let client: SupabaseClient | null | undefined;
 
+/** Keeps the access token where the server can read it, for as long as it is good. Cleared on sign-out. */
+function keepCookie(session: Session | null) {
+  try {
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    if (!session) document.cookie = `haggs-at=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+    else document.cookie = `haggs-at=${session.access_token}; Path=/; Max-Age=${Math.max(60, (session.expires_at ?? 0) - Math.floor(Date.now() / 1000))}; SameSite=Lax${secure}`;
+  } catch {
+    /* no cookies here */
+  }
+}
+
 export function supabase(): SupabaseClient | null {
   if (client !== undefined) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   client = url && key ? createClient(url, key, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true, storageKey: "haggs-auth" } }) : null;
+  if (client) {
+    // The server sees who you are through this cookie (server actions can't read a bearer header).
+    void client.auth.getSession().then(({ data }) => keepCookie(data.session));
+    client.auth.onAuthStateChange((_event, next) => keepCookie(next));
+  }
   return client;
 }
 

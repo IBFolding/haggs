@@ -1,5 +1,7 @@
 import { put } from "@vercel/blob";
 
+import { ownerOf, signInRequired, userNow } from "./auth";
+
 /**
  * The hosted file store. On a deployment with a Vercel Blob store connected
  * (BLOB_READ_WRITE_TOKEN), results, uploads and renders are kept there and
@@ -13,11 +15,13 @@ const TYPES: Record<string, string> = { mp4: "video/mp4", webm: "video/webm", mo
 
 /** Keeps bytes in the store and returns the public link. The name is unguessable. */
 export async function putBlob(bytes: Uint8Array, extension: string, folder = "results"): Promise<string> {
+  const user = await userNow();
+  if (signInRequired() && !user) throw new Error("Sign in to save results here.");
   const ext = extension.toLowerCase().replace(/^\./, "");
   const type = TYPES[ext];
   if (!type) throw new Error("That kind of file can't be kept.");
   const day = new Date().toISOString().slice(0, 10);
-  const made = await put(`haggs/${folder}/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: "public", contentType: type, addRandomSuffix: true });
+  const made = await put(`haggs/${ownerOf(user)}/${folder}/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: "public", contentType: type, addRandomSuffix: true });
   return made.url;
 }
 

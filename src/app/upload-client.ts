@@ -1,5 +1,13 @@
 import { upload } from "@vercel/blob/client";
 
+import { supabase } from "./session";
+
+/** The folder the signed-in person's files go in, or the shared guest folder. */
+async function ownerFolder(): Promise<string> {
+  const id = (await supabase()?.auth.getSession())?.data.session?.user.id;
+  return id ? `u-${id}` : "guest";
+}
+
 export type Uploaded = { ok: true; url: string; kind: "audio" | "video" | "image"; name: string } | { ok: false; reason: string };
 
 const kindOf = (file: File): "audio" | "video" | "image" | null => (file.type.startsWith("audio/") ? "audio" : file.type.startsWith("video/") ? "video" : file.type.startsWith("image/") ? "image" : null);
@@ -15,7 +23,8 @@ export async function uploadFile(file: File): Promise<Uploaded> {
     if (!kind) return { ok: false, reason: "Add an audio file, a video or a picture." };
     if (file.size > 300 * 1024 * 1024) return { ok: false, reason: "Keep added files under 300 MB." };
     try {
-      const made = await upload(`haggs/uploads/${file.name.replace(/[^\w.-]+/g, "-").slice(-80)}`, file, { access: "public", handleUploadUrl: "/api/blob/upload" });
+      const owner = await ownerFolder();
+      const made = await upload(`haggs/${owner}/uploads/${file.name.replace(/[^\w.-]+/g, "-").slice(-80)}`, file, { access: "public", handleUploadUrl: "/api/blob/upload" });
       return { ok: true, url: made.url, kind, name: file.name };
     } catch (caught) {
       return { ok: false, reason: caught instanceof Error ? caught.message : "The file couldn't be added." };
