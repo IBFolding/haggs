@@ -15,7 +15,7 @@ export type Canvas = { name: string; nodes: CNode[]; links: Link[] };
 export type Library = Record<string, ApiPrompt>;
 
 const LOADERS: Record<string, Kind> = { LoadImage: "image", LoadVideo: "video" };
-const SAVERS: Record<string, { kind: Kind; input: string }> = { SaveImage: { kind: "image", input: "images" }, SaveVideo: { kind: "video", input: "video" } };
+const SAVERS: Record<string, { kind: Kind; input: string }> = { SaveImage: { kind: "image", input: "images" }, SaveImageAdvanced: { kind: "image", input: "images" }, PreviewImage: { kind: "image", input: "images" }, SaveVideo: { kind: "video", input: "video" } };
 const stepInfo = (k: StepKind) => STEPS.find((s) => s.kind === k)!;
 const word = (k: Kind) => (k === "image" ? "picture" : "video");
 

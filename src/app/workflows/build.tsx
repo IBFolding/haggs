@@ -170,13 +170,32 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
     setPan({ x: 0, y: 0 });
   }
 
-  /** Swaps a node for a library workflow that does the same job, keeping its place and its links. */
-  async function swap(id: string, e: Entry) {
+  /** Swaps a node for a library workflow that does the same job, keeping its place and its links. Says so, and changes nothing, if the workflow can't be stacked. */
+  async function swap(id: string, e: Entry, quiet = false): Promise<boolean> {
     const r = await libraryPrompts([e.name]);
-    if (!r.ok) return r.needsKey ? openKeys() : setNote(r.reason);
+    if (!r.ok) {
+      if (r.needsKey) openKeys();
+      else if (!quiet) setNote(r.reason);
+      return false;
+    }
+    try {
+      portsOf({ id: "probe", kind: "library", template: e.name, x: 0, y: 0 }, r.prompts);
+    } catch (caught) {
+      if (!quiet) setNote(caught instanceof Error ? caught.message : `${e.title} can't be stacked.`);
+      return false;
+    }
     setLibrary((l) => ({ ...l, ...r.prompts }));
     setTitles((t) => ({ ...t, [e.name]: e.title }));
     setCanvas((c) => ({ ...c, nodes: c.nodes.map((n) => (n.id === id ? { id: n.id, x: n.x, y: n.y, kind: "library" as const, template: e.name } : n)) }));
+    setNote(null);
+    return true;
+  }
+
+  /** The best way to do a step: open weights first, then the most used, taking the first that can be stacked. */
+  async function bestOf(id: string, alts: Entry[]) {
+    const order = [...alts.filter(isOpen), ...alts.filter((a) => !isOpen(a))].slice(0, 6);
+    for (const a of order) if (await swap(id, a, true)) return;
+    setNote("None of the alternatives for this step can be stacked yet.");
   }
 
   const shown = entries.filter((e) => !hunt.trim() || `${e.title} ${e.tags.join(" ")} ${e.models.join(" ")}`.toLowerCase().includes(hunt.trim().toLowerCase())).slice(0, 40);
@@ -280,14 +299,13 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
                   {(() => {
                     const alts = alternativesFor(n.kind, entries).slice(0, 12);
                     if (!alts.length) return null;
-                    const best = alts.find(isOpen) ?? alts[0]!;
                     return (
                       <div className="cv-swap">
                         <select value="" onChange={(ev) => { const pick = alts.find((a) => a.name === ev.target.value); if (pick) void swap(n.id, pick); }} aria-label={`Swap the model for ${label(n)}`}>
                           <option value="">Swap the model…</option>
                           {alts.map((a) => <option key={a.name} value={a.name}>{isOpen(a) ? "Open · " : "Partner · "}{a.title}</option>)}
                         </select>
-                        <button className="plain" title={`Use ${best.title}`} onClick={() => void swap(n.id, best)}>Best open</button>
+                        <button className="plain" title="Open weights first, then the most used" onClick={() => void bestOf(n.id, alts)}>Best open</button>
                       </div>
                     );
                   })()}

@@ -100,3 +100,11 @@ test("a plan sent over MCP is checked: known steps, library names that look like
   assert.throws(() => checkPlan({ name: "x", steps: Array.from({ length: 13 }, () => ({ kind: "picture-in" })) }), /12/);
   assert.equal(checkPlan({ name: "x", steps: [{ kind: "animate", seconds: 99 }] }).steps[0]!.seconds, 15);
 });
+
+test("a library workflow that saves with SaveImageAdvanced stacks like any other", () => {
+  const adv: ApiPrompt = { "1": { class_type: "LoadImage", inputs: { image: "x.png" } }, "2": { class_type: "Edit", inputs: { image: ["1", 0] } }, "3": { class_type: "SaveImageAdvanced", inputs: { images: ["2", 0], filename_prefix: "x", format: "png" } } };
+  assert.deepEqual(portsOf(node("a", "library", 0, { template: "adv" }), { adv }), { needs: ["image"], makes: "image" });
+  const w = compileCanvas({ name: "x", nodes: [node("p", "picture-in", 0), node("a", "library", 200, { template: "adv" })], links: [{ from: "p", to: "a" }] }, { adv });
+  assert.ok(Object.values(w).some((n) => n.class_type === "Edit"));
+  assert.equal(Object.values(w).filter((n) => n.class_type === "SaveImageAdvanced").length, 0);
+});
