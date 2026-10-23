@@ -39,6 +39,11 @@ export async function makeStill(prompt: string, ratio: "16:9" | "9:16", referenc
     const { localFile } = await import("../server/local-media");
     const uploaded: string[] = [];
     for (const ref of references.slice(0, 4)) {
+      const photo = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(ref);
+      if (photo) {
+        uploaded.push(await cloud.uploadBytes(Uint8Array.from(Buffer.from(photo[2]!, "base64")), photo[1]!));
+        continue;
+      }
       const file = ref.startsWith("/api/local/") ? localFile(process.env.HAGGS_LOCAL_MEDIA, ref.slice("/api/local/".length).split("/").map(decodeURIComponent), process.env.NODE_ENV) : null;
       if (file) uploaded.push(await cloud.uploadBytes(new Uint8Array(await readFile(file.path)), file.type));
     }

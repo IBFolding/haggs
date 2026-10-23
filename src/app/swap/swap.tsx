@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { defaultKv } from "../../story/kv";
@@ -70,7 +71,9 @@ function Drop({ label, hint, accept, value, onChange }: { label: string; hint: s
 
 export function Swap() {
   const [video, setVideo] = useState<string | null>(null);
-  const [face, setFace] = useState<string | null>(null);
+  // A character sent here from the builder arrives as ?face=
+  const sent = useSearchParams().get("face");
+  const [face, setFace] = useState<string | null>(sent && (sent.startsWith("/api/local/") || sent.startsWith("https://")) ? sent : null);
   const [who, setWho] = useState("");
   const [quality, setQuality] = useState<"480p" | "720p">("480p");
   const [quote, setQuote] = useState<Quote | null>(null);

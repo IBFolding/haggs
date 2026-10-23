@@ -40,7 +40,7 @@ test("the identity lock is the sentence every shot carries, short and about the 
 });
 
 test("a change between two versions of a character reads as a plain note", () => {
-  assert.equal(changeNote(t, { ...t, hairColor: "silver", build: "heavy" }), "hair colour: silver, build: heavy");
+  assert.equal(changeNote(t, { ...t, hairColor: "silver", build: "heavy" }), "build: heavy, hair colour: silver");
   assert.equal(changeNote(t, t), "");
 });
 
