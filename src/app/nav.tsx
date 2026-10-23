@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { keysHeld } from "./actions";
 import { useSession } from "./session";
 import { KeySheet } from "./key-sheet";
+import { CloudSync } from "./cloud-sync";
 import { TOUR_EVENT, Tour } from "./tour";
 
 /**
@@ -86,6 +87,7 @@ export function Nav({ current }: { current: Place }) {
       {open && <KeySheet held={held} onChange={setHeld} onClose={() => setOpen(false)} />}
       <Producer />
       <Tour />
+      <CloudSync />
     </>
   );
 }

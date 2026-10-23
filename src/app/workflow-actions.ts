@@ -1,6 +1,7 @@
 "use server";
 
 import { isBlobUrl } from "../server/blob";
+import { charged, comfyAccess, readKey as platformReadKey } from "../server/platform";
 import { readMedia } from "../server/media";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
@@ -28,7 +29,8 @@ import { localFile, localUrl } from "../server/local-media";
 
 const root = () => process.cwd();
 async function comfyKey() {
-  return keyIn(await cookies(), COMFY_COOKIE);
+  // Your own key, or, on a plan, the platform's (reading Comfy's catalog costs nothing).
+  return keyIn(await cookies(), COMFY_COOKIE) ?? (await platformReadKey());
 }
 
 /** A workflow by Comfy template name, or one you opened from a file (the editor's format, or the API format). */
@@ -211,7 +213,22 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     const ready = leaveOut(fill(prompt, opened.app, { ...values, ...uploaded }), opened.app, skipped);
     const missing = validate(ready, catalog);
     if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
-    const price = mine ? "Your GPU · free" : (await priceOf(ready, opened.catalog)).label;
+    const quoted = mine ? null : await priceOf(ready, opened.catalog);
+    const price = quoted ? quoted.label : "Your GPU · free";
+    // On the platform's key a run is paid for in credits first: its highest quoted price, or a quarter dollar when Comfy won't say.
+    if (!mine && !keyIn(await cookies(), COMFY_COOKIE)) {
+      const estimate = quoted ? (quoted.perSecond ? quoted.max * 8 : quoted.max) : 0;
+      const a = await comfyAccess(Math.max(0.25, estimate), "Workflow", "Add a Comfy key to run Comfy workflows.");
+      if (!a.ok) return { ok: false, reason: a.reason, ...(a.needsKey ? { needsKey: true as const } : {}) };
+      return charged(a, async () => {
+        try {
+          const result = await cloud.run(ready, opened.app.output ?? undefined);
+          return { ok: true as const, url: result.url, kind: result.kind, price };
+        } catch (caught) {
+          return { ok: false as const, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The workflow didn't run." };
+        }
+      });
+    }
     const result = await cloud.run(ready, opened.app.output);
     return { ok: true, url: result.url, kind: result.kind, price };
   } catch (caught) {

@@ -1,6 +1,7 @@
 "use server";
 
 import { hosted, isBlobUrl, putBlob } from "../server/blob";
+import { comfyAccess, charged, readKey as platformReadKey, type Access } from "../server/platform";
 import { inlineLocal, localUrl } from "../server/local-media";
 import { cloudEstimate, createCloudProvider, createCloudRunner, type Kept } from "../providers/cloud";
 import { alephWorkflow, editEstimate, genjutsuWorkflow, soundEffectWorkflow, klingEditWorkflow, kontextWorkflow, regenerateWorkflow, speechWorkflow, VOICES, voiceWorkflow, type Line } from "../providers/cloud-edits";
@@ -100,7 +101,8 @@ export async function localComfy(): Promise<string | null> {
 export async function keysHeld(): Promise<{ comfy: boolean; fal: boolean; claude: boolean }> {
   const jar = await cookies();
   return {
-    comfy: Boolean(keyIn(jar, COMFY_COOKIE)),
+    // A plan on the platform key counts: runs don't need a key of your own.
+    comfy: Boolean(keyIn(jar, COMFY_COOKIE) ?? (await platformReadKey())),
     fal: Boolean(keyIn(jar, KEY_COOKIE)),
     claude: Boolean(keyIn(jar, CLAUDE_COOKIE)),
   };
@@ -199,7 +201,21 @@ export async function run(
   const card = getModelCard(modelId);
   const wanted = card.provider === "comfy" ? COMFY_COOKIE : KEY_COOKIE;
   const jar = await cookies();
-  const key = keyIn(jar, wanted);
+  let key = keyIn(jar, wanted);
+  // No key of your own: a person on a plan may run MiniMax H3 on the platform's key, paid for in credits.
+  let acc: Extract<Access, { ok: true }> | null = null;
+  if (!key && card.provider === "comfy" && useCloud(card.id)) {
+    const seconds = Number(settings.duration ?? 5);
+    const refs = firstFrame === false ? (images?.length ?? 0) : 0;
+    const a = await comfyAccess(cloudEstimate({ seconds, resolution: settings.resolution === "2K" ? "2K" : "768P", references: refs }) * Math.max(1, outputCount(card, settings)), `${card.name}`, "Add a Comfy API key to run this model.");
+    if (!a.ok) return { ok: false, reason: a.reason, needsKey: true };
+    acc = a;
+    key = a.key;
+  }
+  const done = async <T extends { ok: boolean }>(r: T): Promise<T> => {
+    await acc?.settle(r.ok);
+    return r;
+  };
   if (!key) {
     return {
       ok: false,
@@ -236,19 +252,19 @@ export async function run(
       passthrough: toWireSettings(card.settings, settings),
     });
     if (result.assets.length === 0) {
-      return { ok: false, reason: "The model returned no media." };
+      return done({ ok: false as const, reason: "The model returned no media." });
     }
-    return { ok: true, shots: result.assets, usd: result.usd };
+    return done({ ok: true as const, shots: result.assets, usd: result.usd });
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : String(caught);
     // A 401 here is almost always a bad key, and saying so beats a raw dump.
     if (/401|unauthor|invalid cred/i.test(message)) {
-      return { ok: false, reason: `That key was rejected by ${card.provider}.`, needsKey: true };
+      return done({ ok: false as const, reason: `That key was rejected by ${card.provider}.`, needsKey: true });
     }
     if (/insufficient_credits|402/i.test(message)) {
-      return { ok: false, reason: "Your Comfy workspace is out of credits.", needsKey: true };
+      return done({ ok: false as const, reason: "Your Comfy workspace is out of credits.", needsKey: true });
     }
-    return { ok: false, reason: message };
+    return done({ ok: false as const, reason: message });
   }
 }
 
@@ -349,8 +365,15 @@ export async function quoteEdit(request: EditRequest): Promise<number> {
 /** Runs one edit on Comfy Cloud and keeps the result. Never retried automatically. */
 export async function runEdit(request: EditRequest): Promise<EditResult> {
   const jar = await cookies();
-  const key = keyIn(jar, COMFY_COOKIE);
-  if (!key) return { ok: false, reason: "Add a Comfy key to run edits.", needsKey: true };
+  const own = keyIn(jar, COMFY_COOKIE);
+  if (own) return runEditWith(own, request);
+  const acc = await comfyAccess(await quoteEdit(request), TOOL_NAME[request.tool], "Add a Comfy key to run edits.");
+  if (!acc.ok) return { ok: false, reason: acc.reason, ...(acc.needsKey ? { needsKey: true as const } : {}) };
+  return charged(acc, (key) => runEditWith(key, request));
+}
+
+async function runEditWith(key: string, request: EditRequest): Promise<EditResult> {
+  const jar = await cookies();
   // Video edits (Kling, Aleph, Genjutsu) can queue and run for a quarter of an hour or more.
   const cloud = createCloudRunner({ apiKey: key, keep: keepRender, timeoutMs: 45 * 60_000 });
   const up = async (url: string) => {
@@ -398,10 +421,15 @@ export async function quoteLine(text: string): Promise<number> {
 
 /** Speaks one voice-over line with ElevenLabs on Comfy Cloud and keeps the MP3. Never retried automatically. */
 export async function speakLine(text: string, voice: string, expressive = false): Promise<SpokenLine> {
-  const jar = await cookies();
-  const key = keyIn(jar, COMFY_COOKIE);
-  if (!key) return { ok: false, reason: "Add a Comfy key to make voice-over.", needsKey: true };
   if (!(VOICES as readonly string[]).includes(voice)) return { ok: false, reason: "Pick a voice from the list." };
+  const own = keyIn(await cookies(), COMFY_COOKIE);
+  if (own) return speakWith(own, text, voice, expressive);
+  const acc = await comfyAccess(await quoteLine(text), "Voice-over", "Add a Comfy key to make voice-over.");
+  if (!acc.ok) return { ok: false, reason: acc.reason, ...(acc.needsKey ? { needsKey: true as const } : {}) };
+  return charged(acc, (key) => speakWith(key, text, voice, expressive));
+}
+
+async function speakWith(key: string, text: string, voice: string, expressive: boolean): Promise<SpokenLine> {
   try {
     const cloud = createCloudRunner({ apiKey: key, keep: keepRender });
     const result = await cloud.run(speechWorkflow({ text, voice, ...(expressive ? { model: "eleven_v3" as const, stability: 0 } : {}), seed: Math.floor(Math.random() * 2_000_000_000) }));
@@ -421,8 +449,14 @@ export async function quoteEffect(seconds: number): Promise<number> {
 
 /** Makes a sound effect from words with ElevenLabs Sound Effects on Comfy Cloud. Never retried automatically. */
 export async function makeEffect(text: string, seconds: number): Promise<MadeEffect> {
-  const key = keyIn(await cookies(), COMFY_COOKIE);
-  if (!key) return { ok: false, reason: "Add a Comfy key to make sound effects.", needsKey: true };
+  const own = keyIn(await cookies(), COMFY_COOKIE);
+  if (own) return effectWith(own, text, seconds);
+  const acc = await comfyAccess(await quoteEffect(seconds), "Sound effect", "Add a Comfy key to make sound effects.");
+  if (!acc.ok) return { ok: false, reason: acc.reason, ...(acc.needsKey ? { needsKey: true as const } : {}) };
+  return charged(acc, (key) => effectWith(key, text, seconds));
+}
+
+async function effectWith(key: string, text: string, seconds: number): Promise<MadeEffect> {
   try {
     const cloud = createCloudRunner({ apiKey: key, keep: keepRender });
     const result = await cloud.run(soundEffectWorkflow({ text, seconds }));

@@ -1,6 +1,7 @@
 "use server";
 
 import { isBlobUrl } from "../server/blob";
+import { charged, comfyAccess } from "../server/platform";
 import { readMedia } from "../server/media";
 import { cookies } from "next/headers";
 
@@ -32,9 +33,15 @@ export type MadeStill = { ok: true; url: string } | { ok: false; reason: string;
 
 /** One picture for a shot, from its beat, at the board's frame shape. Never retried automatically. */
 export async function makeStill(prompt: string, ratio: "16:9" | "9:16", references: string[] = [], finish = "Cinematic, natural, no text, no watermark."): Promise<MadeStill> {
-  const key = keyIn(await cookies(), COMFY_COOKIE);
-  if (!key) return { ok: false, reason: "Add a Comfy key to make pictures.", needsKey: true };
   if (prompt.trim().length < 4) return { ok: false, reason: "Give the shot a description first." };
+  const own = keyIn(await cookies(), COMFY_COOKIE);
+  if (own) return stillWith(own, prompt, ratio, references, finish);
+  const acc = await comfyAccess(0.0686, "Picture", "Add a Comfy key to make pictures.");
+  if (!acc.ok) return { ok: false, reason: acc.reason, ...(acc.needsKey ? { needsKey: true as const } : {}) };
+  return charged(acc, (key) => stillWith(key, prompt, ratio, references, finish));
+}
+
+async function stillWith(key: string, prompt: string, ratio: "16:9" | "9:16", references: string[], finish: string): Promise<MadeStill> {
   try {
     const cloud = createCloudRunner({ apiKey: key, keep: keepResult });
     const { readFile } = await import("node:fs/promises");

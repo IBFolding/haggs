@@ -15,6 +15,8 @@ export type ProjectStore = {
   list(): Promise<ProjectSummary[]>;
   load(id: string): Promise<Project | undefined>;
   save(project: Project): Promise<void>;
+  /** Puts a project in as it is, keeping its own updatedAt: for projects arriving from another device. */
+  keep(project: Project): Promise<void>;
   remove(id: string): Promise<void>;
 };
 
@@ -94,6 +96,15 @@ export function createProjectStore(kv: Kv): ProjectStore {
           summarize(saved),
           ...index.filter((entry) => entry.id !== saved.id),
         ]);
+      });
+    },
+
+    keep(project) {
+      return serialize(async () => {
+        removed.delete(project.id);
+        await kv.set(recordKey(project.id), project);
+        const index = await readIndex();
+        await kv.set(INDEX_KEY, [summarize(project), ...index.filter((entry) => entry.id !== project.id)].sort((a, b) => b.updatedAt - a.updatedAt));
       });
     },
 

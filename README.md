@@ -119,6 +119,9 @@ key chip in the header, or in `.env.local` for development:
 | `HAGGS_LOCAL_MEDIA` | a folder for renders, uploads and local footage (development) |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | sign-in and Community (optional) |
 | `STRIPE_API_KEY`, `STRIPE_PRICE_*` | subscriptions (optional; checkout stays off without them) |
+| `BLOB_READ_WRITE_TOKEN`, `NEXT_PUBLIC_HOSTED` | hosted file store (Vercel Blob) |
+
+The switches for a live deployment (sign-in, file store, plans, credits) are in `docs/launch.md`.
 
 Community needs the migration in `supabase/migrations/` applied to your
 Supabase project (paste it into the SQL editor).

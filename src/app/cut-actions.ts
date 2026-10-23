@@ -13,6 +13,7 @@ import { flux3Workflow } from "../providers/cloud-edits";
 import { OPEN_RESHOOT, reshootPrompt, toCameraAngle, type Camera } from "../story/reshoot";
 import { runWorkflow } from "./workflow-actions";
 import { hosted, isBlobUrl, putBlob } from "../server/blob";
+import { charged, comfyAccess } from "../server/platform";
 import { ffmpegBin } from "../server/ffmpeg";
 import { keepResult } from "../server/keep";
 import { readMedia } from "../server/media";
@@ -73,8 +74,14 @@ export type Reshot = { ok: true; url: string; source: string; usd: number } | { 
 
 /** The same scene from a new angle: a frame of the shot is the reference for a FLUX 3 still. Never retried automatically. */
 export async function reshoot(url: string, at: number, kind: "image" | "video", move: Camera, beat: string): Promise<Reshot> {
-  const key = keyIn(await cookies(), COMFY_COOKIE);
-  if (!key) return { ok: false, reason: "Add a Comfy key to reshoot.", needsKey: true };
+  const own = keyIn(await cookies(), COMFY_COOKIE);
+  if (own) return reshootWith(own, url, at, kind, move, beat);
+  const acc = await comfyAccess(0.1001, "Reshoot", "Add a Comfy key to reshoot.");
+  if (!acc.ok) return { ok: false, reason: acc.reason, ...(acc.needsKey ? { needsKey: true as const } : {}) };
+  return charged(acc, (key) => reshootWith(key, url, at, kind, move, beat));
+}
+
+async function reshootWith(key: string, url: string, at: number, kind: "image" | "video", move: Camera, beat: string): Promise<Reshot> {
   try {
     const frame = await frameAt(url, at, kind);
     if (!frame.ok) return frame;

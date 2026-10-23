@@ -10,7 +10,7 @@ import { authed, useSession } from "../session";
 type Shown = Omit<Plan, "priceEnv">;
 
 /** v1's plans. Subscribe goes to Stripe Checkout; your plan is read back from Stripe. */
-export function Pricing({ plans }: { plans: Shown[] }) {
+export function Pricing({ plans, credits }: { plans: Shown[]; credits: boolean }) {
   const router = useRouter();
   const { session } = useSession();
   const [buyable, setBuyable] = useState<string[] | null>(null);
@@ -48,7 +48,7 @@ export function Pricing({ plans }: { plans: Shown[] }) {
       <div className="canvas">
         <div className="pr">
           <h1>Plans</h1>
-          <p className="pr-lead">Every plan is the whole studio. The difference is who pays for generation: you on your own Comfy key, or included credits.</p>
+          <p className="pr-lead">Every plan unlocks the whole studio. The difference is who pays for generation: you, on your own Comfy key or your own GPU, or us, from the generation your plan includes.</p>
           <div className="pr-grid">
             {plans.map((p) => {
               const can = buyable?.includes(p.id);
@@ -56,7 +56,7 @@ export function Pricing({ plans }: { plans: Shown[] }) {
                 <article key={p.id} className={`pr-plan${current === p.id ? " on" : ""}`}>
                   <h2>{p.name}</h2>
                   <p className="pr-price"><b>${p.monthly}</b> a month</p>
-                  <p className="pr-credits">{p.credits ? `${p.credits.toLocaleString()} credits a month` : "Your own key, Comfy's prices"}</p>
+                  <p className="pr-credits">{p.credits ? `$${(p.credits / 100).toFixed(0)} of generation a month` : "Your own key or GPU, at Comfy's prices"}</p>
                   <p className="pr-blurb">{p.blurb}</p>
                   {current === p.id ? (
                     <span className="pr-current">Your plan</span>
@@ -72,7 +72,11 @@ export function Pricing({ plans }: { plans: Shown[] }) {
           {buyable !== null && buyable.length === 0 && (
             <p className="sh-note">Checkout isn't switched on in this copy of haggs yet: it needs a Stripe key. You can use everything on your own Comfy key meanwhile.</p>
           )}
-          <p className="sh-note">Included credits aren't switched on yet. Until they are, generation on every plan runs on your own Comfy key, at the price shown on each Generate button. Cancel any time from your account.</p>
+          <p className="sh-note">
+            {credits
+              ? "Included generation is used at the price shown on each button, before you press it. It resets each month and does not roll over. Top-up packs never expire. Cancel any time from your account."
+              : "Included generation isn't switched on yet. Until it is, generation on every plan runs on your own Comfy key, at the price shown on each button. Cancel any time from your account."}
+          </p>
           {problem && <p className="library-error" role="alert">{problem}</p>}
         </div>
       </div>

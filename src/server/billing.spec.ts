@@ -22,7 +22,7 @@ function fakeStripe(subs: { price: string; status: string; end: number }[] = [])
 }
 
 test("the four v1 plans are offered, and only the ones with a price are configured", () => {
-  assert.deepEqual(PLANS.map((p) => [p.id, p.monthly, p.credits]), [["byok", 15, 0], ["starter", 25, 500], ["mid", 49, 1000], ["pro", 99, 3000]]);
+  assert.deepEqual(PLANS.map((p) => [p.id, p.monthly, p.credits]), [["byok", 15, 0], ["starter", 39, 1500], ["mid", 69, 2800], ["pro", 99, 4500]]);
   assert.deepEqual(configured(env).map((p) => p.id), ["byok", "starter", "mid", "pro"]);
   assert.deepEqual(configured({ ...env, STRIPE_API_KEY: "" }), [], "no Stripe key, no checkout");
   assert.deepEqual(configured({ ...env, STRIPE_PRICE_MID: "" }).map((p) => p.id), ["byok", "starter", "pro"]);
@@ -54,4 +54,38 @@ test("the billing portal opens for an existing customer only", async () => {
   assert.equal(await portal(stripe, env, user, "http://localhost:3111"), "https://billing.stripe.test/p");
   assert.equal((calls.portal![0] as { configuration?: string }).configuration, "bpc_1");
   await assert.rejects(portal(fakeStripe().stripe, env, user, "http://x"), /no subscription/);
+});
+
+import { TOPUPS, changeFor, creditsFor } from "./billing";
+
+test("every plan and pack keeps its margin after card fees, even when all the credits are used", () => {
+  const fee = (usd: number) => usd * 0.029 + 0.3;
+  for (const p of PLANS.filter((x) => x.credits)) {
+    const kept = p.monthly - p.credits / 100 - fee(p.monthly);
+    assert.ok(kept / p.monthly >= 0.5, `${p.id} keeps ${(kept / p.monthly * 100).toFixed(0)}%`);
+  }
+  for (const t of TOPUPS) {
+    const kept = t.usd - t.credits / 100 - fee(t.usd);
+    assert.ok(kept / t.usd >= 0.25, `${t.id} keeps ${(kept / t.usd * 100).toFixed(0)}%`);
+  }
+  const platform = PLANS.find((p) => p.id === "byok")!;
+  assert.equal(platform.credits, 0, "the platform plan includes no generation");
+});
+
+test("a run is worth its price in cents, rounded up", () => {
+  assert.equal(creditsFor(0.0686), 7);
+  assert.equal(creditsFor(0.52), 52);
+  assert.equal(creditsFor(0.04), 4);
+  assert.equal(creditsFor(0), 1);
+});
+
+test("a paid invoice resets the person's monthly credits; a paid top-up adds a pack; nothing else does", () => {
+  const env = { STRIPE_API_KEY: "k", STRIPE_PRICE_STARTER: "price_s" };
+  const renewal = changeFor({ id: "evt1", type: "invoice.paid", data: { object: { id: "in_1", lines: { data: [{ price: { id: "price_s" } }] }, subscription_details: { metadata: { haggs_user: "u1", haggs_plan: "starter" } } } } }, env);
+  assert.deepEqual(renewal, { user: "u1", bucket: "plan", cents: 1500, ref: "in_1", kind: "renewal" });
+  const topup = changeFor({ id: "evt2", type: "checkout.session.completed", data: { object: { id: "cs_1", payment_status: "paid", metadata: { haggs_user: "u1", haggs_topup: "t25" } } } }, env);
+  assert.deepEqual(topup, { user: "u1", bucket: "topup", cents: 1667, ref: "cs_1", kind: "topup" });
+  assert.equal(changeFor({ id: "e3", type: "checkout.session.completed", data: { object: { id: "cs_2", payment_status: "unpaid", metadata: { haggs_user: "u1", haggs_topup: "t25" } } } }, env), null);
+  assert.equal(changeFor({ id: "e4", type: "customer.created", data: { object: {} } }, env), null);
+  assert.equal(changeFor({ id: "e5", type: "invoice.paid", data: { object: { id: "in_2", subscription_details: { metadata: {} } } } }, env), null);
 });
