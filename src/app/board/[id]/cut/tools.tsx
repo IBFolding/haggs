@@ -7,6 +7,8 @@ import { defaultKv } from "../../../../story/kv";
 import type { Project, Shot } from "../../../../story/model";
 import { runEdit, type EditRequest } from "../../../actions";
 import { openKeys } from "../../../nav";
+import { makeStill } from "../../../series-actions";
+import { STYLES, restylePrompt, styleById, styleSheetPrompt } from "../../../../styles/style";
 
 /**
  * The edit tools on the selected clip. Each one shows its price before it
@@ -14,11 +16,12 @@ import { openKeys } from "../../../nav";
  * on a shot is ever replaced.
  */
 
-type ToolId = "fix" | "swap" | "recast" | "voice";
+type ToolId = "fix" | "swap" | "recast" | "restyle" | "voice";
 const TABS: { id: ToolId; label: string; says: string }[] = [
   { id: "fix", label: "Fix a frame", says: "Grab the frame under the playhead, fix it, then re-render the take with the fix." },
   { id: "swap", label: "Swap across the scene", says: "Change one thing — a jacket, a prop, the weather — in this take or every take in the scene." },
   { id: "recast", label: "Recast", says: "Keep the motion and the camera; change who or where, from reference pictures." },
+  { id: "restyle", label: "Restyle", says: "Turn live action into animation. Pick a style sheet; the motion, camera and performances stay." },
   { id: "voice", label: "Voice and lip-sync", says: "Speak the lines in ElevenLabs voices and sync the mouths to them." },
 ];
 
@@ -80,6 +83,9 @@ export function EditTools({
   const [engine, setEngine] = useState<"kling" | "aleph">("kling");
   const [scope, setScope] = useState<"take" | "scene">("take");
   const [resolution, setResolution] = useState<"480p" | "720p">("480p");
+  const [styleId, setStyleId] = useState(STYLES[0]!.id);
+  const [sheets, setSheets] = useState<Record<string, string>>({});
+  const [restyleRes, setRestyleRes] = useState<"720p" | "1080p">("720p");
   const [lines, setLines] = useState<Line[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -160,6 +166,8 @@ export function EditTools({
     regenerate: editEstimate({ tool: "kling", seconds: len }),
     swapOne: editEstimate({ tool: engine, seconds: len }),
     recast: editEstimate({ tool: "genjutsu", seconds: len, resolution }),
+    restyle: editEstimate({ tool: "kling", seconds: len, resolution: restyleRes }),
+    sheet: editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" }),
     voice: editEstimate({ tool: "voice", seconds: len, characters: chars }),
   };
   const [sceneQuote, setSceneQuote] = useState<number | null>(null);
@@ -322,6 +330,52 @@ export function EditTools({
           </div>
         </div>
       )}
+
+      {tool === "restyle" && video && (() => {
+        const style = styleById(styleId)!;
+        const sheet = sheets[styleId];
+        return (
+          <div className="tools-body">
+            <div className="style-pick" role="radiogroup" aria-label="Style">
+              {STYLES.map((st) => (
+                <button key={st.id} role="radio" aria-checked={styleId === st.id} className={styleId === st.id ? "on" : ""} onClick={() => setStyleId(st.id)}>
+                  {sheets[st.id] ? <img src={sheets[st.id]} alt="" /> : <span aria-hidden="true" />}
+                  <b>{st.name}</b>
+                  <small>{st.says}</small>
+                </button>
+              ))}
+            </div>
+            <div className="style-sheet">
+              {sheet ? <img src={sheet} alt={`${style.name} style sheet`} /> : <p className="sh-note">The style sheet is a picture of the look that goes to Comfy beside your footage. Make one, or drop your own.</p>}
+              <div className="sheet-row">
+                <button className="pill" disabled={busy !== null} onClick={async () => {
+                  setBusy("sheet"); setProblem(null);
+                  const r = await makeStill(styleSheetPrompt(style), "16:9");
+                  setBusy(null);
+                  if (!r.ok) { if (r.needsKey) openKeys(); return setProblem(r.reason); }
+                  setSheets((all) => ({ ...all, [styleId]: r.url }));
+                }}>{busy === "sheet" ? "Drawing the sheet…" : sheet ? "Draw it again" : "Make the style sheet"} <span className="cost">{money(quotes.sheet)}</span></button>
+                <button className="plain" onClick={() => upload.current?.click()}>Use my own picture</button>
+              </div>
+              <input ref={upload} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void fileToDataUri(f).then((u) => setSheets((all) => ({ ...all, [styleId]: u }))); }} />
+            </div>
+            <label className="sh-field">
+              <span>Anything to keep (optional)</span>
+              <textarea rows={2} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. She keeps the green jacket and the braid." />
+            </label>
+            <div className="tools-opts">
+              <label><input type="radio" checked={restyleRes === "720p"} onChange={() => setRestyleRes("720p")} /> 720p</label>
+              <label><input type="radio" checked={restyleRes === "1080p"} onChange={() => setRestyleRes("1080p")} /> 1080p</label>
+            </div>
+            <div className="tools-run">
+              <button className="fire" disabled={busy !== null || !sheet} onClick={() => void go("restyle", { tool: "kling", video, seconds: len, prompt: restylePrompt(style, prompt), references: [sheet!], resolution: restyleRes }, (r) => { take(shot, r.url, r.kind, r.usd, r.origin); setDone(`Redrawn as ${style.name}. It's a new take; the live action is still there.`); })}>
+                {busy === "restyle" ? "Redrawing… a few minutes" : `Restyle this take as ${style.name}`}
+                <span className="cost">about {money(quotes.restyle)}</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {tool === "voice" && video && (
         <div className="tools-body">

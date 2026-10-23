@@ -182,3 +182,40 @@ test("the export script mixes voices over the clips and dips the soundtrack unde
   assert.match(script, /sidechaincompress/);
   assert.match(script, /volume=-6dB/);
 });
+
+test("a shot's caption rides on its clip", () => {
+  const cut = buildCut(board(shot({ render: video(), caption: "WHAT IF" }), shot({ render: video() })));
+  assert.equal(cut.clips[0]!.caption, "WHAT IF");
+  assert.equal(cut.clips[1]!.caption, undefined);
+});
+
+test("captions become overlays timed to their clips", async () => {
+  const { captionFilter } = await import("./cut");
+  const cut = buildCut(board(shot({ render: video(), seconds: 2 }), shot({ render: video(), seconds: 3, caption: "HELLO" })));
+  const f = captionFilter(cut)!;
+  assert.equal(f.captions.length, 1);
+  assert.equal(f.captions[0]!.text, "HELLO");
+  assert.match(f.filter, /overlay=0:0:enable='between\(t,2,5\)'/);
+  assert.equal(captionFilter(buildCut(board(shot({ render: video() })))), null);
+});
+
+test("the voice treatment shapes each line and the master", async () => {
+  const { mixFilter, BLEND } = await import("./cut");
+  const base = { ...buildCut(board(shot({ render: video(), voices: [{ id: "a", text: "hi", speaker: "X", voice: "v", offset: 0, url: "/api/local/a.mp3" } as never] }))), music: { url: "/api/local/m.wav", name: "m", gain: -3 } };
+  const plain = mixFilter(base)!.filter;
+  assert.doesNotMatch(plain, /aecho|acompressor|loudnorm|equalizer/);
+  const tuned = mixFilter({ ...base, sound: { ...BLEND, loud: true } })!.filter;
+  assert.match(tuned, /equalizer=f=200/);
+  assert.match(tuned, /acompressor/);
+  assert.match(tuned, /aecho/);
+  assert.match(tuned, /sidechaincompress=threshold=0\.04:ratio=\d+/);
+  assert.match(tuned, /loudnorm=I=-16/);
+  assert.match(tuned, /\[mix\]$/);
+});
+
+test("a deeper duck presses the soundtrack harder under the voice", async () => {
+  const { mixFilter } = await import("./cut");
+  const base = { ...buildCut(board(shot({ render: video(), voices: [{ id: "a", text: "hi", speaker: "X", voice: "v", offset: 0, url: "/api/local/a.mp3" } as never] }))), music: { url: "/api/local/m.wav", name: "m", gain: 0 } };
+  const ratio = (duck: number) => Number(/ratio=(\d+)/.exec(mixFilter({ ...base, sound: { duck } })!.filter)![1]);
+  assert.ok(ratio(1) > ratio(0));
+});

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { mixFilter, normFilter, type Cut } from "../story/cut";
+import { captionFilter, mixFilter, frameOf, normFilter, type Cut } from "../story/cut";
 
 /**
  * Renders a cut to an MP4 on this machine: the same steps as the exported
@@ -22,6 +22,8 @@ export type RenderOptions = {
   ffmpeg: (args: string[]) => Promise<void>;
   hasAudio: (path: string) => Promise<boolean>;
   write: (path: string, text: string) => Promise<void>;
+  /** Draws a caption as a transparent frame-sized PNG; without it captions are left out. */
+  caption?: (path: string, text: string, size: { w: number; h: number }) => Promise<void>;
 };
 
 const QUIET = ["-loglevel", "error", "-y"];
@@ -74,7 +76,19 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
   const name_ = `${slug(name)}-${o.stamp}.mp4`;
   const out = join(o.root, "haggs-renders", name_);
   await o.write(list, parts.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join("\n") + "\n");
-  await o.ffmpeg([...QUIET, "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", mix ? picture : out]);
+  const caps = o.caption ? captionFilter(cut) : null;
+  const joined = caps ? join(o.work, "joined.mp4") : mix ? picture : out;
+  await o.ffmpeg([...QUIET, "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", joined]);
+  if (caps) {
+    const size = frameOf(cut.aspect);
+    const pngs: string[] = [];
+    for (const [i, c] of caps.captions.entries()) {
+      const png = join(o.work, `caption-${i}.png`);
+      await o.caption!(png, c.text, size);
+      pngs.push(png);
+    }
+    await o.ffmpeg([...QUIET, "-i", joined, ...pngs.flatMap((p) => ["-i", p]), "-filter_complex", caps.filter, "-map", "[out]", "-map", "0:a", "-c:v", "libx264", "-crf", "16", "-c:a", "copy", mix ? picture : out]);
+  }
   if (mix) {
     await o.ffmpeg([...QUIET, "-i", picture, ...sounds.flatMap((s) => ["-i", s]), "-filter_complex", mix.filter, "-map", "0:v", "-map", "[mix]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", out]);
   }
@@ -103,8 +117,14 @@ export function checkCut(raw: unknown): Cut {
     start: num(x.start, 0, 7200),
     from: num(x.from ?? 0, 0, 600),
     seconds: num(x.seconds, 0.1, 600),
+    ...(typeof x.caption === "string" && x.caption.trim() ? { caption: x.caption.trim().slice(0, 140) } : {}),
   }));
   const voices = (Array.isArray(c.voices) ? c.voices : []).slice(0, 200).map((v) => ({ shotId: String(v.shotId), id: String(v.id), url: link(v.url), text: String(v.text ?? "").slice(0, 200), start: num(v.start, 0, 7200), gain: num(v.gain ?? 0, -40, 20) }));
   const music = c.music ? { url: link(c.music.url), name: String(c.music.name ?? "").slice(0, 120), gain: num(c.music.gain ?? 0, -40, 20) } : null;
-  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
+  const mix = (c as { sound?: Record<string, unknown> }).sound;
+  const level = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : undefined);
+  const sound = mix && typeof mix === "object"
+    ? Object.fromEntries(Object.entries({ room: level(mix.room, 0, 1), warmth: level(mix.warmth, -6, 6), clarity: level(mix.clarity, -6, 6), squeeze: level(mix.squeeze, 0, 1), duck: level(mix.duck, 0, 1), ...(mix.loud === true ? { loud: true } : {}) }).filter(([, v]) => v !== undefined))
+    : undefined;
+  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
 }

@@ -88,6 +88,22 @@ export type VoiceLine = {
 /** A board's soundtrack: one file under the whole cut, dipped under the voices. */
 export type Music = { url: string; name: string; gain: number };
 
+/** How the voices sit in the mix. Each is optional; left out, that treatment is off. */
+export type Sound = {
+  /** Room around the voices, 0 dry … 1 a large hall. */
+  room?: number;
+  /** Body: dB of low warmth, −6…6. */
+  warmth?: number;
+  /** Clarity: dB of presence, −6…6 (negative softens harshness). */
+  clarity?: number;
+  /** Squeeze: how much the voices are levelled, 0…1. */
+  squeeze?: number;
+  /** How far the soundtrack dips under a voice, 0…1. */
+  duck?: number;
+  /** Bring the finished mix to −16 LUFS, the level streaming expects. */
+  loud?: boolean;
+};
+
 /** One version of a shot's footage — a generation, a reroll, an import. */
 export type Take = {
   id: string;
@@ -137,6 +153,8 @@ export type Project = {
   boards?: Board[];
   /** The soundtrack of the board being viewed. Stored on the board; only a view carries it here. */
   music?: Music;
+  /** How the voices sit in the mix, for the board being viewed. */
+  sound?: Sound;
   /** The frame shape of the board being viewed. Stored on the board, like the soundtrack. */
   aspect?: "16:9" | "9:16";
   /** Set by an import tool; a later file with the same key offers to replace this project. */
@@ -157,6 +175,7 @@ export type Board = {
   shots: Shot[];
   notes: Note[];
   music?: Music;
+  sound?: Sound;
   /** The shape of its frame; vertical for social series. Landscape when left out. */
   aspect?: "16:9" | "9:16";
 };

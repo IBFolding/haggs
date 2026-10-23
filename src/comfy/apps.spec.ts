@@ -74,3 +74,19 @@ test("the open reshoot, filled from the dial, is a workflow Cloud would accept",
   assert.equal(filled["1"]!.inputs.image, "frame_upload.png");
   assert.equal(app.output, "2");
 });
+
+test("a lone prompt held in a string primitive is still something to type", () => {
+  const prompt = {
+    "76": { class_type: "PrimitiveStringMultiline", inputs: { value: "A hedgehog wearing a tiny party hat surrounded by confetti" } },
+    "75": { class_type: "CLIPTextEncode", inputs: { text: ["76", 0] } },
+    "9": { class_type: "SaveImage", inputs: { images: ["75", 0] } },
+  };
+  const app = appOf({ nodes: [] } as unknown as UiWorkflow, prompt as never, {} as Catalog);
+  assert.deepEqual(app.fields.map((f) => [f.kind, f.node, f.input]), [["text", "76", "value"]]);
+});
+
+test("string primitives are left alone when the workflow already has a prompt box", () => {
+  const { prompt } = toApiPrompt(ui, catalog);
+  const app = appOf(ui, { ...prompt, "999": { class_type: "PrimitiveStringMultiline", inputs: { value: "a long enough helper string here" } } } as never, catalog);
+  assert.equal(app.fields.filter((f) => f.kind === "text").length, 1);
+});

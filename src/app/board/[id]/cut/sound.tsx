@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { editEstimate, VOICES } from "../../../../providers/cloud-edits";
 import type { Cut } from "../../../../story/cut";
-import type { Music, Project, Shot, VoiceLine } from "../../../../story/model";
+import { BLEND } from "../../../../story/cut";
+import type { Music, Project, Shot, Sound, VoiceLine } from "../../../../story/model";
 import { openKeys } from "../../../nav";
 import { speakLine } from "../../../actions";
 
@@ -198,6 +199,39 @@ export function VoiceLines({ shot, project, onChange }: { shot: Shot; project: P
       ))}
       {!lines.length && <p className="takes-note">Lines play from this shot&rsquo;s start and move with it if the board is reordered.</p>}
       {error && <p className="library-error" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+const KNOBS: { id: Exclude<keyof Sound, "loud">; label: string; min: number; max: number; step: number; unit: string; hint: string }[] = [
+  { id: "room", label: "Room", min: 0, max: 1, step: 0.05, unit: "", hint: "Puts the voices in a space instead of a booth." },
+  { id: "warmth", label: "Body", min: -6, max: 6, step: 0.5, unit: " dB", hint: "Low warmth. Thin, tinny voices want more." },
+  { id: "clarity", label: "Presence", min: -6, max: 6, step: 0.5, unit: " dB", hint: "Edge and intelligibility. Take it down if the voices sound harsh." },
+  { id: "squeeze", label: "Level out", min: 0, max: 1, step: 0.05, unit: "", hint: "Evens loud and quiet words so the voice sits." },
+  { id: "duck", label: "Music dips", min: 0, max: 1, step: 0.05, unit: "", hint: "How far the soundtrack drops under a voice." },
+];
+
+/** How the voices sit in the mix. Heard in the rendered file; the preview plays the raw lines. */
+export function VoiceMix({ sound, onChange }: { sound: Sound | undefined; onChange: (sound: Sound | undefined) => void }) {
+  const value = sound ?? {};
+  const set = (patch: Partial<Sound>) => onChange({ ...value, ...patch });
+  return (
+    <div className="sound-row voice-mix">
+      <b>Blend the voices</b>
+      <div className="voice-mix-presets">
+        <button className="pill" onClick={() => onChange({ ...BLEND, ...(value.loud ? { loud: true } : {}) })}>Blend into the film</button>
+        <button className="plain" onClick={() => onChange(undefined)} disabled={!sound}>Dry</button>
+      </div>
+      {KNOBS.map((k) => (
+        <label key={k.id} className="sound-level" title={k.hint}>
+          {k.label}
+          <input type="range" min={k.min} max={k.max} step={k.step} value={value[k.id] ?? 0} onChange={(e) => set({ [k.id]: Number(e.target.value) })} aria-valuetext={`${value[k.id] ?? 0}${k.unit}`} />
+          <span>{(value[k.id] ?? 0).toFixed(k.step < 1 ? 2 : 0).replace(/\.?0+$/, "") || "0"}{k.unit}</span>
+        </label>
+      ))}
+      <label className="sound-level" title="Brings the finished mix to the level streaming expects, −16 LUFS.">
+        <input type="checkbox" checked={Boolean(value.loud)} onChange={(e) => set({ loud: e.target.checked })} /> Master to −16 LUFS
+      </label>
     </div>
   );
 }

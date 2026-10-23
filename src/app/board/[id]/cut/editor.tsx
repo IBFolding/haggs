@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
-import { Soundtrack, usePreviewSound, VoiceLines } from "./sound";
+import { Soundtrack, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
 import { cloudEstimate } from "../../../../providers/cloud-price";
@@ -409,6 +409,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
             </div>
             <div className="ed-side-body">
               {tab === "sound" ? (
+                <>
                 <Soundtrack
                   music={project.music}
                   onChange={(music) =>
@@ -418,6 +419,16 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     })
                   }
                 />
+                <VoiceMix
+                  sound={project.sound}
+                  onChange={(sound) =>
+                    apply((current) => {
+                      const { sound: _old, ...rest } = current;
+                      return sound ? { ...rest, sound } : rest;
+                    })
+                  }
+                />
+                </>
               ) : !(selected && shot) ? (
                 <p className="takes-note">Click a clip on the timeline to work on that shot.</p>
               ) : (

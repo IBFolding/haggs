@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
+import sharp from "sharp";
+
 import { bridgeAllowed } from "../../../server/bridge-guard";
 import { localFile } from "../../../server/local-media";
 import { checkCut, renderCut } from "../../../server/render";
@@ -39,6 +41,12 @@ export async function POST(request: Request) {
         return stdout.trim().length > 0;
       },
       write: (path, text) => writeFile(path, text),
+      caption: async (path, text, { w, h }) => {
+        const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const size = Math.round(h * 0.05);
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><text x="${w / 2}" y="${h * 0.9}" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${size}" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="${size / 9}" paint-order="stroke" stroke-linejoin="round">${esc}</text></svg>`;
+        await sharp(Buffer.from(svg)).png().toFile(path);
+      },
     });
     return Response.json({ ok: true, url: out.url, seconds: cut.total });
   } catch (caught) {

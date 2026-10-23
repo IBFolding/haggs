@@ -1,4 +1,4 @@
-import type { Music, Project, Shot } from "./model";
+import type { Music, Project, Shot, Sound } from "./model";
 
 /**
  * The cut: the board's shots, in story order, laid end to end.
@@ -22,6 +22,8 @@ export type Clip = {
   /** Seconds into the footage where this clip begins. */
   from: number;
   seconds: number;
+  /** Words burned into the picture while this clip is on screen. */
+  caption?: string;
 };
 
 /** A spoken line placed on the cut's clock. */
@@ -32,6 +34,8 @@ export type Cut = {
   total: number;
   voices: Voice[];
   music: Music | null;
+  /** How the voices sit in the mix. */
+  sound?: Sound;
   /** The shape every clip is fitted to. */
   aspect: "16:9" | "9:16";
   /** Shots with nothing to show yet, so a gap in the cut is never a surprise. */
@@ -89,6 +93,7 @@ export function buildCut(project: Project): Cut {
       start: cursor,
       from: positive(shot.trimIn) ?? 0,
       seconds,
+      ...(shot.caption?.trim() ? { caption: shot.caption.trim() } : {}),
     });
     for (const line of shot.voices ?? []) {
       // A line that hasn't been spoken yet has nothing to play.
@@ -97,7 +102,7 @@ export function buildCut(project: Project): Cut {
     cursor += seconds;
   }
 
-  return { clips, total: cursor, skipped, voices, music: project.music ?? null, aspect: project.aspect ?? "16:9" };
+  return { clips, total: cursor, skipped, voices, music: project.music ?? null, ...(project.sound ? { sound: project.sound } : {}), aspect: project.aspect ?? "16:9" };
 }
 
 /**
@@ -165,13 +170,35 @@ function slug(name: string): string {
  * soundtrack is trimmed to the cut, faded out, and pressed down by the
  * voices so every line is heard over it. Null when there is nothing to mix.
  */
+/** The treatment that makes synthetic voices sit in a film: warmth, a little air, levelled, in a room, and the music ducking under them. */
+export const BLEND: Sound = { room: 0.3, warmth: 2, clarity: -1, squeeze: 0.5, duck: 0.7 };
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : 0));
+
+/** One voice line's filter chain, from the cut's sound settings. */
+function voiceChain(sound: Sound | undefined): string[] {
+  if (!sound) return [];
+  const out: string[] = [];
+  const { room, warmth, clarity, squeeze } = sound;
+  if (warmth || clarity || squeeze || room) out.push("highpass=f=80");
+  if (warmth) out.push(`equalizer=f=200:t=h:w=200:g=${clamp(warmth, -6, 6)}`);
+  if (clarity) out.push(`equalizer=f=3500:t=q:w=1.2:g=${clamp(clarity, -6, 6)}`);
+  if (clarity !== undefined && clarity <= 0 && (warmth || squeeze || room)) out.push("equalizer=f=7500:t=q:w=2:g=-3");
+  if (squeeze) out.push(`acompressor=threshold=${Math.round(-18 - 6 * clamp(squeeze, 0, 1))}dB:ratio=${(2 + 4 * clamp(squeeze, 0, 1)).toFixed(1)}:attack=8:release=160:makeup=${Math.round(2 + 4 * clamp(squeeze, 0, 1))}`);
+  if (room) {
+    const r = clamp(room, 0, 1);
+    out.push(`aecho=0.8:0.88:${Math.round(40 + 60 * r)}|${Math.round(90 + 110 * r)}:${(0.15 + 0.3 * r).toFixed(2)}|${(0.1 + 0.2 * r).toFixed(2)}`);
+  }
+  return out;
+}
+
 export function mixFilter(cut: Cut): { inputs: string[]; filter: string } | null {
   if (!cut.voices.length && !cut.music) return null;
   const parts: string[] = [];
   const inputs = cut.voices.map((v) => v.url);
   cut.voices.forEach((v, i) => {
     const ms = Math.round(v.start * 1000);
-    parts.push(`[${i + 1}:a]aresample=48000,adelay=${ms}|${ms},volume=${v.gain}dB[v${i}]`);
+    parts.push(`[${i + 1}:a]${["aresample=48000", ...voiceChain(cut.sound), `adelay=${ms}|${ms}`, `volume=${v.gain}dB`].join(",")}[v${i}]`);
   });
   const vo = cut.voices.length > 1 ? (parts.push(`${cut.voices.map((_, i) => `[v${i}]`).join("")}amix=inputs=${cut.voices.length}:normalize=0[vo]`), "[vo]") : cut.voices.length ? "[v0]" : null;
   let bed: string | null = null;
@@ -181,14 +208,32 @@ export function mixFilter(cut: Cut): { inputs: string[]; filter: string } | null
     const fade = Math.max(0, cut.total - 2);
     parts.push(`[${m}:a]aresample=48000,atrim=0:${cut.total},volume=${cut.music.gain}dB,afade=t=out:st=${fade}:d=2[mus]`);
     if (vo) {
-      parts.push(`${vo}asplit[vo1][vo2]`, `[mus][vo1]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=450[bed]`);
+      parts.push(`${vo}asplit[vo1][vo2]`, `[mus][vo1]sidechaincompress=threshold=0.04:ratio=${Math.round(4 + 8 * clamp(cut.sound?.duck ?? 0.5, 0, 1))}:attack=20:release=450[bed]`);
       bed = "[bed]";
     } else bed = "[mus]";
   }
   const voice = vo && cut.music ? "[vo2]" : vo;
   const layers = ["[0:a]", bed, voice].filter(Boolean) as string[];
-  parts.push(`${layers.join("")}amix=inputs=${layers.length}:normalize=0:duration=first[mix]`);
+  parts.push(`${layers.join("")}amix=inputs=${layers.length}:normalize=0:duration=first${cut.sound?.loud ? "[pre];[pre]loudnorm=I=-16:TP=-1.5:LRA=11" : ""}[mix]`);
   return { inputs, filter: parts.join(";") };
+}
+
+/**
+ * Captions as overlays on the joined picture: one transparent frame-sized PNG
+ * per captioned clip (input 1…n), each shown only while its clip plays. Null
+ * when no clip has a caption.
+ */
+export function captionFilter(cut: Cut): { captions: { text: string; index: number }[]; filter: string } | null {
+  const captions = cut.clips.filter((c) => c.caption).map((c) => ({ text: c.caption!, index: c.index }));
+  if (!captions.length) return null;
+  let last = "0:v";
+  const parts = cut.clips.filter((c) => c.caption).map((c, i) => {
+    const out = i === captions.length - 1 ? "out" : `c${i}`;
+    const part = `[${last}][${i + 1}:v]overlay=0:0:enable='between(t,${c.start},${Math.round((c.start + c.seconds) * 1000) / 1000})'[${out}]`;
+    last = out;
+    return part;
+  });
+  return { captions, filter: parts.join(";") };
 }
 
 /** Local media (/api/local/…) is fetched from the running app, so the script needs its address. */

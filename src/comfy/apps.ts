@@ -100,6 +100,17 @@ export function appOf(ui: UiWorkflow, prompt: ApiPrompt, catalog: Catalog, sampl
       }
     }
   }
+  // A prompt held in a string primitive is plumbing when the workflow has its own box, but the only prompt there is otherwise.
+  if (!fields.some((f) => f.kind === "text")) {
+    const used = new Set(Object.values(prompt).flatMap((n) => Object.values(n.inputs).flatMap((v) => (Array.isArray(v) && typeof v[0] === "string" ? [v[0]] : []))));
+    for (const [id, node] of Object.entries(prompt)) {
+      const value = node.inputs.value;
+      if ((node.class_type === "PrimitiveStringMultiline" || node.class_type === "PrimitiveString") && typeof value === "string" && value.trim().length >= 12 && used.has(id) && !negatives.has(id)) {
+        fields.push({ kind: "text", node: id, input: "value", label: titles.get(id) ?? "Prompt", value });
+        break;
+      }
+    }
+  }
   // Media first, then words, then settings: the order you'd fill them in.
   const rank = { media: 0, text: 1, choice: 2, number: 2 } as const;
   fields.sort((a, b) => rank[a.kind] - rank[b.kind]);
