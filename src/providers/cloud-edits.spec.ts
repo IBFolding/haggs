@@ -130,3 +130,14 @@ test("speechWorkflow speaks one line in a chosen voice and saves an MP3, no vide
 test("a spoken line is priced by its characters", () => {
   assert.equal(editEstimate({ tool: "speech", seconds: 0, characters: 1000 }), 0.114);
 });
+
+test("a voice can be asked to be more expressive: v3 with a lower stability", () => {
+  const w = speechWorkflow({ text: "[softly] Hello.", voice: "Matilda (female, american)", model: "eleven_v3", stability: 0, seed: 1 });
+  const tts = Object.values(w).find((n) => n.class_type === "ElevenLabsTextToSpeech")!;
+  assert.equal(tts.inputs.model, "eleven_v3");
+  assert.equal(tts.inputs.stability, 0);
+  assert.equal(tts.inputs["model.speed"], 1, "v3 requires a speed");
+  const v = voiceWorkflow({ video: "a.mp4", lines: [{ text: "[softly] Hi.", voice: "Will (male, american)" }], model: "eleven_v3", stability: 0 });
+  assert.equal(v["30"]!.inputs.stability, 0);
+  assert.throws(() => speechWorkflow({ text: "x", voice: "Matilda (female, american)", stability: 2, seed: 1 }), /stability/i);
+});

@@ -126,19 +126,20 @@ export function flux3Workflow({ prompt, references = [], ratio = "16:9", resolut
 }
 
 /** One line of voice-over: ElevenLabs speech in a chosen voice, saved as an MP3 to lay under the cut. */
-export function speechWorkflow({ text, voice, model = "eleven_v4", seed }: { text: string; voice: string; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo"; seed: number }): Workflow {
+export function speechWorkflow({ text, voice, model = "eleven_v4", stability = 0.5, seed }: { text: string; voice: string; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo"; stability?: number; seed: number }): Workflow {
+  if (!(stability >= 0 && stability <= 1)) throw new Error("Stability is between 0 (most expressive) and 1.");
   if (!text.trim() || text.length > 2000) throw new Error("Write the line to speak, up to 2,000 characters.");
   if (!(VOICES as readonly string[]).includes(voice)) throw new Error("Pick a voice from the list.");
   return {
     "40": { class_type: "ElevenLabsVoiceSelector", inputs: { voice } },
-    "1": { class_type: "ElevenLabsTextToSpeech", inputs: { voice: ["40", 0], text: text.trim(), stability: 0.5, apply_text_normalization: "auto", model, "model.similarity_boost": 0.75, language_code: "", seed, output_format: "mp3_44100_192" } },
+    "1": { class_type: "ElevenLabsTextToSpeech", inputs: { voice: ["40", 0], text: text.trim(), stability, apply_text_normalization: "auto", model, ...(model === "eleven_v3" ? { "model.speed": 1 } : {}), "model.similarity_boost": 0.75, language_code: "", seed, output_format: "mp3_44100_192" } },
     "20": { class_type: "SaveAudioMP3", inputs: { audio: ["1", 0], filename_prefix: "haggs/line", quality: "V0" } },
   };
 }
 
 export type Line = { text: string; voice: string };
 
-export function voiceWorkflow({ video, lines, model = "eleven_v4" }: { video: string; lines: Line[]; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo" }): Workflow {
+export function voiceWorkflow({ video, lines, model = "eleven_v4", stability = 0.5 }: { video: string; lines: Line[]; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo"; stability?: number }): Workflow {
   if (!lines.length || lines.length > 10) throw new Error("Give the scene 1–10 lines of dialogue.");
   const w: Workflow = { "2": { class_type: "LoadVideo", inputs: { file: video } } };
   const selector = new Map<string, string>();
@@ -150,7 +151,7 @@ export function voiceWorkflow({ video, lines, model = "eleven_v4" }: { video: st
       w[id] = { class_type: "ElevenLabsVoiceSelector", inputs: { voice: line.voice } };
     }
   });
-  const dialogue: Record<string, unknown> = { stability: 0.5, apply_text_normalization: "auto", model, inputs: String(lines.length), language_code: "", seed: 1, output_format: "mp3_44100_192" };
+  const dialogue: Record<string, unknown> = { stability, apply_text_normalization: "auto", model, inputs: String(lines.length), language_code: "", seed: 1, output_format: "mp3_44100_192" };
   lines.forEach((line, i) => {
     dialogue[`inputs.text${i + 1}`] = line.text.trim();
     dialogue[`inputs.voice${i + 1}`] = [selector.get(line.voice)!, 0];
