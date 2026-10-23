@@ -2,7 +2,18 @@
   "mcpServers": {
     "haggs": {
       "command": "npx",
-      "args": ["tsx", "scripts/mcp.ts"]
+      "args": [
+        "tsx",
+        "scripts/mcp.ts"
+      ]
+    },
+    "broll": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/edigeh/broll-mcp@d8fda0a4972235fb7591187242a4e583aca84f12",
+        "broll-mcp"
+      ]
     }
   }
 }

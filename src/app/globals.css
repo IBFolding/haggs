@@ -2547,3 +2547,11 @@ a.logo { color: var(--text); text-decoration: none; }
   .wd-prompt span, .wd-write li, .wd-chips, .wd-board figure, .wd-board img, .wd-price, .wd-wire path, .wd-strip img, .wd-head, .wd-flag, .wd-lane i, .wd-btn, .wd-progress i, .wd-out, .wd-bar, .ap-card, .wd-foot b { animation: none !important; }
   .wd-prompt span { width: 100%; border: 0; } .wd-write li, .wd-chips, .wd-board figure, .wd-strip img, .wd-flag, .wd-lane i, .wd-out, .wd-price.b { opacity: 1; } .wd-board img { filter: none; } .wd-price.a { opacity: 0; } .wd-wire path { stroke-dashoffset: 0; } .wd-progress i { width: 100%; }
 }
+
+.found-grid { list-style: none; margin: 18px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.found-grid li { display: grid; gap: 4px; } .found-grid li button { position: relative; display: grid; gap: 4px; text-align: left; padding: 0 0 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; overflow: hidden; }
+.found-grid li.on button { border-color: var(--volt); box-shadow: 0 0 0 2px rgba(212, 248, 58, .2); }
+.found-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; display: block; } .found-grid b { padding: 0 10px; font-size: 13.5px; } .found-grid small { padding: 0 10px; color: var(--text-3); font-size: 11.5px; line-height: 1.45; }
+.found-tick { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(8, 8, 10, .8); color: var(--volt); }
+.found-grid li a { font-size: 11px; color: var(--text-3); padding-left: 4px; }
+.found-bar { display: grid; gap: 8px; justify-items: start; position: sticky; bottom: 12px; padding: 12px 0; } .found-bar small { color: var(--text-3); max-width: 70ch; }

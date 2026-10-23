@@ -116,6 +116,7 @@ export function Recreate() {
             <Link href="/video">Make a clip</Link>
             <Link href="/series">Series</Link>
             <Link href="/recreate" aria-current="page">Recreate an edit</Link>
+            <Link href="/found">Found footage</Link>
           </nav>
           <header className="swap-head">
             <h1>Recreate an edit</h1>
