@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createCharacterStore, identityLock, type Character } from "../../characters/character";
-import { buildRecreation, type RefShot } from "../../recreate/recreate";
+import { EDIT_PRESETS, buildRecreation, presetShots, type RefShot } from "../../recreate/recreate";
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { Nav, openKeys } from "../nav";
@@ -32,12 +32,30 @@ export function Recreate() {
   const [cast, setCast] = useState<Character[]>([]);
   const [who, setWho] = useState<string | null>(null);
   const [instructions, setInstructions] = useState("");
+  const [vertical, setVertical] = useState(false);
+  const [mine, setMine] = useState<{ id: string; name: string; vertical: boolean; shots: RefShot[] }[]>([]);
+  const [presetName, setPresetName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void createCharacterStore(defaultKv()).list().then(setCast).catch(() => undefined);
+    void defaultKv().get<typeof mine>("recreate/presets").then((p) => setMine(p ?? [])).catch(() => undefined);
   }, []);
+
+  async function savePreset() {
+    if (!shots || !presetName.trim()) return;
+    const next = [{ id: crypto.randomUUID(), name: presetName.trim().slice(0, 60), vertical, shots }, ...mine].slice(0, 30);
+    await defaultKv().set("recreate/presets", next);
+    setMine(next);
+    setPresetName("");
+  }
+
+  async function dropPreset(id: string) {
+    const next = mine.filter((m) => m.id !== id);
+    await defaultKv().set("recreate/presets", next);
+    setMine(next);
+  }
 
   async function add(f: File) {
     setError(null);
@@ -57,6 +75,7 @@ export function Recreate() {
         el.src = body.url!;
       });
       setVideo({ url: body.url, ...meta });
+      setVertical(meta.vertical);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The video couldn't be added.");
     } finally {
@@ -78,9 +97,9 @@ export function Recreate() {
   }
 
   async function make() {
-    if (!shots || !video) return;
+    if (!shots) return;
     const person = cast.find((c) => c.id === who);
-    const project = buildRecreation(`Edit recreation · ${shots.length} shots`, shots, { ...(person ? { lock: identityLock(person.traits), refs: [person.sheet] } : {}), instructions, aspect: video.vertical ? "9:16" : "16:9" });
+    const project = buildRecreation(`Edit recreation · ${shots.length} shots`, shots, { ...(person ? { lock: identityLock(person.traits), refs: [person.sheet] } : {}), instructions, aspect: vertical ? "9:16" : "16:9" });
     await store.save(project);
     router.push(`/board/${project.id}?b=${encodeURIComponent(project.boards![0]!.id)}`);
   }
@@ -103,7 +122,27 @@ export function Recreate() {
             <p>Drop an edit you love: a trailer, an ad, a viral cut. haggs finds every shot, then rebuilds the same edit around your character and your place.</p>
           </header>
 
-          {!video ? (
+          {!video && !shots && (
+            <div className="recreate-presets">
+              <b>Start from a structure</b>
+              <div className="quick-row">
+                {EDIT_PRESETS.map((p) => (
+                  <button key={p.id} className="quick-card" onClick={() => { setShots(presetShots(p)); setVertical(p.vertical); setError(null); }} title={p.says}>
+                    <b>{p.name}</b>
+                    <small>{p.shots.length} shots · {p.vertical ? "vertical" : "landscape"}</small>
+                  </button>
+                ))}
+                {mine.map((p) => (
+                  <span key={p.id} className="quick-card mine">
+                    <button className="plain" onClick={() => { setShots(p.shots); setVertical(p.vertical); setError(null); }}><b>{p.name}</b><small>Yours · {p.shots.length} shots</small></button>
+                    <button className="plain danger" aria-label={`Remove ${p.name}`} onClick={() => void dropPreset(p.id)}>×</button>
+                  </span>
+                ))}
+              </div>
+              <b>Or copy an edit you love</b>
+            </div>
+          )}
+          {!video && !shots ? (
             <div className="recreate-drop">
               <button className="fire" onClick={() => file.current?.click()} disabled={busy !== null}>{busy ?? "Add the reference video"}</button>
               <input ref={file} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void add(f); }} />
@@ -111,9 +150,9 @@ export function Recreate() {
             </div>
           ) : (
             <div className="recreate-body">
-              <video className="recreate-ref" src={video.url} controls muted playsInline />
+              {video && <video className="recreate-ref" src={video.url} controls muted playsInline />}
               <div className="recreate-side">
-                <p className="wf-small">{video.seconds}s · {video.vertical ? "vertical" : "landscape"}. <button className="plain" onClick={() => { setVideo(null); setShots(null); }}>Use a different one</button></p>
+                <p className="wf-small">{video ? `${video.seconds}s · ${video.vertical ? "vertical" : "landscape"}. ` : "A starting structure. "}<button className="plain" onClick={() => { setVideo(null); setShots(null); }}>{video ? "Use a different one" : "Pick another"}</button></p>
                 {!shots ? (
                   <button className="fire" disabled={busy !== null} onClick={() => void read()}>{busy ?? "Find the shots"} <span className="cost">about $0.03</span></button>
                 ) : (
@@ -127,6 +166,12 @@ export function Recreate() {
                       </div>
                     </div>
                     <label className="wf-field"><span>Anything to change (place, outfit, mood)</span><textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Set it in Tokyo at night. She wears a red coat." maxLength={500} /></label>
+                    {video && (
+                      <form className="cast-add" onSubmit={(e) => { e.preventDefault(); void savePreset(); }}>
+                        <input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="Save this edit as a preset: name it" aria-label="Preset name" maxLength={60} />
+                        <button className="pill" disabled={!presetName.trim()}>Save</button>
+                      </form>
+                    )}
                     <button className="fire" onClick={() => void make()}>Make the board · {shots.length} shots, {total.toFixed(1)}s</button>
                     <p className="wf-small">Then on the board: pictures about {money(shots.length * PICTURE)}, clips about {money(shots.reduce((n, s) => n + Math.max(4, Math.round(s.seconds)) * CLIP, 0))}. Each priced before you press it.</p>
                   </>
@@ -135,7 +180,7 @@ export function Recreate() {
               </div>
             </div>
           )}
-          {error && !video && <p className="library-error" role="alert">{error}</p>}
+          {error && !video && !shots && <p className="library-error" role="alert">{error}</p>}
 
           {shots && (
             <ol className="recreate-shots">

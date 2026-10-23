@@ -46,3 +46,16 @@ test("the recreation is a board with one shot per reference shot, same lengths, 
   assert.deepEqual(b.shots[0]!.refs, ["/sheet.png"]);
   assert.equal(b.shots[1]!.caption, undefined);
 });
+
+import { EDIT_PRESETS, presetShots } from "./recreate";
+
+test("the starting structures are whole edits: lengths that add up, a camera move and a line for every shot", () => {
+  assert.ok(EDIT_PRESETS.length >= 6);
+  assert.equal(new Set(EDIT_PRESETS.map((p) => p.id)).size, EDIT_PRESETS.length);
+  for (const p of EDIT_PRESETS) {
+    const shots = presetShots(p);
+    assert.ok(shots.length >= 3 && shots.length <= 8, p.id);
+    for (const s of shots) assert.ok(s.seconds >= 0.5 && s.what.length > 15 && s.camera, `${p.id}: ${s.what}`);
+    assert.ok(Math.abs(shots.at(-1)!.end - shots.reduce((n, s) => n + s.seconds, 0)) < 0.05, p.id);
+  }
+});

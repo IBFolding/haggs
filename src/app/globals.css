@@ -2399,3 +2399,7 @@ a.logo { color: var(--text); text-decoration: none; }
 .recreate-shots header b { color: var(--volt); font-size: 14px; }
 .recreate-shots textarea, .recreate-shots input { background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 12.5px; width: 100%; }
 @media (max-width: 900px) { .recreate-body { grid-template-columns: 1fr; } }
+.recreate-presets { display: grid; gap: 8px; margin-top: 12px; }
+.recreate-presets > b { font-size: 13px; color: var(--text-2); }
+.quick-card.mine { display: flex; align-items: center; justify-content: space-between; }
+.recreate-presets .quick-card { text-align: left; cursor: pointer; font: inherit; color: var(--text); }
