@@ -2303,3 +2303,6 @@ a.logo { color: var(--text); text-decoration: none; }
 .academy-paper p { margin: 0; max-width: 32ch; }
 @media print { .nav, .academy-list, .academy-bar, .swap-head, .academy-cert > :not(.academy-paper) { display: none !important; } .academy-paper { border-color: #111; } }
 .series-card textarea { background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 12px; width: 100%; resize: vertical; }
+.voice-mix label.sound-level:last-child { justify-content: flex-start; }
+.voice-mix label.sound-level input[type="checkbox"] { flex: none; width: auto; }
+.quick-group { font-size: 13px; color: var(--text-2); margin: 14px 0 8px; font-weight: 600; }

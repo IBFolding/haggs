@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { compileCanvas } from "./canvas";
-import { QUICK_APPS, quickById } from "./quick";
+import { GROUPS, QUICK_APPS, quickById } from "./quick";
 
 test("every ready-made app has a name, a plain sentence, and a unique id", () => {
-  assert.ok(QUICK_APPS.length >= 8);
+  assert.ok(QUICK_APPS.length >= 25);
+  for (const a of QUICK_APPS) assert.ok(GROUPS.includes(a.group), a.id);
   assert.equal(new Set(QUICK_APPS.map((a) => a.id)).size, QUICK_APPS.length);
   for (const a of QUICK_APPS) assert.ok(a.name && a.says.length > 20 && a.says.length < 120, a.id);
 });
