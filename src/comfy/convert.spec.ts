@@ -62,3 +62,15 @@ test("a workflow is priced the way Comfy prices each partner node", async () => 
   prompt["9"]!.inputs["model.resolution"] = "480p";
   assert.equal((await priceOf(prompt, catalog)).min, 0.45474);
 });
+
+test("a model file a template names but Cloud calls something else is swapped for the closest one it has, and said so", async () => {
+  const { useAvailable } = await import("./convert");
+  const cat = { VAELoader: { input: { required: { vae_name: [["minimax_h3_video_vae_fp16.safetensors", "minimax_h3_audio_vae_fp32.safetensors", "flux2-vae.safetensors"]] as unknown as [string[]] } } } } as unknown as Catalog;
+  const prompt = { "1": { class_type: "VAELoader", inputs: { vae_name: "minimax_h3_video_vae_int8_convrot.safetensors" } } };
+  const out = useAvailable(prompt, cat);
+  assert.equal(out.prompt["1"]!.inputs.vae_name, "minimax_h3_video_vae_fp16.safetensors");
+  assert.deepEqual(out.swaps, ["VAELoader: used minimax_h3_video_vae_fp16.safetensors in place of minimax_h3_video_vae_int8_convrot.safetensors"]);
+  const none = useAvailable({ "1": { class_type: "VAELoader", inputs: { vae_name: "totally_unrelated.safetensors" } } }, cat);
+  assert.equal(none.prompt["1"]!.inputs.vae_name, "totally_unrelated.safetensors", "no close match: left alone, so validation still reports it");
+  assert.deepEqual(none.swaps, []);
+});

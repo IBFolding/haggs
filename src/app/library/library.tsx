@@ -9,6 +9,7 @@ import { createProject, type ProjectSummary } from "../../story/model";
 import { createProjectStore } from "../../story/store";
 import { exportSheets, importSheets } from "../../sheets/sheets";
 import { TransferError, exportProject, importBundle } from "../../story/transfer";
+import { backupsToOffer, toRestore, type OnDisk } from "../../story/restore";
 import { Nav } from "../nav";
 
 function ago(at: number): string {
@@ -49,6 +50,32 @@ export function Library() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // In development the app keeps a copy of every project on disk. If the browser has started over, offer those back.
+  const [backups, setBackups] = useState<OnDisk[]>([]);
+  useEffect(() => {
+    if (!ready || process.env.NODE_ENV === "production") return;
+    void fetch("/api/bridge/snapshot")
+      .then((r) => r.json() as Promise<{ items?: OnDisk[] }>)
+      .then((b) => setBackups(backupsToOffer(projects, b.items ?? [])))
+      .catch(() => undefined);
+  }, [ready, projects]);
+
+  const restore = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/bridge/snapshot?id=${encodeURIComponent(id)}`);
+        const body = (await res.json()) as { snapshot?: Parameters<typeof toRestore>[0] };
+        const { project, sheets } = toRestore(body.snapshot!);
+        await store.save(project);
+        if (sheets) await kv.set(`sheets/${project.id}`, exportSheets(sheets));
+        await refresh();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "That backup couldn't be restored.");
+      }
+    },
+    [store, kv, refresh],
+  );
 
   const create = useCallback(async () => {
     const project = createProject("Untitled");
@@ -171,6 +198,18 @@ export function Library() {
               }}
             />
           </div>
+
+          {backups.length > 0 && (
+            <div className="inbox" role="region" aria-label="Saved on disk">
+              {backups.map((b) => (
+                <div key={b.id} className="inbox-item">
+                  <span className="inbox-from">On this machine</span>
+                  <p><b>{b.name}</b> is saved on disk ({b.shots} shots, {b.boards} boards) but isn&rsquo;t in this browser. Restore it?</p>
+                  <button className="pill on" onClick={() => void restore(b.id)}>Restore</button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {error && (
             <p className="library-error" role="alert">

@@ -308,3 +308,41 @@ export function validate(prompt: ApiPrompt, catalog: Catalog): string[] {
   }
   return problems;
 }
+
+
+/** The longest shared start of two file names. */
+function sharedStart(a: string, b: string): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i;
+}
+
+/**
+ * A template names the model files its author had; Cloud may list the same
+ * model under another file name (a different precision, say). Where a choice
+ * isn't on offer but a file that starts the same way for at least 14
+ * characters is, use that one and say so. Anything with no close match is
+ * left as it is, so validation still reports it.
+ */
+export function useAvailable(prompt: ApiPrompt, catalog: Catalog): { prompt: ApiPrompt; swaps: string[] } {
+  const next = structuredClone(prompt);
+  const swaps: string[] = [];
+  for (const node of Object.values(next)) {
+    const def = catalog[node.class_type];
+    if (!def) continue;
+    const accepted = acceptedInputs(def, node.inputs);
+    for (const [key, value] of Object.entries(node.inputs)) {
+      const spec = accepted.get(key);
+      if (!spec || Array.isArray(value) || typeof value !== "string") continue;
+      const choices = (Array.isArray(spec[0]) ? spec[0] : spec[0] === "COMBO" ? (options(spec).options as unknown[] | undefined) : undefined)?.filter((c): c is string => typeof c === "string");
+      if (!choices?.length || choices.includes(value) || options(spec).image_upload || options(spec).video_upload || options(spec).audio_upload) continue;
+      if (/\.(png|jpe?g|webp|gif|mp4|mov|webm|mkv|wav|mp3|flac|ogg|m4a|glb|obj|ply|splat)$/i.test(value)) continue;
+      const best = choices.map((c) => ({ c, n: sharedStart(c, value) })).sort((a, b) => b.n - a.n)[0];
+      if (best && best.n >= 14) {
+        node.inputs[key] = best.c;
+        swaps.push(`${node.class_type}: used ${best.c} in place of ${value}`);
+      }
+    }
+  }
+  return { prompt: next, swaps };
+}

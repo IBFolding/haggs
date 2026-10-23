@@ -49,3 +49,14 @@ test("leaving out an input removes its loader and the wire it fed, and the rest 
   assert.deepEqual(validate(leaveOut(prompt, app, ["14/image", "15/image"]), catalog).length > 0, true, "Genjutsu needs at least one reference");
   assert.throws(() => leaveOut(prompt, app, ["9/model.prompt"]), /only a file/);
 });
+
+test("the multi-angle app offers the picture and the camera, not the negative prompt", async () => {
+  const ma: UiWorkflow = JSON.parse(readFileSync(join(dir, "template_qwen_multiangle.app.json"), "utf8"));
+  const { prompt, problems } = toApiPrompt(ma, catalog);
+  assert.deepEqual(problems, []);
+  const app = appOf(ma, prompt, catalog);
+  assert.deepEqual(app.fields.map((f) => `${f.kind}:${f.input}`), ["media:image", "number:horizontal_angle", "number:vertical_angle", "number:zoom"]);
+  const filled = fill(prompt, app, { "221/horizontal_angle": 90, "221/vertical_angle": -10, "221/zoom": 8 });
+  assert.deepEqual([filled["221"]!.inputs.horizontal_angle, filled["221"]!.inputs.vertical_angle, filled["221"]!.inputs.zoom], [90, -10, 8]);
+  assert.throws(() => fill(prompt, app, { "221/vertical_angle": 90 }), /out of range/);
+});

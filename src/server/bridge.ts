@@ -59,7 +59,7 @@ export async function removeSnapshot(root: string, id: string): Promise<void> {
   await rm(join(root, "projects", `${projectId(id)}.json`), { force: true });
 }
 
-export async function listSnapshots(root: string): Promise<{ id: string; name: string; savedAt: number; boards: number }[]> {
+export async function listSnapshots(root: string): Promise<{ id: string; name: string; savedAt: number; boards: number; shots: number }[]> {
   let files: string[] = [];
   try {
     files = (await readdir(join(root, "projects"))).filter((f) => f.endsWith(".json"));
@@ -69,7 +69,7 @@ export async function listSnapshots(root: string): Promise<{ id: string; name: s
   const out = [];
   for (const file of files) {
     const snap = await readSnapshot(root, file.slice(0, -5)).catch(() => null);
-    if (snap) out.push({ id: snap.project.id, name: snap.project.name, savedAt: snap.savedAt ?? 0, boards: snap.project.boards?.length ?? 1 });
+    if (snap) out.push({ id: snap.project.id, name: snap.project.name, savedAt: snap.savedAt ?? 0, boards: snap.project.boards?.length ?? 1, shots: snap.project.boards ? snap.project.boards.reduce((n, b) => n + b.shots.length, 0) : snap.project.shots.length });
   }
   return out.sort((a, b) => b.savedAt - a.savedAt);
 }

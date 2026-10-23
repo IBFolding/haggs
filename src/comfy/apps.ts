@@ -27,7 +27,21 @@ const LOADERS: Record<string, { input: string; media: MediaKind }> = {
 };
 
 /** Settings people actually change, by the last part of the input's name. */
-const SETTINGS = /(^|\.)(resolution|aspect_ratio|ratio|duration|seconds|size|quality|mode|style)$/;
+const SETTINGS = /(^|\.)(resolution|aspect_ratio|ratio|duration|seconds|size|quality|mode|style|horizontal_angle|vertical_angle|zoom)$/;
+/** Helper nodes whose text is plumbing, not something a person writes. */
+const PLUMBING = new Set(["ComfyMathExpression", "PreviewAny", "StringConcatenate", "PrimitiveString", "PrimitiveStringMultiline"]);
+
+/** Nodes that only feed a negative prompt: found by walking back from every input called negative. */
+function negativeNodes(prompt: ApiPrompt): Set<string> {
+  const seen = new Set<string>();
+  const walk = (id: string) => {
+    if (seen.has(id) || !prompt[id]) return;
+    seen.add(id);
+    for (const v of Object.values(prompt[id]!.inputs)) if (Array.isArray(v) && typeof v[0] === "string") walk(v[0]);
+  };
+  for (const node of Object.values(prompt)) for (const [k, v] of Object.entries(node.inputs)) if (/negative/i.test(k) && Array.isArray(v) && typeof v[0] === "string") walk(v[0]);
+  return seen;
+}
 const SAVERS: Record<string, App["produces"]> = { SaveImage: "image", SaveImageAdvanced: "image", SaveVideo: "video", VHS_VideoCombine: "video", SaveAnimatedWEBP: "image", SaveAudio: "audio", SaveAudioMP3: "audio", SaveAudioOpus: "audio", SaveGLB: "3d", Save3D: "3d", SaveText: "text", PreviewAny: "text" };
 
 const pretty = (s: string) => s.replace(/^model\./, "").replace(/_/g, " ").replace(/\b\w/, (c) => c.toUpperCase());
@@ -59,6 +73,7 @@ export function appOf(ui: UiWorkflow, prompt: ApiPrompt, catalog: Catalog, sampl
   for (const n of ui.nodes ?? []) if (n.title) titles.set(String(n.id), n.title);
   let output: string | null = null;
   let produces: App["produces"] = null;
+  const negatives = negativeNodes(prompt);
 
   for (const [id, node] of Object.entries(prompt)) {
     const loader = LOADERS[node.class_type];
@@ -76,7 +91,7 @@ export function appOf(ui: UiWorkflow, prompt: ApiPrompt, catalog: Catalog, sampl
       const spec = specOfInput(catalog, node.class_type, key, node.inputs);
       if (!spec) continue;
       const opts = spec[1] ?? {};
-      if (spec[0] === "STRING" && opts.multiline && typeof value === "string") {
+      if (spec[0] === "STRING" && opts.multiline && typeof value === "string" && !PLUMBING.has(node.class_type) && !negatives.has(id)) {
         fields.push({ kind: "text", node: id, input: key, label: titles.get(id) ? `${titles.get(id)}` : pretty(key), value });
       } else if (SETTINGS.test(key)) {
         const choices = Array.isArray(spec[0]) ? spec[0] : spec[0] === "COMBO" ? ((opts.options as unknown[]) ?? []) : null;
