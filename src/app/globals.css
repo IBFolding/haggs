@@ -2356,3 +2356,5 @@ a.logo { color: var(--text); text-decoration: none; }
 .nudge b { color: var(--text); }
 .nudge .pill { text-decoration: none; white-space: nowrap; }
 .ed-empty { white-space: nowrap; }
+.ed-card { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px; }
+.ed-card input { flex: 1 1 180px; min-width: 0; background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; }

@@ -8,7 +8,7 @@ import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
 import { cloudEstimate } from "../../../../providers/cloud-price";
-import { frameAt } from "../../../cut-actions";
+import { frameAt, makeCard } from "../../../cut-actions";
 import { reshootFrameAt } from "../../../../story/reshoot";
 import { ReshootPanel } from "../../../reshoot-panel";
 import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite, trimHead, trimTail } from "../../../../story/takes";
@@ -53,6 +53,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
   const [t, setT] = useState(0);
+  const [card, setCard] = useState<{ text: string; sub: string; busy: boolean } | null>(null);
   const [fxDrag, setFxDrag] = useState<{ id: string; start: number } | null>(null);
   const [playing, setPlaying] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
@@ -239,6 +240,27 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       return { ...current, shots };
     });
     setPicked(next.id);
+  }
+
+  /** A title card at the playhead: words on black, placed after the shot it falls in (or at the end). */
+  async function addCard() {
+    if (!card || !project || !card.text.trim()) return;
+    setCard({ ...card, busy: true });
+    const made = await makeCard(card.text, card.sub, project.aspect ?? "16:9");
+    if (!made.ok) {
+      setProblem(made.reason);
+      return setCard({ ...card, busy: false });
+    }
+    const shot: Shot = { ...newShot(), heading: card.text.trim().slice(0, 40), beat: `Title card: ${card.text.trim()}`, seconds: 3, render: { url: made.url, kind: "image", usd: 0, promptHash: "", at: Date.now() }, locked: true };
+    const here2 = cut ? atTime(cut, tRef.current) : null;
+    apply((current) => {
+      const i = here2 ? current.shots.findIndex((x) => x.id === here2.clip.shotId) : current.shots.length - 1;
+      const shots = [...current.shots];
+      shots.splice(i + 1, 0, shot);
+      return { ...current, shots };
+    });
+    setPicked(shot.id);
+    setCard(null);
   }
 
   // Dragging a clip on the timeline moves its shot on the board.
@@ -543,11 +565,20 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               <b>Timeline</b>
               <span>{cut.clips.length} clips · {clock(cut.total)}</span>
               <span className="ed-keys" title="Keyboard shortcuts">Space play · ←/→ step · S split · I/O trim · ⌘Z undo</span>
+              <button className="plain" onClick={() => setCard(card ? null : { text: "", sub: "", busy: false })} title="Words on black, placed after the clip under the playhead">+ Title card</button>
               <button className="plain" disabled={historyTick < 0 || past.current.length === 0} onClick={() => travel("undo")} title="Undo (⌘Z)">Undo</button>
               <button className="plain" disabled={future.current.length === 0} onClick={() => travel("redo")} title="Redo (⇧⌘Z)">Redo</button>
               <label className="ed-zoom">Zoom <input type="range" min={6} max={160} value={Math.round(pps)} onChange={(e) => setPps(Number(e.target.value))} aria-label="Timeline zoom" /></label>
               <button className="plain" onClick={fit}>Fit all</button>
             </div>
+            {card && (
+              <form className="ed-card" onSubmit={(e) => { e.preventDefault(); void addCard(); }}>
+                <input autoFocus value={card.text} onChange={(e) => setCard({ ...card, text: e.target.value })} placeholder="Title" aria-label="Title card words" maxLength={80} />
+                <input value={card.sub} onChange={(e) => setCard({ ...card, sub: e.target.value })} placeholder="Smaller line (optional)" aria-label="Smaller line" maxLength={100} />
+                <button className="pill on" disabled={card.busy || !card.text.trim()}>{card.busy ? "Making…" : "Add the card"}</button>
+                <button type="button" className="plain" onClick={() => setCard(null)}>Cancel</button>
+              </form>
+            )}
             <div className="ed-tracks">
             <div className="ed-heads" aria-label="Tracks">
               <div className={`ed-head${project.sound?.clipMute ? " muted" : ""}`} style={{ top: 28, height: 94 }}><b>Video</b><small>{cut.clips.length} clips</small><button className={`trk-m${project.sound?.clipMute ? " on" : ""}`} aria-pressed={Boolean(project.sound?.clipMute)} title={project.sound?.clipMute ? "Unmute the clips' sound" : "Mute the clips' sound"} onClick={() => apply((c) => ({ ...c, sound: { ...(c.sound ?? {}), clipMute: !c.sound?.clipMute } }))}>M</button></div>

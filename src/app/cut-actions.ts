@@ -85,3 +85,17 @@ export async function reshootOpen(url: string, at: number, kind: "image" | "vide
   if (r.kind !== "image") return { ok: false, reason: "The multi-angle workflow didn't return a picture." };
   return { ok: true, url: r.url, source: frame.url, usd: 0 };
 }
+
+/** A title card as a picture in the local media folder: words on black at the cut's frame shape. Development only; it writes to the media folder. */
+export async function makeCard(text: string, sub: string, aspect: "16:9" | "9:16"): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+  if (!text.trim()) return { ok: false, reason: "Write the words for the card first." };
+  try {
+    const sharp = (await import("sharp")).default;
+    const { cardSize, cardSvg } = await import("../story/card");
+    const { keepResult } = await import("../server/keep");
+    const png = await sharp(Buffer.from(cardSvg(text, sub, cardSize(aspect)))).png().toBuffer();
+    return { ok: true, url: await keepResult(new Uint8Array(png), "png") };
+  } catch (caught) {
+    return { ok: false, reason: caught instanceof Error ? caught.message : "The card couldn't be made." };
+  }
+}
