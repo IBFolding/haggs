@@ -17,10 +17,14 @@ export function RunTile({
   onDelete,
   onSave,
   onStart,
+  onAnimate,
+  onEdit,
 }: {
   run: Run;
   onSave?: () => void;
   onStart?: () => void;
+  onAnimate?: () => void;
+  onEdit?: () => void;
   onFavorite?: () => void;
   onReuse?: () => void;
   onDelete?: () => void;
@@ -52,6 +56,16 @@ export function RunTile({
         <span className="cell-prompt">{run.prompt}</span>
         <span className="cell-foot">
           <span className="cell-model">{run.modelName}</span>
+          {onAnimate && run.kind === "image" && (
+            <button className="plain" onClick={onAnimate} title="Open Video with this as the first frame">
+              Animate
+            </button>
+          )}
+          {onEdit && run.kind === "image" && (
+            <button className="plain" onClick={onEdit} title="Open Edit a photo with this picture">
+              Edit
+            </button>
+          )}
           {onStart && (
             <button className="plain" onClick={onStart} title="Start a new project with this as its first shot">
               Start a project

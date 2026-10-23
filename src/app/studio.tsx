@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MODELS, getModelCard, outputCount, searchModels } from "../catalog/models";
@@ -39,7 +40,11 @@ const BLURB: Record<Surface, string> = {
   Edit: "Attach an image and describe the change. The rest of the picture stays as it is.",
 };
 
+/** A picture handed from one page to the next: Animate sends it to Video as the first frame, Edit to Edit a photo. */
+const HANDOFF_KEY = "haggs.handoff";
+
 export function Studio({ surface = "Create" }: { surface?: Surface }) {
+  const router = useRouter();
   const catalog = useMemo(
     () => MODELS.filter((model) => SURFACE_CAPABILITIES[surface].includes(model.capability)),
     [surface],
@@ -51,6 +56,26 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
     defaultSettings(getModelCard(catalog[0]!.id).settings),
   );
   const [images, setImages] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(HANDOFF_KEY);
+      const gift = raw ? (JSON.parse(raw) as { url: string; to: Surface }) : null;
+      if (gift && gift.to === surface && typeof gift.url === "string") {
+        sessionStorage.removeItem(HANDOFF_KEY);
+        setImages([gift.url]);
+      }
+    } catch {
+      /* Private mode blocks sessionStorage; nothing was handed over. */
+    }
+  }, [surface]);
+  function handOff(item: Run, to: Surface) {
+    try {
+      sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ url: item.url, to }));
+    } catch {
+      /* Without sessionStorage the page still opens, just empty. */
+    }
+    router.push(to === "Video" ? "/video" : "/edit");
+  }
 
   const [picking, setPicking] = useState(false);
   const [hunt, setHunt] = useState("");
@@ -282,6 +307,8 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
                 onReuse={() => reuse(item)}
                 onSave={() => setSaving(item)}
                 onStart={() => void startProject(item)}
+                onAnimate={() => handOff(item, "Video")}
+                onEdit={() => handOff(item, "Edit")}
               />
             ))}
           </div>
