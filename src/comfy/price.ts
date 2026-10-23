@@ -54,6 +54,6 @@ export async function priceOf(prompt: ApiPrompt, catalog: Catalog): Promise<Pric
   const min = nodes.reduce((n, p) => n + p.min, 0);
   const max = nodes.reduce((n, p) => n + p.max, 0);
   const perSecond = nodes.some((p) => p.perSecond);
-  const label = !nodes.length ? "free on Comfy's partner nodes (GPU time may apply)" : min === max ? `${money(min)}${perSecond ? " per second" : ""}` : `${money(min)}–${money(max)}${perSecond ? " per second" : ""}`;
+  const label = !nodes.length ? "open weights: no partner fee, only GPU time" : min === max ? `${money(min)}${perSecond ? " per second" : ""}` : `${money(min)}–${money(max)}${perSecond ? " per second" : ""}`;
   return { nodes, min, max, perSecond, label };
 }
