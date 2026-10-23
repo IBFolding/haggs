@@ -10,7 +10,7 @@ import { FORMATS, buildSeries, pictureWords, type FormatId, type Series } from "
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { STYLES } from "../../styles/style";
-import { speakLine } from "../actions";
+import { run as runModel, speakLine } from "../actions";
 import { Nav, openKeys } from "../nav";
 import { draftSeries, makeStill } from "../series-actions";
 
@@ -22,6 +22,8 @@ import { draftSeries, makeStill } from "../series-actions";
  */
 
 const PRICE = editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" });
+/** MiniMax H3 at 768P: $0.1287 a second, from Comfy's published price. */
+const CLIP_RATE = 0.1287;
 const money = (n: number) => `$${n.toFixed(2)}`;
 
 type Sent = { id: string; summary: string; payload: { format: FormatId; series: Series } };
@@ -39,6 +41,7 @@ export function SeriesMaker() {
   const [busy, setBusy] = useState(false);
   const [series, setSeries] = useState<Series | null>(null);
   const [pictures, setPictures] = useState<Record<string, string>>({});
+  const [clips, setClips] = useState<Record<string, string>>({});
   const [making, setMaking] = useState<string | null>(null);
   const [voice, setVoice] = useState<string>("Matilda (female, american)");
   const [spoken, setSpoken] = useState<Record<string, string>>({});
@@ -81,6 +84,7 @@ export function SeriesMaker() {
     }
     setSeries(r.series);
     setPictures({});
+    setClips({});
     setSpoken({});
   }
 
@@ -105,6 +109,37 @@ export function SeriesMaker() {
     }
     setPictures((p) => ({ ...p, [key]: r.url }));
     return true;
+  }
+
+  /** One picture becomes its clip, started from the picture itself. */
+  async function animate(e: number, s: number): Promise<boolean> {
+    const sh = series!.episodes[e]!.shots[s]!;
+    const key = `${e}.${s}`;
+    const still = pictures[key];
+    if (!still) return false;
+    setMaking(`clip:${key}`);
+    const r = await runModel("minimax/minimax-h3", `${sh.picture}. Gentle camera move, natural motion, the moment plays out.`, { resolution: "768P", ratio: "9:16", duration: Math.max(4, Math.round(sh.seconds)) }, [still], true);
+    setMaking(null);
+    const first = r.ok ? r.shots[0] : undefined;
+    if (!r.ok || !first) {
+      if (!r.ok && r.needsKey) openKeys();
+      setError(r.ok ? "The clip didn't come back." : r.reason);
+      return false;
+    }
+    setClips((c) => ({ ...c, [key]: first.url }));
+    return true;
+  }
+
+  async function animateAll() {
+    if (!series) return;
+    stop.current = false;
+    setError(null);
+    for (const [e, ep] of series.episodes.entries()) {
+      for (let s = 0; s < ep.shots.length; s++) {
+        if (!pictures[`${e}.${s}`] || clips[`${e}.${s}`]) continue;
+        if (stop.current || !(await animate(e, s))) return;
+      }
+    }
   }
 
   async function all() {
@@ -137,7 +172,7 @@ export function SeriesMaker() {
 
   async function open() {
     if (!series) return;
-    const project = buildSeries(series, format, { ...words, ...(person?.sheet ? { refs: [person.sheet] } : {}), pictures, voice, narrationUrls: spoken });
+    const project = buildSeries(series, format, { ...words, ...(person?.sheet ? { refs: [person.sheet] } : {}), pictures, clips, voice, narrationUrls: spoken });
     await store.save(project);
     router.push(`/board/${project.id}/cut?b=${encodeURIComponent(project.boards![0]!.id)}`);
   }
@@ -147,6 +182,9 @@ export function SeriesMaker() {
   const total = series?.episodes.reduce((n, e) => n + e.shots.length, 0) ?? 0;
   const done = Object.keys(pictures).length;
   const left = total - done;
+  const secondsOf = (k: string) => { const [e, sIdx] = k.split(".").map(Number); return Math.max(4, Math.round(series?.episodes[e!]?.shots[sIdx!]?.seconds ?? 4)); };
+  const toAnimate = Object.keys(pictures).filter((k) => !clips[k]);
+  const animatePrice = toAnimate.reduce((n, k) => n + secondsOf(k) * CLIP_RATE, 0);
   const lines = series?.episodes.flatMap((ep, e) => ep.shots.flatMap((sh, k) => (sh.narration.trim() && !spoken[`${e}.${k}`] ? [sh.narration] : []))) ?? [];
   const hasNarration = (series?.episodes.some((ep) => ep.shots.some((sh) => sh.narration.trim())) ?? false);
   const sayPrice = editEstimate({ tool: "speech", seconds: 0, characters: lines.reduce((n, l) => n + l.length, 0) });
@@ -232,6 +270,7 @@ export function SeriesMaker() {
                     <button className="pill" disabled={making !== null || lines.length === 0} onClick={() => void narrate()}>{lines.length === 0 ? "Narrated" : `Narrate it · ${money(sayPrice)}`}</button>
                   </>
                 )}
+                {done > 0 && !making && <button className="pill" disabled={toAnimate.length === 0} onClick={() => void animateAll()}>{toAnimate.length === 0 ? "All animated" : `Animate ${toAnimate.length} · ${money(animatePrice)}`}</button>}
                 <button className="pill on" onClick={() => void open()}>Open in the editor</button>
                 <button className="plain" onClick={() => setSeries(null)}>Start again</button>
               </header>
@@ -244,15 +283,18 @@ export function SeriesMaker() {
                       const key = `${e}.${s}`;
                       return (
                         <figure key={s} className="series-card">
-                          <div className={`series-frame${making === key ? " working" : ""}`}>
-                            {pictures[key] ? <img src={pictures[key]} alt={sh.picture} /> : <p>{sh.picture}</p>}
+                          <div className={`series-frame${making === key || making === `clip:${key}` ? " working" : ""}`}>
+                            {clips[key] ? <video src={clips[key]} muted loop playsInline autoPlay /> : pictures[key] ? <img src={pictures[key]} alt={sh.picture} /> : <p>{sh.picture}</p>}
                             {sh.caption && <span className="series-cap">{sh.caption}</span>}
                           </div>
                           {sh.narration && <textarea rows={3} value={sh.narration} aria-label={`Video ${e + 1}, shot ${s + 1}: narration`} onChange={(ev) => change(e, s, { narration: ev.target.value })} />}
                           <input value={sh.caption} placeholder="On-screen words" aria-label={`Video ${e + 1}, shot ${s + 1}: on-screen words`} maxLength={120} onChange={(ev) => change(e, s, { caption: ev.target.value })} />
                           <figcaption>
                             <small>{sh.seconds}s</small>
-                            <button className="plain" disabled={making !== null} onClick={() => void picture(e, s)}>{pictures[key] ? "Remake" : "Make"} · {money(PRICE)}</button>
+                            <span>
+                              <button className="plain" disabled={making !== null} onClick={() => void picture(e, s)}>{pictures[key] ? "Remake" : "Make"} · {money(PRICE)}</button>
+                              {pictures[key] && !clips[key] && <button className="plain" disabled={making !== null} onClick={() => void animate(e, s)}>Animate · {money(sh.seconds * CLIP_RATE)}</button>}
+                            </span>
                           </figcaption>
                         </figure>
                       );
@@ -260,7 +302,7 @@ export function SeriesMaker() {
                   </div>
                 </section>
               ))}
-              <p className="wf-small">In the editor, Animate turns each picture into a 4-second clip, and Render MP4 burns the words in.</p>
+              <p className="wf-small">Animate turns each picture into its clip right here. In the editor you add music and effects, trim, and Render MP4 burns the words in.</p>
             </div>
           )}
         </div>

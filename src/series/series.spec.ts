@@ -92,3 +92,13 @@ test("narration is kept per shot and becomes spoken lines on the board, in the c
   assert.equal(a!.voices?.[0]?.url, "/n0.mp3");
   assert.equal(b!.voices, undefined);
 });
+
+test("clips animated on the page replace the pictures on their shots, current rather than stale", () => {
+  const s = validateSeries(draft);
+  const p = buildSeries(s, "what-if", { pictures: { "0.0": "/a.png" }, clips: { "0.0": "/a.mp4", "0.1": "/b.mp4" } });
+  const [a, b] = p.boards![0]!.shots;
+  assert.equal(a!.render?.url, "/a.mp4");
+  assert.equal(a!.render?.kind, "video");
+  assert.equal(b!.render?.url, "/b.mp4", "a clip needs no picture beside it");
+  assert.deepEqual(staleShots(view(p, p.boards![0]!.id)), []);
+});

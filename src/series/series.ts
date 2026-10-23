@@ -73,7 +73,7 @@ export function pictureWords(picture: string, { look, lock }: SeriesLook): strin
  * on the page (keyed "episode.shot") arrive on their shots; the rest are made
  * later, priced on the board.
  */
-export function buildSeries(series: Series, format: FormatId, opts: SeriesLook & { refs?: string[]; pictures?: Record<string, string>; voice?: string; narrationUrls?: Record<string, string> } = {}): Project {
+export function buildSeries(series: Series, format: FormatId, opts: SeriesLook & { refs?: string[]; pictures?: Record<string, string>; clips?: Record<string, string>; voice?: string; narrationUrls?: Record<string, string> } = {}): Project {
   const base = createProject(series.title);
   const boards = series.episodes.map((e, i) => ({
     id: crypto.randomUUID(),
@@ -95,12 +95,13 @@ export function buildSeries(series: Series, format: FormatId, opts: SeriesLook &
   let project: Project = { ...base, boards, source: { templateId: `series-${format}`, name: series.title } };
   // Attach the pictures last, hashed against the prompt the board now produces, so none of them reads as stale.
   const pictures = opts.pictures ?? {};
-  if (Object.keys(pictures).length) {
+  const clips = opts.clips ?? {};
+  if (Object.keys(pictures).length || Object.keys(clips).length) {
     project = {
       ...project,
       boards: project.boards!.map((b, e) => {
         const seen = view(project, b.id);
-        return { ...b, shots: b.shots.map((sh, s) => (pictures[`${e}.${s}`] ? { ...sh, render: { url: pictures[`${e}.${s}`]!, kind: "image" as const, usd: null, promptHash: hashPrompt(promptFor(seen, s)), at: Date.now() } } : sh)) };
+        return { ...b, shots: b.shots.map((sh, s) => (clips[`${e}.${s}`] || pictures[`${e}.${s}`] ? { ...sh, render: { url: (clips[`${e}.${s}`] ?? pictures[`${e}.${s}`])!, kind: clips[`${e}.${s}`] ? ("video" as const) : ("image" as const), usd: null, promptHash: hashPrompt(promptFor(seen, s)), at: Date.now() } } : sh)) };
       }),
     };
   }
