@@ -2,51 +2,131 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { FORMATS, buildSeries, type FormatId, type Series } from "../../series/series";
+import { createCharacterStore, identityLock, type Character } from "../../characters/character";
+import { editEstimate } from "../../providers/cloud-edits";
+import { FORMATS, buildSeries, pictureWords, type FormatId, type Series } from "../../series/series";
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
+import { STYLES } from "../../styles/style";
 import { Nav, openKeys } from "../nav";
-import { draftSeries } from "../series-actions";
+import { draftSeries, makeStill } from "../series-actions";
 
 /**
- * Series: a topic becomes several short vertical videos. Claude writes the
- * episodes (hook, shots, on-screen words); you read them, change anything,
- * and make the project. Pictures and clips come after, priced on the board.
+ * Series: a topic becomes a run of short vertical videos, and you watch it
+ * become real on one page. Pick a format, who is in it and how it looks,
+ * write it (Claude here, or over MCP), make the pictures right where you
+ * read the words, then open it in the editor to animate and render.
  */
+
+const PRICE = editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" });
+const money = (n: number) => `$${n.toFixed(2)}`;
+
+type Sent = { id: string; summary: string; payload: { format: FormatId; series: Series } };
+
 export function SeriesMaker() {
   const router = useRouter();
   const store = useMemo(() => createProjectStore(defaultKv()), []);
+  const characters = useMemo(() => createCharacterStore(defaultKv()), []);
   const [format, setFormat] = useState<FormatId>("what-if");
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState(3);
+  const [cast, setCast] = useState<Character[]>([]);
+  const [who, setWho] = useState<string | null>(null);
+  const [lookId, setLookId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [series, setSeries] = useState<Series | null>(null);
+  const [pictures, setPictures] = useState<Record<string, string>>({});
+  const [making, setMaking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [sent, setSent] = useState<Sent[]>([]);
+  const stop = useRef(false);
+
+  useEffect(() => {
+    void characters.list().then(setCast);
+  }, [characters]);
+
+  // What Claude has sent over MCP, waiting to be applied.
+  useEffect(() => {
+    let live = true;
+    const look = () => fetch("/api/bridge/inbox?project=series").then((r) => (r.ok ? r.json() : null)).then((b: { items?: (Sent & { kind: string })[] } | null) => live && b?.items && setSent(b.items.filter((i) => i.kind === "series"))).catch(() => undefined);
+    void look();
+    const t = setInterval(look, 4000);
+    return () => { live = false; clearInterval(t); };
+  }, []);
+
+  const person = cast.find((c) => c.id === who) ?? null;
+  const style = STYLES.find((s) => s.id === lookId) ?? null;
+  const words = { ...(style ? { look: style.words } : {}), ...(person ? { lock: identityLock(person.traits) } : {}) };
 
   async function write() {
     setBusy(true);
     setError(null);
+    setNote(null);
     const r = await draftSeries(format, topic, count);
     setBusy(false);
     if (!r.ok) {
-      if (r.needsKey) openKeys();
+      if (r.needsKey) {
+        // No Claude key needed: the connected Claude writes it over MCP and sends it here.
+        const ask = `Use haggs_propose_series to write a ${FORMATS.find((f) => f.id === format)!.label} series of ${count} short vertical video${count === 1 ? "" : "s"} for haggs about: ${topic.trim()}`;
+        await navigator.clipboard?.writeText(ask).catch(() => undefined);
+        return setNote("Copied a request. Paste it to Claude (the haggs MCP is connected) and the series lands here for you to apply.");
+      }
       return setError(r.reason);
     }
     setSeries(r.series);
+    setPictures({});
   }
 
-  async function make() {
+  function applySent(i: Sent) {
+    void fetch(`/api/bridge/inbox?project=series&id=${encodeURIComponent(i.id)}`, { method: "DELETE" }).catch(() => undefined);
+    setSent((all) => all.filter((x) => x.id !== i.id));
+    setFormat(i.payload.format);
+    setSeries(i.payload.series);
+    setPictures({});
+  }
+
+  async function picture(e: number, s: number): Promise<boolean> {
+    const sh = series!.episodes[e]!.shots[s]!;
+    const key = `${e}.${s}`;
+    setMaking(key);
+    const r = await makeStill(pictureWords(sh.picture, words), "9:16", person?.sheet ? [person.sheet] : []);
+    setMaking(null);
+    if (!r.ok) {
+      if (r.needsKey) openKeys();
+      setError(r.reason);
+      return false;
+    }
+    setPictures((p) => ({ ...p, [key]: r.url }));
+    return true;
+  }
+
+  async function all() {
     if (!series) return;
-    const project = buildSeries(series, format);
+    stop.current = false;
+    setError(null);
+    for (const [e, ep] of series.episodes.entries()) {
+      for (let s = 0; s < ep.shots.length; s++) {
+        if (pictures[`${e}.${s}`]) continue;
+        if (stop.current || !(await picture(e, s))) return;
+      }
+    }
+  }
+
+  async function open() {
+    if (!series) return;
+    const project = buildSeries(series, format, { ...words, ...(person?.sheet ? { refs: [person.sheet] } : {}), pictures });
     await store.save(project);
-    router.push(`/board/${project.id}?b=${encodeURIComponent(project.boards![0]!.id)}`);
+    router.push(`/board/${project.id}/cut?b=${encodeURIComponent(project.boards![0]!.id)}`);
   }
 
   const change = (e: number, s: number, patch: Partial<Series["episodes"][number]["shots"][number]>) =>
     setSeries((cur) => cur && { ...cur, episodes: cur.episodes.map((ep, i) => (i === e ? { ...ep, shots: ep.shots.map((sh, k) => (k === s ? { ...sh, ...patch } : sh)) } : ep)) });
-  const shots = series?.episodes.reduce((n, e) => n + e.shots.length, 0) ?? 0;
+  const total = series?.episodes.reduce((n, e) => n + e.shots.length, 0) ?? 0;
+  const done = Object.keys(pictures).length;
+  const left = total - done;
 
   return (
     <div className="app">
@@ -57,13 +137,24 @@ export function SeriesMaker() {
             <Link href="/video">Make a clip</Link>
             <Link href="/series" aria-current="page">Series</Link>
           </nav>
-          <header className="swap-head">
-            <h1>Make a series</h1>
-            <p>Give it a topic. Claude writes a run of short vertical videos, each opening on a hook with the words on screen. You read them, change what you like, then make the pictures and clips.</p>
-          </header>
+
+          {sent.length > 0 && (
+            <div className="cv-sent series-sent" role="status">
+              {sent.map((i) => (
+                <div key={i.id}>
+                  <b>Claude sent a series</b> <span>{i.summary}</span>
+                  <button className="pill on" onClick={() => applySent(i)}>Apply</button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {!series ? (
             <div className="series-form">
+              <header className="swap-head">
+                <h1>Make a series</h1>
+                <p>Pick the kind, who is in it and how it looks. Then watch it turn into pictures on this page.</p>
+              </header>
               <div className="series-formats" role="radiogroup" aria-label="Format">
                 {FORMATS.map((f) => (
                   <button key={f.id} role="radio" aria-checked={format === f.id} className={format === f.id ? "on" : ""} onClick={() => setFormat(f.id)}>
@@ -72,6 +163,25 @@ export function SeriesMaker() {
                   </button>
                 ))}
               </div>
+
+              <div className="series-pick">
+                <b>Who is in it</b>
+                <div className="series-chips">
+                  <button className={!who ? "on" : ""} onClick={() => setWho(null)}>Nobody in particular</button>
+                  {cast.map((c) => (
+                    <button key={c.id} className={who === c.id ? "on" : ""} onClick={() => setWho(c.id)} title={c.traits.name}><img src={c.sheet} alt="" />{c.traits.name}</button>
+                  ))}
+                  <Link href="/characters" className="plain">+ Build a character</Link>
+                </div>
+              </div>
+              <div className="series-pick">
+                <b>How it looks</b>
+                <div className="series-chips">
+                  <button className={!lookId ? "on" : ""} onClick={() => setLookId(null)}>Natural</button>
+                  {STYLES.map((st) => <button key={st.id} className={lookId === st.id ? "on" : ""} onClick={() => setLookId(st.id)} title={st.says}>{st.name}</button>)}
+                </div>
+              </div>
+
               <label className="wf-field">
                 <span>What is it about?</span>
                 <textarea rows={3} value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={1000} placeholder="Strange things that would happen if your body kept doing one thing forever" />
@@ -81,34 +191,46 @@ export function SeriesMaker() {
                 <input type="number" min={1} max={8} value={count} onChange={(e) => setCount(Math.min(8, Math.max(1, Number(e.target.value) || 1)))} />
               </label>
               {error && <p className="library-error" role="alert">{error}</p>}
+              {note && <p className="wf-note" role="status">{note}</p>}
               <button className="fire wf-run" disabled={busy || topic.trim().length < 4} onClick={() => void write()}>
-                {busy ? "Claude is writing…" : "Write the series"}
+                {busy ? "Writing…" : "Write the series"}
               </button>
-              <p className="wf-small">Claude writes it on your own Anthropic key. Nothing is made yet, so nothing is spent on pictures or clips.</p>
+              <p className="wf-small">Written on your Claude key, or by Claude over MCP if you have none. Nothing is made yet, so nothing is spent.</p>
             </div>
           ) : (
             <div className="series-draft">
-              <label className="wf-field">
-                <span>Series name</span>
-                <input value={series.title} maxLength={80} onChange={(e) => setSeries({ ...series, title: e.target.value })} />
-              </label>
+              <header className="series-bar">
+                <input value={series.title} maxLength={80} aria-label="Series name" onChange={(e) => setSeries({ ...series, title: e.target.value })} />
+                <span>{done}/{total} pictures</span>
+                {making ? <button className="pill" onClick={() => { stop.current = true; }}>Stop after this one</button> : <button className="fire" disabled={left === 0} onClick={() => void all()}>{left === 0 ? "All pictures made" : `Make ${left} picture${left === 1 ? "" : "s"} · ${money(left * PRICE)}`}</button>}
+                <button className="pill on" onClick={() => void open()}>Open in the editor</button>
+                <button className="plain" onClick={() => setSeries(null)}>Start again</button>
+              </header>
+              {error && <p className="library-error" role="alert">{error}</p>}
               {series.episodes.map((ep, e) => (
                 <section key={e} className="series-ep">
                   <h2><span>{e + 1}</span>{ep.hook || `Video ${e + 1}`}</h2>
-                  {ep.shots.map((sh, s) => (
-                    <div key={s} className="series-shot">
-                      <textarea rows={2} value={sh.picture} aria-label={`Video ${e + 1}, shot ${s + 1}: the picture`} onChange={(ev) => change(e, s, { picture: ev.target.value })} />
-                      <input value={sh.caption} placeholder="On-screen words" aria-label={`Video ${e + 1}, shot ${s + 1}: on-screen words`} maxLength={120} onChange={(ev) => change(e, s, { caption: ev.target.value })} />
-                      <small>{sh.seconds}s</small>
-                    </div>
-                  ))}
+                  <div className="series-row">
+                    {ep.shots.map((sh, s) => {
+                      const key = `${e}.${s}`;
+                      return (
+                        <figure key={s} className="series-card">
+                          <div className={`series-frame${making === key ? " working" : ""}`}>
+                            {pictures[key] ? <img src={pictures[key]} alt={sh.picture} /> : <p>{sh.picture}</p>}
+                            {sh.caption && <span className="series-cap">{sh.caption}</span>}
+                          </div>
+                          <input value={sh.caption} placeholder="On-screen words" aria-label={`Video ${e + 1}, shot ${s + 1}: on-screen words`} maxLength={120} onChange={(ev) => change(e, s, { caption: ev.target.value })} />
+                          <figcaption>
+                            <small>{sh.seconds}s</small>
+                            <button className="plain" disabled={making !== null} onClick={() => void picture(e, s)}>{pictures[key] ? "Remake" : "Make"} · {money(PRICE)}</button>
+                          </figcaption>
+                        </figure>
+                      );
+                    })}
+                  </div>
                 </section>
               ))}
-              <div className="sheet-row">
-                <button className="fire" onClick={() => void make()}>Make the project · {series.episodes.length} videos, {shots} shots</button>
-                <button className="plain" onClick={() => setSeries(null)}>Start again</button>
-              </div>
-              <p className="wf-small">Next, on the board: Make pictures (about 7¢ each), then Animate stills (about 52¢ each).</p>
+              <p className="wf-small">In the editor, Animate turns each picture into a 4-second clip, and Render MP4 burns the words in.</p>
             </div>
           )}
         </div>

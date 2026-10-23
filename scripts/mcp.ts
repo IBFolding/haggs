@@ -20,6 +20,7 @@ import { FORMATS, formatById } from "../src/sheets/formats";
 import { fixCell, normalizeSheets, promptRows, qaSheet, sheetsView, type Sheets } from "../src/sheets/sheets";
 import { bridgeRoot, inbox, listSnapshots, propose, readSnapshot } from "../src/server/bridge";
 import { checkPlan } from "../src/comfy/canvas";
+import { FORMATS as SERIES_FORMATS, validateSeries } from "../src/series/series";
 import { indexOf } from "../src/server/comfy-library";
 import { applyBoardProposal, validateBoardProposal } from "../src/story/proposed-board";
 import { applyTakes, applyVoices, validateTakes, validateVoices } from "../src/story/proposed-takes";
@@ -372,6 +373,30 @@ server.registerTool(
       const plan = checkPlan({ name, steps });
       const item = await propose(root, "canvas", { kind: "canvas", summary, payload: plan });
       return text({ sent: item.id, steps: plan.steps.length, next: "The person opens Workflows → Build your own and presses Apply." });
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);
+
+server.registerTool(
+  "haggs_propose_series",
+  {
+    description:
+      "Write a series of short vertical videos for haggs's Series page: episodes, each with a hook and 3-5 shots. For every shot give `picture` (exactly what the camera sees: subject, place, light, framing; no text inside the picture), `seconds` (3-5) and `caption` (short on-screen words, under 80 characters, may be empty). Formats: what-if, pov, story, influencer. The person opens Video → Series and presses Apply; nothing is made or spent until they press Make the pictures.",
+    inputSchema: {
+      summary: z.string().max(300),
+      format: z.enum(["what-if", "pov", "story", "influencer"]),
+      title: z.string().max(80),
+      episodes: z.array(z.object({ hook: z.string().max(120), shots: z.array(z.object({ picture: z.string().max(1200), seconds: z.number(), caption: z.string().max(120) })).min(1).max(6) })).min(1).max(8),
+    },
+    annotations: proposes,
+  },
+  async ({ summary, format, title, episodes }) => {
+    try {
+      const series = validateSeries({ title, episodes });
+      const item = await propose(root, "series", { kind: "series", summary, payload: { format, series }, formatId: format });
+      return text({ sent: item.id, formats: SERIES_FORMATS.map((f) => f.id), episodes: series.episodes.length, shots: series.episodes.reduce((n, e) => n + e.shots.length, 0), next: "The person opens Video → Series and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
     }

@@ -15,7 +15,7 @@ import type { Sheets } from "../sheets/sheets";
  */
 
 export type Snapshot = { project: Project; sheets: Sheets | null; savedAt?: number };
-export type ProposalKind = "draft" | "fill" | "edits" | "board" | "takes" | "voices" | "canvas";
+export type ProposalKind = "draft" | "fill" | "edits" | "board" | "takes" | "voices" | "canvas" | "series";
 export type Proposal = {
   id: string;
   kind: ProposalKind;
@@ -27,7 +27,7 @@ export type Proposal = {
 };
 
 const ID = /^[\w-]{1,80}$/;
-const KINDS = new Set<ProposalKind>(["draft", "fill", "edits", "board", "takes", "voices", "canvas"]);
+const KINDS = new Set<ProposalKind>(["draft", "fill", "edits", "board", "takes", "voices", "canvas", "series"]);
 
 function projectId(id: string): string {
   if (!ID.test(id)) throw new Error("That project id isn't valid.");
@@ -76,7 +76,7 @@ export async function listSnapshots(root: string): Promise<{ id: string; name: s
 
 export async function propose(root: string, project: string, item: Omit<Proposal, "id" | "at">): Promise<Proposal> {
   const dir = join(root, "inbox", projectId(project));
-  if (!KINDS.has(item.kind)) throw new Error("A proposal's kind is draft, fill, edits, board, takes, voices or canvas.");
+  if (!KINDS.has(item.kind)) throw new Error("A proposal's kind is draft, fill, edits, board, takes, voices, canvas or series.");
   const made: Proposal = { ...item, id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`, at: Date.now() };
   await mkdir(dir, { recursive: true });
   await writeAtomic(join(dir, `${made.id}.json`), JSON.stringify(made));

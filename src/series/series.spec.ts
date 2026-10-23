@@ -50,3 +50,27 @@ test("a series becomes one project: a vertical board per episode, a shot per pic
   assert.equal(shot.render, undefined, "no pictures yet: making them costs money");
   assert.match(shot.beat, /giant glowing belly/);
 });
+
+import { staleShots } from "../story/assemble";
+import { view } from "../story/boards";
+import { pictureWords } from "./series";
+
+test("a picture's words carry the persona and the look, once", () => {
+  const w = pictureWords("A man at a fridge", { look: "cel-shaded 2D anime", lock: "Maya: a 30-year-old woman, braided hair" });
+  assert.match(w, /A man at a fridge/);
+  assert.match(w, /Maya: a 30-year-old woman/);
+  assert.match(w, /cel-shaded 2D anime/);
+  assert.match(w, /vertical 9:16/i);
+  assert.equal(pictureWords("x", {}).includes("undefined"), false);
+});
+
+test("pictures made on the page arrive on their shots, current rather than stale, with the persona as reference", () => {
+  const s = validateSeries(draft);
+  const p = buildSeries(s, "what-if", { look: "storybook watercolour", lock: "Maya: a woman", refs: ["/sheet.png"], pictures: { "0.0": "/a.png", "1.0": "/b.png" } });
+  const e0 = p.boards![0]!.shots;
+  assert.equal(e0[0]!.render?.url, "/a.png");
+  assert.equal(e0[1]!.render, undefined);
+  assert.deepEqual(e0[0]!.refs, ["/sheet.png"]);
+  assert.deepEqual(staleShots(view(p, p.boards![0]!.id)), []);
+  assert.equal(p.boards![1]!.shots[0]!.render?.url, "/b.png");
+});
