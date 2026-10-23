@@ -386,7 +386,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
                 onSave={() => setSaving(item)}
                 onStart={() => void startProject(item)}
                 onAnimate={() => handOff(item, "Video")}
-                onEdit={surfaceAvailable("Edit") ? () => handOff(item, "Edit") : undefined}
+                {...(surfaceAvailable("Edit") ? { onEdit: () => handOff(item, "Edit") } : {})}
               />
             ))}
           </div>
