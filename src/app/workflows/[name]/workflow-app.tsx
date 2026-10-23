@@ -40,7 +40,7 @@ async function addFile(file: File): Promise<string> {
   });
 }
 
-function MediaDrop({ field, value, onChange }: { field: Extract<Field, { kind: "media" }>; value: string | undefined; onChange: (url: string | undefined) => void }) {
+function MediaDrop({ field, value, onChange, onBusy }: { field: Extract<Field, { kind: "media" }>; value: string | undefined; onChange: (url: string | undefined) => void; onBusy?: (busy: boolean) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -52,6 +52,7 @@ function MediaDrop({ field, value, onChange }: { field: Extract<Field, { kind: "
     if (!file) return;
     if (!file.type.startsWith(field.media)) return setError(`This needs ${field.media === "image" ? "a picture" : field.media === "video" ? "a video" : "a sound"}.`);
     setBusy(true);
+    onBusy?.(true);
     setError(null);
     try {
       onChange(await addFile(file));
@@ -59,6 +60,7 @@ function MediaDrop({ field, value, onChange }: { field: Extract<Field, { kind: "
       setError(caught instanceof Error ? caught.message : "That file couldn't be added.");
     } finally {
       setBusy(false);
+      onBusy?.(false);
     }
   }
 
@@ -145,6 +147,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
   const [files, setFiles] = useState<Record<string, string>>({});
   const [quote, setQuote] = useState<Quote | null>(null);
   const [seconds, setSeconds] = useState<number | null>(null);
+  const [adding, setAdding] = useState(0);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<WorkflowResult | null>(null);
   const [saving, setSaving] = useState<Run | null>(null);
@@ -299,7 +302,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 {opened.app.fields.filter((f) => f.kind === "media").length > 0 && (
                   <div className="wf-drops">
                     {opened.app.fields.map((f) => f.kind === "media" && (
-                      <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onChange={(url) => setFiles((prior) => { const next = { ...prior }; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />
+                      <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onBusy={(b) => setAdding((n) => Math.max(0, n + (b ? 1 : -1)))} onChange={(url) => setFiles((prior) => { const next = { ...prior }; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />
                     ))}
                   </div>
                 )}
@@ -328,7 +331,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                   return null;
                 })}
                 {blocked && <p className="library-error" role="alert">This one can&rsquo;t run here yet: {blocked}</p>}
-                <button className="fire wf-run" disabled={running || Boolean(blocked)} onClick={() => void run()}>
+                <button className="fire wf-run" disabled={running || adding > 0 || Boolean(blocked)} onClick={() => void run()}>
                   {running ? "Running on Comfy Cloud…" : "Run"} <span className="cost">{price ?? "···"}</span>
                 </button>
                 <p className="wf-small">Priced from each node&rsquo;s own rate on Comfy, billed to your Comfy credits. An estimate, not an invoice.</p>
