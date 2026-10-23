@@ -121,6 +121,7 @@ export function Locations() {
             <Link href="/edit">Edit a photo</Link>
             <Link href="/characters">Characters</Link>
             <Link href="/locations" aria-current="page">Locations</Link>
+            <Link href="/comic">Comic strip</Link>
           </nav>
 
           {saved.length > 0 && (

@@ -326,6 +326,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
             <Link href="/edit" aria-current={surface === "Edit" ? "page" : undefined}>Edit a photo</Link>
             <Link href="/characters">Characters</Link>
             <Link href="/locations">Locations</Link>
+            <Link href="/comic">Comic strip</Link>
           </nav>
         )}
         {slots.length === 0 && history.length === 0 ? (
