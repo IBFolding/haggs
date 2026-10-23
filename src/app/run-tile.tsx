@@ -16,9 +16,11 @@ export function RunTile({
   onReuse,
   onDelete,
   onSave,
+  onStart,
 }: {
   run: Run;
   onSave?: () => void;
+  onStart?: () => void;
   onFavorite?: () => void;
   onReuse?: () => void;
   onDelete?: () => void;
@@ -50,6 +52,11 @@ export function RunTile({
         <span className="cell-prompt">{run.prompt}</span>
         <span className="cell-foot">
           <span className="cell-model">{run.modelName}</span>
+          {onStart && (
+            <button className="plain" onClick={onStart} title="Start a new project with this as its first shot">
+              Start a project
+            </button>
+          )}
           {onSave && (
             <button className="plain cell-save" onClick={onSave}>
               Save to project

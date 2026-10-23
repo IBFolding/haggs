@@ -65,3 +65,14 @@ test("kept in Media only, nothing else changes", () => {
   assert.equal(out.project.media![0]!.kind, "video");
   assert.equal(out.project.boards![0]!.shots[0]!.render, undefined);
 });
+
+test("a picture starts a new project: one board, its first shot showing the picture", async () => {
+  const { projectFrom } = await import("./save-run");
+  const p = projectFrom({ ...run, prompt: "A lighthouse keeper's ghost on the rocks, storm light" });
+  assert.equal(p.name, "A lighthouse keeper's ghost on the rocks");
+  assert.equal(p.boards!.length, 1);
+  const shot = p.boards![0]!.shots[0]!;
+  assert.equal(shot.render!.url, run.url);
+  assert.match(shot.beat, /lighthouse/);
+  assert.equal(p.media![0]!.url, run.url);
+});

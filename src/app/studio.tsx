@@ -14,6 +14,7 @@ import { createRunStore, type Run } from "../story/runs";
 import { rates, run, type Rate } from "./actions";
 import { Nav, openKeys } from "./nav";
 import { REUSE_KEY } from "./gallery/gallery";
+import { useStartProject } from "./start-project";
 import { RunTile } from "./run-tile";
 import { SaveToProject } from "./save-to-project";
 import { SettingsRail } from "./settings-rail";
@@ -59,6 +60,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [history, setHistory] = useState<Run[]>([]);
   const [saving, setSaving] = useState<Run | null>(null);
+  const startProject = useStartProject();
   const [showTemplates, setShowTemplates] = useState(false);
   const [showLook, setShowLook] = useState(false);
   const [look, setLook] = useState<LookChoice>({});
@@ -271,6 +273,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
                 onFavorite={() => void toggleKeep(item)}
                 onReuse={() => reuse(item)}
                 onSave={() => setSaving(item)}
+                onStart={() => void startProject(item)}
               />
             ))}
           </div>

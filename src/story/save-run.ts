@@ -1,6 +1,6 @@
 import type { Sheets } from "../sheets/sheets";
 import { normalize } from "./boards";
-import { newShot, type Media, type Project } from "./model";
+import { createProject, newShot, type Media, type Project } from "./model";
 import { applyTakes } from "./proposed-takes";
 import type { Run } from "./runs";
 
@@ -60,4 +60,12 @@ export function saveRun(project: Project, sheets: Sheets | null, run: Run, targe
       return { project: inMedia(base, run, "reference"), sheets: next, message: `Saved as ${row.name}'s ${what}. ${target.as === "character" ? "Every shot they're in sends it." : "Every shot there sends it."}` };
     }
   }
+}
+
+/** A new project started from one picture or clip: one board, its first shot showing it, named after the prompt. */
+export function projectFrom(run: Run): Project {
+  const name = (run.prompt.split(/[,.;\n]/)[0] ?? "").trim().slice(0, 60) || "New project";
+  const shot = { ...newShot(), beat: run.prompt.slice(0, 200), seconds: run.kind === "video" ? 4 : 3, render: { url: run.url, kind: run.kind, usd: run.usd, promptHash: "", at: run.at } };
+  const base = createProject(name);
+  return inMedia({ ...base, boards: [{ id: crypto.randomUUID(), name: "Main", kind: "board", shots: [shot], notes: [] }] }, run, "approved", shot.id);
 }

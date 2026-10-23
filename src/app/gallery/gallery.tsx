@@ -8,6 +8,7 @@ import { getModelCard } from "../../catalog/models";
 import { defaultKv } from "../../story/kv";
 import { createRunStore, type Run } from "../../story/runs";
 import { Nav } from "../nav";
+import { useStartProject } from "../start-project";
 import { RunTile } from "../run-tile";
 import { SaveToProject } from "../save-to-project";
 
@@ -56,6 +57,7 @@ export function Gallery() {
   const runs = useMemo(() => createRunStore(defaultKv()), []);
   const [all, setAll] = useState<Run[]>([]);
   const [saving, setSaving] = useState<Run | null>(null);
+  const startProject = useStartProject();
   const [ready, setReady] = useState(false);
   const [scope, setScope] = useState<Scope>("All");
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +171,7 @@ export function Gallery() {
                   onReuse={() => reuse(run)}
                   onDelete={() => void drop(run)}
                   onSave={() => setSaving(run)}
+                onStart={() => void startProject(run)}
                 />
               ))}
             </div>
