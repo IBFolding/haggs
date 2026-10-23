@@ -282,6 +282,16 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
     [modelId, catalog, images.length],
   );
 
+  // A link from the home page (…?template=dolly-zoom) opens with that template already in the box.
+  const linked = useRef(false);
+  useEffect(() => {
+    if (linked.current) return;
+    linked.current = true;
+    const id = new URLSearchParams(window.location.search).get("template");
+    const found = id ? templates.find((t) => t.id === id) : undefined;
+    if (found) applyTemplate(found);
+  }, [templates, applyTemplate]);
+
   const toggleKeep = useCallback(
     async (item: Run) => {
       const next = !item.favorite;

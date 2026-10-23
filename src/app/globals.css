@@ -1657,7 +1657,8 @@ a.logo { color: var(--text); text-decoration: none; }
 .tools-tabs button[aria-selected="true"] { background: var(--volt-soft); border-color: var(--volt); color: var(--volt); }
 .tools-says { margin: 10px 0 0; font-size: 13px; color: var(--text-2); }
 .tools-body { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.tools-frames { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tools-frames { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.tools-frames .region img { aspect-ratio: auto; object-fit: fill; }
 .tools-frames figure { margin: 0; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--bg); }
 .tools-frames img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
 .tools-frames span { display: grid; place-items: center; aspect-ratio: 16 / 9; color: var(--text-3); font-size: 12px; }
@@ -2416,3 +2417,17 @@ a.logo { color: var(--text); text-decoration: none; }
 .ed-tlane { position: absolute; left: 0; right: 0; top: 236px; height: 30px; }
 .ed-title { position: absolute; top: 0; height: 100%; padding: 0 8px; border: 1px solid #c4a7ff; border-radius: 7px; background: rgba(196, 167, 255, 0.14); color: #e3d6ff; font: inherit; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left; }
 .stage-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+
+.lp-wall-lede { color: var(--text-2); max-width: 62ch; margin: 0 0 16px !important; }
+.lp-wall figure { aspect-ratio: auto; display: flex; flex-direction: column; background: var(--surface); }
+.lp-wall figure > video, .lp-wall figure > img { aspect-ratio: 4 / 5; flex: none; height: auto; object-fit: cover; width: 100%; display: block; }
+.lp-wall figcaption { position: static; padding: 10px 12px 0; background: none; backdrop-filter: none; border-radius: 0; font-size: 14px; }
+.lp-wall details { padding: 4px 12px 12px; }
+.lp-wall summary { cursor: pointer; font-size: 12.5px; color: var(--volt); font-weight: 700; padding: 6px 0; }
+.lp-wall details > div { display: grid; gap: 8px; }
+.lp-wall-prompt { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-2); }
+.lp-wall-meta { margin: 0; font-size: 11.5px; color: var(--text-3); font-family: var(--mono); }
+
+.region { position: relative; overflow: hidden; cursor: crosshair; touch-action: none; user-select: none; line-height: 0; }
+.region img { width: 100%; display: block; pointer-events: none; }
+.region-box { position: absolute; border: 2px solid var(--volt); border-radius: 4px; box-shadow: 0 0 0 9999px rgba(8, 8, 10, 0.55); pointer-events: none; }

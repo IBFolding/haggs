@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LESSONS } from "../academy/lessons";
+import { TEMPLATES } from "../catalog/templates";
 import { FORMATS } from "../sheets/formats";
 import { HeroStage } from "./hero-stage";
 import { Nav } from "./nav";
@@ -34,6 +35,8 @@ const TILES = [
   { name: "Editor", says: "Cut, reshoot, restyle, sound and render.", href: "/library" },
   { name: "Academy", says: "Seven short lessons. Your first video in lesson one.", href: "/academy" },
 ] as const;
+
+const SHOWN = TEMPLATES.filter((t) => t.sample).slice(0, 8);
 
 export default function Landing() {
   const groups = ["Half-hour", "Hour", "Vertical", "Short"] as const;
@@ -70,23 +73,30 @@ export default function Landing() {
         </section>
 
         <section className="lp-wall" aria-label="What it makes">
-          <h2>Made with it</h2>
+          <h2>Made with it, and how</h2>
+          <p className="lp-wall-lede">Every result here is a starting point you can open. Press “How it was made” for the exact prompt, the model and what it cost, then try it with your own words.</p>
           <div className="lp-wall-grid">
-            {[
-              ["ugc-talking.mp4", "poster-ugc-talking.webp", "Influencer to camera"],
-              ["dolly-zoom.mp4", "poster-dolly-zoom.webp", "Dolly zoom"],
-              ["product-orbit.mp4", "poster-product-orbit.webp", "Product 360"],
-              ["establishing-drone.mp4", "poster-establishing-drone.webp", "Drone establishing"],
-              ["product-placement.mp4", "poster-product-placement.webp", "Product placement"],
-              ["animate-still.mp4", "poster-animate-still.webp", "A still, alive"],
-            ].map(([v, p, label]) => (
-              <figure key={v}>
-                <video src={`/templates/${v}`} poster={`/templates/${p}`} muted loop playsInline autoPlay preload="metadata" />
-                <figcaption>{label}</figcaption>
+            {SHOWN.map((t) => (
+              <figure key={t.id}>
+                {t.sample!.endsWith(".mp4") ? (
+                  <video src={t.sample} poster={t.sample!.replace(/\/([^/]+)\.mp4$/, "/poster-$1.webp")} muted loop playsInline autoPlay preload="metadata" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={t.sample} alt="" loading="lazy" />
+                )}
+                <figcaption>{t.name}</figcaption>
+                <details>
+                  <summary>How it was made</summary>
+                  <div>
+                    <p className="lp-wall-prompt">{t.prompt.replace(/[\[\]]/g, "")}</p>
+                    <p className="lp-wall-meta">{t.surface === "Video" ? "Video" : "Photo"} · {t.aspect ?? "any shape"}{t.fromPicture ? " · starts from your picture" : ""} · {t.surface === "Video" ? "MiniMax H3, about $0.13 a second" : "FLUX 3, about 7¢ a picture"}</p>
+                    <Link className="plain" href={`${t.surface === "Video" ? "/video" : "/photos"}?template=${t.id}`}>Try it with your own words</Link>
+                  </div>
+                </details>
               </figure>
             ))}
           </div>
-          <p className="lp-wall-note">Twelve starting points ship with the app, each shown by a real result. All made on Comfy Cloud with FLUX 3 and MiniMax H3.</p>
+          <p className="lp-wall-note">Twelve starting points ship with the app, each shown by a real result. All made on Comfy Cloud with FLUX 3 and MiniMax H3. Prices are estimates, not invoices.</p>
         </section>
 
         <section className="lp-tabs" id="how">

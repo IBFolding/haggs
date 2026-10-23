@@ -11,6 +11,8 @@ import { openKeys } from "../../../nav";
 import { frameAt } from "../../../cut-actions";
 import { makeStill } from "../../../series-actions";
 import { addStyleReel, type StyledClip } from "../../../../styles/reel";
+import { meaningful, regionPrompt, selBox, selFrom, type Box, type Sel } from "../../../../story/region";
+import { pasteBack, sizeOf } from "./region-canvas";
 import { createProjectStore } from "../../../../story/store";
 import { STYLES, restylePrompt, styleById, styleSheetPrompt } from "../../../../styles/style";
 
@@ -83,6 +85,7 @@ export function EditTools({
   const [frame, setFrame] = useState<string | null>(null);
   const [grabbedAt, setGrabbedAt] = useState(0);
   const [fixed, setFixed] = useState<string | null>(null);
+  const [sel, setSel] = useState<Sel | null>(null);
   const [refs, setRefs] = useState<string[]>([]);
   const [engine, setEngine] = useState<"kling" | "aleph">("kling");
   const [scope, setScope] = useState<"take" | "scene">("take");
@@ -141,6 +144,7 @@ export function EditTools({
         setFrame(canvas.toDataURL("image/jpeg", 0.92));
         setGrabbedAt(el.currentTime);
         setFixed(null);
+        setSel(null);
         return;
       } catch {
         // The browser won't read this video's pixels; the server can.
@@ -152,6 +156,21 @@ export function EditTools({
     setFrame(r.url);
     setGrabbedAt(playhead);
     setFixed(null);
+    setSel(null);
+  }
+
+  /**
+   * Fix the picked part alone. The model gets the whole frame (so it keeps the framing) and is told where to
+   * change it; only the boxed part of what comes back is laid over the original, lined up and softly blended.
+   */
+  async function fixPart() {
+    if (!frame || !meaningful(sel)) return;
+    const size = await sizeOf(frame).catch(() => null);
+    if (!size) return setProblem("The frame couldn't be read.");
+    const whole: Box = { x: 0, y: 0, w: size.w, h: size.h };
+    await go("fix", { tool: "kontext", frame, prompt: regionPrompt(prompt, sel) }, (r) => {
+      void pasteBack(frame, r.url, whole, selBox(sel, size.w, size.h)).then(setFixed).catch(() => setProblem("The fix came back but couldn't be laid over the frame. Use the whole-frame fix instead."));
+    });
   }
 
   async function go(label: string, request: EditRequest, apply: (result: { url: string; kind: "image" | "video"; usd: number; origin: string }) => void) {
@@ -206,8 +225,8 @@ export function EditTools({
         <div className="tools-body">
           <div className="tools-frames">
             <figure>
-              {frame ? <img src={frame} alt="Grabbed frame" /> : <span>No frame yet</span>}
-              <figcaption>Frame at {playhead.toFixed(1)}s</figcaption>
+              {frame ? <RegionPicker src={frame} sel={sel} onSel={setSel} /> : <span>No frame yet</span>}
+              <figcaption>{frame ? (meaningful(sel) ? "Only the boxed part will change" : "Drag a box around what to change") : `Frame at ${playhead.toFixed(1)}s`}{meaningful(sel) && <> · <button className="plain" onClick={() => setSel(null)}>Clear</button></>}</figcaption>
             </figure>
             <figure>
               {fixed ? <img src={fixed} alt="Fixed frame" /> : <span>Fixed frame</span>}
@@ -237,15 +256,15 @@ export function EditTools({
           </div>
           <label className="sh-field">
             <span>What's wrong, and what it should be</span>
-            <textarea rows={2} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. He has six fingers on his left hand; give him five. Keep everything else the same." />
+            <textarea rows={2} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={meaningful(sel) ? "What should the boxed part be? e.g. five fingers, a red scarf, no logo" : "e.g. He has six fingers on his left hand; give him five. Keep everything else the same."} />
           </label>
           <div className="tools-run">
             <button
               className="fire"
               disabled={!frame || prompt.trim().length < 4 || busy !== null}
-              onClick={() => void go("fix", { tool: "kontext", frame: frame!, prompt }, (r) => setFixed(r.url))}
+              onClick={() => (meaningful(sel) ? void fixPart() : void go("fix", { tool: "kontext", frame: frame!, prompt }, (r) => setFixed(r.url)))}
             >
-              {busy === "fix" ? "Fixing the frame…" : "Fix this frame"}
+              {busy === "fix" ? "Fixing…" : meaningful(sel) ? "Fix only the boxed part" : "Fix this frame"}
               <span className="cost">about {money(quotes.fix)}</span>
             </button>
             {fixed && (
@@ -500,6 +519,32 @@ function RefPicker({ refs, setRefs, upload, max, suggested = [] }: { refs: strin
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+
+/** A picture you can draw a box on: what is inside is what gets fixed. */
+function RegionPicker({ src, sel, onSel }: { src: string; sel: Sel | null; onSel: (sel: Sel | null) => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const at = (e: { clientX: number; clientY: number }) => {
+    const r = box.current!.getBoundingClientRect();
+    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+  };
+  return (
+    <div
+      ref={box}
+      className="region"
+      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); start.current = at(e); onSel(null); }}
+      onPointerMove={(e) => { if (start.current) onSel(selFrom(start.current, at(e))); }}
+      onPointerUp={() => { start.current = null; }}
+      role="img"
+      aria-label="Grabbed frame. Drag a box around the part to change."
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" draggable={false} />
+      {sel && <span className="region-box" style={{ left: `${sel.x * 100}%`, top: `${sel.y * 100}%`, width: `${sel.w * 100}%`, height: `${sel.h * 100}%` }} />}
     </div>
   );
 }
