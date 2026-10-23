@@ -19,7 +19,8 @@ import { shoot } from "../shoot";
 import { addTake } from "../../story/takes";
 import { PROJECT_SAVED } from "../agent";
 import { ProjectTabs } from "../project-tabs";
-import { animatePlan, readyToAnimate } from "../../story/animate-all";
+import { animatePlan, picturePlan, readyToAnimate } from "../../story/animate-all";
+import { makeStill } from "../series-actions";
 import { AnimateAll } from "./animate-all";
 
 export function Board({ id, boardId }: { id: string; boardId?: string | undefined }) {
@@ -36,6 +37,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
   const [error, setError] = useState<string | null>(null);
   const dragging = useRef<number | null>(null);
   const [animating, setAnimating] = useState(false);
+  const [picturing, setPicturing] = useState(false);
 
   // The producer changed this project from the chat: load it again, so this page's next save keeps the change.
   useEffect(() => {
@@ -118,6 +120,29 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
   );
 
   const plan = useMemo(() => (project ? animatePlan(project) : { shots: [], total: 0 }), [project]);
+  const picPlan = useMemo(() => (project ? picturePlan(project) : { shots: [], total: 0 }), [project]);
+
+  /** Makes the picture for one empty shot from its description, in the board's frame shape, and keeps it as the shot's first take. */
+  const pictureOne = useCallback(
+    async (shotId: string): Promise<string | null> => {
+      const latest = full.current ? view(full.current, boardId) : project;
+      const target = latest?.shots.find((s) => s.id === shotId);
+      if (!latest || !target) return "That shot is not on the board any more.";
+      setRunning((prior) => [...prior, shotId]);
+      const made = await makeStill(target.beat, latest.aspect ?? "16:9", target.refs ?? []);
+      setRunning((prior) => prior.filter((runId) => runId !== shotId));
+      if (!made.ok) {
+        if (made.needsKey) openKeys();
+        return made.reason;
+      }
+      edit((current) => ({
+        ...current,
+        shots: current.shots.map((s) => (s.id === shotId ? addTake(s, { url: made.url, kind: "image", usd: 0.0686, promptHash: hashPrompt(promptFor(current, current.shots.findIndex((x) => x.id === shotId))), at: Date.now() }, "FLUX 3 still") : s)),
+      }));
+      return null;
+    },
+    [project, boardId, edit],
+  );
 
   /** Animates one still: the shot moves to MiniMax H3 and its clip lands as a new take. */
   const animateOne = useCallback(
@@ -223,6 +248,11 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
           >
             + Subplot
           </button>
+          {picPlan.shots.length > 0 && (
+            <button className="pill on" onClick={() => setPicturing(true)} title="Make a picture for every shot that has a description and nothing to show yet">
+              Make pictures · {picPlan.shots.length}
+            </button>
+          )}
           {plan.shots.length > 0 && (
             <button className="pill" onClick={() => setAnimating(true)} title="Turn the board's stills into video in one go">
               Animate stills · {plan.shots.length}
@@ -230,6 +260,14 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
           )}
         </div>
         {animating && <AnimateAll plan={plan} onRun={animateOne} onClose={() => setAnimating(false)} />}
+        {picturing && (
+          <AnimateAll
+            plan={picPlan}
+            onRun={pictureOne}
+            onClose={() => setPicturing(false)}
+            words={{ title: "Make pictures", intro: "Each shot with a description and nothing to show gets a FLUX 3 picture made from it, in this board's frame shape. They land as the shot's first take; swap or re-roll any of them after.", verb: "Make", done: "made. Each is the shot's first take.", doing: "Making", note: "About 7¢ a picture at 1K, billed to your Comfy credits. An estimate, not an invoice.", meta: (s) => `$${s.usd.toFixed(3)}` }}
+          />
+        )}
 
         <FlowCanvas
           project={project}

@@ -279,7 +279,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
           </div>
         ) : (
           <>
-            <div className="stage">
+            <div className={`stage${cut.aspect === "9:16" ? " vertical" : ""}`}>
               {here &&
                 (here.clip.kind === "video" ? (
                   <video
@@ -292,6 +292,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                 ) : (
                   <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} />
                 ))}
+              {here && project.shots.find((s) => s.id === here.clip.shotId)?.caption && <span className="stage-caption">{project.shots.find((s) => s.id === here.clip.shotId)!.caption}</span>}
               {here && <span className="stage-slate">{here.clip.heading || `Shot ${here.clip.index + 1}`}</span>}
             </div>
 

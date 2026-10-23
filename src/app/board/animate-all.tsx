@@ -14,8 +14,10 @@ export function AnimateAll({
   plan,
   onRun,
   onClose,
+  words = { title: "Animate stills", intro: "Each still becomes the first frame of a MiniMax H3 clip at the shot\u2019s own length (4s at least). The still stays as a take to flip back to. Untick title cards and anything that should stay still.", verb: "Animate", done: "animated", doing: "Animating", note: "Prices are Comfy\u2019s published MiniMax H3 rate, billed to your Comfy credits. An estimate, not an invoice.", meta: (s: AnimatePlan["shots"][number]) => `${s.seconds}s \u00b7 $${s.usd.toFixed(2)}` },
 }: {
   plan: AnimatePlan;
+  words?: { title: string; intro: string; verb: string; done: string; doing: string; note: string; meta: (s: AnimatePlan["shots"][number]) => string };
   /** Runs one shot; resolves to an error message, or null when it worked. */
   onRun: (shotId: string) => Promise<string | null>;
   onClose: () => void;
@@ -66,11 +68,8 @@ export function AnimateAll({
   return createPortal(
     <div className="veil" onClick={busy ? undefined : onClose}>
       <div className="sheet wide animate-all" role="dialog" aria-modal="true" aria-labelledby="animate-title" onClick={(e) => e.stopPropagation()}>
-        <h3 id="animate-title">Animate stills</h3>
-        <p>
-          Each still becomes the first frame of a MiniMax H3 clip at the shot&rsquo;s own length (4s at least).
-          The still stays as a take to flip back to. Untick title cards and anything that should stay still.
-        </p>
+        <h3 id="animate-title">{words.title}</h3>
+        <p>{words.intro}</p>
 
         <ul className="animate-list">
           {plan.shots.map((s) => {
@@ -81,7 +80,7 @@ export function AnimateAll({
                   <input type="checkbox" checked={picked.has(s.id)} disabled={busy || done.includes(s.id)} onChange={() => toggle(s.id)} />
                   <span className="animate-n">{s.index + 1}</span>
                   <span className="animate-beat">{s.beat || "Untitled shot"}</span>
-                  <span className="animate-meta">{state === "done" ? "done" : state === "running" ? "animating…" : `${s.seconds}s · $${s.usd.toFixed(2)}`}</span>
+                  <span className="animate-meta">{state === "done" ? "done" : state === "running" ? "working…" : words.meta(s)}</span>
                 </label>
               </li>
             );
@@ -89,8 +88,8 @@ export function AnimateAll({
         </ul>
 
         {failure && <p className="library-error" role="alert">{failure}</p>}
-        {busy && <p role="status">Animating {running! + 1} of {chosen.length}. You can keep working; takes land on the board as they finish.</p>}
-        {finished && !failure && <p role="status">{done.length} shot{done.length === 1 ? "" : "s"} animated. Each one&rsquo;s still is still in its takes.</p>}
+        {busy && <p role="status">{words.doing} {running! + 1} of {chosen.length}. You can keep working; takes land on the board as they finish.</p>}
+        {finished && !failure && <p role="status">{done.length} shot{done.length === 1 ? "" : "s"} {words.done}.</p>}
 
         <div className="sheet-row">
           {busy ? (
@@ -100,13 +99,13 @@ export function AnimateAll({
           ) : (
             <>
               <button className="fire" disabled={!chosen.length} onClick={() => void start()}>
-                Animate {chosen.length} shot{chosen.length === 1 ? "" : "s"} <span className="cost">about ${total.toFixed(2)}</span>
+                {words.verb} {chosen.length} shot{chosen.length === 1 ? "" : "s"} <span className="cost">about ${total.toFixed(2)}</span>
               </button>
               <button className="plain" onClick={onClose}>Cancel</button>
             </>
           )}
         </div>
-        <div className="sheet-note">Prices are Comfy&rsquo;s published MiniMax H3 rate, billed to your Comfy credits. An estimate, not an invoice.</div>
+        <div className="sheet-note">{words.note}</div>
       </div>
     </div>,
     document.body,

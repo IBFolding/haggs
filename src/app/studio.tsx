@@ -236,6 +236,12 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
       <div className="canvas" onClick={() => setPicking(false)}>
+        {surface === "Video" && (
+          <nav className="modes" aria-label="Video">
+            <Link href="/video" aria-current="page">Make a clip</Link>
+            <Link href="/series">Series</Link>
+          </nav>
+        )}
         {surface !== "Video" && (
           <nav className="modes" aria-label="Photos">
             <Link href="/photos" aria-current={surface === "Create" ? "page" : undefined}>Make</Link>

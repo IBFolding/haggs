@@ -37,3 +37,17 @@ test("a shot made ready to animate runs on MiniMax H3 from its still, keeping ev
   assert.deepEqual(ready.refs, ["/face.png"]);
   assert.equal(ready.seconds, 3);
 });
+
+test("the picture plan is every unlocked shot with a description and nothing to show, priced per still", async () => {
+  const { picturePlan } = await import("./animate-all");
+  const p = board([
+    { ...newShot(), id: "a", beat: "A giant glowing belly in a neon city", seconds: 4 },
+    { ...newShot(), id: "b", beat: "Already has one", seconds: 4, render: pic("/x.png") },
+    { ...newShot(), id: "c", beat: "", seconds: 4 },
+    { ...newShot(), id: "d", beat: "Kept as it is", seconds: 4, locked: true },
+  ]);
+  const plan = picturePlan(p);
+  assert.deepEqual(plan.shots.map((s) => s.id), ["a"]);
+  assert.equal(plan.shots[0]!.usd, 0.0686);
+  assert.equal(plan.total, 0.0686);
+});

@@ -32,3 +32,10 @@ export function animatePlan(project: Project): AnimatePlan {
   });
   return { shots, total: round(shots.reduce((n, s) => n + s.usd, 0)) };
 }
+
+/** Pictures for the shots that have a description and nothing to show yet, one FLUX 3 still each at 1K. */
+export function picturePlan(project: Project): AnimatePlan {
+  const usd = 0.0686;
+  const shots = project.shots.flatMap((shot, index) => (shot.render || shot.locked || !shot.beat.trim() ? [] : [{ id: shot.id, index, beat: shot.beat, seconds: shot.seconds ?? 4, usd }]));
+  return { shots, total: Math.round(shots.length * usd * 10000) / 10000 };
+}
