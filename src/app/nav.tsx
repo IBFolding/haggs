@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { keysHeld } from "./actions";
 import { useSession } from "./session";
 import { KeySheet } from "./key-sheet";
+import { TOUR_EVENT, Tour } from "./tour";
 
 /**
  * The one header. Every page shows exactly this — the same five places and
@@ -59,17 +60,20 @@ export function Nav({ current }: { current: Place }) {
         <Link className="logo" href="/" aria-label="haggs — home">
           haggs<i>.</i>
         </Link>
-        {ITEMS.map((item) => (
-          <Link key={item.label} className="nav-item" href={item.href} aria-current={item.label === current}>
-            {item.label}
-          </Link>
-        ))}
+        <div className="nav-items">
+          {ITEMS.map((item) => (
+            <Link key={item.label} className="nav-item" href={item.href} aria-current={item.label === current} data-tour={item.label}>
+              {item.label}
+            </Link>
+          ))}
+        </div>
         <span className="nav-right">
-          <button className="nav-ask" onClick={() => openProducer()}>Ask Haggy</button>
-          <button className="key-state" onClick={() => setOpen(true)} title="Provider keys">
+          <button className="nav-ask" onClick={() => openProducer()} data-tour="ask">Ask Haggy</button>
+          <button className="key-state" onClick={() => setOpen(true)} title="Provider keys" data-tour="keys">
             <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />
             {label}
           </button>
+          <button className="nav-help" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))} title="Take the tour" aria-label="Take the tour">?</button>
           {session ? (
             <Link className="nav-account" href="/account" aria-current={current === "Account"} title={session.user.email ?? "Account"}>
               {(session.user.email ?? "?").slice(0, 1).toUpperCase()}
@@ -81,6 +85,7 @@ export function Nav({ current }: { current: Place }) {
       </nav>
       {open && <KeySheet held={held} onChange={setHeld} onClose={() => setOpen(false)} />}
       <Producer />
+      <Tour />
     </>
   );
 }
