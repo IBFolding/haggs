@@ -5,7 +5,8 @@ import { LESSONS } from "../academy/lessons";
 import { TEMPLATES } from "../catalog/templates";
 import { FORMATS } from "../sheets/formats";
 import { AcademyPath } from "./academy-path";
-import { HeroStage } from "./hero-stage";
+import { HeroReel } from "./hero-reel";
+import { ModelsWall } from "./models-wall";
 import { WorkflowDemo } from "./workflow-demo";
 import { Nav } from "./nav";
 
@@ -53,7 +54,7 @@ export default function Landing() {
               <Link className="plain" href="/workflows">See the Comfy workflows</Link>
             </div>
           </div>
-          <HeroStage />
+          <HeroReel />
         </section>
 
         <section className="lp-tiles" aria-label="Make something now">
@@ -96,6 +97,8 @@ export default function Landing() {
         </section>
 
         <WorkflowDemo />
+
+        <ModelsWall />
 
         <section className="lp-case" aria-label="Case study: recreate an edit">
           <h2>Recreate an edit, made for real</h2>

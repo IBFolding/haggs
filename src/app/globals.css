@@ -2555,3 +2555,33 @@ a.logo { color: var(--text); text-decoration: none; }
 .found-tick { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(8, 8, 10, .8); color: var(--volt); }
 .found-grid li a { font-size: 11px; color: var(--text-3); padding-left: 4px; }
 .found-bar { display: grid; gap: 8px; justify-items: start; position: sticky; bottom: 12px; padding: 12px 0; } .found-bar small { color: var(--text-3); max-width: 70ch; }
+
+/* Landing hero: results sliding past. */
+.lp-hero { position: relative; }
+.hr { position: relative; height: min(640px, 70vh); overflow: hidden; border-radius: 28px; mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); }
+.hr-tilt { position: absolute; inset: -10% -6%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; transform: rotate(-7deg) scale(1.05); }
+.hr-col { overflow: hidden; } .hr-track { display: grid; gap: 14px; animation: hr-up 46s linear infinite; } .hr-col.down .hr-track { animation-name: hr-down; animation-duration: 54s; }
+@keyframes hr-up { to { transform: translateY(-50%); } } @keyframes hr-down { from { transform: translateY(-50%); } to { transform: none; } }
+.hr figure { margin: 0; position: relative; aspect-ratio: 9 / 14; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: #0b0b0d; }
+.hr figure video, .hr figure img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hr figcaption { position: absolute; left: 10px; bottom: 10px; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: rgba(8, 8, 10, .78); backdrop-filter: blur(6px); }
+.hr-badge { position: absolute; z-index: 2; padding: 8px 14px; border-radius: 999px; background: var(--volt); color: #0b0b0d; font-weight: 800; font-size: 13px; box-shadow: 0 12px 30px rgba(0, 0, 0, .5); animation: hr-float 5s ease-in-out infinite; }
+.hr-badge.b1 { left: 6%; top: 24%; } .hr-badge.b2 { right: 8%; top: 52%; background: #fff; animation-delay: 1.2s; } .hr-badge.b3 { left: 20%; bottom: 14%; background: rgba(8, 8, 10, .85); color: var(--volt); border: 1px solid var(--volt); animation-delay: 2.4s; }
+@keyframes hr-float { 50% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .hr-track, .hr-badge { animation: none !important; } }
+/* Models, as posters. */
+.mw { padding-top: 64px !important; padding-bottom: 20px !important; }
+.mw-lede { color: var(--text-2); max-width: 62ch; margin: 0 0 18px !important; }
+.mw-row { list-style: none; margin: 0 -24px; padding: 0 24px 14px; display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.mw-card { position: relative; flex: 0 0 min(300px, 78vw); aspect-ratio: 3 / 4.4; border-radius: 22px; overflow: hidden; scroll-snap-align: start; border: 1px solid var(--line); background: #0b0b0d; transition: transform .35s ease, border-color .35s; }
+.mw-card:hover { transform: translateY(-6px); border-color: var(--tint); }
+.mw-card video, .mw-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .8s ease; } .mw-card:hover video, .mw-card:hover img { transform: scale(1.06); }
+.mw-shade { position: absolute; inset: 0; background: linear-gradient(transparent 38%, rgba(6, 6, 8, .94) 88%); }
+.mw-text { position: absolute; left: 18px; right: 18px; bottom: 18px; display: grid; gap: 6px; } .mw-text small { color: var(--tint); font-size: 12px; font-weight: 700; } .mw-text b { font-size: 28px; letter-spacing: -0.03em; line-height: 1.05; } .mw-text p { margin: 0; color: var(--text-2); font-size: 13px; line-height: 1.5; } .mw-text em { font-style: normal; font-family: var(--mono); font-size: 12px; color: var(--tint); }
+.mw-open { position: absolute; top: 14px; left: 14px; z-index: 1; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--volt); color: #0b0b0d; }
+
+@media (min-width: 1000px) {
+  .lp-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 40px; align-items: center; min-height: min(720px, 80vh); }
+  .lp-hero h1 { font-size: clamp(40px, 5vw, 78px); }
+}
+@media (max-width: 999px) { .hr { height: 420px; margin-top: 28px; } .lp-hero h1 { max-width: none; } }
