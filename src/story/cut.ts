@@ -24,6 +24,9 @@ export type Clip = {
   seconds: number;
   /** Words burned into the picture while this clip is on screen. */
   caption?: string;
+  /** Seconds to fade in from, and out to, black (picture and its own sound). */
+  fadeIn?: number;
+  fadeOut?: number;
 };
 
 /** A spoken line placed on the cut's clock. */
@@ -96,6 +99,8 @@ export function buildCut(project: Project): Cut {
       from: positive(shot.trimIn) ?? 0,
       seconds,
       ...(shot.caption?.trim() ? { caption: shot.caption.trim() } : {}),
+      ...(positive(shot.fadeIn) ? { fadeIn: shot.fadeIn! } : {}),
+      ...(positive(shot.fadeOut) ? { fadeOut: shot.fadeOut! } : {}),
     });
     for (const line of shot.voices ?? []) {
       // A line that hasn't been spoken yet has nothing to play.
@@ -254,6 +259,18 @@ export function captionFilter(cut: Cut): { captions: { text: string; index: numb
     return part;
   });
   return { captions, filter: parts.join(";") };
+}
+
+/** The picture and sound filters for a clip's fades. A fade never runs longer than half the clip. */
+export function fadeFilters(clip: Pick<Clip, "seconds" | "fadeIn" | "fadeOut">): { v: string; a: string } {
+  const cap = Math.max(0.05, clip.seconds / 2);
+  const inn = clip.fadeIn && clip.fadeIn > 0 ? Math.round(Math.min(clip.fadeIn, cap) * 100) / 100 : 0;
+  const out = clip.fadeOut && clip.fadeOut > 0 ? Math.round(Math.min(clip.fadeOut, cap) * 100) / 100 : 0;
+  const v: string[] = [];
+  const a: string[] = [];
+  if (inn) { v.push(`fade=t=in:st=0:d=${inn}`); a.push(`afade=t=in:st=0:d=${inn}`); }
+  if (out) { const st = Math.round((clip.seconds - out) * 100) / 100; v.push(`fade=t=out:st=${st}:d=${out}`); a.push(`afade=t=out:st=${st}:d=${out}`); }
+  return { v: v.join(","), a: a.join(",") };
 }
 
 /** Local media (/api/local/…) is fetched from the running app, so the script needs its address. */

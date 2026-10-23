@@ -254,3 +254,20 @@ test("the video track's own sound has a level and a mute too", async () => {
   assert.match(mixFilter({ ...base, sound: { clipMute: true } })!.filter, /\[0:a\]volume=0\[clip\]/);
   assert.doesNotMatch(mixFilter(base)!.filter, /\[clip\]/);
 });
+
+test("a clip's fades are a dip from and to black, and a matching rise and fall in its own sound", async () => {
+  const { fadeFilters } = await import("./cut");
+  assert.deepEqual(fadeFilters({ seconds: 4 } as never), { v: "", a: "" });
+  const f = fadeFilters({ seconds: 4, fadeIn: 0.5, fadeOut: 1 } as never);
+  assert.equal(f.v, "fade=t=in:st=0:d=0.5,fade=t=out:st=3:d=1");
+  assert.equal(f.a, "afade=t=in:st=0:d=0.5,afade=t=out:st=3:d=1");
+  const long = fadeFilters({ seconds: 1, fadeIn: 2, fadeOut: 2 } as never);
+  assert.match(long.v, /d=0\.5/, "fades never run longer than half the clip");
+});
+
+test("fades ride from the shot to its clip", () => {
+  const cut = buildCut(board(shot({ render: video(), fadeIn: 0.4, fadeOut: 0.8 }), shot({ render: video() })));
+  assert.equal(cut.clips[0]!.fadeIn, 0.4);
+  assert.equal(cut.clips[0]!.fadeOut, 0.8);
+  assert.equal(cut.clips[1]!.fadeIn, undefined);
+});

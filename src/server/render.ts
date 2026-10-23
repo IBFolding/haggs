@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { captionFilter, mixFilter, frameOf, normFilter, type Cut } from "../story/cut";
+import { captionFilter, fadeFilters, mixFilter, frameOf, normFilter, type Cut } from "../story/cut";
 
 /**
  * Renders a cut to an MP4 on this machine: the same steps as the exported
@@ -61,12 +61,14 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
   for (const { clip, src } of clips) {
     const dest = join(o.work, `clip-${String(clip.index + 1).padStart(3, "0")}.mp4`);
     const silence = ["-f", "lavfi", "-t", String(clip.seconds), "-i", "anullsrc=r=48000:cl=stereo"];
+    const fade = fadeFilters(clip);
+    const vf = fade.v ? `${NORM},${fade.v}` : NORM;
     if (clip.kind === "image") {
-      await o.ffmpeg([...QUIET, "-loop", "1", "-t", String(clip.seconds), "-i", src, ...silence, "-vf", NORM, "-c:v", "libx264", "-c:a", "aac", "-shortest", dest]);
+      await o.ffmpeg([...QUIET, "-loop", "1", "-t", String(clip.seconds), "-i", src, ...silence, "-vf", vf, "-c:v", "libx264", "-c:a", "aac", "-shortest", dest]);
     } else {
       const seek = clip.from > 0 ? ["-ss", String(clip.from)] : [];
       const sound = await o.hasAudio(src);
-      await o.ffmpeg([...QUIET, ...seek, "-i", src, ...(sound ? [] : silence), "-t", String(clip.seconds), "-vf", NORM, ...(sound ? ["-af", "aresample=48000,apad", "-ar", "48000", "-ac", "2"] : []), "-c:v", "libx264", "-c:a", "aac", "-shortest", dest]);
+      await o.ffmpeg([...QUIET, ...seek, "-i", src, ...(sound ? [] : silence), "-t", String(clip.seconds), "-vf", vf, ...(sound ? ["-af", `aresample=48000,apad${fade.a ? `,${fade.a}` : ""}`, "-ar", "48000", "-ac", "2"] : []), "-c:v", "libx264", "-c:a", "aac", "-shortest", dest]);
     }
     parts.push(dest);
   }
@@ -118,6 +120,8 @@ export function checkCut(raw: unknown): Cut {
     from: num(x.from ?? 0, 0, 600),
     seconds: num(x.seconds, 0.1, 600),
     ...(typeof x.caption === "string" && x.caption.trim() ? { caption: x.caption.trim().slice(0, 140) } : {}),
+    ...(typeof x.fadeIn === "number" && x.fadeIn > 0 && x.fadeIn <= 10 ? { fadeIn: x.fadeIn } : {}),
+    ...(typeof x.fadeOut === "number" && x.fadeOut > 0 && x.fadeOut <= 10 ? { fadeOut: x.fadeOut } : {}),
   }));
   const voices = (Array.isArray(c.voices) ? c.voices : []).slice(0, 200).map((v) => ({ shotId: String(v.shotId), id: String(v.id), url: link(v.url), text: String(v.text ?? "").slice(0, 200), start: num(v.start, 0, 7200), gain: num(v.gain ?? 0, -40, 20) }));
   const music = c.music ? { url: link(c.music.url), name: String(c.music.name ?? "").slice(0, 120), gain: num(c.music.gain ?? 0, -40, 20) } : null;

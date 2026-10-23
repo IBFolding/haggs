@@ -530,6 +530,15 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                           Keep as it is
                         </label>
                       </div>
+                      <div className="ed-row">
+                        {(["fadeIn", "fadeOut"] as const).map((key) => (
+                          <label key={key} title="Dip from, or to, black. Its own sound fades with it.">
+                            {key === "fadeIn" ? "Fade in" : "Fade out"}
+                            <input type="number" min={0} max={5} step={0.1} value={shot[key] ?? 0} onChange={(e) => { const v = Number(e.target.value); onShot(shot.id, (s2) => { const { [key]: _f, ...rest } = s2; return Number.isFinite(v) && v > 0 ? { ...rest, [key]: Math.min(5, v) } : rest; }); }} />
+                            s
+                          </label>
+                        ))}
+                      </div>
                       <div className="clip-actions">
                         <button className="pill on" disabled={rolling === shot.id} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
                         <button className="pill" disabled={!(t > selected.start + 0.2 && t < selected.start + selected.seconds)} title="Cut off the start of this clip at the playhead (I)" onClick={() => apply((current) => trimHead(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim start to playhead</button>
