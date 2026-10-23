@@ -286,3 +286,23 @@ test("overlays ride along in the cut", () => {
   const p = { ...board(shot({ render: video() })), overlays: [{ id: "a", name: "t", url: "/api/local/a.png", start: 0, seconds: 1 }] };
   assert.equal(buildCut(p as never).overlays?.length, 1);
 });
+
+test("fill crops to the frame around the focal point; fit (the default) letterboxes", async () => {
+  const { normFilter } = await import("./cut");
+  assert.match(normFilter("16:9"), /force_original_aspect_ratio=decrease,pad=1920:1080/);
+  const fill = normFilter("16:9", { fit: "fill", focus: { x: 0.25, y: 0.5 } });
+  assert.match(fill, /force_original_aspect_ratio=increase,crop=1920:1080:\(iw-ow\)\*0\.25:\(ih-ow\)\*0\.5|force_original_aspect_ratio=increase,crop=1920:1080:\(iw-ow\)\*0\.25:\(ih-oh\)\*0\.5/);
+  assert.match(normFilter("9:16", { fit: "fill" }), /crop=1080:1920:\(iw-ow\)\*0\.5:\(ih-oh\)\*0\.5/);
+  assert.match(normFilter("16:9", { fit: "fill", focus: { x: 9, y: -2 } }), /\*1:\(ih-oh\)\*0[,:]/, "the focal point is kept inside the picture");
+});
+
+test("framing and fades ride from the shot to the clip, the script and the render share one filter", async () => {
+  const { clipFilters, ffmpegScript } = await import("./cut");
+  const cut = buildCut(board(shot({ render: video(), fit: "fill", focus: { x: 0.2, y: 0.4 }, fadeOut: 1 })));
+  assert.equal(cut.clips[0]!.fit, "fill");
+  assert.deepEqual(cut.clips[0]!.focus, { x: 0.2, y: 0.4 });
+  const f = clipFilters(cut.aspect, cut.clips[0]!);
+  assert.match(f.v, /crop=.*fade=t=out/);
+  assert.match(f.a, /afade=t=out/);
+  assert.match(ffmpegScript(cut, "x"), /crop=1920:1080/);
+});

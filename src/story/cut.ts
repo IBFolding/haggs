@@ -27,6 +27,9 @@ export type Clip = {
   /** Seconds to fade in from, and out to, black (picture and its own sound). */
   fadeIn?: number;
   fadeOut?: number;
+  /** How the picture meets the frame: fit leaves bars, fill crops around the focal point (0–1 across, 0–1 down). */
+  fit?: "fit" | "fill";
+  focus?: { x: number; y: number };
 };
 
 /** A spoken line placed on the cut's clock. */
@@ -103,6 +106,7 @@ export function buildCut(project: Project): Cut {
       ...(shot.caption?.trim() ? { caption: shot.caption.trim() } : {}),
       ...(positive(shot.fadeIn) ? { fadeIn: shot.fadeIn! } : {}),
       ...(positive(shot.fadeOut) ? { fadeOut: shot.fadeOut! } : {}),
+      ...(shot.fit === "fill" ? { fit: "fill" as const, ...(shot.focus ? { focus: shot.focus } : {}) } : {}),
     });
     for (const line of shot.voices ?? []) {
       // A line that hasn't been spoken yet has nothing to play.
@@ -297,10 +301,22 @@ function absolute(url: string, origin: string | undefined): string {
 
 /** The size every clip is normalised to. */
 export const frameOf = (aspect: Cut["aspect"]) => (aspect === "9:16" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 });
-export const normFilter = (aspect: Cut["aspect"]) => {
+export const normFilter = (aspect: Cut["aspect"], framing?: Pick<Clip, "fit" | "focus">) => {
   const { w, h } = frameOf(aspect);
-  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p`;
+  const tail = "setsar=1,fps=30,format=yuv420p";
+  if (framing?.fit === "fill") {
+    const unit = (n: number | undefined) => Math.min(1, Math.max(0, Number.isFinite(n) ? (n as number) : 0.5));
+    return `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}:(iw-ow)*${unit(framing.focus?.x)}:(ih-oh)*${unit(framing.focus?.y)},${tail}`;
+  }
+  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,${tail}`;
 };
+
+/** Everything one clip is put through before the join: framing and fades for the picture, fades for its sound. */
+export function clipFilters(aspect: Cut["aspect"], clip: Clip): { v: string; a: string } {
+  const fade = fadeFilters(clip);
+  const norm = normFilter(aspect, clip);
+  return { v: fade.v ? `${norm},${fade.v}` : norm, a: fade.a };
+}
 
 export function ffmpegScript(cut: Cut, name: string, origin?: string): string {
   if (cut.clips.length === 0) {
@@ -317,7 +333,6 @@ export function ffmpegScript(cut: Cut, name: string, origin?: string): string {
     'trap \'rm -rf "$work"\' EXIT',
     "",
     "# One normalised size, rate and audio layout, so the joins are clean.",
-    `norm="${normFilter(cut.aspect)}"`,
     "",
   ];
 
@@ -325,6 +340,7 @@ export function ffmpegScript(cut: Cut, name: string, origin?: string): string {
     const n = String(clip.index + 1).padStart(3, "0");
     const src = `"$work/src-${n}"`;
     const dest = `"$work/clip-${n}.mp4"`;
+    const f = clipFilters(cut.aspect, clip);
 
     lines.push(`# ${n}: ${clip.heading.replace(/[\r\n]+/g, " ") || "untitled shot"}`);
     lines.push(`curl -fsSL ${sh(absolute(clip.url, origin))} -o ${src}`);
@@ -333,18 +349,18 @@ export function ffmpegScript(cut: Cut, name: string, origin?: string): string {
       lines.push(
         `ffmpeg -loglevel error -y -loop 1 -t ${clip.seconds} -i ${src} \\`,
         `  -f lavfi -t ${clip.seconds} -i anullsrc=r=48000:cl=stereo \\`,
-        `  -vf "$norm" -c:v libx264 -c:a aac -shortest ${dest}`,
+        `  -vf ${sh(f.v)} -c:v libx264 -c:a aac -shortest ${dest}`,
       );
     } else {
       // A video keeps its sound if it has any, and gets silence if it does not.
       const seek = clip.from > 0 ? `-ss ${clip.from} ` : "";
       lines.push(
         `if ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 ${src} | grep -q .; then`,
-        `  ffmpeg -loglevel error -y ${seek}-i ${src} -t ${clip.seconds} -vf "$norm" \\`,
-        `    -af "aresample=48000,apad" -ar 48000 -ac 2 -c:v libx264 -c:a aac -shortest ${dest}`,
+        `  ffmpeg -loglevel error -y ${seek}-i ${src} -t ${clip.seconds} -vf ${sh(f.v)} \\`,
+        `    -af ${sh(`aresample=48000,apad${f.a ? `,${f.a}` : ""}`)} -ar 48000 -ac 2 -c:v libx264 -c:a aac -shortest ${dest}`,
         "else",
         `  ffmpeg -loglevel error -y ${seek}-i ${src} -f lavfi -t ${clip.seconds} -i anullsrc=r=48000:cl=stereo \\`,
-        `    -t ${clip.seconds} -vf "$norm" -c:v libx264 -c:a aac -shortest ${dest}`,
+        `    -t ${clip.seconds} -vf ${sh(f.v)} -c:v libx264 -c:a aac -shortest ${dest}`,
         "fi",
       );
     }

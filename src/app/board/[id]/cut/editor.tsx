@@ -506,9 +506,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               <div className={`stage${vertical ? " vertical" : ""}`}>
                 {here &&
                   (here.clip.kind === "video" ? (
-                    <video key={here.clip.shotId} ref={video} src={here.clip.url} playsInline preload="auto" muted={Boolean(project.sound?.clipMute)} onLoadedMetadata={(ev) => { ev.currentTarget.volume = Math.min(1, Math.pow(10, (project.sound?.clipGain ?? 0) / 20)); }} />
+                    <video key={here.clip.shotId} ref={video} style={here.clip.fit === "fill" ? { objectFit: "cover", objectPosition: `${(here.clip.focus?.x ?? 0.5) * 100}% ${(here.clip.focus?.y ?? 0.5) * 100}%` } : undefined} src={here.clip.url} playsInline preload="auto" muted={Boolean(project.sound?.clipMute)} onLoadedMetadata={(ev) => { ev.currentTarget.volume = Math.min(1, Math.pow(10, (project.sound?.clipGain ?? 0) / 20)); }} />
                   ) : (
-                    <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} />
+                    <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} style={here.clip.fit === "fill" ? { objectFit: "cover", objectPosition: `${(here.clip.focus?.x ?? 0.5) * 100}% ${(here.clip.focus?.y ?? 0.5) * 100}%` } : undefined} />
                   ))}
                 {here && project.shots.find((x) => x.id === here.clip.shotId)?.caption && <span className="stage-caption">{project.shots.find((x) => x.id === here.clip.shotId)!.caption}</span>}
                 {(project.overlays ?? []).filter((o) => t >= o.start && t < o.start + o.seconds).map((o) => <img key={o.id} className="stage-overlay" src={o.url} alt="" />)}
@@ -620,6 +620,21 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                             {key === "fadeIn" ? "Fade in" : "Fade out"}
                             <input type="number" min={0} max={5} step={0.1} value={shot[key] ?? 0} onChange={(e) => { const v = Number(e.target.value); onShot(shot.id, (s2) => { const { [key]: _f, ...rest } = s2; return Number.isFinite(v) && v > 0 ? { ...rest, [key]: Math.min(5, v) } : rest; }); }} />
                             s
+                          </label>
+                        ))}
+                      </div>
+                      <div className="ed-row">
+                        <label title="Fit keeps the whole picture and leaves bars. Fill crops it to the frame around the point you pick.">
+                          Frame
+                          <select value={shot.fit ?? "fit"} onChange={(e) => onShot(shot.id, (s2) => { const { fit: _f, focus: _p, ...rest } = s2; return e.target.value === "fill" ? { ...rest, fit: "fill" as const, ...(s2.focus ? { focus: s2.focus } : {}) } : rest; })}>
+                            <option value="fit">Fit (bars)</option>
+                            <option value="fill">Fill (crop)</option>
+                          </select>
+                        </label>
+                        {shot.fit === "fill" && (["x", "y"] as const).map((axis) => (
+                          <label key={axis}>
+                            {axis === "x" ? "Across" : "Down"}
+                            <input type="range" min={0} max={1} step={0.05} value={shot.focus?.[axis] ?? 0.5} onChange={(e) => { const v = Number(e.target.value); onShot(shot.id, (s2) => ({ ...s2, focus: { x: s2.focus?.x ?? 0.5, y: s2.focus?.y ?? 0.5, [axis]: v } })); }} />
                           </label>
                         ))}
                       </div>

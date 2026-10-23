@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { captionFilter, fadeFilters, overlayFilter, mixFilter, frameOf, normFilter, type Cut } from "../story/cut";
+import { captionFilter, clipFilters, overlayFilter, mixFilter, frameOf, type Cut } from "../story/cut";
 
 /**
  * Renders a cut to an MP4 on this machine: the same steps as the exported
@@ -53,7 +53,6 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
   };
   // Resolve everything first, so a bad link stops the render before any work is done.
   const clips = cut.clips.map((clip) => ({ clip, src: file(clip.url) }));
-  const NORM = normFilter(cut.aspect);
   const mix = mixFilter(cut);
   const sounds = (mix?.inputs ?? []).map(file);
 
@@ -61,8 +60,8 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
   for (const { clip, src } of clips) {
     const dest = join(o.work, `clip-${String(clip.index + 1).padStart(3, "0")}.mp4`);
     const silence = ["-f", "lavfi", "-t", String(clip.seconds), "-i", "anullsrc=r=48000:cl=stereo"];
-    const fade = fadeFilters(clip);
-    const vf = fade.v ? `${NORM},${fade.v}` : NORM;
+    const fade = clipFilters(cut.aspect, clip);
+    const vf = fade.v;
     if (clip.kind === "image") {
       await o.ffmpeg([...QUIET, "-loop", "1", "-t", String(clip.seconds), "-i", src, ...silence, "-vf", vf, "-c:v", "libx264", "-c:a", "aac", "-shortest", dest]);
     } else {
@@ -113,6 +112,8 @@ const link = (v: unknown): string => {
   return v;
 };
 
+const unit = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5);
+
 /** A cut sent from the browser, rebuilt from checked fields only: every number in the filter graph is a real number. */
 export function checkCut(raw: unknown): Cut {
   const c = raw as Partial<Cut> | null;
@@ -127,6 +128,7 @@ export function checkCut(raw: unknown): Cut {
     from: num(x.from ?? 0, 0, 600),
     seconds: num(x.seconds, 0.1, 600),
     ...(typeof x.caption === "string" && x.caption.trim() ? { caption: x.caption.trim().slice(0, 140) } : {}),
+    ...(x.fit === "fill" ? { fit: "fill" as const, ...(x.focus && typeof x.focus === "object" ? { focus: { x: unit((x.focus as { x?: unknown }).x), y: unit((x.focus as { y?: unknown }).y) } } : {}) } : {}),
     ...(typeof x.fadeIn === "number" && x.fadeIn > 0 && x.fadeIn <= 10 ? { fadeIn: x.fadeIn } : {}),
     ...(typeof x.fadeOut === "number" && x.fadeOut > 0 && x.fadeOut <= 10 ? { fadeOut: x.fadeOut } : {}),
   }));
