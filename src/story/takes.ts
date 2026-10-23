@@ -66,3 +66,24 @@ export function splitShot(project: Project, shotId: string, at: number): Project
   shots.splice(index, 1, first, second);
   return { ...project, shots };
 }
+
+const MIN_SHOT = 0.2;
+
+/** Cuts the start of a shot off at `at` seconds into it: the footage now starts later and the shot is shorter. */
+export function trimHead(project: Project, shotId: string, at: number): Project {
+  const shot = project.shots.find((s) => s.id === shotId);
+  if (!shot) throw new Error("That shot is not on the board any more.");
+  const length = shot.seconds ?? 5;
+  if (!(at > 0 && length - at >= MIN_SHOT)) throw new Error(`Leave at least ${MIN_SHOT}s of the shot.`);
+  const round = (n: number) => Math.round(n * 30) / 30;
+  return { ...project, shots: project.shots.map((s) => (s.id === shotId ? { ...s, trimIn: round((s.trimIn ?? 0) + at), seconds: round(length - at) } : s)) };
+}
+
+/** Cuts the end of a shot off at `at` seconds into it. */
+export function trimTail(project: Project, shotId: string, at: number): Project {
+  const shot = project.shots.find((s) => s.id === shotId);
+  if (!shot) throw new Error("That shot is not on the board any more.");
+  const length = shot.seconds ?? 5;
+  if (!(at >= MIN_SHOT && at < length)) throw new Error(`Leave at least ${MIN_SHOT}s of the shot.`);
+  return { ...project, shots: project.shots.map((s) => (s.id === shotId ? { ...s, seconds: Math.round(at * 30) / 30 } : s)) };
+}

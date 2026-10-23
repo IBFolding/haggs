@@ -11,7 +11,7 @@ import { cloudEstimate } from "../../../../providers/cloud-price";
 import { frameAt } from "../../../cut-actions";
 import { reshootFrameAt } from "../../../../story/reshoot";
 import { ReshootPanel } from "../../../reshoot-panel";
-import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite } from "../../../../story/takes";
+import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite, trimHead, trimTail } from "../../../../story/takes";
 import { shoot } from "../../../shoot";
 import { EditTools } from "./tools";
 import { defaultKv } from "../../../../story/kv";
@@ -130,15 +130,46 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
     if (!playing && !el.paused) el.pause();
   }, [clipId, offset, playing]);
 
+  /** Undo and redo: every edit remembers the board before it. Edits within 600ms of each other (a slider, a drag) count as one. */
+  const past = useRef<Project[]>([]);
+  const future = useRef<Project[]>([]);
+  const lastEdit = useRef(0);
+  const [historyTick, setHistoryTick] = useState(0);
+  // The latest board, readable outside React's updaters (which run twice in development and so can't change history).
+  const now = useRef<Project | null>(null);
+  useEffect(() => { now.current = project; }, [project]);
   /** Any edit to the board from the editor, saved the same way the board saves. */
   const apply = useCallback(
     (change: (current: Project) => Project) => {
-      setProject((current) => {
-        if (!current) return current;
-        const next = change(current);
-        saves.queue((full.current = commit(full.current ?? next, boardId, next)));
-        return next;
-      });
+      const current = now.current;
+      if (!current) return;
+      const next = change(current);
+      if (next === current) return;
+      const t0 = Date.now();
+      if (t0 - lastEdit.current > 600 || past.current.length === 0) past.current = [...past.current.slice(-99), current];
+      lastEdit.current = t0;
+      future.current = [];
+      now.current = next;
+      setProject(next);
+      setHistoryTick((n) => n + 1);
+      saves.queue((full.current = commit(full.current ?? next, boardId, next)));
+    },
+    [saves, boardId],
+  );
+  const travel = useCallback(
+    (dir: "undo" | "redo") => {
+      const from = dir === "undo" ? past : future;
+      const to = dir === "undo" ? future : past;
+      const current = now.current;
+      const target = from.current.at(-1);
+      if (!current || !target) return;
+      from.current = from.current.slice(0, -1);
+      to.current = [...to.current, current];
+      lastEdit.current = 0;
+      now.current = target;
+      setProject(target);
+      setHistoryTick((n) => n + 1);
+      saves.queue((full.current = commit(full.current ?? target, boardId, target)));
     },
     [saves, boardId],
   );
@@ -226,18 +257,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   };
 
   const setSeconds = useCallback(
-    (shotId: string, seconds: number | null) => {
-      setProject((current) => {
-        if (!current) return current;
-        const next = {
-          ...current,
-          shots: current.shots.map((s) => (s.id === shotId ? { ...s, seconds } : s)),
-        };
-        saves.queue((full.current = commit(full.current ?? next, boardId, next)));
-        return next;
-      });
-    },
-    [saves],
+    (shotId: string, seconds: number | null) => apply((current) => ({ ...current, shots: current.shots.map((s) => (s.id === shotId ? { ...s, seconds } : s)) })),
+    [apply],
   );
 
   // The timeline is drawn at a zoom (pixels per second), so every clip has a width you can see and grab.
@@ -274,15 +295,36 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       const el = e.target as HTMLElement | null;
       if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
       if (!cut) return;
-      if (e.key === " ") {
+      const mod = e.metaKey || e.ctrlKey;
+      const at = () => atTime(cut, tRef.current);
+      const edit = (change: (p: Project, shotId: string, offset: number) => Project) => {
+        const here2 = at();
+        if (!here2) return;
+        try {
+          apply((current) => change(current, here2.clip.shotId, Math.round(here2.offset * 30) / 30));
+        } catch (caught) {
+          setProblem(caught instanceof Error ? caught.message : "That edit couldn't be made.");
+        }
+      };
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        travel(e.shiftKey ? "redo" : "undo");
+      } else if (mod && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        travel("redo");
+      } else if (mod) return;
+      else if (e.key === " ") {
         e.preventDefault();
         setPlaying((p) => !p);
-      } else if (e.key === "ArrowRight") seek(Math.min(cut.total, tRef.current + (e.shiftKey ? 5 : 0.5)));
+      } else if (e.key.toLowerCase() === "s") edit(splitShot);
+      else if (e.key.toLowerCase() === "i") edit(trimHead);
+      else if (e.key.toLowerCase() === "o") edit(trimTail);
+      else if (e.key === "ArrowRight") seek(Math.min(cut.total, tRef.current + (e.shiftKey ? 5 : 0.5)));
       else if (e.key === "ArrowLeft") seek(Math.max(0, tRef.current - (e.shiftKey ? 5 : 0.5)));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cut, seek]);
+  }, [cut, seek, apply, travel]);
 
   if (missing) {
     return (
@@ -454,6 +496,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                       </div>
                       <div className="clip-actions">
                         <button className="pill on" disabled={rolling === shot.id} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
+                        <button className="pill" disabled={!(t > selected.start + 0.2 && t < selected.start + selected.seconds)} title="Cut off the start of this clip at the playhead (I)" onClick={() => apply((current) => trimHead(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim start to playhead</button>
+                        <button className="pill" disabled={!(t >= selected.start + 0.2 && t < selected.start + selected.seconds - 0.05)} title="Cut off the end of this clip at the playhead (O)" onClick={() => apply((current) => trimTail(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim end to playhead</button>
                         <button className="pill" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>
                         <button className="pill" onClick={() => apply((current) => { const at = current.shots.findIndex((x) => x.id === shot.id); const shots = [...current.shots]; shots.splice(at + 1, 0, { ...newShot(), heading: shot.heading, threadIds: [...shot.threadIds] }); return { ...current, shots }; })}>Insert a shot after</button>
                         <button className="pill" disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)} title="A shot between this one and the next: it starts on this shot's last frame and ends on the next one's first" onClick={() => void expand(shot.id, "bridge")}>{expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · $${expandPrice.toFixed(2)}`}</button>
@@ -498,6 +542,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
             <div className="ed-time-bar">
               <b>Timeline</b>
               <span>{cut.clips.length} clips · {clock(cut.total)}</span>
+              <span className="ed-keys" title="Keyboard shortcuts">Space play · ←/→ step · S split · I/O trim · ⌘Z undo</span>
+              <button className="plain" disabled={historyTick < 0 || past.current.length === 0} onClick={() => travel("undo")} title="Undo (⌘Z)">Undo</button>
+              <button className="plain" disabled={future.current.length === 0} onClick={() => travel("redo")} title="Redo (⇧⌘Z)">Redo</button>
               <label className="ed-zoom">Zoom <input type="range" min={6} max={160} value={Math.round(pps)} onChange={(e) => setPps(Number(e.target.value))} aria-label="Timeline zoom" /></label>
               <button className="plain" onClick={fit}>Fit all</button>
             </div>

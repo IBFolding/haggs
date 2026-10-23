@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { buildCut, ffmpegScript } from "./cut";
-import { createProject, type Shot } from "./model";
+import { createProject, newShot, type Shot } from "./model";
 import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite } from "./takes";
 
 const render = (url: string) => ({ url, kind: "video" as const, usd: 0.4, promptHash: "h", at: 1 });
@@ -56,4 +56,20 @@ test("the cut starts a trimmed shot partway into its footage, and the export doe
   assert.equal(cut.clips[0]?.from, 1.5);
   assert.match(ffmpegScript(cut, "x"), /-ss 1\.5 -i/);
   assert.equal(buildCut({ ...p, shots: [base()] }).clips[0]?.from, 0);
+});
+
+import { trimHead, trimTail } from "./takes";
+
+test("trimming the head moves where the footage starts and shortens the shot; the tail just shortens it", () => {
+  const base = { ...newShot(), id: "s", seconds: 5, trimIn: 1 } as Shot;
+  const p = { ...createProject("x"), shots: [base] };
+  const head = trimHead(p, "s", 2).shots[0]!;
+  assert.equal(head.trimIn, 3);
+  assert.equal(head.seconds, 3);
+  const tail = trimTail(p, "s", 2).shots[0]!;
+  assert.equal(tail.trimIn, 1);
+  assert.equal(tail.seconds, 2);
+  assert.throws(() => trimHead(p, "s", 4.95), /0\.2/);
+  assert.throws(() => trimTail(p, "s", 0.1), /0\.2/);
+  assert.throws(() => trimTail(p, "nope", 2), /not on the board/);
 });
