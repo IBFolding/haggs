@@ -1,59 +1,90 @@
 # haggs
 
-An open-source film studio on Comfy: write it, board it, shoot it, cut it.
-Higgsfield's speed, with the whole production in one place and every price
-shown in dollars before you press.
+An open-source film studio on Comfy. Make a picture, a clip, a series or a
+whole film, swap a person into any video, and finish it in an editor with
+separate tracks for voice, effects and music. Every button shows what it
+costs, in dollars, before you press it.
 
 Built for Comfy's **#OpenSourceHiggsfield** challenge. MIT licensed.
 
+**Watch it:** `docs/demo/` has the demo video script and the voice-over; the
+rendered video is linked from the challenge entry.
+
 ## What you can do
 
-Every project has four tabs, and each project can hold several boards — a
-sizzle, each episode — that share one cast and one set of places.
+**Start with one that works.** Twenty-six ready-made apps, one click each,
+opening as a simple form: swap a person in a video, replace or cut out a
+video's background, relight or upscale a photo, try an outfit on a person,
+make a product ad, lip-sync a video to any voice, make a portrait speak.
+Every one is a real Comfy workflow, checked against Comfy Cloud's node
+catalog. The four that run on open weights alone say so.
 
-**Sheets** — the plan. Drop in scripts and haggs breaks them into scenes,
-characters, places, story beats and a shot list. Or start from nothing: pick
-a format (30-minute comedy, vertical drama, 60-minute drama, romance and
-more), say your idea, and Claude drafts the script with the beats where the
-hits put them, then fills the blanks you leave. Characters and places carry
-identity locks and reference pictures, sent with every shot they're in.
+**Build your own on an open canvas.** Drop steps and whole Comfy library
+workflows anywhere, draw a line from what one makes to what the next needs,
+and stack as many as you like. Swap any step for an open-weights or partner
+workflow that does the same job. When it runs the way you want, turn it into
+an app, run it, save it with its result as the cover, share it as a file or on
+the Community shelf (free, or a creator fee of up to 12¢ a run, 80% to the
+creator).
 
-**Board** — the story as a flow chart: a main line and subplot lanes, cards
-you drag to re-work the order, threads that show each character's path.
-Drop pictures anywhere to start scenes from them. **Animate stills** turns
-every still on the board into video in one go, priced as a whole first.
+**Photos.** Make, edit, build **characters** that stay the same person across
+shots (traits or photos of someone who has said you may), and **locations** you
+can walk the camera around. Any finished picture can be animated or edited in
+one click, handed to the next page as the first frame.
 
-**Cut** — the editor. Every take a shot has had is kept: roll again, star
-favourites, flip between takes with ↑ ↓, trim, split at the playhead. Then:
+**Video and Series.** A clip from words or a picture. A **Series** turns a topic
+into a run of short vertical videos: pick a format (What if, POV, Story,
+Faceless channel, Did you know, Top 5, Influencer), who is in it and how it
+looks, then make the pictures and animate them on the same page. Faceless
+channels get a narrator, spoken with ElevenLabs.
 
-- **Fix a frame** — grab one frame, fix it (FLUX Kontext), re-render the take from the fix
-- **Swap across the scene** — change one thing in a take or the whole scene (Kling Omni, Runway Aleph)
-- **Recast** — keep the performance, change who's in it (Higgsfield Genjutsu)
-- **Voice and lip-sync** — dialogue from the sheets, spoken and synced onto the take (ElevenLabs, Sync)
-- **Voice-over** — lines placed on shots that move with them when you reorder
-- **Soundtrack** — your music under the whole cut, dipped under the voices
-- **Render MP4** — the film, mixed, in one click (or an ffmpeg script to run anywhere)
+**The editor.** Every take a shot has had is kept. Play it, trim it (I and O),
+split it (S), undo anything (⌘Z). Then:
 
-**Media** — everything the project is made of. Change a shot's prompt and
-roll it again from here.
+- **Tracks.** Video sound, Voice, Effects and Music each have their own lane,
+  mute and level. Effects are made from words (ElevenLabs Sound Effects) or
+  added as files, and dragged into place on the timeline.
+- **Blend the voices.** Level, warmth and presence for the lines; the music
+  never ducks unless you ask it to; master to −16 LUFS.
+- **Reshoot** a shot from a new angle with a dial: FLUX 3, or the open-weights
+  Qwen multi-angle workflow.
+- **Fix a frame.** Grab one frame, fix it with FLUX Kontext, re-render the take
+  from the fix.
+- **Restyle.** Redraw a take in cel anime, claymation, scribble, pixel art and
+  more from a style sheet, or make a whole **style reel**: one take in several
+  looks, each named on screen.
+- **Swap, recast, voice and lip-sync, bridge and extend.**
+- **Render MP4** with captions burned in, or export an ffmpeg script.
 
-**Create and Video** — the quick studio, with templates (AI influencer,
-character sheet, product hero, product placement, product 360, bring a still
-to life, dolly zoom…). **Save to project** puts anything you make to work: as
-a take on a shot, a new shot, a character's face, a place's look, or in Media.
+**Academy.** Seven short lessons, about 90 minutes, from your first video to a
+finished film. Each ends in something real in haggs; finish all seven for a
+certificate.
 
-**Claude, over MCP.** `scripts/mcp.ts` is an MCP server: Claude can read your
-projects and send drafts, looks, sheet edits, whole boards and finished takes
-to a project's inbox. Nothing changes until you press Apply.
+**Claude, over MCP.** `scripts/mcp.ts` is an MCP server. Claude can read your
+projects and send you work to apply: drafts, boards, edits, takes, voices, a
+series, or an app laid out on the canvas (`haggs_propose_canvas`,
+`haggs_propose_series`), and search Comfy's workflow library
+(`haggs_find_workflows`). Nothing changes until you press Apply, and no
+separate API key is needed.
+
+## Open weights and your own GPU
+
+Open weights means the model's weights are published, so anyone can run it
+anywhere, with no partner API in the loop. haggs marks which workflows are
+open (a node flagged `api_node` in Comfy's catalog calls a partner's paid API).
+Under **Keys → Your own GPU**, point haggs at a ComfyUI on your computer or
+network (for example an RTX 5090 on `127.0.0.1:8188`). Open-weights workflows
+then run there, free, instead of on Comfy Cloud. Only loopback and private
+network addresses are accepted, and no key is ever sent.
 
 ## What runs where
 
-Generation runs on **Comfy** — Comfy Cloud workflows built from Comfy's own
-API nodes (MiniMax H3, FLUX 3, FLUX Kontext, Kling Omni, Runway Aleph,
-Higgsfield Genjutsu, ElevenLabs, Sync), or Comfy Router where your account
-has it (`COMFY_ROUTE=router`). fal is a second route for the models it hosts.
-You use your own keys; each run's price is on its button, from the providers'
-published rates. Estimates, not invoices.
+Everything that makes a picture, a clip or a sound runs on **Comfy**: Comfy
+Cloud workflows built from Comfy's own nodes (MiniMax H3, FLUX 3, FLUX Kontext,
+Kling Omni, Runway Aleph, Higgsfield Genjutsu, ElevenLabs, Sync, and the open
+Qwen, Wan, LTX and Z-Image workflows), or your own ComfyUI. You use your own
+keys; each run's price comes from Comfy's published node prices. Estimates, not
+invoices. Editing, mixing and rendering run locally with ffmpeg.
 
 Projects live in your browser (IndexedDB). Export and import them as files.
 
@@ -66,37 +97,51 @@ npm test             # the suite
 npm run typecheck
 ```
 
-Add keys from the key chip in the header, or in `.env.local` for development:
+You need Node 22 and ffmpeg (for Render MP4 and frame grabs). Add keys from the
+key chip in the header, or in `.env.local` for development:
 
 | Variable | For |
 | --- | --- |
-| `COMFY_API_KEY` | generation on Comfy |
+| `COMFY_API_KEY` | generation on Comfy Cloud |
+| `COMFY_LOCAL_URL` | your own ComfyUI, e.g. `http://127.0.0.1:8188` (optional) |
+| `ANTHROPIC_API_KEY` | Haggy and the writer, if you'd rather not use MCP (optional) |
 | `FAL_KEY` | fal models (optional) |
-| `ANTHROPIC_API_KEY` | Claude drafting scripts and filling sheets (optional) |
-| `HAGGS_LOCAL_MEDIA` | a folder for finished renders, uploads and local footage (development) |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | sign-in (optional) |
+| `HAGGS_LOCAL_MEDIA` | a folder for renders, uploads and local footage (development) |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | sign-in and Community (optional) |
 | `STRIPE_API_KEY`, `STRIPE_PRICE_*` | subscriptions (optional; checkout stays off without them) |
 
-To use Claude with your projects, the repo's `.mcp.json` registers the haggs
-MCP server for Claude Code; for other clients run `npx tsx scripts/mcp.ts`.
+Community needs the migration in `supabase/migrations/` applied to your
+Supabase project (paste it into the SQL editor).
+
+To use Claude with your projects, the repo's `.mcp.json` registers the haggs MCP
+server for Claude Code; for any other client run `npx tsx scripts/mcp.ts`.
 
 ### Development only
 
-Keeping finished renders on disk, serving local footage (`/api/local`),
-uploads, **Render MP4** and the Claude bridge all run only under `npm run dev`,
-on this machine. A hosted deployment needs a file store in their place.
+Keeping renders on disk, serving local footage (`/api/local`), uploads, Render
+MP4 and the Claude bridge run only under `npm run dev`, on this machine. A hosted
+deployment needs a file store in their place.
 
 ## Layout
 
 ```
 src/
-  app/        pages: landing, projects, the four project tabs, Create/Video/Edit, account
-  sheets/     screenplay parsing, the sheets, formats, camera moves, v1 import
-  story/      projects, boards, flow, takes, cut, references, proposals from Claude
-  providers/  Comfy Cloud workflows and prices, Comfy Router, fal
-  server/     local media, the Claude bridge, rendering, billing, auth
+  app/        pages: landing, projects, the project tabs, Photos, Video, Series, Workflows, Academy
+  academy/    the seven lessons and your progress
+  catalog/    models, settings, prices
+  characters/ traits, sheets, identity locks
+  comfy/      workflow converter, apps, canvas, ready-made apps, library
+  community/  fees, publishing, charging a run
+  providers/  Comfy Cloud and local ComfyUI runners, workflows, prices
+  series/     formats, drafting, building a series
+  sheets/     screenplay parsing, the sheets, formats, camera moves
+  story/      projects, boards, takes, the cut and its mix
+  styles/     looks, style sheets, style reels
+  server/     local media, the Claude bridge, rendering, billing
   writer/     Claude drafting and filling
 scripts/      the MCP server, project import
+supabase/     the Community migration
+docs/demo/    the demo script and voice-over
 ```
 
 ## Licence
