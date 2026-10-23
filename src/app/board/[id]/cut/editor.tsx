@@ -239,15 +239,49 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
     [saves],
   );
 
+  // The timeline is drawn at a zoom (pixels per second), so every clip has a width you can see and grab.
+  const [pps, setPps] = useState(36);
+  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "sound">("shot");
+  const scroller = useRef<HTMLDivElement>(null);
+  const lane = useRef<HTMLDivElement>(null);
+
   const scrub = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!cut || !track.current) return;
-      const box = track.current.getBoundingClientRect();
-      const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
-      seek(fraction * cut.total);
+      if (!cut || !lane.current) return;
+      const box = lane.current.getBoundingClientRect();
+      seek(Math.min(cut.total, Math.max(0, (event.clientX - box.left) / pps)));
     },
-    [cut, seek],
+    [cut, seek, pps],
   );
+
+  const fit = useCallback(() => {
+    if (!cut || !scroller.current) return;
+    setPps(Math.min(160, Math.max(6, (scroller.current.clientWidth - 40) / cut.total)));
+  }, [cut]);
+
+  // While it plays, keep the playhead in view.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || !playing) return;
+    const x = t * pps;
+    if (x < el.scrollLeft + 40 || x > el.scrollLeft + el.clientWidth - 80) el.scrollLeft = Math.max(0, x - el.clientWidth * 0.3);
+  }, [t, pps, playing]);
+
+  // Space plays and pauses; ← → step half a second (a hold of shift, five); unless you're typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+      if (!cut) return;
+      if (e.key === " ") {
+        e.preventDefault();
+        setPlaying((p) => !p);
+      } else if (e.key === "ArrowRight") seek(Math.min(cut.total, tRef.current + (e.shiftKey ? 5 : 0.5)));
+      else if (e.key === "ArrowLeft") seek(Math.max(0, tRef.current - (e.shiftKey ? 5 : 0.5)));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cut, seek]);
 
   if (missing) {
     return (
@@ -272,20 +306,54 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const selected = cut.clips.find((c) => c.shotId === picked) ?? here?.clip ?? null;
   const shot = selected ? project.shots.find((s) => s.id === selected.shotId) : undefined;
 
+  const idxHere = cut.clips.findIndex((c) => c.shotId === here?.clip.shotId);
+  const jump = (to: number) => {
+    const c = cut.clips[Math.min(cut.clips.length - 1, Math.max(0, to))];
+    if (c) {
+      setPicked(c.shotId);
+      seek(c.start);
+    }
+  };
+  const tick = pps >= 80 ? 1 : pps >= 30 ? 5 : 10;
+  const ticks = Array.from({ length: Math.floor(cut.total / tick) + 1 }, (_, i) => i * tick);
+  const vertical = cut.aspect === "9:16";
+
+  const exportsBar = (
+    <>
+      {process.env.NODE_ENV !== "production" && (
+        <button
+          className="fire ed-render"
+          disabled={rendering}
+          onClick={async () => {
+            setRendering(true);
+            setRendered(null);
+            const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut }) }).catch(() => null);
+            const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
+            setRendered(body?.ok && body.url ? { url: body.url } : { reason: body?.reason ?? "The render didn't finish." });
+            setRendering(false);
+          }}
+        >
+          {rendering ? "Rendering…" : "Render MP4"}
+        </button>
+      )}
+      <details className="ed-more">
+        <summary>Export</summary>
+        <div>
+          <button className="plain" onClick={() => download(`${project.name}.cut.json`, cutList(cut, project.name), "application/json")}>Cut list (.json)</button>
+          <button className="plain" onClick={() => download(`${project.name}.sh`, ffmpegScript(cut, project.name, window.location.origin), "text/x-shellscript")}>ffmpeg script (.sh)</button>
+          <p>Render MP4 makes the film here, voices and soundtrack mixed in, next to your media. The script does the same anywhere ffmpeg is installed.</p>
+        </div>
+      </details>
+    </>
+  );
+
   return (
     <div className="app">
       <Nav current="Projects" />
       <ProjectTabs project={full.current ?? project} boardId={boardId} current="cut" />
 
-      <div className="cut">
-        <header className="board-head">
-          <h1 className="cut-title">{project.name}</h1>
-          <span className="board-count">
-            {cut.clips.length} clip{cut.clips.length === 1 ? "" : "s"} · {clock(cut.total)}
-          </span>
-        </header>
-
-        {cut.clips.length === 0 ? (
+      {cut.clips.length === 0 ? (
+        <div className="canvas">
           <div className="library-blank">
             <p>Nothing to cut yet.</p>
             <p className="library-blank-sub">
@@ -293,26 +361,24 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               <Link href={`/board/${id}`}>Shoot one on the board</Link> and it appears here.
             </p>
           </div>
-        ) : (
-          <>
-            <div className={`stage${cut.aspect === "9:16" ? " vertical" : ""}`}>
-              {here &&
-                (here.clip.kind === "video" ? (
-                  <video
-                    key={here.clip.shotId}
-                    ref={video}
-                    src={here.clip.url}
-                    playsInline
-                    preload="auto"
-                  />
-                ) : (
-                  <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} />
-                ))}
-              {here && project.shots.find((s) => s.id === here.clip.shotId)?.caption && <span className="stage-caption">{project.shots.find((s) => s.id === here.clip.shotId)!.caption}</span>}
-              {here && <span className="stage-slate">{here.clip.heading || `Shot ${here.clip.index + 1}`}</span>}
+        </div>
+      ) : (
+        <div className="ed">
+          <section className="ed-stage-area" aria-label="Preview">
+            <div className="ed-view">
+              <div className={`stage${vertical ? " vertical" : ""}`}>
+                {here &&
+                  (here.clip.kind === "video" ? (
+                    <video key={here.clip.shotId} ref={video} src={here.clip.url} playsInline preload="auto" />
+                  ) : (
+                    <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} />
+                  ))}
+                {here && project.shots.find((x) => x.id === here.clip.shotId)?.caption && <span className="stage-caption">{project.shots.find((x) => x.id === here.clip.shotId)!.caption}</span>}
+                {here && <span className="stage-slate">{here.clip.heading || `Shot ${here.clip.index + 1}`}</span>}
+              </div>
             </div>
-
-            <div className="transport">
+            <div className="ed-transport">
+              <button className="pill" onClick={() => jump(idxHere - 1)} aria-label="Previous shot" disabled={idxHere <= 0}>⏮</button>
               <button
                 className="fire"
                 onClick={() => {
@@ -322,231 +388,165 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               >
                 {playing ? "Pause" : t >= cut.total ? "Replay" : "Play"}
               </button>
-              <span className="transport-time">
-                {clock(t)} <i>/</i> {clock(cut.total)}
-              </span>
-              {cut.skipped.length > 0 && (
-                <span className="transport-note">
-                  {cut.skipped.length} shot{cut.skipped.length === 1 ? "" : "s"} not shot yet, so not in the cut
-                </span>
-              )}
-            </div>
-
-            <div
-              className="timeline"
-              ref={track}
-              onPointerDown={(event) => {
-                event.currentTarget.setPointerCapture(event.pointerId);
-                scrub(event);
-              }}
-              onPointerMove={(event) => {
-                if (event.buttons === 1) scrub(event);
-              }}
-              role="slider"
-              aria-label="Playhead"
-              aria-valuemin={0}
-              aria-valuemax={cut.total}
-              aria-valuenow={Math.round(t * 10) / 10}
-              tabIndex={0}
-              onKeyDown={(event) => {
-                // Up and down flip the clip under the playhead between its takes.
-                if ((event.key === "ArrowUp" || event.key === "ArrowDown") && here) {
-                  event.preventDefault();
-                  onShot(here.clip.shotId, (s) => cycleTake(s, event.key === "ArrowUp" ? -1 : 1));
-                }
-                if (event.key === "ArrowRight") seek(Math.min(cut.total, t + 0.5));
-                if (event.key === "ArrowLeft") seek(Math.max(0, t - 0.5));
-                if (event.key === " ") {
-                  event.preventDefault();
-                  setPlaying((p) => !p);
-                }
-              }}
-            >
-              {cut.clips.map((clip) => (
-                <button
-                  key={clip.shotId}
-                  draggable
-                  onDragStart={(e) => { dragged.current = clip.shotId; e.dataTransfer.effectAllowed = "move"; }}
-                  onDragOver={(e) => { if (dragged.current) { e.preventDefault(); setDropAt(clip.shotId); } }}
-                  onDragLeave={() => setDropAt((d) => (d === clip.shotId ? null : d))}
-                  onDrop={(e) => { e.preventDefault(); dropOn(clip.shotId); }}
-                  onDragEnd={() => { dragged.current = null; setDropAt(null); }}
-                  className={`clip${selected?.shotId === clip.shotId ? " picked" : ""}${dropAt === clip.shotId ? " drop" : ""}`}
-                  style={{ flexGrow: clip.seconds, flexBasis: 0 }}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={() => {
-                    setPicked(clip.shotId);
-                    seek(clip.start);
-                  }}
-                  title={`${clip.heading || "Shot"} — ${clip.seconds}s`}
-                >
-                  {clip.kind === "video" ? (
-                    <video src={`${clip.url}#t=0.1`} muted preload="metadata" />
-                  ) : (
-                    <img src={clip.url} alt="" />
-                  )}
-                  <span className="clip-label">{clip.heading || `Shot ${clip.index + 1}`}</span>
-                  <span className="clip-len">{clip.seconds}s</span>
-                </button>
-              ))}
-              <span className="playhead" style={{ left: `${(t / cut.total) * 100}%` }} />
-            </div>
-
-            {selected && shot && (
-              <div className="clip-inspect">
-                <b>{selected.heading || `Shot ${selected.index + 1}`}</b>
-                <label>
-                  Holds for
-                  <input
-                    type="number"
-                    min={0.5}
-                    step={0.5}
-                    value={shot.seconds ?? selected.seconds}
-                    onChange={(event) => {
-                      const value = Number(event.target.value);
-                      setSeconds(shot.id, Number.isFinite(value) && value > 0 ? value : null);
-                    }}
-                  />
-                  seconds
-                </label>
-                {shot.seconds !== null && (
-                  <button className="plain" onClick={() => setSeconds(shot.id, null)}>
-                    Use the {selected.kind === "video" ? "model's" : "default"} length
-                  </button>
-                )}
-                <label className="clip-lock" title="Title cards, black, anything finished: Animate stills leaves it alone">
-                  <input type="checkbox" checked={shot.locked === true} onChange={(e) => onShot(shot.id, (s) => { const { locked: _l, ...rest } = s; return e.target.checked ? { ...rest, locked: true } : rest; })} />
-                  Keep as it is
-                </label>
-                <div className="clip-actions">
-                  <button className="pill on" disabled={rolling === shot.id} onClick={() => void rollAgain(shot.id)}>
-                    {rolling === shot.id ? "Rolling…" : "Roll again"}
-                  </button>
-                  <button
-                    className="pill"
-                    disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)}
-                    title="Move the playhead inside this clip to split it there"
-                    onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}
-                  >
-                    Split at playhead
-                  </button>
-                  <button
-                    className="pill"
-                    onClick={() =>
-                      apply((current) => {
-                        const at = current.shots.findIndex((s) => s.id === shot.id);
-                        const shots = [...current.shots];
-                        shots.splice(at + 1, 0, { ...newShot(), heading: shot.heading, threadIds: [...shot.threadIds] });
-                        return { ...current, shots };
-                      })
-                    }
-                  >
-                    Insert a shot after
-                  </button>
-                  <button
-                    className="pill"
-                    disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)}
-                    title="Make a shot between this one and the next: it starts on this shot's last frame and ends on the next one's first"
-                    onClick={() => void expand(shot.id, "bridge")}
-                  >
-                    {expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · $${expandPrice.toFixed(2)}`}
-                  </button>
-
-                  <button
-                    className="pill"
-                    disabled={expanding !== null}
-                    title="Carry this shot on from its last frame"
-                    onClick={() => void expand(shot.id, "extend")}
-                  >
-                    {expanding === `${shot.id}:extend` ? "Extending…" : `Extend · $${expandPrice.toFixed(2)}`}
-                  </button>
-                </div>
-                {problem && <p className="library-error" role="alert">{problem}</p>}
-                {shot.render && <ReshootPanel key={shot.id} source={{ url: shot.render.url, kind: shot.render.kind, at: reshootFrameAt(shot), beat: shot.beat }} onKeep={(list) => list.forEach((made) => keepReshoot(shot.id, made))} />}
-                <div className="takes" role="group" aria-label="Takes">
-                  {takesOf(shot).map((take, i) => {
-                    const on = take.url === shot.render?.url && take.at === shot.render?.at;
-                    return (
-                      <figure key={take.id} className={`take${on ? " on" : ""}`}>
-                        <button className="take-pick" onClick={() => onShot(shot.id, (s) => chooseTake(s, take.id))} aria-pressed={on} title={on ? "On the shot" : "Put this take on the shot"}>
-                          {take.kind === "video" ? <video src={`${take.url}#t=0.3`} muted preload="metadata" /> : <img src={take.url} alt="" />}
-                        </button>
-                        <figcaption>
-                          <span>Take {i + 1}{take.origin ? ` · ${take.origin}` : ""}{take.usd !== null ? ` · $${take.usd.toFixed(2)}` : ""}</span>
-                          <button className={`take-star${take.favorite ? " on" : ""}`} aria-label={take.favorite ? "Unstar" : "Star"} onClick={() => onShot(shot.id, (s) => toggleFavorite(s, take.id))}>★</button>
-                          {!on && <button className="take-x" aria-label="Remove take" onClick={() => onShot(shot.id, (s) => removeTake(s, take.id))}>×</button>}
-                        </figcaption>
-                      </figure>
-                    );
-                  })}
-                </div>
-                <p className="takes-note">↑ ↓ on the timeline flip between takes. Rolling again adds a take and never replaces one.</p>
-                <VoiceLines shot={shot} project={project} onChange={(voices) => onShot(shot.id, (s) => ({ ...s, voices }))} />
-                <EditTools
-                  project={project}
-                  shot={shot}
-                  stage={video}
-                  playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0}
-                  onTake={(shotId, render, origin) => onShot(shotId, (s) => addTake(s, render, origin))}
-                />
-              </div>
-            )}
-
-            <Soundtrack
-              music={project.music}
-              onChange={(music) =>
-                apply((current) => {
-                  const { music: _old, ...rest } = current;
-                  return music ? { ...rest, music } : rest;
-                })
-              }
-            />
-
-            <div className="exports">
-              {process.env.NODE_ENV !== "production" && (
-                <button
-                  className="pill on"
-                  disabled={rendering}
-                  onClick={async () => {
-                    setRendering(true);
-                    setRendered(null);
-                    const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut }) }).catch(() => null);
-                    const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
-                    setRendered(body?.ok && body.url ? { url: body.url } : { reason: body?.reason ?? "The render didn't finish." });
-                    setRendering(false);
-                  }}
-                >
-                  {rendering ? "Rendering…" : "Render MP4"}
-                </button>
-              )}
-              <button
-                className="pill"
-                onClick={() => download(`${project.name}.cut.json`, cutList(cut, project.name), "application/json")}
-              >
-                Cut list (.json)
-              </button>
-              <button
-                className="pill"
-                onClick={() => download(`${project.name}.sh`, ffmpegScript(cut, project.name, window.location.origin), "text/x-shellscript")}
-              >
-                Export as MP4 (ffmpeg script)
-              </button>
+              <button className="pill" onClick={() => jump(idxHere + 1)} aria-label="Next shot" disabled={idxHere >= cut.clips.length - 1}>⏭</button>
+              <span className="transport-time">{clock(t)} <i>/</i> {clock(cut.total)}</span>
+              {cut.skipped.length > 0 && <span className="transport-note">{cut.skipped.length} shot{cut.skipped.length === 1 ? "" : "s"} not shot yet</span>}
+              <span className="ed-spacer" />
               {rendered && ("url" in rendered ? (
-                <span className="exports-done" role="status">
-                  Rendered. <a href={rendered.url} target="_blank" rel="noreferrer">Watch it</a> · <a href={rendered.url} download>Download</a>
-                </span>
+                <span className="exports-done" role="status">Rendered. <a href={rendered.url} target="_blank" rel="noreferrer">Watch</a> · <a href={rendered.url} download>Download</a></span>
               ) : (
                 <span className="library-error" role="alert">{rendered.reason}</span>
               ))}
-              <span className="exports-note">
-                Render MP4 makes the film on this machine, voices and soundtrack mixed in, and keeps it
-                next to your media. The script does the same anywhere ffmpeg is installed: run it with{" "}
-                <code>bash</code> while haggs is open.
-              </span>
+              {exportsBar}
             </div>
-          </>
-        )}
-      </div>
+          </section>
+
+          <aside className="ed-side" aria-label="Shot tools">
+            <div className="ed-tabs" role="tablist">
+              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["sound", "Sound"]] as const).map(([id2, label]) => (
+                <button key={id2} role="tab" aria-selected={tab === id2} className={tab === id2 ? "on" : ""} onClick={() => setTab(id2)}>{label}</button>
+              ))}
+            </div>
+            <div className="ed-side-body">
+              {tab === "sound" ? (
+                <Soundtrack
+                  music={project.music}
+                  onChange={(music) =>
+                    apply((current) => {
+                      const { music: _old, ...rest } = current;
+                      return music ? { ...rest, music } : rest;
+                    })
+                  }
+                />
+              ) : !(selected && shot) ? (
+                <p className="takes-note">Click a clip on the timeline to work on that shot.</p>
+              ) : (
+                <>
+                  <h2 className="ed-shot-title"><span>{selected.index + 1}</span>{selected.heading || `Shot ${selected.index + 1}`}<small>{selected.seconds}s</small></h2>
+                  {problem && <p className="library-error" role="alert">{problem}</p>}
+
+                  {tab === "shot" && (
+                    <>
+                      <div className="ed-row">
+                        <label>
+                          Holds for
+                          <input type="number" min={0.5} step={0.5} value={shot.seconds ?? selected.seconds} onChange={(event) => { const value = Number(event.target.value); setSeconds(shot.id, Number.isFinite(value) && value > 0 ? value : null); }} />
+                          s
+                        </label>
+                        {shot.seconds !== null && <button className="plain" onClick={() => setSeconds(shot.id, null)}>Reset</button>}
+                        <label className="clip-lock" title="Title cards, black, anything finished: Animate stills leaves it alone">
+                          <input type="checkbox" checked={shot.locked === true} onChange={(e) => onShot(shot.id, (s2) => { const { locked: _l, ...rest } = s2; return e.target.checked ? { ...rest, locked: true } : rest; })} />
+                          Keep as it is
+                        </label>
+                      </div>
+                      <div className="clip-actions">
+                        <button className="pill on" disabled={rolling === shot.id} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
+                        <button className="pill" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>
+                        <button className="pill" onClick={() => apply((current) => { const at = current.shots.findIndex((x) => x.id === shot.id); const shots = [...current.shots]; shots.splice(at + 1, 0, { ...newShot(), heading: shot.heading, threadIds: [...shot.threadIds] }); return { ...current, shots }; })}>Insert a shot after</button>
+                        <button className="pill" disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)} title="A shot between this one and the next: it starts on this shot's last frame and ends on the next one's first" onClick={() => void expand(shot.id, "bridge")}>{expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · $${expandPrice.toFixed(2)}`}</button>
+                        <button className="pill" disabled={expanding !== null} title="Carry this shot on from its last frame" onClick={() => void expand(shot.id, "extend")}>{expanding === `${shot.id}:extend` ? "Extending…" : `Extend · $${expandPrice.toFixed(2)}`}</button>
+                      </div>
+                      <div className="takes" role="group" aria-label="Takes">
+                        {takesOf(shot).map((take, i) => {
+                          const on = take.url === shot.render?.url && take.at === shot.render?.at;
+                          return (
+                            <figure key={take.id} className={`take${on ? " on" : ""}`}>
+                              <button className="take-pick" onClick={() => onShot(shot.id, (s2) => chooseTake(s2, take.id))} aria-pressed={on} title={on ? "On the shot" : "Put this take on the shot"}>
+                                {take.kind === "video" ? <video src={`${take.url}#t=0.3`} muted preload="metadata" /> : <img src={take.url} alt="" />}
+                              </button>
+                              <figcaption>
+                                <span>Take {i + 1}{take.origin ? ` · ${take.origin}` : ""}{take.usd !== null ? ` · $${take.usd.toFixed(2)}` : ""}</span>
+                                <button className={`take-star${take.favorite ? " on" : ""}`} aria-label={take.favorite ? "Unstar" : "Star"} onClick={() => onShot(shot.id, (s2) => toggleFavorite(s2, take.id))}>★</button>
+                                {!on && <button className="take-x" aria-label="Remove take" onClick={() => onShot(shot.id, (s2) => removeTake(s2, take.id))}>×</button>}
+                              </figcaption>
+                            </figure>
+                          );
+                        })}
+                      </div>
+                      <p className="takes-note">Space plays. ← → step. ↑ ↓ on the timeline flip between takes. Rolling again adds a take and never replaces one.</p>
+                    </>
+                  )}
+
+                  {tab === "reshoot" && (shot.render
+                    ? <ReshootPanel key={shot.id} source={{ url: shot.render.url, kind: shot.render.kind, at: reshootFrameAt(shot), beat: shot.beat }} onKeep={(list) => list.forEach((made) => keepReshoot(shot.id, made))} />
+                    : <p className="takes-note">This shot has nothing to reshoot yet.</p>)}
+
+                  {tab === "voice" && <VoiceLines shot={shot} project={project} onChange={(voices) => onShot(shot.id, (s2) => ({ ...s2, voices }))} />}
+
+                  {tab === "tools" && (
+                    <EditTools project={project} shot={shot} stage={video} playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0} onTake={(shotId, render, origin) => onShot(shotId, (s2) => addTake(s2, render, origin))} />
+                  )}
+                </>
+              )}
+            </div>
+          </aside>
+
+          <section className="ed-time" aria-label="Timeline">
+            <div className="ed-time-bar">
+              <b>Timeline</b>
+              <span>{cut.clips.length} clips · {clock(cut.total)}</span>
+              <label className="ed-zoom">Zoom <input type="range" min={6} max={160} value={Math.round(pps)} onChange={(e) => setPps(Number(e.target.value))} aria-label="Timeline zoom" /></label>
+              <button className="plain" onClick={fit}>Fit all</button>
+            </div>
+            <div className="ed-scroll" ref={scroller}>
+              <div
+                className="ed-lane"
+                ref={lane}
+                style={{ width: cut.total * pps + 24 }}
+                onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); scrub(event); }}
+                onPointerMove={(event) => { if (event.buttons === 1) scrub(event); }}
+                role="slider"
+                aria-label="Playhead"
+                aria-valuemin={0}
+                aria-valuemax={cut.total}
+                aria-valuenow={Math.round(t * 10) / 10}
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if ((event.key === "ArrowUp" || event.key === "ArrowDown") && here) {
+                    event.preventDefault();
+                    onShot(here.clip.shotId, (s2) => cycleTake(s2, event.key === "ArrowUp" ? -1 : 1));
+                  }
+                }}
+              >
+                <div className="ed-ruler">{ticks.map((sec) => <span key={sec} style={{ left: sec * pps }}>{clock(sec)}</span>)}</div>
+                <div className="ed-clips">
+                  {cut.clips.map((clip) => {
+                    const w = clip.seconds * pps;
+                    return (
+                      <button
+                        key={clip.shotId}
+                        draggable
+                        onDragStart={(e) => { dragged.current = clip.shotId; e.dataTransfer.effectAllowed = "move"; }}
+                        onDragOver={(e) => { if (dragged.current) { e.preventDefault(); setDropAt(clip.shotId); } }}
+                        onDragLeave={() => setDropAt((d) => (d === clip.shotId ? null : d))}
+                        onDrop={(e) => { e.preventDefault(); dropOn(clip.shotId); }}
+                        onDragEnd={() => { dragged.current = null; setDropAt(null); }}
+                        className={`clip${selected?.shotId === clip.shotId ? " picked" : ""}${dropAt === clip.shotId ? " drop" : ""}`}
+                        style={{ left: clip.start * pps, width: Math.max(4, w - 3) }}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={() => { setPicked(clip.shotId); seek(clip.start); }}
+                        title={`${clip.index + 1}. ${clip.heading || "Shot"} — ${clip.seconds}s`}
+                      >
+                        {clip.kind === "video" ? <video src={`${clip.url}#t=0.1`} muted preload="metadata" /> : <img src={clip.url} alt="" />}
+                        {w > 54 && <span className="clip-label">{clip.heading || `Shot ${clip.index + 1}`}</span>}
+                        {w > 30 && <span className="clip-len">{clip.seconds}s</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="ed-vlane" aria-label="Voice-over">
+                  {cut.voices.length === 0 && <span className="ed-empty">Voice-over lines sit here. Add one from a shot&rsquo;s Voice tab.</span>}
+                  {cut.voices.map((v) => <button key={v.id} className="ed-voice" style={{ left: v.start * pps, width: Math.max(48, 2.4 * pps) }} onPointerDown={(e) => e.stopPropagation()} onClick={() => { setPicked(v.shotId); setTab("voice"); }} title={v.text}>{v.text}</button>)}
+                </div>
+                <div className="ed-mlane" aria-label="Soundtrack">
+                  {cut.music ? <button className="ed-music" style={{ width: cut.total * pps }} onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>♪ {cut.music.name}</button> : <button className="ed-empty" onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>+ Add a soundtrack</button>}
+                </div>
+                <span className="ed-playhead" style={{ left: t * pps }} />
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
