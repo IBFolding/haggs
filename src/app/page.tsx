@@ -196,6 +196,9 @@ export default function Landing() {
         <footer className="lp-foot">
           <span>haggs · open source, MIT licensed · built on Comfy</span>
           <Link href="/library">Your projects</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+          <a href="https://github.com/IBFolding/haggs">GitHub</a>
         </footer>
       </main>
     </div>
