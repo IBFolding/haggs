@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { appOf, type App } from "../comfy/apps";
 import { prepare, type Catalog, type UiWorkflow } from "../comfy/convert";
+import { partnerNodes } from "../comfy/partner";
 
 /**
  * Comfy's public workflow templates (MIT, Comfy-Org/workflow_templates) and
@@ -31,6 +32,8 @@ export type Entry = {
   inputs: { file: string; media: string }[];
   runnable: boolean | null;
   problem?: string;
+  /** True when the workflow calls no partner API: it runs on open weights alone. Known once the library has been checked. */
+  open?: boolean;
 };
 
 const dirOf = (root: string) => join(root, ".haggs", "comfy");
@@ -144,6 +147,40 @@ export async function checked(root: string, apiKey: string): Promise<Record<stri
     await writeFile(join(dirOf(root), "runnable.json"), JSON.stringify({ at: Date.now(), value: out }));
   })().finally(() => {
     checking = null;
+  });
+  return null;
+}
+
+/**
+ * Which templates run on open weights alone: no node that calls a partner's
+ * paid API. Computed once in the background from the node catalog and kept.
+ */
+let opening: Promise<void> | null = null;
+export async function opens(root: string, apiKey: string): Promise<Record<string, boolean> | null> {
+  try {
+    const raw = JSON.parse(await readFile(join(dirOf(root), "open.json"), "utf8")) as { at: number; value: Record<string, boolean> };
+    if (Date.now() - raw.at < DAY) return raw.value;
+  } catch {
+    // Not computed yet.
+  }
+  opening ??= (async () => {
+    const [index, catalog] = await Promise.all([indexOf(root), catalogOf(root, apiKey)]);
+    const out: Record<string, boolean> = {};
+    const queue = [...index];
+    await Promise.all(
+      Array.from({ length: 12 }, async () => {
+        for (let e = queue.shift(); e; e = queue.shift()) {
+          try {
+            out[e.name] = partnerNodes(prepare(await templateOf(root, e.name), catalog).prompt, catalog).length === 0;
+          } catch {
+            // Unreadable templates are simply not marked.
+          }
+        }
+      }),
+    );
+    await writeFile(join(dirOf(root), "open.json"), JSON.stringify({ at: Date.now(), value: out }));
+  })().finally(() => {
+    opening = null;
   });
   return null;
 }

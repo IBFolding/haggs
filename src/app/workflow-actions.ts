@@ -10,7 +10,7 @@ import { prepare, type UiWorkflow } from "../comfy/convert";
 import { priceOf } from "../comfy/price";
 import { createCloudRunner, type Kept } from "../providers/cloud";
 import { appOf } from "../comfy/apps";
-import { catalogOf, checked, indexOf, openTemplate, type Entry, type Opened } from "../server/comfy-library";
+import { catalogOf, checked, indexOf, openTemplate, opens, type Entry, type Opened } from "../server/comfy-library";
 import { keepResult } from "../server/keep";
 import { partnerNodes } from "../comfy/partner";
 import { createLocalRunner, localBase } from "../providers/local";
@@ -73,6 +73,8 @@ export async function listWorkflows(): Promise<Listing> {
   const entries = await indexOf(root());
   if (!key) return { entries, checked: false, needsKey: true };
   const runs = await checked(root(), key);
+  const open = await opens(root(), key);
+  if (open) for (const e of entries) if (e.name in open) e.open = open[e.name]!;
   if (runs) for (const e of entries) {
     const r = runs[e.name];
     e.runnable = r === true;

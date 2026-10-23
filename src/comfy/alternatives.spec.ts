@@ -27,3 +27,8 @@ test("open weights are the workflows that don't call a partner API", () => {
   assert.equal(isOpen(library[0] as never), true);
   assert.equal(isOpen(library[1] as never), false);
 });
+
+test("a checked workflow's own flag beats its name", () => {
+  assert.equal(isOpen({ name: "templates-fashion_shoot_vton", open: false }), false);
+  assert.equal(isOpen({ name: "api_something", open: true }), true);
+});

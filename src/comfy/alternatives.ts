@@ -7,8 +7,8 @@ import type { StepKind } from "./recipe";
  * weights or partner) without rewiring.
  */
 
-/** Comfy names workflows that call a partner API "api_…"; the rest run on open weights. */
-export const isOpen = (e: Pick<Entry, "name">) => !e.name.startsWith("api_");
+/** Open weights: no partner API anywhere in the workflow, once the library has been checked; until then, Comfy's own "api_" naming is the best guess. */
+export const isOpen = (e: Pick<Entry, "name"> & { open?: boolean }) => e.open ?? !e.name.startsWith("api_");
 
 export function alternativesFor(kind: StepKind | "library", library: Entry[]): Entry[] {
   const media = (e: Entry) => new Set(e.inputs.map((i) => i.media));

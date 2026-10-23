@@ -8,6 +8,14 @@ import type { Canvas, CNode } from "./canvas";
 
 export const GROUPS = ["Make something", "Swap and faces", "Fashion", "Product and ads", "Photo tools", "Video tools"] as const;
 export type Group = (typeof GROUPS)[number];
+/**
+ * The only ready-made apps that run entirely on open weights, checked against
+ * Comfy Cloud's node catalog (a node flagged api_node calls a partner's paid
+ * API) on 2026-10-23. Everything else uses at least one partner model.
+ */
+const OPEN_WEIGHTS = new Set(["template_purz_wan22_animate_auto_character_replace", "image_qwen_image_edit_2509_relight", "utility_z_image_turbo_2k_upscaler.app", "templates_liveportrait.app"]);
+export const isOpenApp = (a: QuickApp) => a.canvas.nodes.length > 0 && a.canvas.nodes.every((n) => n.kind === "library" && OPEN_WEIGHTS.has(n.template ?? ""));
+
 export type QuickApp = { id: string; group: Group; name: string; says: string; makes: "image" | "video"; canvas: Canvas };
 
 const at = (i: number): { x: number; y: number } => ({ x: 40 + i * 290, y: 40 });

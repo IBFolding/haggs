@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { compileCanvas } from "./canvas";
-import { GROUPS, QUICK_APPS, quickById } from "./quick";
+import { GROUPS, QUICK_APPS, isOpenApp, quickById } from "./quick";
 
 test("every ready-made app has a name, a plain sentence, and a unique id", () => {
   assert.ok(QUICK_APPS.length >= 25);
@@ -23,4 +23,11 @@ test("the ones that stack a library workflow name it, so it can be loaded", () =
   assert.ok(lib.length >= 3);
   for (const a of lib) for (const n of a.canvas.nodes) if (n.kind === "library") assert.match(n.template ?? "", /^[\w.-]+$/);
   assert.equal(quickById("nope"), undefined);
+});
+
+test("only apps built wholly from open-weights workflows say so", () => {
+  const open = QUICK_APPS.filter(isOpenApp).map((a) => a.id).sort();
+  assert.deepEqual(open, ["expression", "relight", "swap-person", "upscale"]);
+  assert.equal(isOpenApp(quickById("try-on")!), false);
+  assert.equal(isOpenApp(quickById("photo-to-clip")!), false);
 });

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Entry } from "../../server/comfy-library";
 import { Nav, openKeys } from "../nav";
 import { SWAP_THUMB } from "../swap/thumb";
-import { GROUPS, QUICK_APPS } from "../../comfy/quick";
+import { GROUPS, QUICK_APPS, isOpenApp } from "../../comfy/quick";
 import { createAppStore, type SavedApp } from "../../story/apps";
 import { defaultKv } from "../../story/kv";
 import { listWorkflows, type Listing } from "../workflow-actions";
@@ -82,7 +82,7 @@ export function Workflows() {
                     <Link key={a.id} className="quick-card" href={`/workflows/build?quick=${a.id}`}>
                       <b>{a.name}</b>
                       <span>{a.says}</span>
-                      <small>{a.canvas.nodes.every((n) => n.kind !== "library" || (n.template && !n.template.startsWith("api_"))) && a.canvas.nodes.some((n) => n.kind === "library") ? "Open weights · runs on your GPU" : `Makes a ${a.makes}`}</small>
+                      <small>{isOpenApp(a) ? "Open weights · runs on your GPU" : `Makes a ${a.makes}`}</small>
                     </Link>
                   ))}
                 </div>
