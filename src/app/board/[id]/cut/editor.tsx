@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
+import { fcpxml } from "../../../../story/fcpxml";
 import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
@@ -477,6 +478,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
         <summary>Export</summary>
         <div>
           <button className="plain" onClick={() => download(`${project.name}.cut.json`, cutList(cut, project.name), "application/json")}>Cut list (.json)</button>
+          <button className="plain" onClick={() => download(`${project.name}.fcpxml`, fcpxml(cut, project.name, { origin: window.location.origin, markers: project.markers ?? [] }), "application/xml")}>Final Cut / Resolve (.fcpxml)</button>
           <button className="plain" onClick={() => download(`${project.name}.sh`, ffmpegScript(cut, project.name, window.location.origin), "text/x-shellscript")}>ffmpeg script (.sh)</button>
           <p>Render MP4 makes the film here, voices and soundtrack mixed in, next to your media. The script does the same anywhere ffmpeg is installed.</p>
         </div>
