@@ -8,7 +8,8 @@ import { Soundtrack, usePreviewSound, VoiceLines } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
 import { cloudEstimate } from "../../../../providers/cloud-price";
-import { frameAt } from "../../../cut-actions";
+import { frameAt, reshoot } from "../../../cut-actions";
+import { ANGLES, reshootFrameAt, type AngleId } from "../../../../story/reshoot";
 import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite } from "../../../../story/takes";
 import { shoot } from "../../../shoot";
 import { EditTools } from "./tools";
@@ -191,6 +192,33 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
     } finally {
       setExpanding(null);
     }
+  }
+
+  /** Reshoot: the same scene from a new angle, as a new shot after this one with the picture on it, ready to animate. */
+  const [angle, setAngle] = useState<AngleId>("reverse");
+  const [reshooting, setReshooting] = useState<string | null>(null);
+  async function reshootShot(shotId: string) {
+    const latest = full.current ? view(full.current, boardId) : project;
+    const at = latest?.shots.findIndex((s) => s.id === shotId) ?? -1;
+    const source = latest?.shots[at];
+    if (!latest || !source?.render) return;
+    setProblem(null);
+    setReshooting(shotId);
+    const made = await reshoot(source.render.url, reshootFrameAt(source), source.render.kind, angle, source.beat);
+    setReshooting(null);
+    if (!made.ok) {
+      if (made.needsKey) openKeys();
+      return setProblem(made.reason);
+    }
+    const label = ANGLES.find((a) => a.id === angle)!.label;
+    const next: Shot = { ...newShot(), heading: source.heading, beat: `${source.beat.split(" — ")[0]} (${label.toLowerCase()})`, threadIds: [...source.threadIds], seconds: source.seconds ?? 3, model: source.model, ...(source.refs?.length ? { refs: [...source.refs] } : {}), render: { url: made.url, kind: "image", usd: made.usd, promptHash: "", at: Date.now() } };
+    apply((current) => {
+      const i = current.shots.findIndex((x) => x.id === shotId);
+      const shots = [...current.shots];
+      shots.splice(i + 1, 0, next);
+      return { ...current, shots };
+    });
+    setPicked(next.id);
   }
 
   // Dragging a clip on the timeline moves its shot on the board.
@@ -435,6 +463,14 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   >
                     {expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · $${expandPrice.toFixed(2)}`}
                   </button>
+                  <span className="reshoot">
+                    <select value={angle} onChange={(e) => setAngle(e.target.value as AngleId)} aria-label="Angle to reshoot from">
+                      {ANGLES.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                    </select>
+                    <button className="pill" disabled={reshooting !== null} title="Same scene, new angle: a picture from this shot's middle frame, as a new shot after it" onClick={() => void reshootShot(shot.id)}>
+                      {reshooting === shot.id ? "Reshooting…" : "Reshoot · $0.10"}
+                    </button>
+                  </span>
                   <button
                     className="pill"
                     disabled={expanding !== null}
