@@ -2403,3 +2403,5 @@ a.logo { color: var(--text); text-decoration: none; }
 .recreate-presets > b { font-size: 13px; color: var(--text-2); }
 .quick-card.mine { display: flex; align-items: center; justify-content: space-between; }
 .recreate-presets .quick-card { text-align: left; cursor: pointer; font: inherit; color: var(--text); }
+.ed-marker { position: absolute; top: 2px; z-index: 4; transform: translateX(-3px); max-width: 110px; padding: 0 6px; height: 16px; border: 0; border-left: 2px solid #ff6b6b; border-radius: 0 4px 4px 0; background: #ff6b6b33; color: #ffc9c9; font: inherit; font-size: 10px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.ed-marker-at { font-family: var(--mono); font-size: 12px; color: #ff9b9b; }

@@ -22,26 +22,42 @@ export function boardOf(project: Project, boardId?: string | null): Board {
   return boards.find((b) => b.id === boardId) ?? boards[0]!;
 }
 
+/** What belongs to the board being edited rather than the project: the soundtrack and mix, the effects, markers and overlays, the frame shape. */
+const SCOPED = ["music", "sound", "effects", "markers", "overlays", "aspect"] as const;
+
 /** The project with this board's shots and notes in the places board code reads them. */
 export function view(project: Project, boardId?: string | null): Project {
   const board = boardOf(project, boardId);
-  const { music: _project, sound: _mix, effects: _fx, aspect: _shape, ...base } = normalize(project);
-  return { ...base, shots: board.shots, notes: board.notes, ...(board.music ? { music: board.music } : {}), ...(board.sound ? { sound: board.sound } : {}), ...(board.effects?.length ? { effects: board.effects } : {}), ...(board.aspect ? { aspect: board.aspect } : {}) };
+  const base: Record<string, unknown> = { ...normalize(project) };
+  for (const k of SCOPED) delete base[k];
+  const out = { ...base, shots: board.shots, notes: board.notes } as Project;
+  for (const k of SCOPED) {
+    const v = board[k] as unknown;
+    if (Array.isArray(v) ? v.length : v) (out as Record<string, unknown>)[k] = v;
+  }
+  return out;
 }
 
 /** Writes a view back: its shots and notes to the board, everything else to the project. */
 export function commit(project: Project, boardId: string | null | undefined, seen: Project): Project {
   const base = normalize(project);
   const target = boardOf(base, boardId).id;
-  const { music, sound, effects, aspect, ...rest } = seen;
+  const rest: Record<string, unknown> = { ...seen };
+  for (const k of SCOPED) delete rest[k];
   return {
-    ...rest,
+    ...(rest as Project),
     shots: [],
     notes: [],
     boards: base.boards!.map((b) => {
       if (b.id !== target) return b;
-      const { music: _old, sound: _oldMix, effects: _oldFx, aspect: _oldShape, ...kept } = b;
-      return { ...kept, shots: seen.shots, notes: seen.notes, ...(music ? { music } : {}), ...(sound ? { sound } : {}), ...(effects?.length ? { effects } : {}), ...(aspect ? { aspect } : {}) };
+      const kept: Record<string, unknown> = { ...b };
+      for (const k of SCOPED) delete kept[k];
+      const next = { ...(kept as unknown as Board), shots: seen.shots, notes: seen.notes } as Record<string, unknown>;
+      for (const k of SCOPED) {
+        const v = seen[k] as unknown;
+        if (Array.isArray(v) ? v.length : v) next[k] = v;
+      }
+      return next as unknown as Board;
     }),
   };
 }

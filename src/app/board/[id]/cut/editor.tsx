@@ -9,6 +9,7 @@ import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
 import { cloudEstimate } from "../../../../providers/cloud-price";
 import { frameAt, makeCard } from "../../../cut-actions";
+import { addMarker, editMarker, removeMarker, stepMarker } from "../../../../story/markers";
 import { reshootFrameAt } from "../../../../story/reshoot";
 import { ReshootPanel } from "../../../reshoot-panel";
 import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite, trimHead, trimTail } from "../../../../story/takes";
@@ -54,6 +55,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const [missing, setMissing] = useState(false);
   const [t, setT] = useState(0);
   const [card, setCard] = useState<{ text: string; sub: string; busy: boolean } | null>(null);
+  const [markerEdit, setMarkerEdit] = useState<string | null>(null);
   const [fxDrag, setFxDrag] = useState<{ id: string; start: number } | null>(null);
   const [playing, setPlaying] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
@@ -338,6 +340,18 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       else if (e.key === " ") {
         e.preventDefault();
         setPlaying((p) => !p);
+      } else if (e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        const at = Math.round(tRef.current * 10) / 10;
+        apply((current) => {
+          const next = addMarker(current, at, "", cut.total);
+          const added = next.markers!.find((m) => m.at === at && !(current.markers ?? []).some((c) => c.id === m.id));
+          if (added) setMarkerEdit(added.id);
+          return next;
+        });
+      } else if (e.key === "," || e.key === ".") {
+        const to = stepMarker(now.current ?? ({ markers: [] } as unknown as Project), tRef.current, e.key === "." ? 1 : -1);
+        if (to !== null) seek(to);
       } else if (e.key.toLowerCase() === "s") edit(splitShot);
       else if (e.key.toLowerCase() === "i") edit(trimHead);
       else if (e.key.toLowerCase() === "o") edit(trimTail);
@@ -564,7 +578,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
             <div className="ed-time-bar">
               <b>Timeline</b>
               <span>{cut.clips.length} clips · {clock(cut.total)}</span>
-              <span className="ed-keys" title="Keyboard shortcuts">Space play · ←/→ step · S split · I/O trim · ⌘Z undo</span>
+              <span className="ed-keys" title="Keyboard shortcuts">Space play · ←/→ step · S split · I/O trim · M marker · ⌘Z undo</span>
+              <button className="plain" onClick={() => apply((current) => { const at = Math.round(t * 10) / 10; const next = addMarker(current, at, "", cut!.total); const added = next.markers!.find((m) => m.at === at && !(current.markers ?? []).some((c) => c.id === m.id)); if (added) setMarkerEdit(added.id); return next; })} title="Leave a note at the playhead (M). , and . jump between notes">+ Marker</button>
               <button className="plain" onClick={() => setCard(card ? null : { text: "", sub: "", busy: false })} title="Words on black, placed after the clip under the playhead">+ Title card</button>
               <button className="plain" disabled={historyTick < 0 || past.current.length === 0} onClick={() => travel("undo")} title="Undo (⌘Z)">Undo</button>
               <button className="plain" disabled={future.current.length === 0} onClick={() => travel("redo")} title="Redo (⇧⌘Z)">Redo</button>
@@ -577,6 +592,14 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                 <input value={card.sub} onChange={(e) => setCard({ ...card, sub: e.target.value })} placeholder="Smaller line (optional)" aria-label="Smaller line" maxLength={100} />
                 <button className="pill on" disabled={card.busy || !card.text.trim()}>{card.busy ? "Making…" : "Add the card"}</button>
                 <button type="button" className="plain" onClick={() => setCard(null)}>Cancel</button>
+              </form>
+            )}
+            {markerEdit && (project.markers ?? []).some((m) => m.id === markerEdit) && (
+              <form className="ed-card" onSubmit={(e) => { e.preventDefault(); setMarkerEdit(null); }}>
+                <b className="ed-marker-at">{clock((project.markers ?? []).find((m) => m.id === markerEdit)!.at)}</b>
+                <input autoFocus value={(project.markers ?? []).find((m) => m.id === markerEdit)!.text} onChange={(e) => apply((c) => editMarker(c, markerEdit, e.target.value))} placeholder="What needs doing here?" aria-label="Marker note" maxLength={200} />
+                <button type="button" className="plain danger" onClick={() => { apply((c) => removeMarker(c, markerEdit)); setMarkerEdit(null); }}>Remove</button>
+                <button className="pill on">Done</button>
               </form>
             )}
             <div className="ed-tracks">
@@ -610,7 +633,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   }
                 }}
               >
-                <div className="ed-ruler">{ticks.map((sec) => <span key={sec} style={{ left: sec * pps }}>{clock(sec)}</span>)}</div>
+                <div className="ed-ruler">{ticks.map((sec) => <span key={sec} style={{ left: sec * pps }}>{clock(sec)}</span>)}{(project.markers ?? []).map((m) => <button key={m.id} className="ed-marker" style={{ left: m.at * pps }} title={`${clock(m.at)} ${m.text || "Marker"}`} onPointerDown={(e) => e.stopPropagation()} onClick={() => { seek(m.at); setMarkerEdit(m.id); }}>{m.text ? m.text.slice(0, 14) : "●"}</button>)}</div>
                 <div className="ed-clips">
                   {cut.clips.map((clip) => {
                     const w = clip.seconds * pps;

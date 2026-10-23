@@ -84,3 +84,17 @@ test("a board's frame shape is kept through a view and a commit, and the cut car
   assert.equal(buildCut(view(p, "v")).aspect, "9:16");
   assert.equal(buildCut(view(p, "h")).aspect, "16:9");
 });
+
+test("markers and overlays belong to the board being edited and travel with it", () => {
+  const p = addBoard(createProject("x"), "Cut B", "reel").project;
+  const id = p.boards![1]!.id;
+  const seen = { ...view(p, id), markers: [{ id: "m", at: 3.5, text: "Trim this" }], overlays: [{ id: "o", name: "Title", url: "/t.png", start: 1, seconds: 2 }] };
+  const saved = commit(p, id, seen);
+  assert.equal(saved.boards![1]!.markers?.[0]?.text, "Trim this");
+  assert.equal(saved.boards![1]!.overlays?.[0]?.url, "/t.png");
+  assert.equal(saved.boards![0]!.markers, undefined, "the other board has none");
+  assert.deepEqual(view(saved, id).markers, seen.markers);
+  assert.equal(view(saved, saved.boards![0]!.id).markers, undefined);
+  const cleared = commit(saved, id, { ...view(saved, id), markers: [] });
+  assert.equal(cleared.boards![1]!.markers, undefined, "an emptied list is dropped, not kept as []");
+});

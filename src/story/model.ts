@@ -54,6 +54,12 @@ export type Shot = {
   };
   /** Excluded from reorder recompute, so a finished shot stays finished. */
   locked?: boolean;
+  /** Seconds the picture and its own sound fade in from, and out to, black. */
+  fadeIn?: number;
+  fadeOut?: number;
+  /** How the footage meets the frame: fit it whole (bars where the shapes differ) or fill it (crop), around a focal point 0–1. */
+  fit?: "fit" | "fill";
+  focus?: { x: number; y: number };
   /** The shot-list row this shot was sent from, so a re-send updates it in place. */
   sheetShotId?: string;
   /** Every take this shot has had. `render` is the one on the shot. */
@@ -113,6 +119,12 @@ export type Sound = {
   clipMute?: boolean;
 };
 
+/** A review note on the timeline: a moment worth coming back to. */
+export type Marker = { id: string; at: number; text: string };
+
+/** Something shown over the picture for a while: a title, a logo. A transparent picture placed on the frame. */
+export type Overlay = { id: string; name: string; url: string; start: number; seconds: number };
+
 /** A sound effect on its own track, placed on the cut's clock. */
 export type Effect = { id: string; name: string; url: string; /** Seconds from the start of the cut. */ start: number; /** Loudness change in dB. */ gain: number; /** How long the sound is, for drawing it. */ seconds: number };
 
@@ -169,6 +181,10 @@ export type Project = {
   sound?: Sound;
   /** The effects track of the board being viewed. */
   effects?: Effect[];
+  /** Review markers on the board being viewed. */
+  markers?: Marker[];
+  /** The overlay track (titles over the picture) of the board being viewed. */
+  overlays?: Overlay[];
   /** The frame shape of the board being viewed. Stored on the board, like the soundtrack. */
   aspect?: "16:9" | "9:16";
   /** Set by an import tool; a later file with the same key offers to replace this project. */
@@ -191,6 +207,8 @@ export type Board = {
   music?: Music;
   sound?: Sound;
   effects?: Effect[];
+  markers?: Marker[];
+  overlays?: Overlay[];
   /** The shape of its frame; vertical for social series. Landscape when left out. */
   aspect?: "16:9" | "9:16";
 };
