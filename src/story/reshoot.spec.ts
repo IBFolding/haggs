@@ -42,3 +42,17 @@ test("the frame comes from the middle of what you see of the shot", () => {
   const still = { ...newShot(), seconds: 3, render: { url: "/a.png", kind: "image" as const, usd: null, promptHash: "", at: 1 } };
   assert.equal(reshootFrameAt(still), 0);
 });
+
+test("the dial maps onto Comfy's CameraAngle node: 0–360 around, −30–60 up, 0 wide to 10 close", async () => {
+  const { toCameraAngle, OPEN_RESHOOT } = await import("./reshoot");
+  assert.deepEqual(toCameraAngle({ az: 0, el: 0, zoom: 0 }), { horizontal_angle: 0, vertical_angle: 0, zoom: 5 });
+  assert.equal(toCameraAngle({ az: 90, el: 0, zoom: 0 }).horizontal_angle, 90);
+  assert.equal(toCameraAngle({ az: -90, el: 0, zoom: 0 }).horizontal_angle, 270, "left is the far side of the circle");
+  assert.equal(toCameraAngle({ az: 180, el: 0, zoom: 0 }).horizontal_angle, 180);
+  assert.equal(toCameraAngle({ az: 0, el: 80, zoom: 0 }).vertical_angle, 60, "clamped to what the node allows");
+  assert.equal(toCameraAngle({ az: 0, el: -45, zoom: 0 }).vertical_angle, -30);
+  assert.equal(toCameraAngle({ az: 0, el: 0, zoom: -1 }).zoom, 10, "closer is a bigger number");
+  assert.equal(toCameraAngle({ az: 0, el: 0, zoom: 1 }).zoom, 0);
+  assert.equal(OPEN_RESHOOT.template, "template_qwen_multiangle.app");
+  assert.deepEqual(OPEN_RESHOOT.node, "221");
+});

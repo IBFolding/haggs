@@ -346,3 +346,12 @@ export function useAvailable(prompt: ApiPrompt, catalog: Catalog): { prompt: Api
   }
   return { prompt: next, swaps };
 }
+
+/** Convert, substitute available model files, then validate what's left: the prompt to run, anything still wrong, and what was swapped. */
+export function prepare(ui: UiWorkflow, catalog: Catalog): Converted & { swaps: string[] } {
+  const first = toApiPrompt(ui, catalog);
+  if (!Object.keys(first.prompt).length) return { ...first, swaps: [] };
+  const { prompt, swaps } = useAvailable(first.prompt, catalog);
+  const noOutput = first.problems.filter((p) => /saves nothing|isn't a Comfy workflow|doesn't have/.test(p));
+  return { prompt, outputs: first.outputs, problems: [...new Set([...noOutput, ...validate(prompt, catalog)])], swaps };
+}

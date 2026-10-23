@@ -13,13 +13,13 @@ import { CLAUDE_COOKIE, keyIn } from "../server/keys";
 
 const MODEL = "claude-opus-5-5";
 
-const SYSTEM = `You are the producer inside haggs, an open-source film studio that runs on Comfy. People make films here: Sheets (script, characters, places, beats, shot list) → Board (the story as a flow of shots, with subplot lanes) → Cut (the editor: takes, trims, splits, voice-over, soundtrack, Render MP4) → Media. Create and Video make single pictures and clips; Swap puts a new character into a video; Workflows runs Comfy workflows as simple apps.
+const SYSTEM = `You are Haggy, the producer inside haggs, an open-source film studio that runs on Comfy. People make films here: Sheets (script, characters, places, beats, shot list) → Board (the story as a flow of shots, with subplot lanes) → Cut (the editor: takes, trims, splits, voice-over, soundtrack, Render MP4) → Media. Create and Video make single pictures and clips; Swap puts a new character into a video; Workflows runs Comfy workflows as simple apps.
 
 You can read the person's projects and change them with the tools. Every change you make shows in the chat with an Undo, so make the change rather than describing it, then say in a sentence what you did. Read before you change: get the board before editing its shots.
 
 You never spend money. Generating, animating, speaking lines and running workflows cost the person's credits, so you set things up and send them to the page where they press the button that shows the price. Never delete anything.
 
-Keep replies short and plain. Name shots by number and beat, not by id.`;
+You introduce yourself as Haggy if asked who you are. Keep replies short and plain. Name shots by number and beat, not by id.`;
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   { name: "list_projects", description: "The person's projects, each with its boards and how many shots they have.", input_schema: { type: "object", properties: {}, additionalProperties: false } },
@@ -94,7 +94,7 @@ export async function claudeHeld(): Promise<boolean> {
 /** One turn. The history only ever grows (the page someone is on travels in their own message), so Claude's thinking stays valid. */
 export async function agentTurn(messages: Anthropic.Beta.BetaMessageParam[]): Promise<AgentTurn> {
   const key = keyIn(await cookies(), CLAUDE_COOKIE);
-  if (!key) return { ok: false, reason: "Add a Claude key to talk to the producer.", needsKey: true };
+  if (!key) return { ok: false, reason: "Add a Claude key to talk to Haggy.", needsKey: true };
   if (!Array.isArray(messages) || !messages.length || messages.length > 400) return { ok: false, reason: "That conversation can't be sent." };
   const client = new Anthropic({ apiKey: key });
   try {

@@ -74,3 +74,11 @@ test("a model file a template names but Cloud calls something else is swapped fo
   assert.equal(none.prompt["1"]!.inputs.vae_name, "totally_unrelated.safetensors", "no close match: left alone, so validation still reports it");
   assert.deepEqual(none.swaps, []);
 });
+
+test("prepare swaps what it can, then reports only what is still wrong", async () => {
+  const { prepare } = await import("./convert");
+  const ok = prepare(load("api_higgsfield_genjutsu_motion_transfer"), catalog);
+  assert.deepEqual(ok.problems, []);
+  assert.deepEqual(ok.swaps, []);
+  assert.deepEqual(prepare({ nodes: "x" } as unknown as UiWorkflow, catalog).problems, ["That isn't a Comfy workflow file."]);
+});

@@ -15,7 +15,7 @@ import { openKeys } from "./nav";
 import { listWorkflows } from "./workflow-actions";
 
 /**
- * The producer: Claude, in the app, on every page. Ask it to re-cut a board,
+ * Haggy: the in-app producer, on every page (Claude underneath). Ask it to re-cut a board,
  * put a line on a shot, find a workflow, take you somewhere. Its changes show
  * here with an Undo; anything that costs money it sets up for you to press.
  */
@@ -25,7 +25,7 @@ type Line = { who: "you" | "claude" | "change" | "error"; text: string; undo?: P
 
 export const PROJECT_SAVED = "haggs:project-saved";
 const OPEN_PRODUCER = "haggs:open-producer";
-/** Opens the producer from anywhere: the header's Ask Claude. */
+/** Opens Haggy from anywhere: the header's Ask Haggy. */
 export function openProducer() {
   window.dispatchEvent(new Event(OPEN_PRODUCER));
 }
@@ -163,17 +163,17 @@ export function Producer() {
   return createPortal(
     <>
       {open && (
-        <aside className="producer" aria-label="The producer">
+        <aside className="producer" aria-label="Haggy">
           <header>
-            <b>Producer</b>
-            <span>Claude, working on your projects</span>
+            <b>Haggy</b>
+            <span>Your producer, working on your projects</span>
             {lines.length > 0 && <button className="plain" onClick={() => { setHistory([]); setLines([]); }}>New chat</button>}
             <button className="plain" onClick={() => setOpen(false)} aria-label="Close">Close</button>
           </header>
           <div className="producer-log" aria-live="polite">
             {!lines.length && (
               <div className="producer-hello">
-                <p>Tell me what you want and I&rsquo;ll do it here. For example:</p>
+                <p>Hi, I&rsquo;m Haggy. Tell me what you want and I&rsquo;ll do it here. For example:</p>
                 {["Make a 30-second cutdown of the sizzle from its strongest shots", "Put “Tell me what I missed.” on the last shot, in Chris's voice", "Find a workflow that puts my product in a scene", "Keep the title cards as they are so Animate stills skips them"].map((s) => (
                   <button key={s} className="producer-try" onClick={() => setDraft(s)}>{s}</button>
                 ))}
@@ -196,7 +196,7 @@ export function Producer() {
             <div ref={end} />
           </div>
           <form className="producer-say" onSubmit={(e) => { e.preventDefault(); void send(); }}>
-            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} placeholder="Ask the producer…" aria-label="Message the producer" onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
+            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} placeholder="Ask Haggy…" aria-label="Message Haggy" onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
             <button className="fire" disabled={busy || !draft.trim()}>Send</button>
           </form>
         </aside>

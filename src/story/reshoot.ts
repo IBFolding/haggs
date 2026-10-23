@@ -54,3 +54,17 @@ export function reshootFrameAt(shot: Shot): number {
   if (shot.render?.kind !== "video") return 0;
   return Math.round(((shot.trimIn ?? 0) + clipSeconds(shot) / 2) * 1000) / 1000;
 }
+
+/** The open-weights route: Comfy's Qwen-Image-Edit multi-angle workflow, whose CameraAngle node takes the move as numbers. */
+export const OPEN_RESHOOT = { template: "template_qwen_multiangle.app", node: "221", image: "1/image" } as const;
+
+const clampN = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+/** The dial as the CameraAngle node's three controls: 0–360 around the subject (0 front, 90 right, 180 back), −30…60 elevation, zoom 0 wide … 10 close. */
+export function toCameraAngle(c: Camera): { horizontal_angle: number; vertical_angle: number; zoom: number } {
+  return {
+    horizontal_angle: ((Math.round(c.az) % 360) + 360) % 360,
+    vertical_angle: clampN(Math.round(c.el), -30, 60),
+    zoom: clampN(Math.round((5 - 5 * c.zoom) * 10) / 10, 0, 10),
+  };
+}
