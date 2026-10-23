@@ -20,6 +20,25 @@ export const FORMATS: { id: FormatId; label: string; blurb: string; rules: strin
   { id: "influencer", label: "Influencer", blurb: "One consistent person talking to camera, in different places.", rules: "One recurring influencer character speaks to camera in every video, in a different everyday place each time. Each opens on their direct hook line. Keep their look identical in every picture description." },
 ];
 
+/** A starting point that fills in a whole series: the kind, the idea, the look, the voice. Faceless presets are grouped like a channel's categories. */
+export type Preset = { id: string; category: string; name: string; format: FormatId; topic: string; look?: string; voice?: string; count: number };
+export const PRESETS: Preset[] = [
+  { id: "raven", category: "Storytelling", name: "The Raven Who Stole the Light", format: "faceless", topic: "A folk tale told simply: a raven steals the sun from a hoarding old man and scatters light across the world", look: "painted-feature", voice: "Matilda (female, american)", count: 2 },
+  { id: "golden-fish", category: "Storytelling", name: "The Golden Fish", format: "faceless", topic: "The fisherman, the golden fish and the wife who asks for too much, told as a bedtime tale", look: "storybook", voice: "Will (male, american)", count: 2 },
+  { id: "factory-pov", category: "History", name: "POV: a 17th-century factory worker", format: "faceless", topic: "A day in the life of a worker in a 17th-century workshop, told in second person", look: "ink-comic", voice: "Brian (male, american)", count: 2 },
+  { id: "dogs", category: "History", name: "A brief history of domestic dogs", format: "faceless", topic: "How wolves became dogs: the first campfires, the first partnerships, 15,000 years in 60 seconds", look: "painted-feature", voice: "Will (male, american)", count: 2 },
+  { id: "dreams", category: "Education", name: "Why do we dream?", format: "faceless", topic: "What the brain is doing while we dream, and the theories for why", look: "storybook", voice: "Matilda (female, american)", count: 3 },
+  { id: "jellyfish", category: "Education", name: "The immortal jellyfish", format: "faceless", topic: "The jellyfish that can reset its own life cycle, and what scientists are learning from it", look: "stylised-3d", voice: "Will (male, american)", count: 2 },
+  { id: "counting", category: "Kids", name: "Counting to five", format: "faceless", topic: "A gentle counting song-story for toddlers: one ladybird to five ducklings, bright and simple", look: "painted-feature", voice: "Lily (female, british)", count: 2 },
+  { id: "what-if-eat", category: "Trending", name: "What if you could eat endlessly?", format: "what-if", topic: "Strange things that would happen if a human never stopped being hungry", look: "stylised-3d", count: 3 },
+  { id: "what-if-sleep", category: "Trending", name: "What if you never slept?", format: "what-if", topic: "What happens to a body and a city if nobody ever needed sleep", look: "stylised-3d", count: 3 },
+  { id: "pov-late", category: "Trending", name: "POV: you're always five minutes late", format: "pov", topic: "Relatable moments of someone who is always five minutes late and has an excuse for each", count: 3 },
+  { id: "dyk-ocean", category: "Trending", name: "Did you know: the ocean", format: "did-you-know", topic: "Surprising true facts about the deep ocean", look: "stylised-3d", count: 3 },
+  { id: "top5-animals", category: "Trending", name: "Top 5 strangest animals", format: "top-five", topic: "The five strangest animals alive, best last", look: "painted-feature", count: 2 },
+  { id: "story-lighthouse", category: "Trending", name: "The lighthouse keeper, in parts", format: "story", topic: "A lonely lighthouse keeper finds a message in a bottle that answers a letter he hasn't written yet", look: "painted-feature", count: 4 },
+];
+export const presetById = (id: string) => PRESETS.find((p) => p.id === id);
+
 const str = { type: "string" } as const;
 const obj = (properties: Record<string, unknown>) => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });
 export const SERIES_SCHEMA = obj({

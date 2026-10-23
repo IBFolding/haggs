@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createCharacterStore, identityLock, type Character } from "../../characters/character";
 import { editEstimate, VOICES } from "../../providers/cloud-edits";
-import { FORMATS, buildSeries, pictureWords, type FormatId, type Series } from "../../series/series";
+import { FORMATS, PRESETS, buildSeries, pictureWords, type FormatId, type Series } from "../../series/series";
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { STYLES } from "../../styles/style";
@@ -35,6 +35,7 @@ export function SeriesMaker() {
   const [format, setFormat] = useState<FormatId>("what-if");
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState(3);
+  const [category, setCategory] = useState<string>("Storytelling");
   const [cast, setCast] = useState<Character[]>([]);
   const [who, setWho] = useState<string | null>(null);
   const [lookId, setLookId] = useState<string | null>(null);
@@ -49,6 +50,11 @@ export function SeriesMaker() {
   const [note, setNote] = useState<string | null>(null);
   const [sent, setSent] = useState<Sent[]>([]);
   const stop = useRef(false);
+  // The latest of each, readable inside a long run where state would still be last render's.
+  const pics = useRef<Record<string, string>>({});
+  const clipsRef = useRef<Record<string, string>>({});
+  const spokenRef = useRef<Record<string, string>>({});
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   useEffect(() => {
     void characters.list().then(setCast);
@@ -67,6 +73,16 @@ export function SeriesMaker() {
   const style = STYLES.find((s) => s.id === lookId) ?? null;
   const words = { ...(style ? { look: style.words } : {}), ...(person ? { lock: identityLock(person.traits) } : {}) };
 
+  function usePreset(id: string) {
+    const p = PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    setFormat(p.format);
+    setTopic(p.topic);
+    setCount(p.count);
+    setLookId(p.look ?? null);
+    if (p.voice) setVoice(p.voice);
+  }
+
   async function write() {
     setBusy(true);
     setError(null);
@@ -83,7 +99,7 @@ export function SeriesMaker() {
       return setError(r.reason);
     }
     setSeries(r.series);
-    setPictures({});
+    setPictures({}); pics.current = {}; clipsRef.current = {}; spokenRef.current = {};
     setClips({});
     setSpoken({});
   }
@@ -93,7 +109,7 @@ export function SeriesMaker() {
     setSent((all) => all.filter((x) => x.id !== i.id));
     setFormat(i.payload.format);
     setSeries(i.payload.series);
-    setPictures({});
+    setPictures({}); pics.current = {}; clipsRef.current = {}; spokenRef.current = {};
   }
 
   async function picture(e: number, s: number): Promise<boolean> {
@@ -107,6 +123,7 @@ export function SeriesMaker() {
       setError(r.reason);
       return false;
     }
+    pics.current[key] = r.url;
     setPictures((p) => ({ ...p, [key]: r.url }));
     return true;
   }
@@ -115,7 +132,7 @@ export function SeriesMaker() {
   async function animate(e: number, s: number): Promise<boolean> {
     const sh = series!.episodes[e]!.shots[s]!;
     const key = `${e}.${s}`;
-    const still = pictures[key];
+    const still = pics.current[key];
     if (!still) return false;
     setMaking(`clip:${key}`);
     const r = await runModel("minimax/minimax-h3", `${sh.picture}. Gentle camera move, natural motion, the moment plays out.`, { resolution: "768P", ratio: "9:16", duration: Math.max(4, Math.round(sh.seconds)) }, [still], true);
@@ -126,6 +143,7 @@ export function SeriesMaker() {
       setError(r.ok ? "The clip didn't come back." : r.reason);
       return false;
     }
+    clipsRef.current[key] = first.url;
     setClips((c) => ({ ...c, [key]: first.url }));
     return true;
   }
@@ -136,10 +154,23 @@ export function SeriesMaker() {
     setError(null);
     for (const [e, ep] of series.episodes.entries()) {
       for (let s = 0; s < ep.shots.length; s++) {
-        if (!pictures[`${e}.${s}`] || clips[`${e}.${s}`]) continue;
+        if (!pics.current[`${e}.${s}`] || clipsRef.current[`${e}.${s}`]) continue;
         if (stop.current || !(await animate(e, s))) return;
       }
     }
+  }
+
+  /** Everything, in order, stopping at the first problem: pictures, narration, clips, then the editor. */
+  async function makeWholeVideo() {
+    if (!series) return;
+    stop.current = false;
+    setError(null);
+    for (const [e, ep] of series.episodes.entries()) for (let k = 0; k < ep.shots.length; k++) if (!pics.current[`${e}.${k}`]) { if (stop.current || !(await picture(e, k))) return; }
+    if (hasNarration) await narrate();
+    for (const [e, ep] of series.episodes.entries()) for (let k = 0; k < ep.shots.length; k++) if (!clipsRef.current[`${e}.${k}`]) { if (stop.current || !(await animate(e, k))) return; }
+    setNote("All made. Opening it in the editor…");
+    await sleep(600);
+    await open();
   }
 
   async function all() {
@@ -148,7 +179,7 @@ export function SeriesMaker() {
     setError(null);
     for (const [e, ep] of series.episodes.entries()) {
       for (let s = 0; s < ep.shots.length; s++) {
-        if (pictures[`${e}.${s}`]) continue;
+        if (pics.current[`${e}.${s}`]) continue;
         if (stop.current || !(await picture(e, s))) return;
       }
     }
@@ -160,11 +191,12 @@ export function SeriesMaker() {
     for (const [e, ep] of series.episodes.entries()) {
       for (const [k, sh] of ep.shots.entries()) {
         const key = `${e}.${k}`;
-        if (!sh.narration.trim() || spoken[key]) continue;
+        if (!sh.narration.trim() || spokenRef.current[key]) continue;
         setMaking(`say:${key}`);
         const r = await speakLine(sh.narration, voice);
         setMaking(null);
         if (!r.ok) { if (r.needsKey) openKeys(); return setError(r.reason); }
+        spokenRef.current[key] = r.url;
         setSpoken((all) => ({ ...all, [key]: r.url }));
       }
     }
@@ -172,7 +204,7 @@ export function SeriesMaker() {
 
   async function open() {
     if (!series) return;
-    const project = buildSeries(series, format, { ...words, ...(person?.sheet ? { refs: [person.sheet] } : {}), pictures, clips, voice, narrationUrls: spoken });
+    const project = buildSeries(series, format, { ...words, ...(person?.sheet ? { refs: [person.sheet] } : {}), pictures: pics.current, clips: clipsRef.current, voice, narrationUrls: spokenRef.current });
     await store.save(project);
     router.push(`/board/${project.id}/cut?b=${encodeURIComponent(project.boards![0]!.id)}`);
   }
@@ -182,6 +214,8 @@ export function SeriesMaker() {
   const total = series?.episodes.reduce((n, e) => n + e.shots.length, 0) ?? 0;
   const done = Object.keys(pictures).length;
   const left = total - done;
+  const unspoken = series?.episodes.flatMap((ep, e) => ep.shots.flatMap((sh, k) => (sh.narration.trim() && !spoken[`${e}.${k}`] ? [sh.narration] : []))) ?? [];
+  const everything = left * PRICE + editEstimate({ tool: "speech", seconds: 0, characters: unspoken.reduce((n, l) => n + l.length, 0) }) + (series?.episodes.flatMap((ep, e) => ep.shots.map((sh, k) => (clips[`${e}.${k}`] ? 0 : Math.max(4, Math.round(sh.seconds)) * CLIP_RATE))).reduce((n, v) => n + v, 0) ?? 0);
   const secondsOf = (k: string) => { const [e, sIdx] = k.split(".").map(Number); return Math.max(4, Math.round(series?.episodes[e!]?.shots[sIdx!]?.seconds ?? 4)); };
   const toAnimate = Object.keys(pictures).filter((k) => !clips[k]);
   const animatePrice = toAnimate.reduce((n, k) => n + secondsOf(k) * CLIP_RATE, 0);
@@ -216,6 +250,21 @@ export function SeriesMaker() {
                 <h1>Make a series</h1>
                 <p>Pick the kind, who is in it and how it looks. Then watch it turn into pictures on this page.</p>
               </header>
+              <div className="series-presets" aria-label="Start from a preset">
+                <div className="quick-tabs" role="tablist" aria-label="Preset kind">
+                  {[...new Set(PRESETS.map((p) => p.category))].map((c) => (
+                    <button key={c} role="tab" aria-selected={category === c} className={category === c ? "on" : ""} onClick={() => setCategory(c)}>{c}</button>
+                  ))}
+                </div>
+                <div className="quick-row">
+                  {PRESETS.filter((p) => p.category === category).map((p) => (
+                    <button key={p.id} className={`quick-card${topic === p.topic ? " picked" : ""}`} onClick={() => usePreset(p.id)} title={p.topic}>
+                      <b>{p.name}</b>
+                      <small>{FORMATS.find((f) => f.id === p.format)!.label} · {p.count} video{p.count === 1 ? "" : "s"}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="series-formats" role="radiogroup" aria-label="Format">
                 {FORMATS.map((f) => (
                   <button key={f.id} role="radio" aria-checked={format === f.id} className={format === f.id ? "on" : ""} onClick={() => setFormat(f.id)}>
@@ -270,6 +319,7 @@ export function SeriesMaker() {
                     <button className="pill" disabled={making !== null || lines.length === 0} onClick={() => void narrate()}>{lines.length === 0 ? "Narrated" : `Narrate it · ${money(sayPrice)}`}</button>
                   </>
                 )}
+                {!making && everything > 0.001 && <button className="fire" onClick={() => void makeWholeVideo()} title="Pictures, narration and clips in order, then the editor. Stops at the first problem.">Make the whole video · {money(everything)}</button>}
                 {done > 0 && !making && <button className="pill" disabled={toAnimate.length === 0} onClick={() => void animateAll()}>{toAnimate.length === 0 ? "All animated" : `Animate ${toAnimate.length} · ${money(animatePrice)}`}</button>}
                 <button className="pill on" onClick={() => void open()}>Open in the editor</button>
                 <button className="plain" onClick={() => setSeries(null)}>Start again</button>

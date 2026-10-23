@@ -2368,3 +2368,7 @@ a.logo { color: var(--text); text-decoration: none; }
 .quick-row .quick-card { padding: 10px 12px; gap: 2px; }
 .quick-row .quick-card b { font-size: 13px; }
 .quick-row .quick-card small { margin-top: 0; font-size: 11px; color: var(--text-3); }
+.series-presets { display: grid; gap: 10px; margin-bottom: 14px; }
+.series-presets .quick-card { text-align: left; cursor: pointer; }
+.quick-card.picked { border-color: var(--volt); }
+.quick-card { font: inherit; }

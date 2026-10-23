@@ -102,3 +102,18 @@ test("clips animated on the page replace the pictures on their shots, current ra
   assert.equal(b!.render?.url, "/b.mp4", "a clip needs no picture beside it");
   assert.deepEqual(staleShots(view(p, p.boards![0]!.id)), []);
 });
+
+import { PRESETS, presetById } from "./series";
+
+test("presets fill in a whole series: format, topic, look, voice and count", () => {
+  assert.ok(PRESETS.length >= 10);
+  assert.equal(new Set(PRESETS.map((p) => p.id)).size, PRESETS.length);
+  for (const p of PRESETS) {
+    assert.ok(FORMATS.some((f) => f.id === p.format), p.id);
+    assert.ok(p.topic.length > 12 && p.name && p.category, p.id);
+    assert.ok(p.count >= 1 && p.count <= 8, p.id);
+  }
+  const faceless = PRESETS.filter((p) => p.format === "faceless");
+  assert.deepEqual([...new Set(faceless.map((p) => p.category))].sort(), ["Education", "History", "Kids", "Storytelling"]);
+  assert.equal(presetById("nope"), undefined);
+});
