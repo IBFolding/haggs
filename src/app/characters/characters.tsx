@@ -8,6 +8,7 @@ import { defaultKv } from "../../story/kv";
 import type { Run } from "../../story/runs";
 import { runEdit } from "../actions";
 import { Nav, openKeys } from "../nav";
+import { surfaceAvailable } from "../studio";
 import { ReturnBar } from "../return-bar";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
@@ -128,7 +129,7 @@ export function Characters() {
           <ReturnBar kind="character" savedId={current?.id} savedName={current?.traits.name} />
           <nav className="modes" aria-label="Photos">
             <Link href="/photos">Make</Link>
-            <Link href="/edit">Edit a photo</Link>
+            {surfaceAvailable("Edit") && <Link href="/edit">Edit a photo</Link>}
             <Link href="/characters" aria-current="page">Characters</Link>
             <Link href="/locations">Locations</Link>
             <Link href="/comic">Comic strip</Link>

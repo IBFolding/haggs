@@ -1,7 +1,8 @@
 "use server";
 
 import { execFile } from "node:child_process";
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -11,11 +12,34 @@ import { createCloudRunner } from "../providers/cloud";
 import { flux3Workflow } from "../providers/cloud-edits";
 import { OPEN_RESHOOT, reshootPrompt, toCameraAngle, type Camera } from "../story/reshoot";
 import { runWorkflow } from "./workflow-actions";
+import { hosted, isBlobUrl, putBlob } from "../server/blob";
+import { ffmpegBin } from "../server/ffmpeg";
 import { keepResult } from "../server/keep";
+import { readMedia } from "../server/media";
 import { COMFY_COOKIE, keyIn } from "../server/keys";
 import { localFile, localUrl } from "../server/local-media";
 
 const run = promisify(execFile);
+
+/** A frame of a take kept in the app's file store. The take is fetched to a scratch file and ffmpeg (shipped with the build) reads it there. */
+async function hostedFrame(url: string, at: number): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+  if (!isBlobUrl(url)) return { ok: false, reason: "Only takes in this app's store can give a frame." };
+  if (!Number.isFinite(at) || at < 0 || at > 7200) return { ok: false, reason: "That moment isn't in the take." };
+  const dir = await mkdtemp(join(tmpdir(), "haggs-frame-"));
+  try {
+    const src = join(dir, "take.mp4");
+    await writeFile(src, (await readMedia(url)).bytes);
+    const out = join(dir, "frame.png");
+    const ff = ffmpegBin();
+    await run(ff, ["-loglevel", "error", "-y", "-ss", String(at), "-i", src, "-frames:v", "1", out]).catch(() => undefined);
+    // Past the last frame ffmpeg writes nothing: take the very last frame there is.
+    if (!(await stat(out).then((s) => s.size > 0, () => false))) await run(ff, ["-loglevel", "error", "-y", "-sseof", "-0.1", "-i", src, "-update", "1", "-frames:v", "1", out]).catch(() => undefined);
+    const bytes = await readFile(out).catch(() => null);
+    return bytes ? { ok: true, url: await putBlob(new Uint8Array(bytes), "png", "frames") } : { ok: false, reason: "ffmpeg couldn't read a frame from that take." };
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
 
 /**
  * One frame of a take, kept as a picture: what a bridge starts or ends on.
@@ -24,6 +48,7 @@ const run = promisify(execFile);
  */
 export async function frameAt(url: string, at: number, kind: "image" | "video"): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
   if (kind === "image") return { ok: true, url };
+  if (hosted()) return hostedFrame(url, at);
   const root = process.env.HAGGS_LOCAL_MEDIA;
   if (!root || process.env.NODE_ENV === "production") return { ok: false, reason: "Taking a frame needs the local media folder (development)." };
   if (!url.startsWith("/api/local/")) return { ok: false, reason: "Only takes on this machine can give a frame here." };
@@ -54,11 +79,10 @@ export async function reshoot(url: string, at: number, kind: "image" | "video", 
     const frame = await frameAt(url, at, kind);
     if (!frame.ok) return frame;
     const prompt = reshootPrompt({ az: Number(move.az) || 0, el: Number(move.el) || 0, zoom: Number(move.zoom) || 0 }, beat);
-    const { readFile } = await import("node:fs/promises");
-    const file = localFile(process.env.HAGGS_LOCAL_MEDIA, frame.url.slice("/api/local/".length).split("/").map(decodeURIComponent), process.env.NODE_ENV);
-    if (!file) return { ok: false, reason: "That shot's picture isn't in the local media folder." };
+    const picture = await readMedia(frame.url).catch(() => null);
+    if (!picture) return { ok: false, reason: "That shot's picture couldn't be read." };
     const cloud = createCloudRunner({ apiKey: key, keep: keepResult });
-    const uploaded = await cloud.uploadBytes(new Uint8Array(await readFile(file.path)), file.type);
+    const uploaded = await cloud.uploadBytes(picture.bytes, picture.mime);
     const result = await cloud.run(flux3Workflow({ prompt, references: [uploaded], ratio: "16:9", resolution: "1.5K", seed: Math.floor(Math.random() * 2_000_000_000) }));
     return { ok: true, url: result.url, source: frame.url, usd: 0.1001 };
   } catch (caught) {

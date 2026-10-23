@@ -4,6 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import { parseSearch, pickFile, searchUrl, type Found } from "../found/found";
+import { hosted } from "../server/blob";
 import { keepResult } from "../server/keep";
 
 const run = promisify(execFile);
@@ -34,6 +35,7 @@ export async function keepFootage(id: string): Promise<Kept> {
     if (!res.ok || !new URL(res.url).hostname.endsWith("archive.org")) return { ok: false, reason: "The archive wouldn't serve that file." };
     const url = await keepResult(new Uint8Array(await res.arrayBuffer()), "mp4");
     let seconds = 5;
+    if (hosted()) return { ok: true, url, seconds };
     try {
       const root = process.env.HAGGS_LOCAL_MEDIA!;
       const { stdout } = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", `${root}/${url.slice("/api/local/".length)}`]);

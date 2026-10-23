@@ -1,5 +1,6 @@
 "use client";
 
+import { uploadFile } from "../../upload-client";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -26,12 +27,9 @@ const keyOf = (f: Field) => `${f.node}/${f.input}`;
 
 async function addFile(file: File): Promise<string> {
   // In development the file goes to the local media folder; otherwise it travels with the run.
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch("/api/upload", { method: "POST", body: form }).catch(() => null);
-  const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string } | null;
-  if (body?.ok && body.url) return body.url;
-  if (file.size > 20 * 1024 * 1024) throw new Error("Files over 20 MB need the local media folder (npm run dev with HAGGS_LOCAL_MEDIA).");
+  const added = await uploadFile(file);
+  if (added.ok) return added.url;
+  if (file.size > 20 * 1024 * 1024) throw new Error(added.reason);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));

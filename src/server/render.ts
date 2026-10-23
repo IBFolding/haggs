@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { isBlobUrl } from "./blob";
 import { captionFilter, clipFilters, overlayFilter, mixFilter, frameOf, type Cut } from "../story/cut";
 
 /**
@@ -108,7 +109,7 @@ const num = (v: unknown, min: number, max: number): number => {
   return v;
 };
 const link = (v: unknown): string => {
-  if (typeof v !== "string" || !v.startsWith("/api/local/") || v.length > 600) throw new Error("Only media on this machine can be rendered here.");
+  if (typeof v !== "string" || !(v.startsWith("/api/local/") || isBlobUrl(v)) || v.length > 600) throw new Error("Only media on this machine, or in this app's store, can be rendered here.");
   return v;
 };
 

@@ -1,5 +1,7 @@
 "use server";
 
+import { isBlobUrl } from "../server/blob";
+import { readMedia } from "../server/media";
 import { cookies } from "next/headers";
 
 import { createCloudRunner } from "../providers/cloud";
@@ -42,6 +44,11 @@ export async function makeStill(prompt: string, ratio: "16:9" | "9:16", referenc
       const photo = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(ref);
       if (photo) {
         uploaded.push(await cloud.uploadBytes(Uint8Array.from(Buffer.from(photo[2]!, "base64")), photo[1]!));
+        continue;
+      }
+      if (isBlobUrl(ref)) {
+        const m = await readMedia(ref);
+        uploaded.push(await cloud.uploadBytes(m.bytes, m.mime));
         continue;
       }
       const file = ref.startsWith("/api/local/") ? localFile(process.env.HAGGS_LOCAL_MEDIA, ref.slice("/api/local/".length).split("/").map(decodeURIComponent), process.env.NODE_ENV) : null;

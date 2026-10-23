@@ -94,7 +94,10 @@ const seconds = (values: readonly string[], fallback: string): SettingFields["x"
   input: "duration",
 });
 
-export const MODELS: readonly ModelCard[] = [
+/** fal stays built but is switched off until it is rolled out (NEXT_PUBLIC_ENABLE_FAL=1), so nobody is asked for a key it can't use yet. */
+export const FAL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FAL === "1";
+
+const ALL_MODELS: readonly ModelCard[] = [
   /* ── Comfy Router ──────────────────────────────────────────────────────
      Settings below are transcribed from each model's published Router schema
      at docs.comfy.org/router-schemas/<provider>/<model>.json, not assumed. */
@@ -314,6 +317,8 @@ export const MODELS: readonly ModelCard[] = [
     },
   },
 ];
+
+export const MODELS: readonly ModelCard[] = ALL_MODELS.filter((m) => FAL_ENABLED || m.provider !== "fal");
 
 export const DEFAULT_MODEL = MODELS[0]!.id;
 

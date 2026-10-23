@@ -68,7 +68,31 @@ const BLURB: Record<Surface, string> = {
 /** A picture handed from one page to the next: Animate sends it to Video as the first frame, Edit to Edit a photo. */
 const HANDOFF_KEY = "haggs.handoff";
 
-export function Studio({ surface = "Create" }: { surface?: Surface }) {
+/** Whether any model is switched on for a surface. Edit a photo waits on fal, which is off until it is rolled out. */
+export const surfaceAvailable = (surface: Surface) => MODELS.some((m) => SURFACE_CAPABILITIES[surface].includes(m.capability));
+
+export function Studio(props: { surface?: Surface }) {
+  return surfaceAvailable(props.surface ?? "Create") ? <StudioBody {...props} /> : <Waiting />;
+}
+
+function Waiting() {
+  return (
+    <div className="app">
+      <Nav current="Photos" />
+      <div className="canvas">
+        <div className="swap">
+          <header className="swap-head">
+            <h1>Edit a photo is coming soon</h1>
+            <p>It needs a provider that isn&rsquo;t switched on yet. Until then: fix part of any frame in the editor, relight, restyle or try an outfit on in Workflows.</p>
+          </header>
+          <p className="sheet-row"><Link className="fire" href="/workflows">See the workflows</Link><Link className="plain" href="/photos">Make a photo</Link></p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const router = useRouter();
   const catalog = useMemo(
     () => MODELS.filter((model) => SURFACE_CAPABILITIES[surface].includes(model.capability)),
@@ -323,7 +347,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
         {surface !== "Video" && (
           <nav className="modes" aria-label="Photos">
             <Link href="/photos" aria-current={surface === "Create" ? "page" : undefined}>Make</Link>
-            <Link href="/edit" aria-current={surface === "Edit" ? "page" : undefined}>Edit a photo</Link>
+            {surfaceAvailable("Edit") && <Link href="/edit" aria-current={surface === "Edit" ? "page" : undefined}>Edit a photo</Link>}
             <Link href="/characters">Characters</Link>
             <Link href="/locations">Locations</Link>
             <Link href="/comic">Comic strip</Link>
@@ -362,7 +386,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
                 onSave={() => setSaving(item)}
                 onStart={() => void startProject(item)}
                 onAnimate={() => handOff(item, "Video")}
-                onEdit={() => handOff(item, "Edit")}
+                onEdit={surfaceAvailable("Edit") ? () => handOff(item, "Edit") : undefined}
               />
             ))}
           </div>

@@ -1,5 +1,6 @@
 "use server";
 
+import { hosted, isBlobUrl, putBlob } from "../server/blob";
 import { inlineLocal, localUrl } from "../server/local-media";
 import { cloudEstimate, createCloudProvider, createCloudRunner, type Kept } from "../providers/cloud";
 import { alephWorkflow, editEstimate, genjutsuWorkflow, soundEffectWorkflow, klingEditWorkflow, kontextWorkflow, regenerateWorkflow, speechWorkflow, VOICES, voiceWorkflow, type Line } from "../providers/cloud-edits";
@@ -166,6 +167,7 @@ function useCloud(modelId: string): boolean {
 
 /** Keeps a finished render in the local media folder, since provider links expire. */
 async function keepRender(bytes: Uint8Array, extension: Kept): Promise<string> {
+  if (hosted()) return putBlob(bytes, extension);
   const root = process.env.HAGGS_LOCAL_MEDIA;
   if (!root || process.env.NODE_ENV === "production") throw new Error("Set HAGGS_LOCAL_MEDIA so finished videos have somewhere to be kept.");
   const { mkdir, writeFile } = await import("node:fs/promises");
@@ -329,6 +331,8 @@ async function bytesOf(url: string): Promise<{ bytes: Uint8Array; mime: string }
     const [inlined] = await inlineLocal([url], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV);
     return bytesOf(inlined!);
   }
+  // A hosted server only fetches media from its own store.
+  if (hosted() && !isBlobUrl(url)) throw new Error("That take isn't in this app's file store.");
   const got = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60_000) });
   if (!got.ok) throw new Error("That take couldn't be fetched.");
   return { bytes: new Uint8Array(await got.arrayBuffer()), mime: (got.headers.get("content-type") ?? "").split(";")[0]! };

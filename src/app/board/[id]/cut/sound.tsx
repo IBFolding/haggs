@@ -1,5 +1,6 @@
 "use client";
 
+import { uploadFile } from "../../../upload-client";
 import { useEffect, useRef, useState } from "react";
 
 import { editEstimate, VOICES } from "../../../../providers/cloud-edits";
@@ -76,12 +77,9 @@ export function usePreviewSound(cut: Cut | null, t: number, playing: boolean) {
 }
 
 async function upload(file: File): Promise<{ url: string; name: string }> {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch("/api/upload", { method: "POST", body: form });
-  const body = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; name?: string; reason?: string };
-  if (!body.ok || !body.url) throw new Error(body.reason ?? "The file couldn't be added.");
-  return { url: body.url, name: body.name ?? file.name };
+  const added = await uploadFile(file);
+  if (!added.ok) throw new Error(added.reason);
+  return { url: added.url, name: added.name };
 }
 
 export function Soundtrack({ music, onChange }: { music: Music | undefined; onChange: (music: Music | undefined) => void }) {

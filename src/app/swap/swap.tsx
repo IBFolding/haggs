@@ -1,5 +1,6 @@
 "use client";
 
+import { uploadFile } from "../upload-client";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -23,12 +24,9 @@ const PROMPT = "9/model.prompt";
 const QUALITY = "9/model.resolution";
 
 async function addFile(file: File): Promise<string> {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch("/api/upload", { method: "POST", body: form }).catch(() => null);
-  const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
-  if (body?.ok && body.url) return body.url;
-  if (file.size > 20 * 1024 * 1024) throw new Error(body?.reason ?? "Files over 20 MB need the local media folder.");
+  const added = await uploadFile(file);
+  if (added.ok) return added.url;
+  if (file.size > 20 * 1024 * 1024) throw new Error(added.reason);
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result));

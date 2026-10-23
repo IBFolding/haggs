@@ -9,6 +9,7 @@ import { EDIT_PRESETS, buildRecreation, presetShots, type RefShot } from "../../
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { Nav, openKeys } from "../nav";
+import { uploadFile } from "../upload-client";
 import { BuildLink } from "../return-bar";
 import { readPick } from "../../story/handoff";
 import { analyzeEdit } from "../recreate-actions";
@@ -64,11 +65,9 @@ export function Recreate() {
     setShots(null);
     setBusy("Adding the video…");
     try {
-      const form = new FormData();
-      form.append("file", f);
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      const body = (await res.json()) as { ok?: boolean; url?: string; reason?: string };
-      if (!body.ok || !body.url) throw new Error(body.reason ?? "The video couldn't be added.");
+      const added = await uploadFile(f);
+      if (!added.ok) throw new Error(added.reason);
+      const body = { url: added.url };
       const meta = await new Promise<{ seconds: number; vertical: boolean }>((resolve) => {
         const el = document.createElement("video");
         el.preload = "metadata";

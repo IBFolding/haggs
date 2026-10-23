@@ -1,5 +1,6 @@
 "use client";
 
+import { FAL_ENABLED } from "../catalog/models";
 import { useEffect, useState } from "react";
 
 import { clearClaudeKey, clearComfyKey, clearKey, clearLocalComfy, localComfy, saveClaudeKey, saveComfyKey, saveKey, saveLocalComfy } from "./actions";
@@ -42,7 +43,7 @@ export function KeySheet({
     void localComfy().then((base) => base && setGpu({ base, note: "" }));
   }, []);
 
-  const rows: Row[] = [
+  const rows: Row[] = ([
     {
       id: "comfy",
       name: "Comfy",
@@ -73,7 +74,7 @@ export function KeySheet({
       save: saveClaudeKey,
       clear: clearClaudeKey,
     },
-  ];
+  ] as Row[]).filter((r) => FAL_ENABLED || r.id !== "fal");
 
   return (
     <div className="veil" onClick={onClose}>
