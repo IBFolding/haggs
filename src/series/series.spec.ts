@@ -12,7 +12,7 @@ const draft = {
 };
 
 test("formats cover the shapes of short social series, each with its own instructions", () => {
-  assert.deepEqual(FORMATS.map((f) => f.id), ["what-if", "pov", "story", "influencer"]);
+  assert.deepEqual(FORMATS.map((f) => f.id), ["what-if", "pov", "story", "faceless", "did-you-know", "top-five", "influencer"]);
   for (const f of FORMATS) assert.ok(f.rules.length > 40, f.id);
   assert.ok(SERIES_SCHEMA);
 });
@@ -73,4 +73,22 @@ test("pictures made on the page arrive on their shots, current rather than stale
   assert.deepEqual(e0[0]!.refs, ["/sheet.png"]);
   assert.deepEqual(staleShots(view(p, p.boards![0]!.id)), []);
   assert.equal(p.boards![1]!.shots[0]!.render?.url, "/b.png");
+});
+
+test("a faceless channel is a format: narration over pictures, no one on camera", () => {
+  const f = FORMATS.find((x) => x.id === "faceless")!;
+  assert.ok(f);
+  assert.match(f.rules, /narrat/i);
+  assert.match(seriesRequest("faceless", "Why we dream", 2).system, /narration/i);
+});
+
+test("narration is kept per shot and becomes spoken lines on the board, in the chosen voice", () => {
+  const s = validateSeries({ title: "Why we dream", episodes: [{ hook: "Why do we dream?", shots: [{ picture: "A sleeper in a moonlit room, ceiling dissolving into stars", seconds: 5, caption: "", narration: "Every night, your brain tells itself a story." }, { picture: "Neurons lighting up like a city at night", seconds: 5, caption: "", narration: "" }] }] });
+  assert.equal(s.episodes[0]!.shots[0]!.narration, "Every night, your brain tells itself a story.");
+  const p = buildSeries(s, "faceless", { voice: "Matilda (female, american)", narrationUrls: { "0.0": "/n0.mp3" } });
+  const [a, b] = p.boards![0]!.shots;
+  assert.equal(a!.voices?.[0]?.text, "Every night, your brain tells itself a story.");
+  assert.equal(a!.voices?.[0]?.voice, "Matilda (female, american)");
+  assert.equal(a!.voices?.[0]?.url, "/n0.mp3");
+  assert.equal(b!.voices, undefined);
 });

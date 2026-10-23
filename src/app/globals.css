@@ -2283,3 +2283,23 @@ a.logo { color: var(--text); text-decoration: none; }
 .style-reel { margin: 12px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .style-reel summary { cursor: pointer; font-weight: 700; font-size: 13.5px; }
 .style-reel .series-chips { margin: 10px 0; }
+.academy { max-width: 760px; margin: 0 auto; padding: 8px 16px 60px; }
+.academy-bar { position: relative; height: 28px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); overflow: hidden; margin: 12px 0; }
+.academy-bar i { position: absolute; inset: 0 auto 0 0; background: var(--volt); opacity: .85; transition: width .3s; }
+.academy-bar span { position: relative; display: block; text-align: center; font-size: 12.5px; line-height: 28px; color: var(--text); mix-blend-mode: difference; }
+.academy-list { list-style: none; padding: 0; display: grid; gap: 8px; }
+.academy-lesson { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.academy-lesson.open { border-color: var(--volt); }
+.academy-head { width: 100%; display: grid; grid-template-columns: 34px 1fr; column-gap: 12px; align-items: center; text-align: left; padding: 12px 14px; background: none; border: 0; color: var(--text); cursor: pointer; }
+.academy-head small { grid-column: 2; color: var(--text-2); font-size: 12.5px; }
+.academy-n { grid-row: span 2; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); font-size: 13px; }
+.academy-lesson.done .academy-n { background: var(--volt); color: #000; border-color: var(--volt); }
+.academy-body { padding: 0 16px 16px 56px; display: grid; gap: 10px; }
+.academy-body ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.academy-tip, .academy-home { margin: 0; font-size: 13.5px; color: var(--text-2); }
+.academy-cert { margin-top: 24px; display: grid; gap: 12px; }
+.academy-paper { display: grid; gap: 8px; justify-items: center; text-align: center; padding: 40px 24px; border: 2px solid var(--volt); border-radius: 12px; background: #fff; color: #111; }
+.academy-paper h2 { font-size: 32px; margin: 0; }
+.academy-paper p { margin: 0; max-width: 32ch; }
+@media print { .nav, .academy-list, .academy-bar, .swap-head, .academy-cert > :not(.academy-paper) { display: none !important; } .academy-paper { border-color: #111; } }
+.series-card textarea { background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 12px; width: 100%; resize: vertical; }

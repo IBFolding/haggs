@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createCharacterStore, identityLock, type Character } from "../../characters/character";
-import { editEstimate } from "../../providers/cloud-edits";
+import { editEstimate, VOICES } from "../../providers/cloud-edits";
 import { FORMATS, buildSeries, pictureWords, type FormatId, type Series } from "../../series/series";
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { STYLES } from "../../styles/style";
+import { speakLine } from "../actions";
 import { Nav, openKeys } from "../nav";
 import { draftSeries, makeStill } from "../series-actions";
 
@@ -39,6 +40,8 @@ export function SeriesMaker() {
   const [series, setSeries] = useState<Series | null>(null);
   const [pictures, setPictures] = useState<Record<string, string>>({});
   const [making, setMaking] = useState<string | null>(null);
+  const [voice, setVoice] = useState<string>("Matilda (female, american)");
+  const [spoken, setSpoken] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [sent, setSent] = useState<Sent[]>([]);
@@ -78,6 +81,7 @@ export function SeriesMaker() {
     }
     setSeries(r.series);
     setPictures({});
+    setSpoken({});
   }
 
   function applySent(i: Sent) {
@@ -115,9 +119,25 @@ export function SeriesMaker() {
     }
   }
 
+  async function narrate() {
+    if (!series) return;
+    setError(null);
+    for (const [e, ep] of series.episodes.entries()) {
+      for (const [k, sh] of ep.shots.entries()) {
+        const key = `${e}.${k}`;
+        if (!sh.narration.trim() || spoken[key]) continue;
+        setMaking(`say:${key}`);
+        const r = await speakLine(sh.narration, voice);
+        setMaking(null);
+        if (!r.ok) { if (r.needsKey) openKeys(); return setError(r.reason); }
+        setSpoken((all) => ({ ...all, [key]: r.url }));
+      }
+    }
+  }
+
   async function open() {
     if (!series) return;
-    const project = buildSeries(series, format, { ...words, ...(person?.sheet ? { refs: [person.sheet] } : {}), pictures });
+    const project = buildSeries(series, format, { ...words, ...(person?.sheet ? { refs: [person.sheet] } : {}), pictures, voice, narrationUrls: spoken });
     await store.save(project);
     router.push(`/board/${project.id}/cut?b=${encodeURIComponent(project.boards![0]!.id)}`);
   }
@@ -127,6 +147,9 @@ export function SeriesMaker() {
   const total = series?.episodes.reduce((n, e) => n + e.shots.length, 0) ?? 0;
   const done = Object.keys(pictures).length;
   const left = total - done;
+  const lines = series?.episodes.flatMap((ep, e) => ep.shots.flatMap((sh, k) => (sh.narration.trim() && !spoken[`${e}.${k}`] ? [sh.narration] : []))) ?? [];
+  const hasNarration = (series?.episodes.some((ep) => ep.shots.some((sh) => sh.narration.trim())) ?? false);
+  const sayPrice = editEstimate({ tool: "speech", seconds: 0, characters: lines.reduce((n, l) => n + l.length, 0) });
 
   return (
     <div className="app">
@@ -203,6 +226,12 @@ export function SeriesMaker() {
                 <input value={series.title} maxLength={80} aria-label="Series name" onChange={(e) => setSeries({ ...series, title: e.target.value })} />
                 <span>{done}/{total} pictures</span>
                 {making ? <button className="pill" onClick={() => { stop.current = true; }}>Stop after this one</button> : <button className="fire" disabled={left === 0} onClick={() => void all()}>{left === 0 ? "All pictures made" : `Make ${left} picture${left === 1 ? "" : "s"} · ${money(left * PRICE)}`}</button>}
+                {hasNarration && (
+                  <>
+                    <select value={voice} onChange={(e) => setVoice(e.target.value)} aria-label="Narrator voice">{VOICES.map((v) => <option key={v}>{v}</option>)}</select>
+                    <button className="pill" disabled={making !== null || lines.length === 0} onClick={() => void narrate()}>{lines.length === 0 ? "Narrated" : `Narrate it · ${money(sayPrice)}`}</button>
+                  </>
+                )}
                 <button className="pill on" onClick={() => void open()}>Open in the editor</button>
                 <button className="plain" onClick={() => setSeries(null)}>Start again</button>
               </header>
@@ -219,6 +248,7 @@ export function SeriesMaker() {
                             {pictures[key] ? <img src={pictures[key]} alt={sh.picture} /> : <p>{sh.picture}</p>}
                             {sh.caption && <span className="series-cap">{sh.caption}</span>}
                           </div>
+                          {sh.narration && <textarea rows={3} value={sh.narration} aria-label={`Video ${e + 1}, shot ${s + 1}: narration`} onChange={(ev) => change(e, s, { narration: ev.target.value })} />}
                           <input value={sh.caption} placeholder="On-screen words" aria-label={`Video ${e + 1}, shot ${s + 1}: on-screen words`} maxLength={120} onChange={(ev) => change(e, s, { caption: ev.target.value })} />
                           <figcaption>
                             <small>{sh.seconds}s</small>

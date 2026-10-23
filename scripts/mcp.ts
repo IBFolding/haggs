@@ -383,12 +383,12 @@ server.registerTool(
   "haggs_propose_series",
   {
     description:
-      "Write a series of short vertical videos for haggs's Series page: episodes, each with a hook and 3-5 shots. For every shot give `picture` (exactly what the camera sees: subject, place, light, framing; no text inside the picture), `seconds` (3-5) and `caption` (short on-screen words, under 80 characters, may be empty). Formats: what-if, pov, story, influencer. The person opens Video → Series and presses Apply; nothing is made or spent until they press Make the pictures.",
+      "Write a series of short vertical videos for haggs's Series page: episodes, each with a hook and 3-5 shots. For every shot give `picture` (exactly what the camera sees: subject, place, light, framing; no text inside the picture), `seconds` (3-5) and `caption` (short on-screen words, under 80 characters, may be empty). Formats: what-if, pov, story, faceless (a narrator speaks over pictures: give `narration` for every shot), did-you-know, top-five, influencer. The person opens Video → Series and presses Apply; nothing is made or spent until they press Make the pictures.",
     inputSchema: {
       summary: z.string().max(300),
-      format: z.enum(["what-if", "pov", "story", "influencer"]),
+      format: z.enum(["what-if", "pov", "story", "faceless", "did-you-know", "top-five", "influencer"]),
       title: z.string().max(80),
-      episodes: z.array(z.object({ hook: z.string().max(120), shots: z.array(z.object({ picture: z.string().max(1200), seconds: z.number(), caption: z.string().max(120) })).min(1).max(6) })).min(1).max(8),
+      episodes: z.array(z.object({ hook: z.string().max(120), shots: z.array(z.object({ picture: z.string().max(1200), seconds: z.number(), caption: z.string().max(120), narration: z.string().max(400).optional() })).min(1).max(6) })).min(1).max(8),
     },
     annotations: proposes,
   },
