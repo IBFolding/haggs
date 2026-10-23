@@ -15,6 +15,9 @@ export const STYLES: Style[] = [
   { id: "ink-comic", name: "Ink comic", says: "Heavy black ink and halftone, like a graphic novel.", words: "graphic-novel ink illustration, heavy black linework, halftone shading, limited spot colour, dramatic hatching" },
   { id: "rotoscope", name: "Rotoscope", says: "Traced live action, vivid and a little wobbly.", words: "rotoscoped animation, traced outlines that boil slightly frame to frame, flat vivid colour blocks, hand-animated feel" },
   { id: "clay", name: "Claymation", says: "Sculpted clay, stop-motion lit.", words: "stop-motion claymation, sculpted clay characters with visible thumbprints, miniature handmade sets, practical studio lighting, slight frame stutter" },
+  { id: "scribble", name: "Scribble", says: "Loose crayon and marker on white paper.", words: "hand-drawn scribble animation, loose marker and crayon lines on white paper, bold flat colour streaks, wobbly outlines, sketchbook feel" },
+  { id: "pixel-art", name: "Pixel art", says: "Chunky 16-bit sprites.", words: "retro 16-bit pixel art, chunky visible pixels, limited bright palette, dithering, sprite-style characters and tiles" },
+  { id: "mixed-media", name: "Mixed media", says: "Live action collaged with drawn and painted parts.", words: "mixed-media animation, live-action textures collaged with hand-drawn ink and painted shapes, paper cut-outs, saturated colour accents" },
   { id: "neon-anime", name: "Neon night anime", says: "Rain, neon and heavy contrast.", words: "night-city anime film, neon signage glow, wet reflective streets, deep blue shadows, bold magenta and cyan highlights, detailed linework" },
 ];
 

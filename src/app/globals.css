@@ -2280,3 +2280,6 @@ a.logo { color: var(--text); text-decoration: none; }
 .series-card figcaption { display: flex; justify-content: space-between; align-items: center; }
 .series-sent { right: 16px; top: 70px; position: fixed; }
 @media (prefers-reduced-motion: reduce) { .series-frame.working { animation: none; } }
+.style-reel { margin: 12px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.style-reel summary { cursor: pointer; font-weight: 700; font-size: 13.5px; }
+.style-reel .series-chips { margin: 10px 0; }

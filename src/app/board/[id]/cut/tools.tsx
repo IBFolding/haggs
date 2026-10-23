@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import { VOICES, editEstimate, type Line } from "../../../../providers/cloud-edits";
@@ -8,6 +9,8 @@ import type { Project, Shot } from "../../../../story/model";
 import { runEdit, type EditRequest } from "../../../actions";
 import { openKeys } from "../../../nav";
 import { makeStill } from "../../../series-actions";
+import { addStyleReel, type StyledClip } from "../../../../styles/reel";
+import { createProjectStore } from "../../../../story/store";
 import { STYLES, restylePrompt, styleById, styleSheetPrompt } from "../../../../styles/style";
 
 /**
@@ -85,6 +88,8 @@ export function EditTools({
   const [resolution, setResolution] = useState<"480p" | "720p">("480p");
   const [styleId, setStyleId] = useState(STYLES[0]!.id);
   const [sheets, setSheets] = useState<Record<string, string>>({});
+  const router = useRouter();
+  const [reelPick, setReelPick] = useState<string[]>(["cel-anime", "clay", "scribble", "mixed-media", "pixel-art"]);
   const [restyleRes, setRestyleRes] = useState<"720p" | "1080p">("720p");
   const [lines, setLines] = useState<Line[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -367,6 +372,52 @@ export function EditTools({
               <label><input type="radio" checked={restyleRes === "720p"} onChange={() => setRestyleRes("720p")} /> 720p</label>
               <label><input type="radio" checked={restyleRes === "1080p"} onChange={() => setRestyleRes("1080p")} /> 1080p</label>
             </div>
+            <details className="style-reel">
+              <summary>Make a style reel: this take in several looks at once</summary>
+              <div className="series-chips">
+                {STYLES.map((st) => (
+                  <button key={st.id} className={reelPick.includes(st.id) ? "on" : ""} onClick={() => setReelPick((p) => (p.includes(st.id) ? p.filter((x) => x !== st.id) : [...p, st.id]))}>{st.name}</button>
+                ))}
+              </div>
+              {(() => {
+                const need = reelPick.filter((id) => !sheets[id]).length;
+                const each = quotes.restyle;
+                const total = reelPick.length * each + need * quotes.sheet;
+                return (
+                  <div className="tools-run">
+                    <button className="fire" disabled={busy !== null || reelPick.length === 0} onClick={async () => {
+                      setProblem(null); setDone(null);
+                      const clips: StyledClip[] = [];
+                      for (const id of reelPick) {
+                        const st = styleById(id)!;
+                        let sh = sheets[id];
+                        if (!sh) {
+                          setBusy(`reel:${st.name}: drawing the style sheet`);
+                          const r = await makeStill(styleSheetPrompt(st), "16:9");
+                          if (!r.ok) { setBusy(null); if (r.needsKey) openKeys(); return setProblem(`${st.name}: ${r.reason} Stopped; ${clips.length} look${clips.length === 1 ? "" : "s"} done.`); }
+                          sh = r.url;
+                          setSheets((all) => ({ ...all, [id]: r.url }));
+                        }
+                        setBusy(`reel:${st.name}: redrawing the clip`);
+                        const r = await runEdit({ tool: "kling", video, seconds: len, prompt: restylePrompt(st, prompt), references: [sh], resolution: restyleRes });
+                        if (!r.ok) { setBusy(null); if (r.needsKey) openKeys(); return setProblem(`${st.name}: ${r.reason} Stopped; ${clips.length} look${clips.length === 1 ? "" : "s"} done.`); }
+                        clips.push({ style: st, url: r.url, seconds: len, usd: r.usd });
+                      }
+                      const full = await createProjectStore(defaultKv()).load(project.id);
+                      if (!full) { setBusy(null); return setProblem("The project couldn't be found to add the reel to."); }
+                      const made = addStyleReel(full, `Style reel · ${clips.length} looks`, clips);
+                      await createProjectStore(defaultKv()).save(made.project);
+                      setBusy(null);
+                      router.push(`/board/${project.id}/cut?b=${encodeURIComponent(made.board.id)}`);
+                    }}>
+                      {busy?.startsWith("reel:") ? busy.slice(5) : `Make the reel · ${reelPick.length} looks`}
+                      <span className="cost">about {money(total)}</span>
+                    </button>
+                  </div>
+                );
+              })()}
+              <p className="sh-note">Each look is redrawn on Comfy from this take, one at a time, and stops on the first problem. They land as a new board with each look named on screen.</p>
+            </details>
             <div className="tools-run">
               <button className="fire" disabled={busy !== null || !sheet} onClick={() => void go("restyle", { tool: "kling", video, seconds: len, prompt: restylePrompt(style, prompt), references: [sheet!], resolution: restyleRes }, (r) => { take(shot, r.url, r.kind, r.usd, r.origin); setDone(`Redrawn as ${style.name}. It's a new take; the live action is still there.`); })}>
                 {busy === "restyle" ? "Redrawing… a few minutes" : `Restyle this take as ${style.name}`}
