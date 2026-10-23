@@ -7,6 +7,7 @@ import { createAppStore, type SavedApp } from "../../../story/apps";
 import { defaultKv } from "../../../story/kv";
 import { Nav } from "../../nav";
 import { BuildWorkflow } from "../build";
+import { Publish } from "./publish";
 import { WorkflowApp } from "./workflow-app";
 
 /** One of your saved apps; one built from steps can go back to its steps. */
@@ -21,5 +22,10 @@ export function MyApp() {
   if (app === undefined) return <div className="app"><Nav current="Workflows" /></div>;
   if (!app) return <div className="app"><Nav current="Workflows" /><div className="canvas"><div className="wf"><p className="wf-note">That app isn&rsquo;t in this browser. Apps are kept where they were saved; open its app file to add it here.</p></div></div></div>;
   if (editing && app.recipe) return <BuildWorkflow start={app.recipe} />;
-  return <WorkflowApp name={app.name} file={app.workflow} saved={app} {...(app.recipe ? { recipe: app.recipe, onBack: () => setEditing(true) } : {})} />;
+  return (
+    <>
+      <WorkflowApp name={app.name} file={app.workflow} saved={app} {...(app.recipe ? { recipe: app.recipe, onBack: () => setEditing(true) } : {})} />
+      <div className="canvas"><div className="wf"><Publish app={app} /></div></div>
+    </>
+  );
 }

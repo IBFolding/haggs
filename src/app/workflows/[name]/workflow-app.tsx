@@ -8,7 +8,10 @@ import { defaultKv } from "../../../story/kv";
 import { createRunStore, type Run } from "../../../story/runs";
 import { appFile, createAppStore, type Cover, type SavedApp } from "../../../story/apps";
 import type { Recipe } from "../../../comfy/recipe";
+import { chargeRun, refundRun } from "../../../community/community";
+import { dbOf } from "../../../community/supabase-db";
 import { Nav, openKeys } from "../../nav";
+import { supabase } from "../../session";
 import { SaveToProject } from "../../save-to-project";
 import { openWorkflow, quoteWorkflow, runWorkflow, type Graph, type OpenedApp, type Quote, type Source, type WorkflowResult } from "../../workflow-actions";
 
@@ -222,7 +225,20 @@ export function WorkflowApp({ name, file, recipe, saved: savedApp, onBack }: { n
     setRunning(true);
     setResult(null);
     setKept(null);
+    // A community app takes its creator's fee first, and gives it back if the run fails.
+    let paid: string | null = null;
+    const sb = savedApp?.community ? supabase() : null;
+    if (savedApp?.community) {
+      if (!sb) { setRunning(false); return setResult({ ok: false, reason: "Sign in to run community apps." }); }
+      try {
+        paid = (await chargeRun(dbOf(sb), savedApp!.community!.id)).run;
+      } catch (caught) {
+        setRunning(false);
+        return setResult({ ok: false, reason: caught instanceof Error ? caught.message : "The run couldn't be charged." });
+      }
+    }
     const r = await runWorkflow(source, values, files);
+    if (!r.ok && paid && sb) await refundRun(dbOf(sb), paid).catch(() => undefined);
     setRunning(false);
     setResult(r);
     if (!r.ok && r.needsKey) openKeys();

@@ -71,6 +71,7 @@ export function Workflows() {
             </div>
           </header>
 
+          <p className="wf-small"><Link href="/workflows/community">Community apps</Link> · made by people using haggs, free or up to 12¢ a run.</p>
           {mine.length > 0 && (
             <section className="wf-mine" aria-label="Your apps">
               <h2>Your apps</h2>
