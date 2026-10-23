@@ -26,6 +26,26 @@ type Slot =
   | { state: "failed"; id: number; reason: string };
 
 /** Which part of the catalog a surface shows. The nav items are these. */
+/** A dismissible pointer to the Academy for people who don't know where to start. */
+function AcademyNudge() {
+  const [gone, setGone] = useState(true);
+  useEffect(() => {
+    try {
+      setGone(localStorage.getItem("haggs.academy.nudge") === "off");
+    } catch {
+      setGone(false);
+    }
+  }, []);
+  if (gone) return null;
+  return (
+    <div className="nudge" role="note">
+      <span><b>Don&rsquo;t know where to start?</b> The Academy&rsquo;s first lesson makes a video in one minute.</span>
+      <Link className="pill on" href="/academy">Learn now</Link>
+      <button className="plain" aria-label="Hide this" onClick={() => { setGone(true); try { localStorage.setItem("haggs.academy.nudge", "off"); } catch { /* private window */ } }}>×</button>
+    </div>
+  );
+}
+
 export type Surface = "Create" | "Video" | "Edit";
 
 const SURFACE_CAPABILITIES: Record<Surface, readonly Capability[]> = {
@@ -261,6 +281,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
       <div className="canvas" onClick={() => setPicking(false)}>
+        <AcademyNudge />
         {surface === "Video" && (
           <nav className="modes" aria-label="Video">
             <Link href="/video" aria-current="page">Make a clip</Link>
