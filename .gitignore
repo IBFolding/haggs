@@ -13,3 +13,4 @@ tsconfig.tsbuildinfo
 .idea
 .superpowers/
 .haggs/
+.next-build
