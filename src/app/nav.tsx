@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Producer } from "./agent";
+import { openProducer, Producer } from "./agent";
 import { useEffect, useState } from "react";
 
 import { keysHeld } from "./actions";
@@ -64,6 +64,7 @@ export function Nav({ current }: { current: Place }) {
           </Link>
         ))}
         <span className="nav-right">
+          <button className="nav-ask" onClick={() => openProducer()}>Ask Claude</button>
           <button className="key-state" onClick={() => setOpen(true)} title="Provider keys">
             <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />
             {label}

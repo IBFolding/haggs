@@ -24,6 +24,11 @@ type Msg = Anthropic.Beta.BetaMessageParam;
 type Line = { who: "you" | "claude" | "change" | "error"; text: string; undo?: Project; undone?: boolean };
 
 export const PROJECT_SAVED = "haggs:project-saved";
+const OPEN_PRODUCER = "haggs:open-producer";
+/** Opens the producer from anywhere: the header's Ask Claude. */
+export function openProducer() {
+  window.dispatchEvent(new Event(OPEN_PRODUCER));
+}
 /** Pages holding a project reload it when the producer changes it, so their next save doesn't undo the change. */
 export function announceSaved(id: string) {
   window.dispatchEvent(new CustomEvent(PROJECT_SAVED, { detail: { id } }));
@@ -54,6 +59,11 @@ export function Producer() {
   const kv = useMemo(() => defaultKv(), []);
   const store = useMemo(() => createProjectStore(kv), [kv]);
 
+  useEffect(() => {
+    const show = () => setOpen((v) => !v);
+    window.addEventListener(OPEN_PRODUCER, show);
+    return () => window.removeEventListener(OPEN_PRODUCER, show);
+  }, []);
   useEffect(() => {
     setMounted(true);
     const kept = restore();
@@ -152,11 +162,6 @@ export function Producer() {
   if (!mounted) return null;
   return createPortal(
     <>
-      {!open && (
-        <button className="producer-open" onClick={() => setOpen(true)} aria-label="Ask the producer">
-          Ask Claude
-        </button>
-      )}
       {open && (
         <aside className="producer" aria-label="The producer">
           <header>

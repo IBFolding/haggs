@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MODELS, getModelCard, outputCount, searchModels } from "../catalog/models";
 import { coerceSettings, defaultSettings, type Settings } from "../catalog/settings";
 import { slotIn, templatesFor, type Template } from "../catalog/templates";
+import { lookPhrase, withLook, type LookChoice } from "../catalog/look";
+import { LookPanel } from "./look-panel";
 import type { Capability } from "../providers/types";
 import { defaultKv } from "../story/kv";
 import { createRunStore, type Run } from "../story/runs";
@@ -58,6 +60,25 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
   const [history, setHistory] = useState<Run[]>([]);
   const [saving, setSaving] = useState<Run | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showLook, setShowLook] = useState(false);
+  const [look, setLook] = useState<LookChoice>({});
+  const lookKey = `haggs.look.${surface}`;
+  useEffect(() => {
+    try {
+      const kept = localStorage.getItem(lookKey);
+      if (kept) setLook(JSON.parse(kept) as LookChoice);
+    } catch {
+      // Nothing kept.
+    }
+  }, [lookKey]);
+  const changeLook = (next: LookChoice) => {
+    setLook(next);
+    try {
+      localStorage.setItem(lookKey, JSON.stringify(next));
+    } catch {
+      // A convenience only.
+    }
+  };
   const say = useRef<HTMLTextAreaElement>(null);
   /** A template's prompt waiting to be in the box, so its first [bracket] can be selected. */
   const pendingSlot = useRef<string | null>(null);
@@ -135,7 +156,9 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
     const id = nextId.current++;
     setSlots((prior) => [{ state: "working", id }, ...prior]);
 
-    const result = await run(modelId, prompt, settings, images.length ? images : undefined);
+    // The look's words go after the prompt, and the run keeps the prompt as it was sent.
+    const sent = surface === "Edit" ? prompt : withLook(prompt, look);
+    const result = await run(modelId, sent, settings, images.length ? images : undefined);
 
     setSlots((prior) => {
       const rest = prior.filter((slot) => slot.id !== id);
@@ -151,7 +174,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
           await runs.record({
             modelId,
             modelName: card.name,
-            prompt,
+            prompt: sent,
             settings,
             url: shot.url,
             kind: shot.kind,
@@ -164,7 +187,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
 
     if (!result.ok && result.needsKey) openKeys();
     setBusy(false);
-  }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs]);
+  }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs, look, surface]);
 
   useEffect(() => {
     if (pendingSlot.current === null || pendingSlot.current !== prompt) return;
@@ -315,6 +338,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
             </div>
           )}
 
+          {showLook && surface !== "Edit" && <LookPanel value={look} onChange={changeLook} />}
           <div className="composer-top">
             <button
               className={`attach${needsImage ? " wanted" : ""}`}
@@ -335,6 +359,11 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
                 if (file) attach(file);
               }}
             />
+            {surface !== "Edit" && (
+              <button className={`tpl-open${lookPhrase(look) ? " set" : ""}`} aria-expanded={showLook} onClick={(e) => { e.stopPropagation(); setShowLook((v) => !v); setShowTemplates(false); }}>
+                Look{lookPhrase(look) ? " ·" : ""}
+              </button>
+            )}
             {templates.length > 0 && (
               <div className="tpl-wrap" onClick={(e) => e.stopPropagation()}>
                 <button className="tpl-open" aria-expanded={showTemplates} onClick={() => setShowTemplates((v) => !v)}>
