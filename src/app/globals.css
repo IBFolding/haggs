@@ -2120,3 +2120,5 @@ a.logo { color: var(--text); text-decoration: none; }
 .reshoot-strip button.on { border-color: var(--volt); }
 .reshoot-strip img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
 .reshoot-strip span { display: block; padding: 3px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chars-views { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.chars-views img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; }
