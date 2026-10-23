@@ -2713,3 +2713,5 @@ fieldset.gr-fence { border: 0; margin: 0; padding: 0; min-width: 0; } fieldset.g
 .bank-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 12px; max-height: 60vh; overflow: auto; } .bank-grid button, .bank-new { display: grid; gap: 6px; justify-items: center; align-content: start; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: none; } .bank-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; } .bank-grid button:hover { border-color: var(--volt); } .bank-grid button.on { border-color: var(--volt); box-shadow: 0 0 0 2px rgba(212, 248, 58, .25); } .bank-new { border-style: dashed; color: var(--volt); align-content: center; min-height: 110px; text-align: center; }
 .swap-bank { margin-top: 6px; font-size: 12.5px; }
 .extras { display: grid; gap: 8px; margin: 6px 0; } .extras > b { font-size: 13px; }
+.save-to-dest { margin: 4px 0 10px; }
+.sh-bank { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 4px; }

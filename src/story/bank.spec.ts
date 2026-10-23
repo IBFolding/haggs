@@ -24,3 +24,12 @@ test("pictures are taken in order, skipping the ones without, up to what the mod
 test("each kind knows where it is built", () => {
   assert.deepEqual(Object.values(KIND_NAME).map((k) => k.builder), ["/characters", "/locations", "/accessories"]);
 });
+
+import { allocateRefs } from "./bank";
+test("a model with four picture slots gets characters, then the place, then the style, then what they wear", () => {
+  const refs = allocateRefs({ characters: ["c1", "c2", "c3"], place: ["p"], style: ["s1", "s2"], accessories: ["a1", "a2"] }, 4);
+  assert.deepEqual(refs, ["c1", "c2", "p", "s1"]);
+  assert.deepEqual(allocateRefs({ characters: ["c1"], accessories: ["a1", "a2", "a3"] }, 3), ["c1", "a1", "a2"]);
+  assert.deepEqual(allocateRefs({ characters: ["c1", "c1"], place: ["c1"] }, 4), ["c1"], "no picture twice");
+  assert.deepEqual(allocateRefs({ characters: ["c1"] }, 0), []);
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { ExtrasRow } from "../bank-picker";
-import { wordsOf, type BankItem } from "../../story/bank";
+import { allocateRefs, wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -103,7 +103,7 @@ export function Recreate() {
   async function make() {
     if (!shots) return;
     const person = cast.find((c) => c.id === who);
-    const project = buildRecreation(`Edit recreation · ${shots.length} shots`, shots, { ...(person ? { lock: identityLock(person.traits), refs: [person.sheet] } : {}), instructions: [instructions.trim(), wordsOf(extras)].filter(Boolean).join(" "), aspect: vertical ? "9:16" : "16:9" });
+    const project = buildRecreation(`Edit recreation · ${shots.length} shots`, shots, { ...(person ? { lock: identityLock(person.traits) } : {}), ...(() => { const refs = allocateRefs({ characters: person ? [person.sheet] : [], place: extras.filter((i) => i.kind === "place" && i.image).map((i) => i.image!), accessories: extras.filter((i) => i.kind === "accessory" && i.image).map((i) => i.image!) }, 4); return refs.length ? { refs } : {}; })(), instructions: [instructions.trim(), wordsOf(extras)].filter(Boolean).join(" "), aspect: vertical ? "9:16" : "16:9" });
     await store.save(project);
     router.push(`/board/${project.id}?b=${encodeURIComponent(project.boards![0]!.id)}`);
   }

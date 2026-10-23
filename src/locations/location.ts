@@ -61,7 +61,7 @@ export function placeLock(p: Place): string {
   return `${p.name.trim() || "The place"}: ${describe(p)}. Keep this place exactly the same in every shot set here.`;
 }
 
-export type SavedPlace = { id: string; traits: Place; plate: string; views: string[]; reference: string | null; createdAt: number; updatedAt: number };
+export type SavedPlace = { id: string; traits: Place; plate: string; views: string[]; reference: string | null; words?: string; createdAt: number; updatedAt: number };
 export type NewPlace = Omit<SavedPlace, "id" | "createdAt" | "updatedAt"> & Partial<Pick<SavedPlace, "id" | "createdAt">>;
 
 const INDEX = "places/index";

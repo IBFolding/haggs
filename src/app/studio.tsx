@@ -18,7 +18,7 @@ import { createRunStore, type Run } from "../story/runs";
 import { rates, run, type Rate } from "./actions";
 import { Nav, openKeys } from "./nav";
 import { BankPicker, useReturnedPick } from "./bank-picker";
-import { BuildLink } from "./return-bar";
+import { MakeBanner } from "./return-bar";
 import { readPick } from "../story/handoff";
 import { REUSE_KEY } from "./gallery/gallery";
 import { useStartProject } from "./start-project";
@@ -348,6 +348,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             <Link href="/recreate">Recreate an edit</Link>
           </nav>
         )}
+        {surface !== "Video" && <MakeBanner />}
         {surface !== "Video" && (
           <nav className="modes" aria-label="Photos">
             <Link href="/photos" aria-current={surface === "Create" ? "page" : undefined}>Make</Link>
@@ -477,14 +478,10 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               </button>
             </div>
           )}
-          {tile && surface !== "Edit" && (
+          {tile === "character" && surface !== "Edit" && <BankPicker kinds={["character"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setTile(null)} onPick={(item) => setWho(people.find((p) => p.id === item.id) ?? null)} picked={who ? [`character:${who.id}`] : []} />}
+          {tile === "location" && surface !== "Edit" && <BankPicker kinds={["place"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setTile(null)} onPick={(item) => setWhere(places.find((p) => p.id === item.id) ?? null)} picked={where ? [`place:${where.id}`] : []} />}
+          {tile === "wardrobe" && surface !== "Edit" && (
             <div className="cast-pick" onClick={(e) => e.stopPropagation()}>
-              {tile === "character" && (people.length ? (
-                <div className="cast-list">{people.map((c) => <button key={c.id} onClick={() => { setWho(c); setTile(null); }}><img src={c.sheet} alt="" /><span>{c.traits.name}</span></button>)}</div>
-              ) : <p className="wf-small">No characters yet. <BuildLink href="/characters" label={surface === "Video" ? "Video" : "Photos"}>Build one</BuildLink> and they&rsquo;ll be here.</p>)}
-              {tile === "location" && (places.length ? (
-                <div className="cast-list">{places.map((c) => <button key={c.id} onClick={() => { setWhere(c); setTile(null); }}><img src={c.plate} alt="" /><span>{c.traits.name}</span></button>)}</div>
-              ) : <p className="wf-small">No places yet. <BuildLink href="/locations" label={surface === "Video" ? "Video" : "Photos"}>Build one</BuildLink> and it&rsquo;ll be here.</p>)}
               {tile === "wardrobe" && (
                 <div className="cast-wardrobe">
                   <p className="wf-small">What the character wears or carries. Added to the words, so it works with any model.</p>

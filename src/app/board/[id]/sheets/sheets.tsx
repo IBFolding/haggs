@@ -24,6 +24,9 @@ import { StartScreen } from "./start";
 import { Nav, openKeys } from "../../../nav";
 import { PROJECT_SAVED } from "../../../agent";
 import { ProjectTabs } from "../../../project-tabs";
+import { BankPicker } from "../../../bank-picker";
+import { saveToBank } from "../../../../story/bank-save";
+import type { BankItem } from "../../../../story/bank";
 
 /**
  * Script sheets: the front of the pipeline.
@@ -139,6 +142,28 @@ async function shrinkFile(file: File): Promise<string> {
  * project's media, upload one, or generate one from what the sheet says.
  * The first picture is the one sent with every shot.
  */
+/** A sheet row and your bank, both ways: use one of yours here, or keep this one for everywhere else. */
+function BankLink({ kind, name, words, refs, onUse }: { kind: "character" | "place"; name: string; words: string; refs: string[]; onUse: (item: BankItem) => void }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  async function keep() {
+    try {
+      const item = await saveToBank(defaultKv(), kind, name, { image: refs[0] ?? "", words });
+      setNote(`Saved ${item.name} to your bank. It's there from every page that asks who or where.`);
+    } catch (caught) {
+      setNote(caught instanceof Error ? caught.message : "That couldn't be saved.");
+    }
+  }
+  return (
+    <div className="sh-bank">
+      <button className="plain" onClick={() => setOpen(true)}>Use one from your bank</button>
+      <button className="plain" disabled={!refs[0]} title={refs[0] ? "Keep this as one of yours, to use in any project" : "Add a reference picture first: it becomes the picture in your bank"} onClick={() => void keep()}>Save to your bank</button>
+      {note && <span className="wf-small" role="status">{note}</span>}
+      {open && <BankPicker kinds={[kind]} label="the sheets" onClose={() => setOpen(false)} onPick={onUse} />}
+    </div>
+  );
+}
+
 function RefStrip({ refs, pool, describe, onChange }: { refs: string[]; pool: string[]; describe: string; onChange: (refs: string[]) => void }) {
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -768,6 +793,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                   <Text label="Identity lock — written into every shot they are in" rows={3} value={c.lock} hint="age, face, hair, skin, build, wardrobe" onChange={(v) => act((x) => fixCell(x, "characters", c.id, "lock", v))} />
                   <Text label="Never show" value={c.never} onChange={(v) => act((x) => fixCell(x, "characters", c.id, "never", v))} />
                   <RefStrip refs={c.refs ?? []} pool={pool} describe={[c.lock, c.look, c.wardrobe].filter(Boolean).join(". ")} onChange={(refs) => act((x) => fixCell(x, "characters", c.id, "refs", refs))} />
+                  <BankLink kind="character" name={c.name} words={[c.lock, c.look, c.wardrobe].filter(Boolean).join(". ")} refs={c.refs ?? []} onUse={(item) => act((x) => fixCell(fixCell(x, "characters", c.id, "refs", item.image ? [item.image, ...(c.refs ?? []).filter((r) => r !== item.image)].slice(0, 8) : (c.refs ?? [])), "characters", c.id, "lock", item.words))} />
                 </article>
               ))}
             </>
@@ -792,6 +818,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                   </div>
                   <Text label="Look lock — written into every shot here" rows={3} value={l.lock} onChange={(v) => act((x) => fixCell(x, "locations", l.id, "lock", v))} />
                   <RefStrip refs={l.refs ?? []} pool={pool} describe={[l.lock, l.look, l.light].filter(Boolean).join(". ")} onChange={(refs) => act((x) => fixCell(x, "locations", l.id, "refs", refs))} />
+                  <BankLink kind="place" name={l.name} words={[l.lock, l.look, l.light].filter(Boolean).join(". ")} refs={l.refs ?? []} onUse={(item) => act((x) => fixCell(fixCell(x, "locations", l.id, "refs", item.image ? [item.image, ...(l.refs ?? []).filter((r) => r !== item.image)].slice(0, 8) : (l.refs ?? [])), "locations", l.id, "lock", item.words))} />
                 </article>
               ))}
             </>

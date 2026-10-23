@@ -10,6 +10,9 @@ import type { Project, ProjectSummary } from "../story/model";
 import type { Run } from "../story/runs";
 import { saveRun, type SaveTarget } from "../story/save-run";
 import { createProjectStore } from "../story/store";
+import { saveToBank, suggestName } from "../story/bank-save";
+import { KIND_NAME, type BankItem } from "../story/bank";
+import { pickUrl, safeReturn, type PickKind } from "../story/handoff";
 
 /**
  * Save to project: put something made in Create or Video to work — on a
@@ -35,8 +38,68 @@ const remembered = () => {
   }
 };
 
+/** Keep a picture in your bank as a character, a place or an accessory. Back from somewhere that asked for one, it offers the way back with it chosen. */
+function BankSave({ run, kv, onClose, startKind }: { run: Run; kv: ReturnType<typeof defaultKv>; onClose: () => void; startKind: PickKind }) {
+  const [kind, setKind] = useState<PickKind>(startKind);
+  const [name, setName] = useState(() => suggestName(run.prompt));
+  const [made, setMade] = useState<BankItem | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const from = useMemo(() => {
+    const q = new URLSearchParams(window.location.search);
+    const back = safeReturn(q.get("return"));
+    return back ? { back, label: q.get("label")?.slice(0, 40) || "where you were" } : null;
+  }, []);
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      setMade(await saveToBank(kv, kind, name, { image: run.url, words: run.prompt }));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "That couldn't be saved.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (made) {
+    return (
+      <>
+        <p className="save-to-done" role="status">Saved {made.name} to your bank as {KIND_NAME[made.kind].one === "accessory" ? "an" : "a"} {KIND_NAME[made.kind].one}. It's one tap away wherever you choose who is in a shot.</p>
+        <div className="sheet-row">
+          {from && <a className="fire" href={pickUrl(from.back, made.kind, made.id)}>Use {made.name} in {from.label}</a>}
+          <button className={from ? "plain" : "fire"} onClick={onClose}>Keep making</button>
+        </div>
+      </>
+    );
+  }
+  return (
+    <>
+      <fieldset className="save-to-uses">
+        <legend>Keep it as</legend>
+        {(["character", "place", "accessory"] as PickKind[]).map((k) => (
+          <label key={k} className={kind === k ? "on" : ""}>
+            <input type="radio" name="bankkind" checked={kind === k} onChange={() => setKind(k)} />
+            <b>{k === "character" ? "A character" : k === "place" ? "A place" : "An accessory"}</b>
+            <small>{k === "character" ? "The picture is how they look; the prompt describes them." : k === "place" ? "The picture is the place; use it in any shot set there." : "A scarf, glasses, a jacket: put it on anyone."}</small>
+          </label>
+        ))}
+      </fieldset>
+      <label className="save-to-field"><span>Name</span><input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Juno" /></label>
+      {error && <p className="library-error" role="alert">{error}</p>}
+      <div className="sheet-row">
+        <button className="fire" disabled={busy || !name.trim()} onClick={() => void save()}>{busy ? "Saving…" : "Save to my bank"}</button>
+        <button className="plain" onClick={onClose}>Cancel</button>
+      </div>
+    </>
+  );
+}
+
 export function SaveToProject({ run, onClose }: { run: Run; onClose: () => void }) {
   const kv = useMemo(() => defaultKv(), []);
+  // Sent here from a page that wants a character, place or accessory made (?make=place), the bank is the starting point.
+  const make = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("make");
+  const startKind: PickKind = make === "place" || make === "accessory" || make === "character" ? make : "character";
+  const [dest, setDest] = useState<"project" | "bank">(make ? "bank" : "project");
   const store = useMemo(() => createProjectStore(kv), [kv]);
   const [list, setList] = useState<ProjectSummary[] | null>(null);
   const [projectId, setProjectId] = useState("");
@@ -137,7 +200,16 @@ export function SaveToProject({ run, onClose }: { run: Run; onClose: () => void 
           </div>
         </div>
 
-        {done ? (
+        {!done && (
+          <div className="lab-chips save-to-dest" role="tablist" aria-label="Where to save it">
+            <button role="tab" aria-selected={dest === "project"} className={dest === "project" ? "on" : ""} onClick={() => setDest("project")}>Into a project</button>
+            <button role="tab" aria-selected={dest === "bank"} className={dest === "bank" ? "on" : ""} onClick={() => setDest("bank")}>Into my bank</button>
+          </div>
+        )}
+
+        {dest === "bank" && !done ? (
+          <BankSave run={run} kv={kv} onClose={onClose} startKind={startKind} />
+        ) : done ? (
           <>
             <p className="save-to-done" role="status">{done}</p>
             <div className="sheet-row">

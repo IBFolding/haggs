@@ -1,7 +1,7 @@
 "use client";
 
 import { ExtrasRow } from "../bank-picker";
-import { wordsOf, type BankItem } from "../../story/bank";
+import { allocateRefs, wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -68,7 +68,7 @@ export function Comic() {
       if (stop.current) break;
       setBusy(`Drawing ${p.id === list[0]!.id && list.length === 1 ? "panel" : `panel ${i + 1} of ${list.length}`}…`);
       const names = p.who.length ? cast.filter((c) => p.who.includes(c.id)) : cast.filter((c) => inIt.includes(c.id));
-      const r = await makeStill(panelPrompt(p, look, names.map((c) => identityLock(c.traits)), wordsOf(extras) || undefined, style), imageRatio(p.shape), [...names.map((c) => c.sheet).slice(0, 2), ...style.refs.slice(0, MAX_STYLE_REFS)], `${COMIC_FINISH}`);
+      const r = await makeStill(panelPrompt(p, look, names.map((c) => identityLock(c.traits)), wordsOf(extras) || undefined, style), imageRatio(p.shape), allocateRefs({ characters: names.map((c) => c.sheet), place: extras.filter((i) => i.kind === "place" && i.image).map((i) => i.image!), style: style.refs.slice(0, MAX_STYLE_REFS), accessories: extras.filter((i) => i.kind === "accessory" && i.image).map((i) => i.image!) }, 4), `${COMIC_FINISH}`);
       if (!r.ok) { if (r.needsKey) openKeys(); setProblem(r.reason); break; }
       setPictures((all) => ({ ...all, [p.id]: r.url }));
     }

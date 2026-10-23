@@ -1,7 +1,7 @@
 "use client";
 
 import { ExtrasRow } from "../bank-picker";
-import { wordsOf, type BankItem } from "../../story/bank";
+import { allocateRefs, wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -78,6 +78,8 @@ export function SeriesMaker() {
   const [extras, setExtras] = useState<BankItem[]>([]);
   const lock = [person ? identityLock(person.traits) : "", wordsOf(extras)].filter(Boolean).join(" ");
   const words = { ...(style ? { look: style.words } : {}), ...(lock ? { lock } : {}) };
+  /** Pictures sent with every shot: who, then where, then what they wear, as many as the model takes. */
+  const seriesRefs = () => allocateRefs({ characters: person?.sheet ? [person.sheet] : [], place: extras.filter((i) => i.kind === "place" && i.image).map((i) => i.image!), accessories: extras.filter((i) => i.kind === "accessory" && i.image).map((i) => i.image!) }, 4);
 
   function usePreset(id: string) {
     const p = PRESETS.find((x) => x.id === id);
@@ -122,7 +124,7 @@ export function SeriesMaker() {
     const sh = series!.episodes[e]!.shots[s]!;
     const key = `${e}.${s}`;
     setMaking(key);
-    const r = await makeStill(pictureWords(sh.picture, words), "9:16", person?.sheet ? [person.sheet] : []);
+    const r = await makeStill(pictureWords(sh.picture, words), "9:16", seriesRefs());
     setMaking(null);
     if (!r.ok) {
       if (r.needsKey) openKeys();
@@ -210,7 +212,7 @@ export function SeriesMaker() {
 
   async function open() {
     if (!series) return;
-    const project = buildSeries(series, format, { ...words, ...(person?.sheet ? { refs: [person.sheet] } : {}), pictures: pics.current, clips: clipsRef.current, voice, narrationUrls: spokenRef.current });
+    const project = buildSeries(series, format, { ...words, ...(seriesRefs().length ? { refs: seriesRefs() } : {}), pictures: pics.current, clips: clipsRef.current, voice, narrationUrls: spokenRef.current });
     await store.save(project);
     router.push(`/board/${project.id}/cut?b=${encodeURIComponent(project.boards![0]!.id)}`);
   }

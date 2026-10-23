@@ -73,7 +73,8 @@ export function BankPicker({ kinds, label, onPick, onClose, picked = [] }: { kin
                 <b>{i.name}</b>
               </button>
             ))}
-            <BuildLink href={KIND_NAME[tab].builder} label={label} className="bank-new">+ Make a new {KIND_NAME[tab].one}</BuildLink>
+            <BuildLink href={KIND_NAME[tab].builder} label={label} className="bank-new">+ Build a new {KIND_NAME[tab].one}</BuildLink>
+            <BuildLink href={`/photos?make=${tab}`} label={label} className="bank-new">+ Make a picture of one</BuildLink>
           </div>
         )}
         {items !== null && shown.length === 0 && <p className="wf-small">No {KIND_NAME[tab].many.toLowerCase()} yet. Make one and you come straight back here with it chosen.</p>}

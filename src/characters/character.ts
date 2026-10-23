@@ -87,7 +87,8 @@ export function changeNote(before: Traits, after: Traits): string {
   return (Object.keys(LABEL) as (keyof Traits)[]).filter((k) => before[k] !== after[k]).map((k) => `${LABEL[k]}: ${String(after[k]) || "none"}`).join(", ");
 }
 
-export type Character = { id: string; traits: Traits; sheet: string; likeness: string[]; createdAt: number; updatedAt: number };
+/** `words` is a hand-written description that stands in for the traits when a character came from a picture or a sheet rather than the builder. */
+export type Character = { id: string; traits: Traits; sheet: string; likeness: string[]; words?: string; createdAt: number; updatedAt: number };
 export type NewCharacter = Omit<Character, "id" | "createdAt" | "updatedAt"> & Partial<Pick<Character, "id" | "createdAt">>;
 
 const INDEX = "characters/index";
