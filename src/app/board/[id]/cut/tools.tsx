@@ -8,6 +8,7 @@ import { defaultKv } from "../../../../story/kv";
 import type { Project, Shot } from "../../../../story/model";
 import { runEdit, type EditRequest } from "../../../actions";
 import { openKeys } from "../../../nav";
+import { frameAt } from "../../../cut-actions";
 import { makeStill } from "../../../series-actions";
 import { addStyleReel, type StyledClip } from "../../../../styles/reel";
 import { createProjectStore } from "../../../../story/store";
@@ -126,24 +127,31 @@ export function EditTools({
       });
   }, [tool, lines.length, project.id, shot.sheetShotId]);
 
-  function grab() {
+  /** The frame under the playhead as a picture Comfy will take: JPEG, at most 2048px, so a 4K take never trips the 10 MB limit. */
+  async function grab() {
+    setProblem(null);
     const el = stage.current;
-    if (!el || !el.videoWidth) {
-      setProblem("Play or scrub to the frame first, so there is a picture to grab.");
-      return;
+    if (el && el.videoWidth) {
+      try {
+        const k = Math.min(1, 2048 / Math.max(el.videoWidth, el.videoHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(el.videoWidth * k);
+        canvas.height = Math.round(el.videoHeight * k);
+        canvas.getContext("2d")!.drawImage(el, 0, 0, canvas.width, canvas.height);
+        setFrame(canvas.toDataURL("image/jpeg", 0.92));
+        setGrabbedAt(el.currentTime);
+        setFixed(null);
+        return;
+      } catch {
+        // The browser won't read this video's pixels; the server can.
+      }
     }
-    const canvas = document.createElement("canvas");
-    canvas.width = el.videoWidth;
-    canvas.height = el.videoHeight;
-    canvas.getContext("2d")!.drawImage(el, 0, 0);
-    try {
-      setFrame(canvas.toDataURL("image/png"));
-      setGrabbedAt(el.currentTime);
-      setFixed(null);
-      setProblem(null);
-    } catch {
-      setProblem("This take is on another site, so the browser won't let haggs read its frames.");
-    }
+    if (!video) return setProblem("This shot has no video to take a frame from.");
+    const r = await frameAt(video, (shot.trimIn ?? 0) + playhead, "video");
+    if (!r.ok) return setProblem(r.reason);
+    setFrame(r.url);
+    setGrabbedAt(playhead);
+    setFixed(null);
   }
 
   async function go(label: string, request: EditRequest, apply: (result: { url: string; kind: "image" | "video"; usd: number; origin: string }) => void) {
@@ -207,7 +215,7 @@ export function EditTools({
             </figure>
           </div>
           <div className="tools-run">
-            <button className="pill" onClick={grab}>Grab the frame under the playhead</button>
+            <button className="pill" onClick={() => void grab()}>{frame ? "Grab a different frame" : "Grab the frame under the playhead"}</button>
             <button className="pill" onClick={() => fixedUpload.current?.click()} title="A frame you fixed somewhere else, to re-render the take from">
               Use a fixed picture you already have
             </button>

@@ -140,6 +140,7 @@ async function mediaBytes(source: string): Promise<{ bytes: Uint8Array; mime: st
   if (source.startsWith("/api/local/")) {
     const file = localFile(process.env.HAGGS_LOCAL_MEDIA, source.slice("/api/local/".length).split("/").map(decodeURIComponent), process.env.NODE_ENV);
     if (!file) throw new Error("That file isn't in the local media folder.");
+    if (file.type.startsWith("video/")) return { bytes: await (await import("../server/video-fit")).fittedVideo(file.path), mime: file.type };
     return { bytes: new Uint8Array(await readFile(file.path)), mime: file.type };
   }
   if (source.startsWith("https://raw.githubusercontent.com/Comfy-Org/workflow_templates/")) {

@@ -318,15 +318,15 @@ async function bytesOf(url: string): Promise<{ bytes: Uint8Array; mime: string }
     return { bytes: Uint8Array.from(Buffer.from(match[2]!, "base64")), mime: match[1]! };
   }
   if (url.startsWith("/api/local/")) {
-    const [inlined] = await inlineLocal([url], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV).catch(async () => {
-      // inlineLocal only sends pictures; videos are read straight from disk.
-      const { readFile } = await import("node:fs/promises");
-      const segments = url.slice("/api/local/".length).split("/").map(decodeURIComponent);
-      const { localFile } = await import("../server/local-media");
-      const file = localFile(process.env.HAGGS_LOCAL_MEDIA, segments, process.env.NODE_ENV);
-      if (!file) throw new Error("That take isn't in the local media folder.");
-      return [`data:${file.type};base64,${(await readFile(file.path)).toString("base64")}`];
-    });
+    const { localFile } = await import("../server/local-media");
+    const file = localFile(process.env.HAGGS_LOCAL_MEDIA, url.slice("/api/local/".length).split("/").map(decodeURIComponent), process.env.NODE_ENV);
+    if (!file) throw new Error("That take isn't in the local media folder.");
+    if (file.type.startsWith("video/")) {
+      // Comfy's video tools refuse anything wider than 2160px.
+      const { fittedVideo } = await import("../server/video-fit");
+      return { bytes: await fittedVideo(file.path), mime: file.type };
+    }
+    const [inlined] = await inlineLocal([url], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV);
     return bytesOf(inlined!);
   }
   const got = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60_000) });
