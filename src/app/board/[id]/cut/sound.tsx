@@ -139,6 +139,14 @@ const DEFAULT_VOICE = "Laura (female, american)";
 export function VoiceLines({ shot, project, onChange }: { shot: Shot; project: Project; onChange: (voices: VoiceLine[]) => void }) {
   const lines = shot.voices ?? [];
   const [speaking, setSpeaking] = useState<string | null>(null);
+  const [expressive, setExpressive] = useState(false);
+  useEffect(() => {
+    try {
+      setExpressive(localStorage.getItem("haggs.expressive") === "1");
+    } catch {
+      /* private window */
+    }
+  }, []);
   const [error, setError] = useState<string | null>(null);
 
   // A speaker keeps the voice they were given anywhere on the board.
@@ -159,7 +167,7 @@ export function VoiceLines({ shot, project, onChange }: { shot: Shot; project: P
   async function speak(line: VoiceLine) {
     setError(null);
     setSpeaking(line.id);
-    const result = await speakLine(line.text, line.voice);
+    const result = await speakLine(line.text, line.voice, expressive);
     setSpeaking(null);
     if (!result.ok) {
       if (result.needsKey) openKeys();
@@ -208,6 +216,9 @@ export function VoiceLines({ shot, project, onChange }: { shot: Shot; project: P
           <button className="take-x" aria-label="Remove line" onClick={() => onChange(lines.filter((l) => l.id !== line.id))}>×</button>
         </div>
       ))}
+      <label className="sound-level" title="ElevenLabs v3 at low stability performs directions in square brackets, like [softly], [sighs] or [whispered]. More natural, a little less predictable.">
+        <input type="checkbox" checked={expressive} onChange={(e) => { setExpressive(e.target.checked); try { localStorage.setItem("haggs.expressive", e.target.checked ? "1" : "0"); } catch { /* private window */ } }} /> Expressive voice: put [softly] or [sighs] in the words
+      </label>
       {!lines.length && <p className="takes-note">Lines play from this shot&rsquo;s start and move with it if the board is reordered.</p>}
       {error && <p className="library-error" role="alert">{error}</p>}
     </div>
