@@ -38,6 +38,11 @@ Faceless channel, Did you know, Top 5, Influencer), who is in it and how it
 looks, then make the pictures and animate them on the same page. Faceless
 channels get a narrator, spoken with ElevenLabs.
 
+**Recreate an edit.** Drop a reference video (a trailer, an ad, a viral cut). A
+video model (Gemini on Comfy) lists every shot: its length, what the camera
+sees, the camera move, the words on screen. haggs rebuilds the same edit around
+your character and place as a board, shot for shot, ready to make and cut.
+
 **The editor.** Every take a shot has had is kept. Play it, trim it (I and O),
 split it (S), undo anything (⌘Z). Then:
 

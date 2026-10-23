@@ -2388,3 +2388,14 @@ a.logo { color: var(--text); text-decoration: none; }
 .cast-list img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 6px; }
 .cast-add { display: flex; gap: 8px; margin-top: 8px; }
 .cast-add input { flex: 1; min-width: 0; background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; }
+
+.recreate-drop { display: grid; gap: 10px; justify-items: start; margin-top: 12px; }
+.recreate-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 12px; }
+.recreate-ref { width: 100%; max-height: 60vh; border-radius: 14px; background: #000; }
+.recreate-side { display: grid; gap: 12px; }
+.recreate-shots { list-style: none; padding: 0; margin: 20px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.recreate-shots li { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.recreate-shots header { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: var(--text-2); }
+.recreate-shots header b { color: var(--volt); font-size: 14px; }
+.recreate-shots textarea, .recreate-shots input { background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 12.5px; width: 100%; }
+@media (max-width: 900px) { .recreate-body { grid-template-columns: 1fr; } }

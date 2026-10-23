@@ -26,6 +26,7 @@ that generates runs through Comfy.
 | Faceless Studio | Series → Faceless channel, with a narrator (ElevenLabs v3) |
 | Content Factory | Series: What if, POV, Story, Did you know, Top 5, Influencer |
 | MCP / CLI | `scripts/mcp.ts`: read projects, propose boards, series and canvases, search the workflow library |
+| Katana (recreate edits with your content) | Video → Recreate an edit: a video model reads the reference's shots, then the board is rebuilt around your character |
 | Community | Workflows → Community: publish free or up to 12¢ a run |
 
 ## Beyond Higgsfield

@@ -304,6 +304,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
           <nav className="modes" aria-label="Video">
             <Link href="/video" aria-current="page">Make a clip</Link>
             <Link href="/series">Series</Link>
+            <Link href="/recreate">Recreate an edit</Link>
           </nav>
         )}
         {surface !== "Video" && (

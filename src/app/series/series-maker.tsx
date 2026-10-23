@@ -231,6 +231,7 @@ export function SeriesMaker() {
           <nav className="modes" aria-label="Video">
             <Link href="/video">Make a clip</Link>
             <Link href="/series" aria-current="page">Series</Link>
+            <Link href="/recreate">Recreate an edit</Link>
           </nav>
 
           {sent.length > 0 && (

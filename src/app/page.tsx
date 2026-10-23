@@ -29,6 +29,7 @@ const TILES = [
   { name: "Photos", says: "Make, edit, build characters and places.", href: "/photos" },
   { name: "Video", says: "A clip from words or a picture.", href: "/video" },
   { name: "Series", says: "A topic into short vertical videos, faceless channels too.", href: "/series" },
+  { name: "Recreate an edit", says: "Drop an edit you love; rebuild it around your character.", href: "/recreate" },
   { name: "Workflows", says: "26 ready-made apps: swap, relight, try on, upscale.", href: "/workflows" },
   { name: "Editor", says: "Cut, reshoot, restyle, sound and render.", href: "/library" },
   { name: "Academy", says: "Seven short lessons. Your first video in lesson one.", href: "/academy" },
