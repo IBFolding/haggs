@@ -4,7 +4,9 @@ import Link from "next/link";
 import { LESSONS } from "../academy/lessons";
 import { TEMPLATES } from "../catalog/templates";
 import { FORMATS } from "../sheets/formats";
+import { AcademyPath } from "./academy-path";
 import { HeroStage } from "./hero-stage";
+import { WorkflowDemo } from "./workflow-demo";
 import { Nav } from "./nav";
 
 export const metadata: Metadata = {
@@ -18,13 +20,6 @@ export const metadata: Metadata = {
  * the clearest picture of what haggs is for. No stock footage, no private
  * project media — everything on this page is the product's own shape.
  */
-
-const TABS = [
-  { name: "Sheets", says: "Upload a script or pick a format. The scenes, the speaking cast and the places land on sheets; you add identity locks, looks and a shot list with real camera moves." },
-  { name: "Board", says: "The story as a flow chart. Subplots get their own lanes, characters show where they appear, and dragging a card re-times the whole thing." },
-  { name: "Cut", says: "Every shot in order with its takes. Flip between takes, split a shot, roll one again, and export the cut." },
-  { name: "Media", says: "Everything the project is made of, by shot: takes, stills and references. Change what a shot should show and roll it again." },
-];
 
 const TILES = [
   { name: "Photos", says: "Make, edit, build characters and places.", href: "/photos" },
@@ -100,17 +95,25 @@ export default function Landing() {
           <p className="lp-wall-note">Twelve starting points ship with the app, each shown by a real result. All made on Comfy Cloud with FLUX 3 and MiniMax H3. Prices are estimates, not invoices.</p>
         </section>
 
-        <section className="lp-tabs" id="how">
-          <h2>One project, four places, one assistant</h2>
-          <ol>
-            {TABS.map((tab, i) => (
-              <li key={tab.name}>
-                <span className="lp-step">{i + 1}</span>
-                <h3>{tab.name}</h3>
-                <p>{tab.says}</p>
-              </li>
-            ))}
-          </ol>
+        <WorkflowDemo />
+
+        <section className="lp-case" aria-label="Case study: recreate an edit">
+          <h2>Recreate an edit, made for real</h2>
+          <div className="lp-case-body">
+            <video src="/showcase/recreate-outfit-check.mp4" poster="/showcase/recreate-outfit-check.jpg" muted loop playsInline autoPlay controls preload="metadata" />
+            <div>
+              <p className="lp-case-lede">A trending outfit-check edit, rebuilt around a character that stays the same man in every shot. Nothing here is stock: every picture and clip was made on Comfy from the steps below.</p>
+              <ol className="lp-case-steps">
+                <li><b>Pick the structure</b><span>The “Outfit check” starting point: five shots, a mirror reveal then the pieces. Free.</span></li>
+                <li><b>Choose who is in it</b><span>Ellis, a character with a saved sheet. “He wears a camel overcoat, a cream knit, wide dark trousers and white leather sneakers, on a rainy city street.”</span></li>
+                <li><b>Make the pictures</b><span>FLUX 3, five stills in the board’s frame shape. <em>$0.34</em></span></li>
+                <li><b>Animate them</b><span>MiniMax H3, each still becomes the first frame of a 4.5 second clip. <em>$2.58</em></span></li>
+                <li><b>Join the cut</b><span>22 seconds, vertical, ready to cut further in the editor. <em>$2.92 in all</em></span></li>
+              </ol>
+              <p><Link className="fire" href="/recreate">Recreate an edit</Link></p>
+              <p className="lp-case-note">Prices are Comfy’s published rates at the time, estimates not invoices.</p>
+            </div>
+          </div>
         </section>
 
         <section className="lp-starts">
@@ -159,12 +162,7 @@ export default function Landing() {
         <section className="lp-academy" id="academy">
           <h2>Learn it by making it</h2>
           <p>The Academy is seven short lessons, about 90 minutes in all. You make a video in the first one, and every lesson ends in something real in haggs. Finish all seven for a certificate.</p>
-          <ol className="lp-lessons">
-            {LESSONS.map((l) => (
-              <li key={l.id} style={{ "--i": LESSONS.indexOf(l) } as React.CSSProperties}><b>{l.title}</b><span>{l.minutes} min · {l.goal}</span></li>
-            ))}
-          </ol>
-          <Link className="fire" href="/academy">Start lesson one</Link>
+          <AcademyPath lessons={LESSONS} />
         </section>
 
         <section className="lp-mcp" id="mcp">
