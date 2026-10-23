@@ -18,4 +18,4 @@ Scenes and the lines spoken over them:
 The recording is scripted with `puppeteer-core` against `npm run dev` (1280×720
 at 1.5× for a crisp 1080p). Each scene is recorded on its own, held for at least
 the length of its line, then joined with captions, the voice-over and the music
-in ffmpeg. The scripts live with the build notes, not in the app.
+in ffmpeg. The scripts are in `scripts/demo/`.
