@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Entry } from "../../server/comfy-library";
 import { Nav, openKeys } from "../nav";
-import { SWAP_THUMB } from "../squares";
+import { SWAP_THUMB } from "../swap/thumb";
 import { createAppStore, type SavedApp } from "../../story/apps";
 import { defaultKv } from "../../story/kv";
 import { listWorkflows, type Listing } from "../workflow-actions";

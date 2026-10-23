@@ -22,6 +22,7 @@ export type Template = {
 export const TEMPLATES: Template[] = [
   {
     id: "ai-influencer",
+    sample: "/templates/ai-influencer.webp",
     surface: "Create",
     name: "AI influencer",
     blurb: "A consistent person for a feed, photographed like a real one.",
@@ -30,6 +31,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "character-sheet",
+    sample: "/templates/character-sheet.webp",
     surface: "Create",
     name: "Character sheet",
     blurb: "Front, three-quarter and profile — save it as their face.",
@@ -38,6 +40,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "product-hero",
+    sample: "/templates/product-hero.webp",
     surface: "Create",
     name: "Product hero shot",
     blurb: "The ad image: one product, lit like it matters.",
@@ -46,6 +49,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "storyboard-frame",
+    sample: "/templates/storyboard-frame.webp",
     surface: "Create",
     name: "Storyboard frame",
     blurb: "A film still for a board, ready to animate.",
@@ -54,6 +58,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "location-plate",
+    sample: "/templates/location-plate.webp",
     surface: "Create",
     name: "Location",
     blurb: "An empty establishing plate — save it as a place.",
@@ -62,6 +67,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "key-art",
+    sample: "/templates/key-art.webp",
     surface: "Create",
     name: "Poster key art",
     blurb: "The poster, with room left for the title.",
@@ -70,6 +76,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "ugc-talking",
+    sample: "/templates/ugc-talking.mp4",
     surface: "Video",
     name: "Influencer to camera",
     blurb: "Handheld UGC: someone talks you into it.",
@@ -78,6 +85,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "product-placement",
+    sample: "/templates/product-placement.mp4",
     surface: "Video",
     name: "Product placement",
     blurb: "Your product in a scene, never the subject until the end.",
@@ -87,6 +95,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "product-orbit",
+    sample: "/templates/product-orbit.mp4",
     surface: "Video",
     name: "Product 360",
     blurb: "A slow orbit for a product page or an ad's last beat.",
@@ -96,6 +105,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "animate-still",
+    sample: "/templates/animate-still.mp4",
     surface: "Video",
     name: "Bring a still to life",
     blurb: "Your picture, moving. Faces and framing stay put.",
@@ -105,6 +115,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "establishing-drone",
+    sample: "/templates/establishing-drone.mp4",
     surface: "Video",
     name: "Drone establishing",
     blurb: "Open a film or an episode from the air.",
@@ -113,6 +124,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: "dolly-zoom",
+    sample: "/templates/dolly-zoom.mp4",
     surface: "Video",
     name: "Dolly zoom moment",
     blurb: "The Vertigo shot, for the instant someone realises.",

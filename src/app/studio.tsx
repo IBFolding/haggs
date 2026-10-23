@@ -14,7 +14,6 @@ import { Nav, openKeys } from "./nav";
 import { REUSE_KEY } from "./gallery/gallery";
 import { RunTile } from "./run-tile";
 import { SaveToProject } from "./save-to-project";
-import { Squares } from "./squares";
 import { SettingsRail } from "./settings-rail";
 
 /** In-flight work only. Anything finished is a Run and lives in storage. */
@@ -229,11 +228,9 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
               This model runs at <b>{rate?.label ?? "a rate loading now"}</b>. Every run you
               make is kept here with what it cost.
             </p>
-            <Squares surface={surface} templates={templates} onPick={applyTemplate} />
           </div>
         ) : (
           <>
-          <Squares surface={surface} templates={templates} onPick={applyTemplate} />
           <div className="grid">
             {slots.map((slot) =>
               slot.state === "working" ? (
@@ -347,8 +344,8 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
                   <div className="tpl-menu" role="menu">
                     {templates.map((t) => (
                       <button key={t.id} role="menuitem" onClick={() => applyTemplate(t)}>
-                        <b>{t.name}</b>
-                        <span>{t.blurb}</span>
+                        {t.sample && (/\.mp4$/.test(t.sample) ? <video src={t.sample} muted loop autoPlay playsInline /> : <img src={t.sample} alt="" />)}
+                        <span className="tpl-words"><b>{t.name}</b><span>{t.blurb}</span></span>
                       </button>
                     ))}
                   </div>

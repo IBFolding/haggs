@@ -1932,3 +1932,6 @@ a.logo { color: var(--text); text-decoration: none; }
 .wf-mine { margin-bottom: 22px; }
 .wf-mine h2 { margin: 0 0 10px; font-size: 15px; }
 .wf-head .fire { text-decoration: none; margin-left: 0; }
+.tpl-menu button[role="menuitem"] { flex-direction: row; align-items: center; gap: 10px; }
+.tpl-menu button[role="menuitem"] img, .tpl-menu button[role="menuitem"] video { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex: none; }
+.tpl-words { display: flex; flex-direction: column; gap: 2px; }
