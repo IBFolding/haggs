@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PAGE_W, STARTERS, bubbleSlots, comicProject, imageRatio, layoutPanels, newPanel, panelPrompt, wrapWords } from "./comic";
+import { PAGE_W, STARTERS, emptyStyle, styleSheetPrompt, styleWords, bubbleSlots, comicProject, imageRatio, layoutPanels, newPanel, panelPrompt, wrapWords } from "./comic";
 
 test("a strip puts three panels in a row, inside the page, never overlapping", () => {
   const { rects, width, height } = layoutPanels(["wide", "wide", "wide", "wide"], "strip");
@@ -60,4 +60,32 @@ test("panels become a project of shots, one per picture that exists", () => {
 
 test("the starter stories are whole: every panel says what happens", () => {
   for (const s of STARTERS) assert.ok(s.panels.length >= 4 && s.panels.every((p) => p.action.length > 20), s.id);
+});
+
+test("a style sheet becomes words that go into every panel", () => {
+  const sheet = { ...emptyStyle(), notes: "Heavy shadows, a rain-soaked city at night.", palette: ["electric blue", "deep violet"], line: "bold" as const };
+  const w = styleWords(sheet);
+  assert.match(w, /bold linework\./);
+  assert.match(w, /Colour palette: electric blue, deep violet\./);
+  assert.match(w, /Art direction: Heavy shadows, a rain-soaked city at night\./);
+  assert.equal(styleWords(emptyStyle()), "");
+  assert.match(styleWords({ ...emptyStyle(), refs: ["/a.png"] }), /Match the art style of the reference/);
+  const p = panelPrompt(newPanel({ action: "She leaps across the alley." }), "ink", [], undefined, sheet);
+  assert.match(p, /electric blue/);
+});
+
+test("the style sheet page asks for poses, swatches and line samples and no words", () => {
+  const p = styleSheetPrompt("noir", { ...emptyStyle(), palette: ["red"] }, ["Juno: curly black hair."]);
+  assert.match(p, /Noir graphic novel/);
+  assert.match(p, /Juno: curly black hair/);
+  assert.match(p, /three poses/);
+  assert.match(p, /colour swatches/);
+  assert.match(p, /No text/);
+});
+
+test("the starter story is original: a young hero and a lightning storm", () => {
+  const s = STARTERS[0]!;
+  assert.equal(s.id, "spark");
+  assert.ok(s.panels.some((p) => /lightning/i.test(p.action)));
+  assert.ok(!s.panels.some((p) => /wheat|farmer|baseball glove|jar/i.test(p.action)));
 });

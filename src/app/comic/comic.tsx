@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createCharacterStore, identityLock, type Character } from "../../characters/character";
-import { LAYOUTS, LOOKS, STARTERS, comicProject, imageRatio, newPanel, panelPrompt, type LayoutId, type LookId, type Panel, type Shape } from "../../comic/comic";
+import { LAYOUTS, LOOKS, MAX_STYLE_REFS, STARTERS, comicProject, emptyStyle, imageRatio, newPanel, panelPrompt, styleSheetPrompt, type LayoutId, type LookId, type Panel, type Shape, type StyleSheet } from "../../comic/comic";
 import { readPick } from "../../story/handoff";
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
@@ -29,6 +29,9 @@ export function Comic() {
   const [inIt, setInIt] = useState<string[]>([]);
   const [look, setLook] = useState<LookId>("ink");
   const [layout, setLayout] = useState<LayoutId>("page");
+  const [style, setStyle] = useState<StyleSheet>(emptyStyle);
+  const [swatch, setSwatch] = useState("");
+  const sheetFile = useRef<HTMLInputElement>(null);
   const [pictures, setPictures] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -62,11 +65,33 @@ export function Comic() {
       if (stop.current) break;
       setBusy(`Drawing ${p.id === list[0]!.id && list.length === 1 ? "panel" : `panel ${i + 1} of ${list.length}`}…`);
       const names = p.who.length ? cast.filter((c) => p.who.includes(c.id)) : cast.filter((c) => inIt.includes(c.id));
-      const r = await makeStill(panelPrompt(p, look, names.map((c) => identityLock(c.traits))), imageRatio(p.shape), names.map((c) => c.sheet).slice(0, 2), `${COMIC_FINISH}`);
+      const r = await makeStill(panelPrompt(p, look, names.map((c) => identityLock(c.traits)), undefined, style), imageRatio(p.shape), [...names.map((c) => c.sheet).slice(0, 2), ...style.refs.slice(0, MAX_STYLE_REFS)], `${COMIC_FINISH}`);
       if (!r.ok) { if (r.needsKey) openKeys(); setProblem(r.reason); break; }
       setPictures((all) => ({ ...all, [p.id]: r.url }));
     }
     setBusy(null);
+  }
+
+  /** A picture you bring as the look to match, shrunk so it travels well. */
+  async function addRef(file: File) {
+    const bitmap = await createImageBitmap(file).catch(() => null);
+    if (!bitmap) return setProblem("That picture couldn't be read.");
+    const k = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bitmap.width * k);
+    c.height = Math.round(bitmap.height * k);
+    c.getContext("2d")!.drawImage(bitmap, 0, 0, c.width, c.height);
+    setStyle((st) => ({ ...st, refs: [...st.refs, c.toDataURL("image/jpeg", 0.9)].slice(-MAX_STYLE_REFS) }));
+  }
+
+  /** The look drawn once as a page: poses, swatches, line samples. Every panel after it is sent that page to match. */
+  async function drawStyleSheet() {
+    setProblem(null);
+    setBusy("Drawing the style sheet…");
+    const r = await makeStill(styleSheetPrompt(look, style, locks), "16:9", refs.slice(0, 2), COMIC_FINISH);
+    setBusy(null);
+    if (!r.ok) { if (r.needsKey) openKeys(); return setProblem(r.reason); }
+    setStyle((st) => ({ ...st, refs: [...st.refs, r.url].slice(-MAX_STYLE_REFS) }));
   }
 
   async function download() {
@@ -126,6 +151,40 @@ export function Comic() {
             <div className="cm-looks">{LOOKS.map((l) => <button key={l.id} className={look === l.id ? "on" : ""} onClick={() => { setLook(l.id); setPictures({}); }}><b>{l.name}</b><small>{l.says}</small></button>)}</div>
             <h2>The page</h2>
             <div className="lab-chips">{LAYOUTS.map((l) => <button key={l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)} title={l.says}>{l.name}</button>)}</div>
+          </section>
+
+          <section className="cm-block" aria-label="Style sheet">
+            <h2>Style sheet <small>how the art should look</small></h2>
+            <textarea className="cm-notes" rows={2} value={style.notes} onChange={(e) => setStyle({ ...style, notes: e.target.value })} placeholder="In your words: heavy shadows, a rain-soaked city at night, big expressive eyes, lettering like old pulp comics…" aria-label="Art notes" maxLength={400} />
+            <div className="cm-row">
+              <span className="cm-lbl">Line</span>
+              <div className="lab-chips small">{(["fine", "medium", "bold"] as const).map((l) => <button key={l} className={style.line === l ? "on" : ""} onClick={() => setStyle({ ...style, line: style.line === l ? "" : l })}>{l[0]!.toUpperCase() + l.slice(1)}</button>)}</div>
+            </div>
+            <div className="cm-row">
+              <span className="cm-lbl">Palette</span>
+              <div className="lab-chips small">
+                {[["Electric storm", ["electric blue", "deep violet", "white", "black"]], ["Warm retro", ["mustard", "brick red", "cream", "teal"]], ["Noir", ["black", "white", "one red accent"]], ["Pastel", ["peach", "mint", "lavender", "sky blue"]]].map(([name, colours]) => (
+                  <button key={name as string} className={style.palette.join() === (colours as string[]).join() ? "on" : ""} onClick={() => setStyle({ ...style, palette: style.palette.join() === (colours as string[]).join() ? [] : (colours as string[]) })}>{name as string}</button>
+                ))}
+              </div>
+              <form className="cm-swatch" onSubmit={(e) => { e.preventDefault(); const v = swatch.trim(); if (v && style.palette.length < 8) setStyle({ ...style, palette: [...style.palette, v.slice(0, 24)] }); setSwatch(""); }}>
+                <input value={swatch} onChange={(e) => setSwatch(e.target.value)} placeholder="Add a colour: teal, #ff3366" aria-label="Add a colour" maxLength={24} />
+              </form>
+            </div>
+            {style.palette.length > 0 && <div className="lab-chips small">{style.palette.map((c) => <button key={c} onClick={() => setStyle({ ...style, palette: style.palette.filter((x) => x !== c) })} title="Remove">{c} ×</button>)}</div>}
+            <div className="cm-refs">
+              {style.refs.map((r, i) => (
+                <figure key={i}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={r} alt={`Style reference ${i + 1}`} /><button className="plain" onClick={() => setStyle({ ...style, refs: style.refs.filter((_, k) => k !== i) })}>Remove</button></figure>
+              ))}
+              {style.refs.length < MAX_STYLE_REFS && (
+                <div className="cm-refadd">
+                  <button className="pill" onClick={() => sheetFile.current?.click()}>Add a picture to match</button>
+                  <button className="pill" disabled={busy !== null} onClick={() => void drawStyleSheet()}>Draw a style sheet from this look <span className="cost">about ${PRICE.toFixed(2)}</span></button>
+                  <input ref={sheetFile} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addRef(f); }} />
+                </div>
+              )}
+            </div>
+            <small className="wf-small">The notes, palette and line go into every panel. Pictures here are sent with every panel too, so the whole comic is drawn in one hand.</small>
           </section>
 
           <section className="cm-block" aria-label="Panels">

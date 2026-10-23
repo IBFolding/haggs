@@ -2697,3 +2697,7 @@ fieldset.gr-fence { border: 0; margin: 0; padding: 0; min-width: 0; } fieldset.g
 .cm-make { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; position: sticky; bottom: 8px; z-index: 5; padding: 10px 0; } .cm-make small { color: var(--text-3); }
 .cm-page { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); background: #f6f1e4; }
 @media (max-width: 640px) { .cm-panels li { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .cm-make { bottom: 66px; background: rgba(10, 10, 12, .9); backdrop-filter: blur(8px); } .rb { top: 8px; } }
+
+.cm-block h2 small { color: var(--text-3); font-weight: 500; font-size: 13px; margin-left: 8px; } .cm-notes { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 13.5px; } .cm-lbl { width: 54px; color: var(--text-3); font-size: 12.5px; flex: none; } .cm-swatch input { padding: 6px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 12.5px; width: 190px; }
+.cm-refs { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; } .cm-refs figure { margin: 0; display: grid; gap: 4px; width: 180px; } .cm-refs img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); } .cm-refadd { display: flex; gap: 8px; flex-wrap: wrap; }

@@ -25,13 +25,15 @@ export function AuthForm({ mode }: { mode: "signup" | "signin" }) {
   const sb = supabase();
   const back = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
-  async function google() {
+  async function oauth(provider: "google" | "github") {
     if (!sb) return;
     setBusy(true);
-    const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: back() } });
+    setProblem(null);
+    const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: back() } });
     if (error) {
       setBusy(false);
-      setProblem(error.message);
+      // Supabase says this when the provider isn't switched on for the project.
+      setProblem(/not enabled|unsupported provider/i.test(error.message) ? `${provider === "github" ? "GitHub" : "Google"} sign-in isn't switched on for this project yet. Use email for now.` : error.message);
     }
   }
 
@@ -81,7 +83,8 @@ export function AuthForm({ mode }: { mode: "signup" | "signin" }) {
                 <p className="library-error">Accounts aren't set up on this copy of haggs. Add the Supabase URL and publishable key to .env.local.</p>
               ) : (
                 <>
-                  <button className="au-google" disabled={busy} onClick={() => void google()}>Continue with Google</button>
+                  <button className="au-google" disabled={busy} onClick={() => void oauth("google")}>Continue with Google</button>
+                  <button className="au-google" disabled={busy} onClick={() => void oauth("github")}>Continue with GitHub</button>
                   <div className="au-or"><span>or with email</span></div>
                   <form onSubmit={(e) => void withEmail(e)}>
                     <label className="sh-field"><span>Email</span><input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>

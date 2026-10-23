@@ -36,13 +36,21 @@ function bubble(ctx: CanvasRenderingContext2D, slot: Rect, text: string, frame: 
 }
 
 function caption(ctx: CanvasRenderingContext2D, text: string, frame: Rect) {
-  const size = Math.max(15, Math.round(frame.w * 0.04));
-  ctx.font = `800 ${size}px "Trebuchet MS", sans-serif`;
-  const t = text.toUpperCase();
-  const w = Math.min(frame.w * 0.8, ctx.measureText(t).width + size * 1.2);
+  let size = Math.max(15, Math.round(frame.w * 0.04));
+  const max = frame.w * 0.82;
+  let lines: string[] = [];
+  for (;;) {
+    ctx.font = `800 ${size}px "Trebuchet MS", sans-serif`;
+    lines = wrapWords(text.toUpperCase(), Math.max(10, Math.floor(max / (size * 0.62))));
+    if (Math.max(...lines.map((l) => ctx.measureText(l).width)) + size * 1.2 <= max || size <= 12) break;
+    size -= 1;
+  }
+  const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + size * 1.2;
+  const h = lines.length * size * 1.25 + size * 0.5;
   ctx.fillStyle = "#fff36b"; ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
-  ctx.fillRect(frame.x + 8, frame.y + 8, w, size * 1.7); ctx.strokeRect(frame.x + 8, frame.y + 8, w, size * 1.7);
-  ctx.fillStyle = "#111"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(t, frame.x + 8 + size * 0.6, frame.y + 8 + size * 0.85);
+  ctx.fillRect(frame.x + 8, frame.y + 8, w, h); ctx.strokeRect(frame.x + 8, frame.y + 8, w, h);
+  ctx.fillStyle = "#111"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  lines.forEach((l, i) => ctx.fillText(l, frame.x + 8 + size * 0.6, frame.y + 8 + size * 0.25 + size * 0.62 + i * size * 1.25));
 }
 
 export async function drawComic(canvas: HTMLCanvasElement, panels: Panel[], pictures: Record<string, string>, layout: LayoutId, scale = 1) {

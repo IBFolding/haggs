@@ -76,10 +76,29 @@ export function bubbleSlots(rect: Rect, count: number): Rect[] {
   return slots.slice(0, Math.min(2, count));
 }
 
-/** The prompt for one panel's picture: the look, who is in it and what happens. No words in the picture; the bubbles are drawn on after. */
-export function panelPrompt(panel: Panel, look: LookId, locks: string[], place?: string): string {
+/** How the art should look, beyond the preset: your own notes, a palette, a line weight, and pictures to match. */
+export type StyleSheet = { notes: string; palette: string[]; line: "fine" | "medium" | "bold" | ""; refs: string[] };
+export const emptyStyle = (): StyleSheet => ({ notes: "", palette: [], line: "", refs: [] });
+export const MAX_STYLE_REFS = 2;
+
+/** The style sheet as words, added to every panel so the art stays one hand. */
+export function styleWords(sheet: StyleSheet): string {
+  const line = sheet.line ? `${sheet.line} linework.` : "";
+  const palette = sheet.palette.length ? `Colour palette: ${sheet.palette.join(", ")}.` : "";
+  const notes = sheet.notes.trim() ? `Art direction: ${sheet.notes.trim().replace(/[.\s]+$/, "")}.` : "";
+  return [line, palette, notes, sheet.refs.length ? "Match the art style of the reference style sheet exactly." : ""].filter(Boolean).join(" ");
+}
+
+/** The prompt that draws the style sheet itself: one page that shows the look, to be sent with every panel after it. */
+export function styleSheetPrompt(look: LookId, sheet: StyleSheet, locks: string[]): string {
   const words = LOOKS.find((l) => l.id === look)!.words;
-  return [words, locks.join(" "), place ?? "", `The panel shows: ${panel.action.trim().replace(/[.\s]+$/, "")}.`, "No text, no speech bubbles, no captions, no watermark in the picture."].filter(Boolean).join(" ");
+  return [`Comic art style sheet, one page: ${words}`, locks.join(" "), styleWords({ ...sheet, refs: [] }), "Show the main character in three poses (front, three-quarter, action), a row of colour swatches of the palette, and three samples of the line weight, on a plain page. No text, no letters, no watermark."].filter(Boolean).join(" ");
+}
+
+/** The prompt for one panel's picture: the look, who is in it and what happens. No words in the picture; the bubbles are drawn on after. */
+export function panelPrompt(panel: Panel, look: LookId, locks: string[], place?: string, style?: StyleSheet): string {
+  const words = LOOKS.find((l) => l.id === look)!.words;
+  return [words, style ? styleWords(style) : "", locks.join(" "), place ?? "", `The panel shows: ${panel.action.trim().replace(/[.\s]+$/, "")}.`, "No text, no speech bubbles, no captions, no watermark in the picture."].filter(Boolean).join(" ");
 }
 
 /** The panels as a project: one shot per panel with its picture, ready to animate into a motion comic. */
@@ -107,13 +126,13 @@ export function comicProject(name: string, panels: Panel[], pictures: Record<str
 
 /** A starting story, so the first panel is never a blank page. */
 export const STARTERS: { id: string; name: string; says: string; panels: { action: string; caption?: string; lines?: Line[]; shape?: Shape }[] }[] = [
-  { id: "storm", name: "The storm chaser", says: "Six panels: a sky, a warning, a catch.", panels: [
-    { action: "A lone figure in a yellow raincoat stands in a wheat field, one arm raised toward a huge dark funnel cloud, lightning behind", caption: "KANSAS. 6:42 PM.", lines: [{ who: "", text: "Come on... give me a good one!" }], shape: "wide" },
-    { action: "An old farmer on a porch holding a mug, shouting toward the field, rain slanting, warm window light behind him", lines: [{ who: "Grandpa", text: "Get inside!" }], shape: "tall" },
-    { action: "Extreme close-up of the figure's green eye, lightning reflected in it", shape: "wide" },
-    { action: "The figure catches a glowing blue orb in a baseball glove, smiling, rain on her face", lines: [{ who: "", text: "...Got it." }], shape: "square" },
-    { action: "Shelf in a barn window with three glass jars each holding a glowing blue orb, her hand reaching to set another", shape: "wide" },
-    { action: "Wide shot of the farmhouse at night under a clearing sky, the jars glowing in the window", caption: "NEXT STORM: SOON.", shape: "wide" },
+  { id: "spark", name: "Origin: Spark", says: "A young hero, a storm, and one bolt of lightning.", panels: [
+    { action: "A skinny teenage girl with short curly black hair and a patched denim jacket climbs onto a city rooftop to fix a wobbling TV antenna while a huge thunderstorm rolls over the skyline, rain blowing sideways", caption: "ROOFTOP. THE NIGHT THE POWER WENT OUT.", lines: [{ who: "Juno", text: "Mom's TV. One more time..." }], shape: "wide" },
+    { action: "Low angle: black storm clouds with the first veins of lightning crawling above a water tower, the girl tiny at the bottom of the frame with one hand on the antenna mast", lines: [{ who: "Juno", text: "Okay. Okay, okay, okay." }], shape: "tall" },
+    { action: "Extreme close-up of her wide dark eyes reflecting a flash of pure white light, rain on her lashes", caption: "THE FLASH.", shape: "wide" },
+    { action: "A thick bolt of lightning strikes the antenna mast, the girl thrown backwards in mid-air, blinding white light, her silhouette sharp against it", lines: [{ who: "Juno", text: "AAAAAH!" }], shape: "square" },
+    { action: "She sits up on the rooftop in a puddle, both hands crackling with blue-white electricity, steam rising from her wet jacket, the storm still raging behind her", lines: [{ who: "Juno", text: "...Did I just do that?" }], shape: "wide" },
+    { action: "Dawn-lit city: the girl in a homemade goggles-and-scarf mask leaps across an alley between two roofs, a trail of lightning arcing behind her", caption: "SPARK. DAY ONE.", lines: [{ who: "Spark", text: "Hang on! I'm coming!" }], shape: "wide" },
   ] },
   { id: "heist", name: "The last job", says: "A quick heist in five panels.", panels: [
     { action: "Three figures in dark clothes crouch on a rooftop at night looking at a glowing city, one holds a blueprint", caption: "11:58 PM.", shape: "wide" },
