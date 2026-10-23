@@ -9,6 +9,7 @@ import { VOICES } from "../../providers/cloud-edits";
 import { Nav, openKeys } from "../nav";
 import { libraryPrompts, listWorkflows, planCanvas } from "../workflow-actions";
 import { planToCanvas, type Plan } from "../../comfy/canvas";
+import { alternativesFor, isOpen } from "../../comfy/alternatives";
 import { WorkflowApp } from "./[name]/workflow-app";
 
 /**
@@ -70,9 +71,9 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   }
 
   useEffect(() => {
-    if (!menu || entries.length) return;
+    if (entries.length) return;
     void listWorkflows().then((l) => setEntries(l.entries.filter((e) => e.kind === "image" || e.kind === "video")));
-  }, [menu, entries.length]);
+  }, [entries.length]);
 
   const compiled = useMemo(() => {
     try {
@@ -155,6 +156,15 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
     setTitles((t) => ({ ...t, ...r.titles }));
     setCanvas(next);
     setPan({ x: 0, y: 0 });
+  }
+
+  /** Swaps a node for a library workflow that does the same job, keeping its place and its links. */
+  async function swap(id: string, e: Entry) {
+    const r = await libraryPrompts([e.name]);
+    if (!r.ok) return r.needsKey ? openKeys() : setNote(r.reason);
+    setLibrary((l) => ({ ...l, ...r.prompts }));
+    setTitles((t) => ({ ...t, [e.name]: e.title }));
+    setCanvas((c) => ({ ...c, nodes: c.nodes.map((n) => (n.id === id ? { id: n.id, x: n.x, y: n.y, kind: "library" as const, template: e.name } : n)) }));
   }
 
   const shown = entries.filter((e) => !hunt.trim() || `${e.title} ${e.tags.join(" ")} ${e.models.join(" ")}`.toLowerCase().includes(hunt.trim().toLowerCase())).slice(0, 40);
@@ -255,6 +265,20 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
                 </div>
                 <div className="cv-body">
                   <small>{isLib ? `Library workflow${ports ? ` · takes ${ports.needs.join(" + ") || "words"}, makes a ${ports.makes}` : " · loading…"}` : `${s!.model ?? "Your file"} · ${s!.blurb}`}</small>
+                  {(() => {
+                    const alts = alternativesFor(n.kind, entries).slice(0, 12);
+                    if (!alts.length) return null;
+                    const best = alts.find(isOpen) ?? alts[0]!;
+                    return (
+                      <div className="cv-swap">
+                        <select value="" onChange={(ev) => { const pick = alts.find((a) => a.name === ev.target.value); if (pick) void swap(n.id, pick); }} aria-label={`Swap the model for ${label(n)}`}>
+                          <option value="">Swap the model…</option>
+                          {alts.map((a) => <option key={a.name} value={a.name}>{isOpen(a) ? "Open · " : "Partner · "}{a.title}</option>)}
+                        </select>
+                        <button className="plain" title={`Use ${best.title}`} onClick={() => void swap(n.id, best)}>Best open</button>
+                      </div>
+                    );
+                  })()}
                   {s?.asks.includes("prompt") && <textarea rows={3} value={n.prompt ?? ""} placeholder={n.kind === "speak" ? "What they say" : "Describe it. Whoever runs the app can change this."} onChange={(e) => patch(n.id, { prompt: e.target.value })} aria-label={`Words for ${label(n)}`} />}
                   <div className="cv-opts">
                     {s?.asks.includes("seconds") && <label>Seconds <input type="number" min={4} max={15} value={n.seconds ?? 5} onChange={(e) => patch(n.id, { seconds: Number(e.target.value) })} /></label>}

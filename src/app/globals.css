@@ -2247,3 +2247,9 @@ a.logo { color: var(--text); text-decoration: none; }
 .cv-sent { position: absolute; z-index: 6; right: 16px; top: 118px; display: grid; gap: 8px; max-width: 420px; padding: 10px 12px; border: 1px solid var(--volt); border-radius: 12px; background: var(--surface); font-size: 13px; }
 .cv-sent > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .cv-sent span { color: var(--text-2); flex-basis: 100%; }
+.cv-swap { display: flex; gap: 6px; align-items: center; }
+.cv-swap select { flex: 1; min-width: 0; font-size: 12px; }
+.cv-body > * { min-width: 0; max-width: 100%; }
+.cv-swap select, .cv-opts select, .cv-opts input { background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; }
+.cv-swap select { width: 0; flex: 1 1 0; }
+.cv-swap button { flex: none; font-size: 12px; white-space: nowrap; }
