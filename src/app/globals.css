@@ -2076,3 +2076,47 @@ a.logo { color: var(--text); text-decoration: none; }
 .chars-use b { margin-right: 4px; font-size: 13px; }
 .chars-use .pill { text-decoration: none; }
 @media (max-width: 900px) { .chars-body { grid-template-columns: 1fr; } .chars-stage { position: static; } }
+
+/* ─── reshoot ──────────────────────────────────────────────────────── */
+
+.reshoot-panel { margin: 14px 0; padding: 12px 14px 14px; border: 1px solid var(--line-hot); border-radius: 16px; background: var(--surface); }
+.reshoot-panel header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.reshoot-panel header span { color: var(--text-3); font-size: 12.5px; }
+.reshoot-body { display: grid; grid-template-columns: 230px 1fr; gap: 16px; align-items: start; }
+.reshoot-controls { display: flex; flex-direction: column; gap: 8px; }
+.reshoot-controls label { display: grid; grid-template-columns: 4.5em 1fr 5.5em; gap: 8px; align-items: center; font-size: 12px; color: var(--text-3); }
+.reshoot-controls label input { accent-color: var(--volt); padding: 0; }
+.reshoot-controls label i { font-style: normal; font-size: 11.5px; color: var(--text-2); font-family: var(--mono); }
+.reshoot-presets { display: flex; flex-wrap: wrap; gap: 4px; }
+.reshoot-presets .plain { padding: 4px 9px; font-size: 12px; border: 1px solid var(--line); border-radius: 999px; }
+.reshoot-view { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.reshoot-hint { margin: 0; min-height: 80px; display: grid; place-items: center; text-align: center; color: var(--text-3); font-size: 13px; padding: 12px; border: 1px dashed var(--line-hot); border-radius: 12px; }
+.reshoot-hint b { color: var(--text); font-weight: 600; }
+.dial { width: 100%; max-width: 230px; touch-action: none; cursor: grab; outline: none; }
+.dial:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; border-radius: 12px; }
+.dial-ring { fill: none; stroke: var(--line-hot); stroke-width: 2; stroke-dasharray: 3 5; }
+.dial-arc { fill: none; stroke: var(--volt); stroke-width: 3; stroke-linecap: round; }
+.dial-source { fill: var(--text-3); }
+.dial-note { fill: var(--text-3); font-size: 9px; font-family: var(--ui); }
+.dial-subject { fill: var(--surface-2); stroke: var(--line-hot); stroke-width: 2; }
+.dial-face { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dial-cam rect, .dial-cam path { fill: var(--volt); }
+.compare { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; }
+.compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.compare .compare-top { clip-path: inset(0 0 0 var(--mix)); }
+.compare input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+.compare::after { content: ""; position: absolute; top: 0; bottom: 0; left: var(--mix); width: 3px; margin-left: -1.5px; background: var(--volt); box-shadow: 0 0 12px rgba(212, 248, 58, 0.7); pointer-events: none; }
+.compare-tag { position: absolute; top: 8px; padding: 3px 8px; border-radius: 6px; background: rgba(8, 8, 10, 0.7); font-size: 11.5px; font-weight: 700; pointer-events: none; }
+.compare-tag.l { left: 8px; }
+.compare-tag.r { right: 8px; }
+@media (max-width: 760px) { .reshoot-body { grid-template-columns: 1fr; } }
+.dial-wrap { position: relative; width: 100%; max-width: 230px; }
+.dial-wrap .dial { display: block; width: 100%; max-width: none; position: relative; }
+.dial-thumb { position: absolute; left: 50%; top: 50%; width: 26%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; overflow: hidden; border: 2px solid var(--line-hot); background: #000; z-index: 0; pointer-events: none; }
+.dial-thumb img, .dial-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.dial-subject { fill: none; stroke: var(--line-hot); stroke-width: 2; }
+.reshoot-strip { display: flex; gap: 6px; }
+.reshoot-strip button { flex: 1; min-width: 0; padding: 0; border: 2px solid transparent; border-radius: 10px; overflow: hidden; background: none; cursor: pointer; color: var(--text-2); font: inherit; font-size: 11.5px; text-align: center; }
+.reshoot-strip button.on { border-color: var(--volt); }
+.reshoot-strip img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.reshoot-strip span { display: block; padding: 3px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

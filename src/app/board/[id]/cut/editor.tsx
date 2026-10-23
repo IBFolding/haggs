@@ -8,8 +8,9 @@ import { Soundtrack, usePreviewSound, VoiceLines } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
 import { cloudEstimate } from "../../../../providers/cloud-price";
-import { frameAt, reshoot } from "../../../cut-actions";
-import { ANGLES, reshootFrameAt, type AngleId } from "../../../../story/reshoot";
+import { frameAt } from "../../../cut-actions";
+import { reshootFrameAt } from "../../../../story/reshoot";
+import { ReshootPanel } from "../../../reshoot-panel";
 import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite } from "../../../../story/takes";
 import { shoot } from "../../../shoot";
 import { EditTools } from "./tools";
@@ -194,24 +195,11 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
     }
   }
 
-  /** Reshoot: the same scene from a new angle, as a new shot after this one with the picture on it, ready to animate. */
-  const [angle, setAngle] = useState<AngleId>("reverse");
-  const [reshooting, setReshooting] = useState<string | null>(null);
-  async function reshootShot(shotId: string) {
-    const latest = full.current ? view(full.current, boardId) : project;
-    const at = latest?.shots.findIndex((s) => s.id === shotId) ?? -1;
-    const source = latest?.shots[at];
-    if (!latest || !source?.render) return;
-    setProblem(null);
-    setReshooting(shotId);
-    const made = await reshoot(source.render.url, reshootFrameAt(source), source.render.kind, angle, source.beat);
-    setReshooting(null);
-    if (!made.ok) {
-      if (made.needsKey) openKeys();
-      return setProblem(made.reason);
-    }
-    const label = ANGLES.find((a) => a.id === angle)!.label;
-    const next: Shot = { ...newShot(), heading: source.heading, beat: `${source.beat.split(" — ")[0]} (${label.toLowerCase()})`, threadIds: [...source.threadIds], seconds: source.seconds ?? 3, model: source.model, ...(source.refs?.length ? { refs: [...source.refs] } : {}), render: { url: made.url, kind: "image", usd: made.usd, promptHash: "", at: Date.now() } };
+  /** Keep a reshoot as the next shot: its picture on a new shot straight after this one, ready to animate. */
+  function keepReshoot(shotId: string, made: { url: string; usd: number; label: string }) {
+    const source = project?.shots.find((x) => x.id === shotId);
+    if (!source) return;
+    const next: Shot = { ...newShot(), heading: source.heading, beat: `${source.beat.split(" — ")[0]} (${made.label})`, threadIds: [...source.threadIds], seconds: source.seconds ?? 3, model: source.model, ...(source.refs?.length ? { refs: [...source.refs] } : {}), render: { url: made.url, kind: "image", usd: made.usd, promptHash: "", at: Date.now() } };
     apply((current) => {
       const i = current.shots.findIndex((x) => x.id === shotId);
       const shots = [...current.shots];
@@ -463,14 +451,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   >
                     {expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · $${expandPrice.toFixed(2)}`}
                   </button>
-                  <span className="reshoot">
-                    <select value={angle} onChange={(e) => setAngle(e.target.value as AngleId)} aria-label="Angle to reshoot from">
-                      {ANGLES.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-                    </select>
-                    <button className="pill" disabled={reshooting !== null} title="Same scene, new angle: a picture from this shot's middle frame, as a new shot after it" onClick={() => void reshootShot(shot.id)}>
-                      {reshooting === shot.id ? "Reshooting…" : "Reshoot · $0.10"}
-                    </button>
-                  </span>
+
                   <button
                     className="pill"
                     disabled={expanding !== null}
@@ -481,6 +462,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   </button>
                 </div>
                 {problem && <p className="library-error" role="alert">{problem}</p>}
+                {shot.render && <ReshootPanel key={shot.id} source={{ url: shot.render.url, kind: shot.render.kind, at: reshootFrameAt(shot), beat: shot.beat }} onKeep={(list) => list.forEach((made) => keepReshoot(shot.id, made))} />}
                 <div className="takes" role="group" aria-label="Takes">
                   {takesOf(shot).map((take, i) => {
                     const on = take.url === shot.render?.url && take.at === shot.render?.at;
