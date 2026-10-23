@@ -67,6 +67,7 @@ export function Academy() {
                       <p className="academy-home"><b>Homework.</b> {l.homework}</p>
                       <div className="sheet-row">
                         <Link className="fire" href={l.doIt.href}>{l.doIt.label}</Link>
+                        <Link className="plain" href={`/academy/${l.id}`}>Guide (PDF)</Link>
                         <button className="pill" onClick={() => void toggle(l.id)}>{isDone ? "Mark as not done" : "I did it"}</button>
                       </div>
                     </div>

@@ -147,6 +147,16 @@ export function soundEffectWorkflow({ text, seconds }: { text: string; seconds: 
   };
 }
 
+/** A video model watches a video and answers in words: Gemini on Comfy. The answer shows on node 20. */
+export function watchVideoWorkflow({ video, prompt, model = "gemini-2.5-flash" }: { video: string; prompt: string; model?: "gemini-2.5-flash" | "gemini-2.5-pro" | "gemini-3-1-pro" }): Workflow {
+  if (prompt.trim().length < 10) throw new Error("Say what to look for.");
+  return {
+    "2": { class_type: "LoadVideo", inputs: { file: video } },
+    "1": { class_type: "GeminiNode", inputs: { prompt: prompt.trim(), model, seed: 7, video: ["2", 0] } },
+    "20": { class_type: "PreviewAny", inputs: { source: ["1", 0] } },
+  };
+}
+
 export type Line = { text: string; voice: string };
 
 export function voiceWorkflow({ video, lines, model = "eleven_v4", stability = 0.5 }: { video: string; lines: Line[]; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo"; stability?: number }): Workflow {

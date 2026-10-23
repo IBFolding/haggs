@@ -159,25 +159,15 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
     return bytes;
   }
 
-  /** Submits a workflow, waits, and keeps the file the output node saved. */
-  async function run(workflow: Workflow, outputNode = "20"): Promise<{ url: string; kind: "image" | "video" | "audio"; jobId: string }> {
+  /** Submits a workflow and waits for the finished job. */
+  async function submitAndWait(workflow: Workflow): Promise<{ id: string; job: Record<string, unknown> }> {
     const submitted = await call("/api/prompt", { prompt: workflow, extra_data: { api_key_comfy_org: apiKey } });
     const id = submitted.prompt_id;
     if (typeof id !== "string" || !id || Object.keys((submitted.node_errors as object) ?? {}).length) throw fail("Comfy Cloud didn't accept the workflow. Nothing was generated.");
     const started = Date.now();
     for (;;) {
       const job = await call(`/api/jobs/${encodeURIComponent(id)}`);
-      if (job.status === "completed") {
-        const output = ((job.outputs as Record<string, Record<string, unknown>>) ?? {})[outputNode] ?? {};
-        // Cloud files a finished video under "images" (with animated: true); older outputs used "video"/"videos".
-        const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? []), ...((output.audio as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
-        const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm|png|jpe?g|webp|mp3|flac|wav)$/i.test(f.filename) && f.type === "output");
-        if (!file) throw fail("The job finished without a result.");
-        const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });
-        const ext = file.filename!.split(".").pop()!.toLowerCase().replace("jpeg", "jpg") as Kept;
-        const url = await keep(bytes, ext);
-        return { url, kind: ext === "mp4" || ext === "webm" ? "video" : ext === "mp3" || ext === "flac" || ext === "wav" ? "audio" : "image", jobId: id };
-      }
+      if (job.status === "completed") return { id, job };
       if (job.status === "failed" || job.status === "cancelled") {
         const reason = (job.execution_error as { exception_message?: string } | undefined)?.exception_message ?? "";
         throw fail(/unauthori|login/i.test(reason) ? "The job failed: Comfy's API nodes didn't accept the key." : `The job failed and nothing was made${reason ? ` (${reason.slice(0, 160)})` : ""}. Check your Comfy usage before trying again.`);
@@ -187,7 +177,30 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
     }
   }
 
-  return { upload, uploadBytes, run };
+  /** Submits a workflow, waits, and keeps the file the output node saved. */
+  async function run(workflow: Workflow, outputNode = "20"): Promise<{ url: string; kind: "image" | "video" | "audio"; jobId: string }> {
+    const { id, job } = await submitAndWait(workflow);
+    const output = ((job.outputs as Record<string, Record<string, unknown>>) ?? {})[outputNode] ?? {};
+    // Cloud files a finished video under "images" (with animated: true); older outputs used "video"/"videos".
+    const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? []), ...((output.audio as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
+    const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm|png|jpe?g|webp|mp3|flac|wav)$/i.test(f.filename) && f.type === "output");
+    if (!file) throw fail("The job finished without a result.");
+    const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });
+    const ext = file.filename!.split(".").pop()!.toLowerCase().replace("jpeg", "jpg") as Kept;
+    const url = await keep(bytes, ext);
+    return { url, kind: ext === "mp4" || ext === "webm" ? "video" : ext === "mp3" || ext === "flac" || ext === "wav" ? "audio" : "image", jobId: id };
+  }
+
+  /** Submits a workflow whose output node shows text (a model's answer) and returns that text. */
+  async function runText(workflow: Workflow, outputNode: string): Promise<{ text: string; jobId: string }> {
+    const { id, job } = await submitAndWait(workflow);
+    const output = ((job.outputs as Record<string, Record<string, unknown>>) ?? {})[outputNode] ?? {};
+    const parts = (Array.isArray(output.text) ? output.text : []).filter((t): t is string => typeof t === "string");
+    if (!parts.length) throw fail("The model finished without an answer.");
+    return { text: parts.join("\n"), jobId: id };
+  }
+
+  return { upload, uploadBytes, run, runText };
 }
 
 export function createCloudProvider(options: CloudOptions): Provider {

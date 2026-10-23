@@ -9,6 +9,9 @@ import { coerceSettings, defaultSettings, type Settings } from "../catalog/setti
 import { slotIn, templatesFor, type Template } from "../catalog/templates";
 import { lookPhrase, withLook, type LookChoice } from "../catalog/look";
 import { LookPanel } from "./look-panel";
+import { OUTFIT_IDEAS, castReferences, castWords } from "../catalog/cast";
+import { createCharacterStore, identityLock, type Character } from "../characters/character";
+import { createPlaceStore, placeLock, type SavedPlace } from "../locations/location";
 import type { Capability } from "../providers/types";
 import { defaultKv } from "../story/kv";
 import { createRunStore, type Run } from "../story/runs";
@@ -76,6 +79,18 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
     defaultSettings(getModelCard(catalog[0]!.id).settings),
   );
   const [images, setImages] = useState<string[]>([]);
+  // Who and where, and what they wear: saved characters and places, added to whatever you type.
+  const [people, setPeople] = useState<Character[]>([]);
+  const [places, setPlaces] = useState<SavedPlace[]>([]);
+  const [who, setWho] = useState<Character | null>(null);
+  const [where, setWhere] = useState<SavedPlace | null>(null);
+  const [outfit, setOutfit] = useState<string[]>([]);
+  const [tile, setTile] = useState<"character" | "location" | "wardrobe" | null>(null);
+  const [custom, setCustom] = useState("");
+  useEffect(() => {
+    void createCharacterStore(defaultKv()).list().then(setPeople).catch(() => undefined);
+    void createPlaceStore(defaultKv()).list().then(setPlaces).catch(() => undefined);
+  }, []);
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(HANDOFF_KEY);
@@ -204,8 +219,11 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
     setSlots((prior) => [{ state: "working", id }, ...prior]);
 
     // The look's words go after the prompt, and the run keeps the prompt as it was sent.
-    const sent = surface === "Edit" ? prompt : withLook(prompt, look);
-    const result = await run(modelId, sent, settings, images.length ? images : undefined);
+    const cast = surface === "Edit" ? null : { characterLock: who ? identityLock(who.traits) : undefined, placeLock: where ? placeLock(where.traits) : undefined, outfit };
+    const sent = surface === "Edit" ? prompt : withLook(cast ? castWords(prompt, cast) : prompt, look);
+    // A picture you attached is the opening frame; with none, your character's and place's sheets go in as references.
+    const refs = surface === "Edit" ? [] : castReferences({ attached: images, character: who?.sheet ?? null, place: where?.plate ?? null, max: card.inputImages });
+    const result = refs.length ? await run(modelId, sent, settings, refs, false) : await run(modelId, sent, settings, images.length ? images : undefined);
 
     setSlots((prior) => {
       const rest = prior.filter((slot) => slot.id !== id);
@@ -234,7 +252,7 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
 
     if (!result.ok && result.needsKey) openKeys();
     setBusy(false);
-  }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs, look, surface]);
+  }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs, look, surface, who, where, outfit, card.inputImages]);
 
   useEffect(() => {
     if (pendingSlot.current === null || pendingSlot.current !== prompt) return;
@@ -394,6 +412,48 @@ export function Studio({ surface = "Create" }: { surface?: Surface }) {
                   </button>
                 </span>
               ))}
+            </div>
+          )}
+
+          {surface !== "Edit" && (
+            <div className="cast">
+              <button className={`cast-tile${who ? " set" : ""}`} onClick={() => setTile(tile === "character" ? null : "character")} aria-expanded={tile === "character"}>
+                {who ? <img src={who.sheet} alt="" /> : <span className="cast-plus">+</span>}
+                <b>{who ? who.traits.name : "Character"}</b>
+                {who && <i role="button" aria-label="Remove the character" onClick={(e) => { e.stopPropagation(); setWho(null); }}>×</i>}
+              </button>
+              <button className={`cast-tile${where ? " set" : ""}`} onClick={() => setTile(tile === "location" ? null : "location")} aria-expanded={tile === "location"}>
+                {where ? <img src={where.plate} alt="" /> : <span className="cast-plus">+</span>}
+                <b>{where ? where.traits.name : "Location"}</b>
+                {where && <i role="button" aria-label="Remove the location" onClick={(e) => { e.stopPropagation(); setWhere(null); }}>×</i>}
+              </button>
+              <button className={`cast-tile${outfit.length ? " set" : ""}`} onClick={() => setTile(tile === "wardrobe" ? null : "wardrobe")} aria-expanded={tile === "wardrobe"}>
+                <span className="cast-plus">{outfit.length || "+"}</span>
+                <b>Wardrobe</b>
+              </button>
+            </div>
+          )}
+          {tile && surface !== "Edit" && (
+            <div className="cast-pick" onClick={(e) => e.stopPropagation()}>
+              {tile === "character" && (people.length ? (
+                <div className="cast-list">{people.map((c) => <button key={c.id} onClick={() => { setWho(c); setTile(null); }}><img src={c.sheet} alt="" /><span>{c.traits.name}</span></button>)}</div>
+              ) : <p className="wf-small">No characters yet. <Link href="/characters">Build one</Link> and they&rsquo;ll be here.</p>)}
+              {tile === "location" && (places.length ? (
+                <div className="cast-list">{places.map((c) => <button key={c.id} onClick={() => { setWhere(c); setTile(null); }}><img src={c.plate} alt="" /><span>{c.traits.name}</span></button>)}</div>
+              ) : <p className="wf-small">No places yet. <Link href="/locations">Build one</Link> and it&rsquo;ll be here.</p>)}
+              {tile === "wardrobe" && (
+                <div className="cast-wardrobe">
+                  <p className="wf-small">What the character wears or carries. Added to the words, so it works with any model.</p>
+                  <div className="series-chips">
+                    {OUTFIT_IDEAS.map((o) => <button key={o} className={outfit.includes(o) ? "on" : ""} onClick={() => setOutfit((all) => (all.includes(o) ? all.filter((x) => x !== o) : [...all, o]))}>{o}</button>)}
+                    {outfit.filter((o) => !OUTFIT_IDEAS.includes(o)).map((o) => <button key={o} className="on" onClick={() => setOutfit((all) => all.filter((x) => x !== o))}>{o} ×</button>)}
+                  </div>
+                  <form className="cast-add" onSubmit={(e) => { e.preventDefault(); const v = custom.trim(); if (v && !outfit.includes(v)) setOutfit((all) => [...all, v]); setCustom(""); }}>
+                    <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Something else: a silver watch, a red kimono…" aria-label="Add clothing or an accessory" maxLength={60} />
+                    <button className="pill">Add</button>
+                  </form>
+                </div>
+              )}
             </div>
           )}
 
