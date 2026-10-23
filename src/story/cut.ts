@@ -1,4 +1,4 @@
-import type { Effect, Music, Project, Shot, Sound } from "./model";
+import type { Effect, Music, Overlay, Project, Shot, Sound } from "./model";
 
 /**
  * The cut: the board's shots, in story order, laid end to end.
@@ -41,6 +41,8 @@ export type Cut = {
   sound?: Sound;
   /** Sound effects on their own track. */
   effects?: Effect[];
+  /** Transparent pictures laid over the film for a time: titles, logos. */
+  overlays?: Overlay[];
   /** The shape every clip is fitted to. */
   aspect: "16:9" | "9:16";
   /** Shots with nothing to show yet, so a gap in the cut is never a surprise. */
@@ -109,7 +111,7 @@ export function buildCut(project: Project): Cut {
     cursor += seconds;
   }
 
-  return { clips, total: cursor, skipped, voices, music: project.music ?? null, ...(project.sound ? { sound: project.sound } : {}), ...(project.effects?.length ? { effects: project.effects } : {}), aspect: project.aspect ?? "16:9" };
+  return { clips, total: cursor, skipped, voices, music: project.music ?? null, ...(project.sound ? { sound: project.sound } : {}), ...(project.effects?.length ? { effects: project.effects } : {}), ...(project.overlays?.length ? { overlays: project.overlays } : {}), aspect: project.aspect ?? "16:9" };
 }
 
 /**
@@ -259,6 +261,21 @@ export function captionFilter(cut: Cut): { captions: { text: string; index: numb
     return part;
   });
   return { captions, filter: parts.join(";") };
+}
+
+/** Pictures laid over the finished film, each shown between its start and end. Inputs are numbered from 1; input 0 is the film. */
+export function overlayFilter(cut: Pick<Cut, "overlays" | "aspect">): { inputs: string[]; filter: string } | null {
+  const list = cut.overlays ?? [];
+  if (!list.length) return null;
+  const { w, h } = frameOf(cut.aspect);
+  const parts: string[] = list.map((_, i) => `[${i + 1}:v]scale=${w}:${h}[t${i}]`);
+  let last = "0:v";
+  list.forEach((o, i) => {
+    const out = i === list.length - 1 ? "out" : `o${i}`;
+    parts.push(`[${last}][t${i}]overlay=0:0:enable='between(t,${o.start},${Math.round((o.start + o.seconds) * 1000) / 1000})'[${out}]`);
+    last = out;
+  });
+  return { inputs: list.map((o) => o.url), filter: parts.join(";") };
 }
 
 /** The picture and sound filters for a clip's fades. A fade never runs longer than half the clip. */

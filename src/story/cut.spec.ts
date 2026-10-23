@@ -271,3 +271,18 @@ test("fades ride from the shot to its clip", () => {
   assert.equal(cut.clips[0]!.fadeOut, 0.8);
   assert.equal(cut.clips[1]!.fadeIn, undefined);
 });
+
+test("titles over the picture are scaled to the frame and shown only between their times", async () => {
+  const { overlayFilter } = await import("./cut");
+  assert.equal(overlayFilter({ overlays: [], aspect: "16:9" } as never), null);
+  const f = overlayFilter({ aspect: "16:9", overlays: [{ id: "a", name: "t", url: "/api/local/a.png", start: 1, seconds: 2 }, { id: "b", name: "u", url: "/api/local/b.png", start: 5, seconds: 1.5 }] } as never)!;
+  assert.deepEqual(f.inputs, ["/api/local/a.png", "/api/local/b.png"]);
+  assert.match(f.filter, /\[1:v\]scale=1920:1080\[t0\]/);
+  assert.match(f.filter, /\[0:v\]\[t0\]overlay=0:0:enable='between\(t,1,3\)'\[o0\]/);
+  assert.match(f.filter, /\[o0\]\[t1\]overlay=0:0:enable='between\(t,5,6.5\)'\[out\]/);
+});
+
+test("overlays ride along in the cut", () => {
+  const p = { ...board(shot({ render: video() })), overlays: [{ id: "a", name: "t", url: "/api/local/a.png", start: 0, seconds: 1 }] };
+  assert.equal(buildCut(p as never).overlays?.length, 1);
+});

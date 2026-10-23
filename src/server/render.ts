@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { captionFilter, fadeFilters, mixFilter, frameOf, normFilter, type Cut } from "../story/cut";
+import { captionFilter, fadeFilters, overlayFilter, mixFilter, frameOf, normFilter, type Cut } from "../story/cut";
 
 /**
  * Renders a cut to an MP4 on this machine: the same steps as the exported
@@ -79,7 +79,10 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
   const out = join(o.root, "haggs-renders", name_);
   await o.write(list, parts.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join("\n") + "\n");
   const caps = o.caption ? captionFilter(cut) : null;
-  const joined = caps ? join(o.work, "joined.mp4") : mix ? picture : out;
+  const titles = overlayFilter(cut);
+  const titleFiles = titles ? titles.inputs.map(file) : [];
+  const afterCaps = titles ? join(o.work, "captioned.mp4") : mix ? picture : out;
+  const joined = caps ? join(o.work, "joined.mp4") : titles ? afterCaps : mix ? picture : out;
   await o.ffmpeg([...QUIET, "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", joined]);
   if (caps) {
     const size = frameOf(cut.aspect);
@@ -89,7 +92,11 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
       await o.caption!(png, c.text, size);
       pngs.push(png);
     }
-    await o.ffmpeg([...QUIET, "-i", joined, ...pngs.flatMap((p) => ["-i", p]), "-filter_complex", caps.filter, "-map", "[out]", "-map", "0:a", "-c:v", "libx264", "-crf", "16", "-c:a", "copy", mix ? picture : out]);
+    await o.ffmpeg([...QUIET, "-i", joined, ...pngs.flatMap((p) => ["-i", p]), "-filter_complex", caps.filter, "-map", "[out]", "-map", "0:a", "-c:v", "libx264", "-crf", "16", "-c:a", "copy", afterCaps]);
+  }
+  if (titles) {
+    const src = caps ? afterCaps : joined;
+    await o.ffmpeg([...QUIET, "-i", src, ...titleFiles.flatMap((p) => ["-i", p]), "-filter_complex", titles.filter, "-map", "[out]", "-map", "0:a", "-c:v", "libx264", "-crf", "16", "-c:a", "copy", mix ? picture : out]);
   }
   if (mix) {
     await o.ffmpeg([...QUIET, "-i", picture, ...sounds.flatMap((s) => ["-i", s]), "-filter_complex", mix.filter, "-map", "0:v", "-map", "[mix]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", out]);
@@ -131,5 +138,6 @@ export function checkCut(raw: unknown): Cut {
   const sound = mix && typeof mix === "object"
     ? Object.fromEntries(Object.entries({ room: level(mix.room, 0, 1), warmth: level(mix.warmth, -6, 6), clarity: level(mix.clarity, -6, 6), squeeze: level(mix.squeeze, 0, 1), duck: level(mix.duck, 0, 1), voiceGain: level(mix.voiceGain, -30, 12), fxGain: level(mix.fxGain, -30, 12), clipGain: level(mix.clipGain, -40, 12), ...(mix.loud === true ? { loud: true } : {}), ...(mix.voiceMute === true ? { voiceMute: true } : {}), ...(mix.fxMute === true ? { fxMute: true } : {}), ...(mix.musicMute === true ? { musicMute: true } : {}), ...(mix.clipMute === true ? { clipMute: true } : {}) }).filter(([, v]) => v !== undefined))
     : undefined;
-  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(effects.length ? { effects } : {}), ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
+  const overlays = (Array.isArray((c as { overlays?: unknown[] }).overlays) ? (c as { overlays: Record<string, unknown>[] }).overlays : []).slice(0, 50).map((e) => ({ id: String(e.id ?? ""), name: String(e.name ?? "").slice(0, 80), url: link(e.url), start: num(e.start, 0, 7200), seconds: num(e.seconds ?? 3, 0.1, 600) }));
+  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(overlays.length ? { overlays } : {}), ...(effects.length ? { effects } : {}), ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
 }

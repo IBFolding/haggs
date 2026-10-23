@@ -16,3 +16,12 @@ test("a long title is set smaller so it still fits", () => {
   const size = (t: string) => Number(/font-size="(\d+)"/.exec(cardSvg(t, "", cardSize("16:9")))![1]);
   assert.ok(size("A".repeat(60)) < size("Waylight"));
 });
+
+test("a title is transparent text placed by where it sits", async () => {
+  const { titleSvg } = await import("./card");
+  const lower = titleSvg("Ellis & Co", "lower", { w: 1920, h: 1080 });
+  assert.match(lower, /text-anchor="start"/);
+  assert.match(lower, /Ellis &amp; Co/);
+  assert.doesNotMatch(lower, /<rect/, "no background, so the picture shows through");
+  assert.match(titleSvg("A\nB", "center", { w: 1080, h: 1920 }), /text-anchor="middle"[\s\S]*B/);
+});

@@ -10,7 +10,7 @@ import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
 import { cloudEstimate } from "../../../../providers/cloud-price";
-import { frameAt, makeCard } from "../../../cut-actions";
+import { frameAt, makeCard, makeTitle } from "../../../cut-actions";
 import { addMarker, editMarker, removeMarker, stepMarker } from "../../../../story/markers";
 import { reshootFrameAt } from "../../../../story/reshoot";
 import { ReshootPanel } from "../../../reshoot-panel";
@@ -296,7 +296,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
   // The timeline is drawn at a zoom (pixels per second), so every clip has a width you can see and grab.
   const [pps, setPps] = useState(36);
-  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "sound">("shot");
+  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "sound" | "titles">("shot");
+  const [title, setTitle] = useState({ text: "", place: "lower" as "lower" | "center" | "top", seconds: 3, busy: false, problem: "" });
   const scroller = useRef<HTMLDivElement>(null);
   const lane = useRef<HTMLDivElement>(null);
 
@@ -510,6 +511,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} />
                   ))}
                 {here && project.shots.find((x) => x.id === here.clip.shotId)?.caption && <span className="stage-caption">{project.shots.find((x) => x.id === here.clip.shotId)!.caption}</span>}
+                {(project.overlays ?? []).filter((o) => t >= o.start && t < o.start + o.seconds).map((o) => <img key={o.id} className="stage-overlay" src={o.url} alt="" />)}
                 {here && <span className="stage-slate">{here.clip.heading || `Shot ${here.clip.index + 1}`}</span>}
               </div>
             </div>
@@ -539,12 +541,37 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
           <aside className="ed-side" aria-label="Shot tools">
             <div className="ed-tabs" role="tablist">
-              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["sound", "Sound"]] as const).map(([id2, label]) => (
+              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["sound", "Sound"], ["titles", "Titles"]] as const).map(([id2, label]) => (
                 <button key={id2} role="tab" aria-selected={tab === id2} className={tab === id2 ? "on" : ""} onClick={() => setTab(id2)}>{label}</button>
               ))}
             </div>
             <div className="ed-side-body">
-              {tab === "sound" ? (
+              {tab === "titles" ? (
+                <div className="tracks">
+                  <p className="takes-note">Words laid over the picture for a few seconds, from the playhead. Several lines are fine.</p>
+                  <textarea value={title.text} rows={3} maxLength={200} onChange={(e) => setTitle({ ...title, text: e.target.value })} placeholder={"ELLIS\nThe night shift"} aria-label="Title words" />
+                  <div className="ed-row">
+                    <label>Where <select value={title.place} onChange={(e) => setTitle({ ...title, place: e.target.value as typeof title.place })}><option value="lower">Lower left</option><option value="center">Middle</option><option value="top">Top</option></select></label>
+                    <label>For <input type="number" min={0.5} max={30} step={0.5} value={title.seconds} onChange={(e) => setTitle({ ...title, seconds: Math.min(30, Math.max(0.5, Number(e.target.value) || 3)) })} />s</label>
+                    <button className="pill on" disabled={title.busy || !title.text.trim()} onClick={async () => {
+                      setTitle((x) => ({ ...x, busy: true, problem: "" }));
+                      const made = await makeTitle(title.text, title.place, project.aspect ?? "16:9");
+                      if (!made.ok) return setTitle((x) => ({ ...x, busy: false, problem: made.reason }));
+                      apply((c) => ({ ...c, overlays: [...(c.overlays ?? []), { id: crypto.randomUUID(), name: title.text.trim().slice(0, 80), url: made.url, start: Math.round(t * 10) / 10, seconds: title.seconds }] }));
+                      setTitle((x) => ({ ...x, busy: false, text: "" }));
+                    }}>{title.busy ? "Making…" : "Add at playhead"}</button>
+                  </div>
+                  {title.problem && <p className="library-error" role="alert">{title.problem}</p>}
+                  {(project.overlays ?? []).map((o) => (
+                    <div key={o.id} className="trk-fx">
+                      <b title={o.name}>{o.name.split("\n")[0]}</b>
+                      <label>at <input type="number" min={0} step={0.1} value={o.start} onChange={(e) => apply((c) => ({ ...c, overlays: (c.overlays ?? []).map((x) => (x.id === o.id ? { ...x, start: Math.max(0, Number(e.target.value) || 0) } : x)) }))} /> s</label>
+                      <label>for <input type="number" min={0.5} step={0.5} value={o.seconds} onChange={(e) => apply((c) => ({ ...c, overlays: (c.overlays ?? []).map((x) => (x.id === o.id ? { ...x, seconds: Math.max(0.5, Number(e.target.value) || 3) } : x)) }))} /> s</label>
+                      <button className="plain danger" onClick={() => apply((c) => { const { overlays: _o, ...rest } = c; const left = (c.overlays ?? []).filter((x) => x.id !== o.id); return left.length ? { ...rest, overlays: left } : rest; })}>Remove</button>
+                    </div>
+                  ))}
+                </div>
+              ) : tab === "sound" ? (
                 <>
                 <Tracks
                   sound={project.sound}
@@ -678,6 +705,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   <button className={`trk-m${project.sound?.[flag] ? " on" : ""}`} aria-pressed={Boolean(project.sound?.[flag])} title={project.sound?.[flag] ? `Unmute ${name}` : `Mute ${name}`} onClick={() => apply((c) => ({ ...c, sound: { ...(c.sound ?? {}), [flag]: !c.sound?.[flag] } }))}>M</button>
                 </div>
               ))}
+              <div className="ed-head" style={{ top: 236, height: 30 }}><b>Titles</b><small>{(project.overlays ?? []).length}</small></div>
             </div>
             <div className="ed-scroll" ref={scroller}>
               <div
@@ -756,6 +784,10 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                 </div>
                 <div className="ed-mlane" aria-label="Soundtrack">
                   {cut.music ? <button className="ed-music" style={{ width: cut.total * pps }} onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>♪ {cut.music.name}</button> : <button className="ed-empty" onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>+ Add a soundtrack</button>}
+                </div>
+                <div className="ed-tlane" aria-label="Titles over the picture">
+                  {(project.overlays ?? []).length === 0 && <button className="ed-empty" onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("titles")}>+ Put a title over the picture</button>}
+                  {(project.overlays ?? []).map((o) => <button key={o.id} className="ed-title" style={{ left: o.start * pps, width: Math.max(40, o.seconds * pps) }} onPointerDown={(e) => e.stopPropagation()} onClick={() => { setTab("titles"); seek(o.start); }} title={`${o.name} · ${o.start}s for ${o.seconds}s`}>T {o.name.split("\n")[0]}</button>)}
                 </div>
                 <span className="ed-playhead" style={{ left: t * pps }} />
               </div>

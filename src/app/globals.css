@@ -2164,7 +2164,7 @@ a.logo { color: var(--text); text-decoration: none; }
 .ed-zoom { display: inline-flex; align-items: center; gap: 8px; color: var(--text-3); font-size: 12px; }
 .ed-zoom input { accent-color: var(--volt); width: 140px; padding: 0; }
 .ed-scroll { overflow-x: auto; overflow-y: hidden; padding: 0 16px 14px; }
-.ed-lane { position: relative; height: 236px; user-select: none; outline: none; cursor: text; }
+.ed-lane { position: relative; height: 272px; user-select: none; outline: none; cursor: text; }
 .ed-lane:focus-visible { box-shadow: 0 0 0 2px var(--volt-soft); border-radius: 8px; }
 .ed-ruler { position: relative; height: 22px; border-bottom: 1px solid var(--line); }
 .ed-ruler span { position: absolute; top: 4px; padding-left: 5px; font-family: var(--mono); font-size: 10.5px; color: var(--text-3); border-left: 1px solid var(--line-hot); line-height: 14px; }
@@ -2326,7 +2326,7 @@ a.logo { color: var(--text); text-decoration: none; }
 .lp-small { font-size: 12.5px !important; }
 
 .ed-tracks { display: grid; grid-template-columns: 104px 1fr; min-width: 0; }
-.ed-heads { position: relative; height: 236px; padding-left: 16px; }
+.ed-heads { position: relative; height: 272px; padding-left: 16px; }
 .ed-head { position: absolute; left: 16px; right: 6px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 11.5px; }
 .ed-head b { font-size: 12px; }
 .ed-head small { color: var(--text-3); flex: 1; }
@@ -2412,3 +2412,7 @@ a.logo { color: var(--text); text-decoration: none; }
 .ed-versions li { display: flex; align-items: center; gap: 6px; }
 .ed-versions li span { flex: 1; display: grid; font-size: 13px; }
 .ed-versions li small { color: var(--muted, #8a8a8a); font-size: 11px; }
+
+.ed-tlane { position: absolute; left: 0; right: 0; top: 236px; height: 30px; }
+.ed-title { position: absolute; top: 0; height: 100%; padding: 0 8px; border: 1px solid #c4a7ff; border-radius: 7px; background: rgba(196, 167, 255, 0.14); color: #e3d6ff; font: inherit; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left; }
+.stage-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }

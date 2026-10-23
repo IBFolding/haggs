@@ -99,3 +99,17 @@ export async function makeCard(text: string, sub: string, aspect: "16:9" | "9:16
     return { ok: false, reason: caught instanceof Error ? caught.message : "The card couldn't be made." };
   }
 }
+
+/** Words on a transparent picture in the local media folder, to lay over the film as a timed title. Development only. */
+export async function makeTitle(text: string, place: "center" | "lower" | "top", aspect: "16:9" | "9:16"): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+  if (!text.trim()) return { ok: false, reason: "Write the words for the title first." };
+  try {
+    const sharp = (await import("sharp")).default;
+    const { cardSize, titleSvg } = await import("../story/card");
+    const { keepResult } = await import("../server/keep");
+    const png = await sharp(Buffer.from(titleSvg(text.slice(0, 200), place, cardSize(aspect)))).png().toBuffer();
+    return { ok: true, url: await keepResult(new Uint8Array(png), "png") };
+  } catch (caught) {
+    return { ok: false, reason: caught instanceof Error ? caught.message : "The title couldn't be made." };
+  }
+}

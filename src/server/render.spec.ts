@@ -65,3 +65,25 @@ test("a vertical cut is normalised to 1080×1920, and the export script says so 
   assert.equal(checkCut(JSON.parse(JSON.stringify(cut))).aspect, "9:16");
   assert.equal(checkCut(JSON.parse(JSON.stringify({ ...cut, aspect: "weird" }))).aspect, "16:9");
 });
+
+test("fades go into the clip's own pass, and titles get a pass of their own before the mix", async () => {
+  const p = sizzle();
+  p.shots[1]!.fadeIn = 0.5;
+  (p as unknown as { overlays: unknown }).overlays = [{ id: "o", name: "T", url: "/api/local/titles/t.png", start: 1, seconds: 2 }];
+  const runs: string[][] = [];
+  await renderCut(buildCut(p), "F", { root: "/media", work: "/tmp/w", stamp: "s", ffmpeg: async (a) => void runs.push(a), hasAudio: async (path) => path.endsWith(".mp4"), write: async () => undefined });
+  assert.match(runs[1]!.join(" "), /fade=t=in:st=0:d=0\.5/);
+  assert.match(runs[1]!.join(" "), /afade=t=in:st=0:d=0\.5/);
+  const titlePass = runs.find((a) => a.includes("/media/titles/t.png"));
+  assert.ok(titlePass, "a pass lays the title over the film");
+  assert.match(titlePass!.join(" "), /enable='between\(t,1,3\)'/);
+  assert.ok(runs.indexOf(titlePass!) < runs.length - 1, "the mix comes after the titles");
+});
+
+test("a cut from the browser keeps checked titles and refuses links off this machine", async () => {
+  const { checkCut } = await import("./render");
+  const base = buildCut(sizzle());
+  const ok = checkCut({ ...base, overlays: [{ id: "o", name: "T", url: "/api/local/t.png", start: 1, seconds: 2 }] });
+  assert.equal(ok.overlays?.length, 1);
+  assert.throws(() => checkCut({ ...base, overlays: [{ id: "o", name: "T", url: "https://x.test/t.png", start: 1, seconds: 2 }] }), /this machine/);
+});
