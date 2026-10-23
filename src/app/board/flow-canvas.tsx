@@ -128,8 +128,9 @@ export function FlowCanvas({ project, selected, stale, running, onSelect, onPlac
     <div className="flow">
       <div className="flow-tools">
         <span className="flow-hint">Drag a card to move it in time or into a subplot. Drop pictures anywhere to start scenes from them.</span>
-        <button className="sh-icon" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))}>−</button>
+        <button className="sh-icon" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.12, +(z - 0.15).toFixed(2)))}>−</button>
         <span className="flow-zoom">{Math.round(zoom * 100)}%</span>
+        <button className="sh-icon" title="Fit the whole story, every subplot, on screen" onClick={() => { const w = area.current?.clientWidth ?? 0; if (w && width) { setZoom(Math.max(0.12, Math.min(1, +((w - 24) / width).toFixed(2)))); area.current?.scrollTo({ left: 0 }); } }}>Fit</button>
         <button className="sh-icon" aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.15).toFixed(2)))}>+</button>
       </div>
       <div className="flow-wrap">

@@ -39,6 +39,7 @@ const TILES = [
 const SHOWN = TEMPLATES.filter((t) => t.sample).slice(0, 8);
 
 export default function Landing() {
+  let formatIndex = 0;
   const groups = ["Half-hour", "Hour", "Vertical", "Short"] as const;
   return (
     <div className="app lp">
@@ -122,7 +123,7 @@ export default function Landing() {
                 {groups.map((g) => (
                   <div key={g}>
                     <span>{g}</span>
-                    {FORMATS.filter((f) => f.group === g).map((f) => <i key={f.id}>{f.label}</i>)}
+                    {FORMATS.filter((f) => f.group === g).map((f) => <i key={f.id} style={{ "--i": formatIndex++ } as React.CSSProperties}>{f.label}</i>)}
                   </div>
                 ))}
               </div>
@@ -130,14 +131,27 @@ export default function Landing() {
             <article>
               <h3>Upload a script</h3>
               <p>A season at a time if you like. Scenes, speakers, places and line numbers come straight off the page.</p>
+              <div className="lp-demo lp-demo-script" aria-hidden="true">
+                <code>INT. HARDWARE STORE — MORNING</code>
+                <code>ROWAN reads her manual.</code>
+                <code>ELLIS: Need a hand with that?</code>
+                <em>Scene 1 · Rowan, Ellis · 1 line</em>
+              </div>
             </article>
             <article>
               <h3>Write it with Claude</h3>
               <p>Describe the idea; Claude drafts the script to the format's beats and fills every sheet. Or connect Claude over MCP and work on the project together.</p>
+              <div className="lp-demo lp-demo-claude" aria-hidden="true">
+                <code>A lighthouse keeper hears a voice on the radio…</code>
+                <span><i>Hook</i><i>Turn</i><i>Reveal</i></span>
+              </div>
             </article>
             <article>
               <h3>Start from pictures</h3>
               <p>Drop stills on the board, one per scene, drag them into order and subplots, then animate from them.</p>
+              <div className="lp-demo lp-demo-pics" aria-hidden="true">
+                <b /><b /><b /><u />
+              </div>
             </article>
           </div>
         </section>
@@ -147,7 +161,7 @@ export default function Landing() {
           <p>The Academy is seven short lessons, about 90 minutes in all. You make a video in the first one, and every lesson ends in something real in haggs. Finish all seven for a certificate.</p>
           <ol className="lp-lessons">
             {LESSONS.map((l) => (
-              <li key={l.id}><b>{l.title}</b><span>{l.minutes} min · {l.goal}</span></li>
+              <li key={l.id} style={{ "--i": LESSONS.indexOf(l) } as React.CSSProperties}><b>{l.title}</b><span>{l.minutes} min · {l.goal}</span></li>
             ))}
           </ol>
           <Link className="fire" href="/academy">Start lesson one</Link>
