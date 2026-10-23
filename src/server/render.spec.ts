@@ -53,3 +53,15 @@ test("a cut from the browser is rebuilt from checked numbers and local links onl
   assert.throws(() => checkCut({ ...good, clips: [{ ...good.clips[0], url: "file:///etc/passwd" }] }), /this machine/);
   assert.throws(() => checkCut({ ...good, clips: [] }), /nothing/);
 });
+
+test("a vertical cut is normalised to 1080×1920, and the export script says so too", async () => {
+  const { ffmpegScript } = await import("../story/cut");
+  const cut = { ...buildCut(sizzle()), aspect: "9:16" as const };
+  const runs: string[][] = [];
+  await renderCut(cut, "V", { root: "/media", work: "/tmp/w", stamp: "s", ffmpeg: async (a) => void runs.push(a), hasAudio: async () => false, write: async () => undefined });
+  assert.ok(runs[0]!.some((a) => a.includes("scale=1080:1920")));
+  assert.match(ffmpegScript(cut, "V"), /scale=1080:1920/);
+  const { checkCut } = await import("./render");
+  assert.equal(checkCut(JSON.parse(JSON.stringify(cut))).aspect, "9:16");
+  assert.equal(checkCut(JSON.parse(JSON.stringify({ ...cut, aspect: "weird" }))).aspect, "16:9");
+});

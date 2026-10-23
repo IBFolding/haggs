@@ -11,6 +11,7 @@ import { priceOf } from "../comfy/price";
 import { createCloudRunner, type Kept } from "../providers/cloud";
 import { appOf } from "../comfy/apps";
 import { catalogOf, checked, indexOf, openTemplate, type Entry, type Opened } from "../server/comfy-library";
+import { keepResult } from "../server/keep";
 import { COMFY_COOKIE, keyIn } from "../server/keys";
 import { localFile, localUrl } from "../server/local-media";
 
@@ -146,17 +147,6 @@ async function mediaBytes(source: string): Promise<{ bytes: Uint8Array; mime: st
   throw new Error("Add the file from your computer or your media.");
 }
 
-async function keep(bytes: Uint8Array, extension: Kept): Promise<string> {
-  const rootDir = process.env.HAGGS_LOCAL_MEDIA;
-  if (!rootDir || process.env.NODE_ENV === "production") throw new Error("Set HAGGS_LOCAL_MEDIA so results have somewhere to be kept.");
-  const { mkdir, writeFile } = await import("node:fs/promises");
-  const { join } = await import("node:path");
-  const name = `${new Date().toISOString().slice(0, 10)}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
-  await mkdir(join(rootDir, "haggs-renders"), { recursive: true });
-  await writeFile(join(rootDir, "haggs-renders", name), bytes);
-  return localUrl("haggs-renders", name);
-}
-
 export type Quote = { label: string; min: number; max: number; perSecond: boolean };
 
 export async function quoteWorkflow(source: Source, values: Values): Promise<Quote> {
@@ -186,7 +176,7 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     if (!opened.app.output) return { ok: false, reason: "This workflow doesn't save a result haggs can show." };
     if (opened.app.produces === "3d" || opened.app.produces === "text") return { ok: false, reason: `This workflow makes ${opened.app.produces === "3d" ? "a 3D model" : "text"}; open it in ComfyUI. haggs shows pictures, video and sound.` };
     const { prompt } = toApiPrompt(opened.ui, opened.catalog);
-    const cloud = createCloudRunner({ apiKey: key, keep });
+    const cloud = createCloudRunner({ apiKey: key, keep: keepResult });
     const uploaded: Values = {};
     // An empty choice leaves that input out of the run, with the wire it fed.
     const skipped = Object.entries(files).filter(([, v]) => v === "").map(([k]) => k);

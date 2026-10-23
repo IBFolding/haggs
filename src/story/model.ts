@@ -62,6 +62,8 @@ export type Shot = {
   trimIn?: number;
   /** Reference images for the cast and place in this shot, sent with it when it is generated. */
   refs?: string[];
+  /** The on-screen words for this shot (a hook, a line of text). */
+  caption?: string;
   /** A picture this shot should end on: the next shot's first frame, when it bridges two shots. */
   endsOn?: string;
   /** Voice-over lines spoken over this shot; they move with it when the board is reordered. */
@@ -135,6 +137,8 @@ export type Project = {
   boards?: Board[];
   /** The soundtrack of the board being viewed. Stored on the board; only a view carries it here. */
   music?: Music;
+  /** The frame shape of the board being viewed. Stored on the board, like the soundtrack. */
+  aspect?: "16:9" | "9:16";
   /** Set by an import tool; a later file with the same key offers to replace this project. */
   importKey?: string;
   source?: { templateId: string; name: string; author?: string };
@@ -153,6 +157,8 @@ export type Board = {
   shots: Shot[];
   notes: Note[];
   music?: Music;
+  /** The shape of its frame; vertical for social series. Landscape when left out. */
+  aspect?: "16:9" | "9:16";
 };
 
 /** What the library list needs, without loading every project in full. */

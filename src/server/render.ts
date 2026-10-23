@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { mixFilter, type Cut } from "../story/cut";
+import { mixFilter, normFilter, type Cut } from "../story/cut";
 
 /**
  * Renders a cut to an MP4 on this machine: the same steps as the exported
@@ -24,7 +24,6 @@ export type RenderOptions = {
   write: (path: string, text: string) => Promise<void>;
 };
 
-const NORM = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p";
 const QUIET = ["-loglevel", "error", "-y"];
 
 /** The path in the media folder behind a /api/local/… link, or null for anything else. */
@@ -52,6 +51,7 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
   };
   // Resolve everything first, so a bad link stops the render before any work is done.
   const clips = cut.clips.map((clip) => ({ clip, src: file(clip.url) }));
+  const NORM = normFilter(cut.aspect);
   const mix = mixFilter(cut);
   const sounds = (mix?.inputs ?? []).map(file);
 
@@ -106,5 +106,5 @@ export function checkCut(raw: unknown): Cut {
   }));
   const voices = (Array.isArray(c.voices) ? c.voices : []).slice(0, 200).map((v) => ({ shotId: String(v.shotId), id: String(v.id), url: link(v.url), text: String(v.text ?? "").slice(0, 200), start: num(v.start, 0, 7200), gain: num(v.gain ?? 0, -40, 20) }));
   const music = c.music ? { url: link(c.music.url), name: String(c.music.name ?? "").slice(0, 120), gain: num(c.music.gain ?? 0, -40, 20) } : null;
-  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music };
+  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
 }

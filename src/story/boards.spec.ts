@@ -70,3 +70,17 @@ test("each board keeps its own soundtrack through a view and a commit", () => {
   assert.equal(back.boards![0]!.music?.name, "Score");
   assert.equal(back.music, undefined, "the soundtrack lives on the board, not the project");
 });
+
+test("a board's frame shape is kept through a view and a commit, and the cut carries it", async () => {
+  const { buildCut } = await import("./cut");
+  const p: Project = { ...createProject("S"), boards: [
+    { id: "v", name: "Video 1", kind: "episode", shots: [{ ...shot("a"), render: { url: "/a.png", kind: "image", usd: null, promptHash: "", at: 1 } }], notes: [], aspect: "9:16" },
+    { id: "h", name: "Film", kind: "board", shots: [], notes: [] },
+  ] };
+  assert.equal(view(p, "v").aspect, "9:16");
+  assert.equal(view(p, "h").aspect, undefined);
+  assert.equal(commit(p, "v", view(p, "v")).boards![0]!.aspect, "9:16");
+  assert.equal(commit(p, "v", view(p, "v")).aspect, undefined, "it lives on the board");
+  assert.equal(buildCut(view(p, "v")).aspect, "9:16");
+  assert.equal(buildCut(view(p, "h")).aspect, "16:9");
+});
