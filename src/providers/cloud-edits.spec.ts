@@ -141,3 +141,16 @@ test("a voice can be asked to be more expressive: v3 with a lower stability", ()
   assert.equal(v["30"]!.inputs.stability, 0);
   assert.throws(() => speechWorkflow({ text: "x", voice: "Matilda (female, american)", stability: 2, seed: 1 }), /stability/i);
 });
+
+import { soundEffectWorkflow } from "./cloud-edits";
+
+test("a sound effect is made from words and a length, and priced by the second", () => {
+  const w = soundEffectWorkflow({ text: "A heavy wooden door slams in an empty hall", seconds: 3 });
+  const n = Object.values(w).find((x) => x.class_type === "ElevenLabsTextToSoundEffects")!;
+  assert.equal(n.inputs.model, "eleven_sfx_v2");
+  assert.equal(n.inputs["model.duration"], 3);
+  assert.ok(Object.values(w).some((x) => x.class_type === "SaveAudioMP3"));
+  assert.throws(() => soundEffectWorkflow({ text: "x", seconds: 3 }), /describe/i);
+  assert.throws(() => soundEffectWorkflow({ text: "a door slams", seconds: 40 }), /0\.5.*30/);
+  assert.equal(editEstimate({ tool: "sfx", seconds: 30 }), 0.07);
+});

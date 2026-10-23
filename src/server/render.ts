@@ -121,10 +121,11 @@ export function checkCut(raw: unknown): Cut {
   }));
   const voices = (Array.isArray(c.voices) ? c.voices : []).slice(0, 200).map((v) => ({ shotId: String(v.shotId), id: String(v.id), url: link(v.url), text: String(v.text ?? "").slice(0, 200), start: num(v.start, 0, 7200), gain: num(v.gain ?? 0, -40, 20) }));
   const music = c.music ? { url: link(c.music.url), name: String(c.music.name ?? "").slice(0, 120), gain: num(c.music.gain ?? 0, -40, 20) } : null;
+  const effects = (Array.isArray((c as { effects?: unknown[] }).effects) ? (c as { effects: Record<string, unknown>[] }).effects : []).slice(0, 100).map((e) => ({ id: String(e.id ?? ""), name: String(e.name ?? "").slice(0, 80), url: link(e.url), start: num(e.start, 0, 7200), gain: num(e.gain ?? 0, -40, 20), seconds: num(e.seconds ?? 1, 0, 600) }));
   const mix = (c as { sound?: Record<string, unknown> }).sound;
   const level = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : undefined);
   const sound = mix && typeof mix === "object"
-    ? Object.fromEntries(Object.entries({ room: level(mix.room, 0, 1), warmth: level(mix.warmth, -6, 6), clarity: level(mix.clarity, -6, 6), squeeze: level(mix.squeeze, 0, 1), duck: level(mix.duck, 0, 1), ...(mix.loud === true ? { loud: true } : {}) }).filter(([, v]) => v !== undefined))
+    ? Object.fromEntries(Object.entries({ room: level(mix.room, 0, 1), warmth: level(mix.warmth, -6, 6), clarity: level(mix.clarity, -6, 6), squeeze: level(mix.squeeze, 0, 1), duck: level(mix.duck, 0, 1), voiceGain: level(mix.voiceGain, -30, 12), fxGain: level(mix.fxGain, -30, 12), ...(mix.loud === true ? { loud: true } : {}), ...(mix.voiceMute === true ? { voiceMute: true } : {}), ...(mix.fxMute === true ? { fxMute: true } : {}), ...(mix.musicMute === true ? { musicMute: true } : {}) }).filter(([, v]) => v !== undefined))
     : undefined;
-  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
+  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(effects.length ? { effects } : {}), ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
 }

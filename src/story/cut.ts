@@ -1,4 +1,4 @@
-import type { Music, Project, Shot, Sound } from "./model";
+import type { Effect, Music, Project, Shot, Sound } from "./model";
 
 /**
  * The cut: the board's shots, in story order, laid end to end.
@@ -36,6 +36,8 @@ export type Cut = {
   music: Music | null;
   /** How the voices sit in the mix. */
   sound?: Sound;
+  /** Sound effects on their own track. */
+  effects?: Effect[];
   /** The shape every clip is fitted to. */
   aspect: "16:9" | "9:16";
   /** Shots with nothing to show yet, so a gap in the cut is never a surprise. */
@@ -102,7 +104,7 @@ export function buildCut(project: Project): Cut {
     cursor += seconds;
   }
 
-  return { clips, total: cursor, skipped, voices, music: project.music ?? null, ...(project.sound ? { sound: project.sound } : {}), aspect: project.aspect ?? "16:9" };
+  return { clips, total: cursor, skipped, voices, music: project.music ?? null, ...(project.sound ? { sound: project.sound } : {}), ...(project.effects?.length ? { effects: project.effects } : {}), aspect: project.aspect ?? "16:9" };
 }
 
 /**
@@ -196,28 +198,40 @@ function voiceChain(sound: Sound | undefined): string[] {
 }
 
 export function mixFilter(cut: Cut): { inputs: string[]; filter: string } | null {
-  if (!cut.voices.length && !cut.music) return null;
+  const sound = cut.sound;
+  const voices = sound?.voiceMute ? [] : cut.voices;
+  const effects = sound?.fxMute ? [] : (cut.effects ?? []);
+  const music = sound?.musicMute ? null : cut.music;
+  if (!voices.length && !effects.length && !music) return null;
   const parts: string[] = [];
-  const inputs = cut.voices.map((v) => v.url);
-  cut.voices.forEach((v, i) => {
+  const inputs: string[] = [];
+  const voiceTrim = sound?.voiceGain ?? 0;
+  voices.forEach((v, i) => {
+    inputs.push(v.url);
     const ms = Math.round(v.start * 1000);
-    parts.push(`[${i + 1}:a]${["aresample=48000", ...voiceChain(cut.sound), `adelay=${ms}|${ms}`, `volume=${v.gain}dB`].join(",")}[v${i}]`);
+    parts.push(`[${inputs.length}:a]${["aresample=48000", ...voiceChain(sound), `adelay=${ms}|${ms}`, `volume=${v.gain + voiceTrim}dB`].join(",")}[v${i}]`);
   });
-  const vo = cut.voices.length > 1 ? (parts.push(`${cut.voices.map((_, i) => `[v${i}]`).join("")}amix=inputs=${cut.voices.length}:normalize=0[vo]`), "[vo]") : cut.voices.length ? "[v0]" : null;
+  const vo = voices.length > 1 ? (parts.push(`${voices.map((_, i) => `[v${i}]`).join("")}amix=inputs=${voices.length}:normalize=0[vo]`), "[vo]") : voices.length ? "[v0]" : null;
+  const fxTrim = sound?.fxGain ?? 0;
+  effects.forEach((e, i) => {
+    inputs.push(e.url);
+    const ms = Math.round(e.start * 1000);
+    parts.push(`[${inputs.length}:a]aresample=48000,adelay=${ms}|${ms},volume=${e.gain + fxTrim}dB[fx${i}]`);
+  });
+  const fx = effects.length > 1 ? (parts.push(`${effects.map((_, i) => `[fx${i}]`).join("")}amix=inputs=${effects.length}:normalize=0[fx]`), "[fx]") : effects.length ? "[fx0]" : null;
   let bed: string | null = null;
-  if (cut.music) {
-    const m = inputs.length + 1;
-    inputs.push(cut.music.url);
+  if (music) {
+    inputs.push(music.url);
     const fade = Math.max(0, cut.total - 2);
-    parts.push(`[${m}:a]aresample=48000,atrim=0:${cut.total},volume=${cut.music.gain}dB,afade=t=out:st=${fade}:d=2[mus]`);
-    if (vo && cut.sound?.duck !== 0) {
-      parts.push(`${vo}asplit[vo1][vo2]`, `[mus][vo1]sidechaincompress=threshold=0.04:ratio=${Math.round(4 + 8 * clamp(cut.sound?.duck ?? 0.5, 0, 1))}:attack=20:release=450[bed]`);
+    parts.push(`[${inputs.length}:a]aresample=48000,atrim=0:${cut.total},volume=${music.gain}dB,afade=t=out:st=${fade}:d=2[mus]`);
+    if (vo && sound?.duck !== 0) {
+      parts.push(`${vo}asplit[vo1][vo2]`, `[mus][vo1]sidechaincompress=threshold=0.04:ratio=${Math.round(4 + 8 * clamp(sound?.duck ?? 0.5, 0, 1))}:attack=20:release=450[bed]`);
       bed = "[bed]";
     } else bed = "[mus]";
   }
   const voice = vo && bed === "[bed]" ? "[vo2]" : vo;
-  const layers = ["[0:a]", bed, voice].filter(Boolean) as string[];
-  parts.push(`${layers.join("")}amix=inputs=${layers.length}:normalize=0:duration=first${cut.sound?.loud ? "[pre];[pre]acompressor=threshold=-20dB:ratio=1.8:attack=30:release=250:makeup=1,loudnorm=I=-16:TP=-1.5:LRA=11" : ""}[mix]`);
+  const layers = ["[0:a]", bed, voice, fx].filter(Boolean) as string[];
+  parts.push(`${layers.join("")}amix=inputs=${layers.length}:normalize=0:duration=first${sound?.loud ? "[pre];[pre]acompressor=threshold=-20dB:ratio=1.8:attack=30:release=250:makeup=1,loudnorm=I=-16:TP=-1.5:LRA=11" : ""}[mix]`);
   return { inputs, filter: parts.join(";") };
 }
 

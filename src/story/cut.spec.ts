@@ -221,3 +221,28 @@ test("a deeper duck presses the soundtrack harder under the voice", async () => 
   const none = mixFilter({ ...base, sound: { duck: 0 } })!.filter;
   assert.doesNotMatch(none, /sidechaincompress/);
 });
+
+test("sound effects are their own track: placed on the cut's clock, with their own level, between the voices and the music", async () => {
+  const { mixFilter } = await import("./cut");
+  const base = { ...buildCut(board(shot({ render: video(), voices: [{ id: "a", text: "hi", speaker: "X", voice: "v", offset: 0, url: "/api/local/v.mp3" } as never] }))), music: { url: "/api/local/m.wav", name: "m", gain: -3 } };
+  const cut = { ...base, effects: [{ id: "e1", name: "door", url: "/api/local/door.mp3", start: 2.5, gain: -6, seconds: 1 }, { id: "e2", name: "thunder", url: "/api/local/thunder.mp3", start: 4, gain: 0, seconds: 3 }] };
+  const m = mixFilter(cut)!;
+  assert.deepEqual(m.inputs, ["/api/local/v.mp3", "/api/local/door.mp3", "/api/local/thunder.mp3", "/api/local/m.wav"]);
+  assert.match(m.filter, /\[2:a\]aresample=48000,adelay=2500\|2500,volume=-6dB\[fx0\]/);
+  assert.match(m.filter, /\[fx0\]\[fx1\]amix=inputs=2:normalize=0\[fx\]/);
+  assert.match(m.filter, /\[0:a\].*\[fx\]amix=inputs=\d/);
+  assert.ok(mixFilter({ ...base, effects: [] })!.inputs.length === 2);
+});
+
+test("each track has its own level and mute", async () => {
+  const { mixFilter } = await import("./cut");
+  const v = { id: "a", text: "hi", speaker: "X", voice: "v", offset: 0, url: "/api/local/v.mp3" } as never;
+  const withAll = { ...buildCut(board(shot({ render: video(), voices: [v] }))), music: { url: "/api/local/m.wav", name: "m", gain: 0 }, effects: [{ id: "e", name: "e", url: "/api/local/e.mp3", start: 0, gain: 0, seconds: 1 }] };
+  const quiet = mixFilter({ ...withAll, sound: { voiceGain: -4, fxGain: -3 } })!.filter;
+  assert.match(quiet, /volume=-4dB\[v0\]/);
+  assert.match(quiet, /volume=-3dB\[fx0\]/);
+  assert.deepEqual(mixFilter({ ...withAll, sound: { voiceMute: true } })!.inputs, ["/api/local/e.mp3", "/api/local/m.wav"]);
+  assert.deepEqual(mixFilter({ ...withAll, sound: { fxMute: true } })!.inputs, ["/api/local/v.mp3", "/api/local/m.wav"]);
+  assert.deepEqual(mixFilter({ ...withAll, sound: { musicMute: true } })!.inputs, ["/api/local/v.mp3", "/api/local/e.mp3"]);
+  assert.equal(mixFilter({ ...withAll, sound: { voiceMute: true, fxMute: true, musicMute: true } }), null);
+});

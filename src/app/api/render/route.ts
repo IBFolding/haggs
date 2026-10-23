@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   try {
     const cut = checkCut(body?.cut);
     // Every file must really be in the media folder: no symlink out, nothing missing.
-    for (const url of [...cut.clips.map((c) => c.url), ...cut.voices.map((v) => v.url), ...(cut.music ? [cut.music.url] : [])]) {
+    for (const url of [...cut.clips.map((c) => c.url), ...cut.voices.map((v) => v.url), ...(cut.effects ?? []).map((e) => e.url), ...(cut.music ? [cut.music.url] : [])]) {
       const segments = url.slice("/api/local/".length).split("/").map(decodeURIComponent);
       if (!localFile(root, segments, process.env.NODE_ENV)) throw new Error(`A file in the cut isn't in the media folder: ${segments.at(-1)}`);
     }

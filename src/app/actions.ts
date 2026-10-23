@@ -2,7 +2,7 @@
 
 import { inlineLocal, localUrl } from "../server/local-media";
 import { cloudEstimate, createCloudProvider, createCloudRunner, type Kept } from "../providers/cloud";
-import { alephWorkflow, editEstimate, genjutsuWorkflow, klingEditWorkflow, kontextWorkflow, regenerateWorkflow, speechWorkflow, VOICES, voiceWorkflow, type Line } from "../providers/cloud-edits";
+import { alephWorkflow, editEstimate, genjutsuWorkflow, soundEffectWorkflow, klingEditWorkflow, kontextWorkflow, regenerateWorkflow, speechWorkflow, VOICES, voiceWorkflow, type Line } from "../providers/cloud-edits";
 import { formatById } from "../sheets/formats";
 import { askClaude, draftRequest, type ClaudeResult, type DraftRequest } from "../writer/draft";
 import { FILL_SCHEMA, type Fill } from "../writer/fill";
@@ -392,17 +392,38 @@ export async function quoteLine(text: string): Promise<number> {
 }
 
 /** Speaks one voice-over line with ElevenLabs on Comfy Cloud and keeps the MP3. Never retried automatically. */
-export async function speakLine(text: string, voice: string): Promise<SpokenLine> {
+export async function speakLine(text: string, voice: string, expressive = false): Promise<SpokenLine> {
   const jar = await cookies();
   const key = keyIn(jar, COMFY_COOKIE);
   if (!key) return { ok: false, reason: "Add a Comfy key to make voice-over.", needsKey: true };
   if (!(VOICES as readonly string[]).includes(voice)) return { ok: false, reason: "Pick a voice from the list." };
   try {
     const cloud = createCloudRunner({ apiKey: key, keep: keepRender });
-    const result = await cloud.run(speechWorkflow({ text, voice, seed: Math.floor(Math.random() * 2_000_000_000) }));
+    const result = await cloud.run(speechWorkflow({ text, voice, ...(expressive ? { model: "eleven_v3" as const, stability: 0 } : {}), seed: Math.floor(Math.random() * 2_000_000_000) }));
     if (result.kind !== "audio") throw new Error("The voice came back without sound. Check your Comfy jobs.");
     return { ok: true, url: result.url, usd: await quoteLine(text) };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The line wasn't spoken." };
+  }
+}
+
+export type MadeEffect = { ok: true; url: string; usd: number } | { ok: false; reason: string; needsKey?: boolean };
+
+/** What a sound effect costs, before it is made. */
+export async function quoteEffect(seconds: number): Promise<number> {
+  return editEstimate({ tool: "sfx", seconds });
+}
+
+/** Makes a sound effect from words with ElevenLabs Sound Effects on Comfy Cloud. Never retried automatically. */
+export async function makeEffect(text: string, seconds: number): Promise<MadeEffect> {
+  const key = keyIn(await cookies(), COMFY_COOKIE);
+  if (!key) return { ok: false, reason: "Add a Comfy key to make sound effects.", needsKey: true };
+  try {
+    const cloud = createCloudRunner({ apiKey: key, keep: keepRender });
+    const result = await cloud.run(soundEffectWorkflow({ text, seconds }));
+    if (result.kind !== "audio") throw new Error("The effect came back without sound. Check your Comfy jobs.");
+    return { ok: true, url: result.url, usd: await quoteEffect(seconds) };
+  } catch (caught) {
+    return { ok: false, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The effect wasn't made." };
   }
 }

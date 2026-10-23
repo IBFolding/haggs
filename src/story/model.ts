@@ -102,7 +102,16 @@ export type Sound = {
   duck?: number;
   /** Bring the finished mix to −16 LUFS, the level streaming expects. */
   loud?: boolean;
+  /** Track levels (dB, on top of each item's own) and mutes. */
+  voiceGain?: number;
+  voiceMute?: boolean;
+  fxGain?: number;
+  fxMute?: boolean;
+  musicMute?: boolean;
 };
+
+/** A sound effect on its own track, placed on the cut's clock. */
+export type Effect = { id: string; name: string; url: string; /** Seconds from the start of the cut. */ start: number; /** Loudness change in dB. */ gain: number; /** How long the sound is, for drawing it. */ seconds: number };
 
 /** One version of a shot's footage — a generation, a reroll, an import. */
 export type Take = {
@@ -155,6 +164,8 @@ export type Project = {
   music?: Music;
   /** How the voices sit in the mix, for the board being viewed. */
   sound?: Sound;
+  /** The effects track of the board being viewed. */
+  effects?: Effect[];
   /** The frame shape of the board being viewed. Stored on the board, like the soundtrack. */
   aspect?: "16:9" | "9:16";
   /** Set by an import tool; a later file with the same key offers to replace this project. */
@@ -176,6 +187,7 @@ export type Board = {
   notes: Note[];
   music?: Music;
   sound?: Sound;
+  effects?: Effect[];
   /** The shape of its frame; vertical for social series. Landscape when left out. */
   aspect?: "16:9" | "9:16";
 };

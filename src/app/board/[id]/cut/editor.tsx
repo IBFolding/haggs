@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
-import { Soundtrack, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
+import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
 import { cloudEstimate } from "../../../../providers/cloud-price";
@@ -53,6 +53,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
   const [t, setT] = useState(0);
+  const [fxDrag, setFxDrag] = useState<{ id: string; start: number } | null>(null);
   const [playing, setPlaying] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -410,14 +411,15 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
             <div className="ed-side-body">
               {tab === "sound" ? (
                 <>
-                <Soundtrack
+                <Tracks
+                  sound={project.sound}
+                  onSound={(sound) => apply((current) => { const { sound: _old, ...rest } = current; return sound ? { ...rest, sound } : rest; })}
+                  effects={project.effects ?? []}
+                  onEffects={(effects) => apply((current) => { const { effects: _old, ...rest } = current; return effects.length ? { ...rest, effects } : rest; })}
                   music={project.music}
-                  onChange={(music) =>
-                    apply((current) => {
-                      const { music: _old, ...rest } = current;
-                      return music ? { ...rest, music } : rest;
-                    })
-                  }
+                  onMusic={(music) => apply((current) => { const { music: _old, ...rest } = current; return music ? { ...rest, music } : rest; })}
+                  playhead={t}
+                  voices={cut.voices.length}
                 />
                 <VoiceMix
                   sound={project.sound}
@@ -499,6 +501,17 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               <label className="ed-zoom">Zoom <input type="range" min={6} max={160} value={Math.round(pps)} onChange={(e) => setPps(Number(e.target.value))} aria-label="Timeline zoom" /></label>
               <button className="plain" onClick={fit}>Fit all</button>
             </div>
+            <div className="ed-tracks">
+            <div className="ed-heads" aria-label="Tracks">
+              <div className="ed-head" style={{ top: 28, height: 94 }}><b>Video</b><small>{cut.clips.length} clips</small></div>
+              {([["Voice", 128, "voiceMute", cut.voices.length], ["Effects", 164, "fxMute", (project.effects ?? []).length], ["Music", 200, "musicMute", project.music ? 1 : 0]] as const).map(([name, top, flag, n]) => (
+                <div key={name} className={`ed-head${project.sound?.[flag] ? " muted" : ""}`} style={{ top, height: 30 }}>
+                  <b>{name}</b>
+                  <small>{n}</small>
+                  <button className={`trk-m${project.sound?.[flag] ? " on" : ""}`} aria-pressed={Boolean(project.sound?.[flag])} title={project.sound?.[flag] ? `Unmute ${name}` : `Mute ${name}`} onClick={() => apply((c) => ({ ...c, sound: { ...(c.sound ?? {}), [flag]: !c.sound?.[flag] } }))}>M</button>
+                </div>
+              ))}
+            </div>
             <div className="ed-scroll" ref={scroller}>
               <div
                 className="ed-lane"
@@ -549,11 +562,37 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   {cut.voices.length === 0 && <span className="ed-empty">Voice-over lines sit here. Add one from a shot&rsquo;s Voice tab.</span>}
                   {cut.voices.map((v) => <button key={v.id} className="ed-voice" style={{ left: v.start * pps, width: Math.max(48, 2.4 * pps) }} onPointerDown={(e) => e.stopPropagation()} onClick={() => { setPicked(v.shotId); setTab("voice"); }} title={v.text}>{v.text}</button>)}
                 </div>
+                <div className="ed-fxlane" aria-label="Sound effects">
+                  {(project.effects ?? []).length === 0 && <button className="ed-empty" onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>+ Add a sound effect at the playhead</button>}
+                  {(project.effects ?? []).map((e) => {
+                    const start = fxDrag?.id === e.id ? fxDrag.start : e.start;
+                    return (
+                      <button
+                        key={e.id}
+                        className="ed-fx"
+                        style={{ left: start * pps, width: Math.max(40, e.seconds * pps) }}
+                        title={`${e.name} · ${start.toFixed(1)}s. Drag to move.`}
+                        onPointerDown={(ev) => {
+                          ev.stopPropagation();
+                          const x0 = ev.clientX, s0 = e.start;
+                          let last = s0;
+                          const move = (m: PointerEvent) => { last = Math.max(0, Math.round((s0 + (m.clientX - x0) / pps) * 10) / 10); setFxDrag({ id: e.id, start: last }); };
+                          const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); setFxDrag(null); if (last !== s0) apply((c) => ({ ...c, effects: (c.effects ?? []).map((x) => (x.id === e.id ? { ...x, start: last } : x)) })); else setTab("sound"); };
+                          window.addEventListener("pointermove", move);
+                          window.addEventListener("pointerup", up);
+                        }}
+                      >
+                        ♫ {e.name}
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="ed-mlane" aria-label="Soundtrack">
                   {cut.music ? <button className="ed-music" style={{ width: cut.total * pps }} onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>♪ {cut.music.name}</button> : <button className="ed-empty" onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>+ Add a soundtrack</button>}
                 </div>
                 <span className="ed-playhead" style={{ left: t * pps }} />
               </div>
+            </div>
             </div>
           </section>
         </div>

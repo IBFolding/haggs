@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { editEstimate, VOICES } from "../../../../providers/cloud-edits";
 import type { Cut } from "../../../../story/cut";
 import { BLEND } from "../../../../story/cut";
-import type { Music, Project, Shot, Sound, VoiceLine } from "../../../../story/model";
+import type { Effect, Music, Project, Shot, Sound, VoiceLine } from "../../../../story/model";
 import { openKeys } from "../../../nav";
-import { speakLine } from "../../../actions";
+import { makeEffect, quoteEffect, speakLine } from "../../../actions";
 
 /**
  * The cut's sound: a soundtrack under the whole board, voice-over lines on
@@ -18,9 +18,13 @@ import { speakLine } from "../../../actions";
 export function usePreviewSound(cut: Cut | null, t: number, playing: boolean) {
   const music = useRef<HTMLAudioElement | null>(null);
   const voices = useRef(new Map<string, HTMLAudioElement>());
+  const effects = useRef(new Map<string, HTMLAudioElement>());
 
   useEffect(() => {
     if (!cut) return;
+    const live2 = new Set((cut.effects ?? []).map((e) => e.id + e.url));
+    for (const e of cut.effects ?? []) if (!effects.current.has(e.id + e.url)) effects.current.set(e.id + e.url, new Audio(e.url));
+    for (const [key, el] of effects.current) if (!live2.has(key)) (el.pause(), effects.current.delete(key));
     const url = cut.music?.url;
     if (url && music.current?.dataset.src !== url) {
       music.current?.pause();
@@ -48,10 +52,16 @@ export function usePreviewSound(cut: Cut | null, t: number, playing: boolean) {
       if (Math.abs(el.currentTime - at) > 0.3) el.currentTime = at;
       if (el.paused) void el.play().catch(() => undefined);
     };
-    if (music.current && cut.music) follow(music.current, t, cut.music.gain - (cut.voices.some((v) => t >= v.start && t < v.start + 3) ? 8 : 0));
+    const snd = cut.sound;
+    const ducks = snd?.duck !== 0 && !snd?.voiceMute && cut.voices.some((v) => t >= v.start && t < v.start + 3);
+    if (music.current && cut.music) follow(music.current, t, snd?.musicMute ? -90 : cut.music.gain - (ducks ? 8 : 0));
     for (const v of cut.voices) {
       const el = voices.current.get(v.id + v.url);
-      if (el) follow(el, t - v.start, v.gain);
+      if (el) follow(el, t - v.start, snd?.voiceMute ? -90 : v.gain + (snd?.voiceGain ?? 0));
+    }
+    for (const e of cut.effects ?? []) {
+      const el = effects.current.get(e.id + e.url);
+      if (el) follow(el, t - e.start, snd?.fxMute ? -90 : e.gain + (snd?.fxGain ?? 0));
     }
   }, [cut, t, playing]);
 
@@ -59,6 +69,7 @@ export function usePreviewSound(cut: Cut | null, t: number, playing: boolean) {
     () => () => {
       music.current?.pause();
       for (const el of voices.current.values()) el.pause();
+      for (const el of effects.current.values()) el.pause();
     },
     [],
   );
@@ -203,7 +214,7 @@ export function VoiceLines({ shot, project, onChange }: { shot: Shot; project: P
   );
 }
 
-const KNOBS: { id: Exclude<keyof Sound, "loud">; label: string; min: number; max: number; step: number; unit: string; hint: string }[] = [
+const KNOBS: { id: "room" | "warmth" | "clarity" | "squeeze" | "duck"; label: string; min: number; max: number; step: number; unit: string; hint: string }[] = [
   { id: "room", label: "Room", min: 0, max: 1, step: 0.05, unit: "", hint: "Puts the voices in a space instead of a booth." },
   { id: "warmth", label: "Body", min: -6, max: 6, step: 0.5, unit: " dB", hint: "Low warmth. Thin, tinny voices want more." },
   { id: "clarity", label: "Presence", min: -6, max: 6, step: 0.5, unit: " dB", hint: "Edge and intelligibility. Take it down if the voices sound harsh." },
@@ -232,6 +243,102 @@ export function VoiceMix({ sound, onChange }: { sound: Sound | undefined; onChan
       <label className="sound-level" title="Brings the finished mix to the level streaming expects, −16 LUFS.">
         <input type="checkbox" checked={Boolean(value.loud)} onChange={(e) => set({ loud: e.target.checked })} /> Master to −16 LUFS
       </label>
+    </div>
+  );
+}
+
+const dB = (n: number) => `${n > 0 ? "+" : ""}${Math.round(n)} dB`;
+
+function TrackHead({ name, hint, muted, onMute, level, onLevel, min = -24, max = 12 }: { name: string; hint: string; muted: boolean; onMute: () => void; level: number; onLevel: (n: number) => void; min?: number; max?: number }) {
+  return (
+    <div className={`trk${muted ? " muted" : ""}`}>
+      <header>
+        <b>{name}</b>
+        <small>{hint}</small>
+        <button className={`trk-m${muted ? " on" : ""}`} aria-pressed={muted} onClick={onMute} title={muted ? `Unmute ${name}` : `Mute ${name}`}>M</button>
+      </header>
+      <label className="sound-level">Level<input type="range" min={min} max={max} step={1} value={level} onChange={(e) => onLevel(Number(e.target.value))} aria-valuetext={dB(level)} /><span>{dB(level)}</span></label>
+    </div>
+  );
+}
+
+/**
+ * The cut's sound as separate tracks: Voice (the lines on shots), Effects
+ * (placed on the timeline, from a file or made from words) and Music. Each
+ * has its own mute and level.
+ */
+export function Tracks({ sound, onSound, effects, onEffects, music, onMusic, playhead, voices }: { sound: Sound | undefined; onSound: (s: Sound | undefined) => void; effects: Effect[]; onEffects: (e: Effect[]) => void; music: Music | undefined; onMusic: (m: Music | undefined) => void; playhead: number; voices: number }) {
+  const snd = sound ?? {};
+  const set = (patch: Partial<Sound>) => onSound({ ...snd, ...patch });
+  const [text, setText] = useState("");
+  const [seconds, setSeconds] = useState(3);
+  const [price, setPrice] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const file = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void quoteEffect(seconds).then(setPrice);
+  }, [seconds]);
+
+  const add = (e: Omit<Effect, "id" | "start" | "gain">) => onEffects([...effects, { ...e, id: crypto.randomUUID(), start: Math.round(playhead * 10) / 10, gain: 0 }]);
+  const patch = (id: string, p: Partial<Effect>) => onEffects(effects.map((e) => (e.id === id ? { ...e, ...p } : e)));
+
+  async function make() {
+    setBusy(true);
+    setError(null);
+    const r = await makeEffect(text, seconds);
+    setBusy(false);
+    if (!r.ok) {
+      if (r.needsKey) openKeys();
+      return setError(r.reason);
+    }
+    add({ name: text.trim().slice(0, 40), url: r.url, seconds });
+    setText("");
+  }
+
+  async function addFile(f: File) {
+    setError(null);
+    try {
+      const made = await upload(f);
+      const len = await new Promise<number>((res) => {
+        const a = new Audio(made.url);
+        a.onloadedmetadata = () => res(Number.isFinite(a.duration) ? Math.round(a.duration * 10) / 10 : 3);
+        a.onerror = () => res(3);
+      });
+      add({ name: made.name.replace(/\.[^.]+$/, "").slice(0, 40), url: made.url, seconds: len });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The file couldn't be added.");
+    }
+  }
+
+  return (
+    <div className="tracks">
+      <TrackHead name="Voice" hint={voices ? `${voices} line${voices === 1 ? "" : "s"} on shots` : "none yet"} muted={Boolean(snd.voiceMute)} onMute={() => set({ voiceMute: !snd.voiceMute })} level={snd.voiceGain ?? 0} onLevel={(n) => set({ voiceGain: n })} />
+
+      <TrackHead name="Effects" hint={effects.length ? `${effects.length} on the timeline` : "none yet"} muted={Boolean(snd.fxMute)} onMute={() => set({ fxMute: !snd.fxMute })} level={snd.fxGain ?? 0} onLevel={(n) => set({ fxGain: n })} />
+      <div className="trk-body">
+        {effects.map((e) => (
+          <div key={e.id} className="trk-fx">
+            <b title={e.name}>{e.name}</b>
+            <label>at <input type="number" min={0} step={0.1} value={e.start} onChange={(ev) => patch(e.id, { start: Math.max(0, Number(ev.target.value) || 0) })} /> s</label>
+            <label>level <input type="range" min={-24} max={12} step={1} value={e.gain} onChange={(ev) => patch(e.id, { gain: Number(ev.target.value) })} aria-valuetext={dB(e.gain)} /></label>
+            <button className="plain danger" onClick={() => onEffects(effects.filter((x) => x.id !== e.id))}>Remove</button>
+          </div>
+        ))}
+        <div className="trk-add">
+          <input value={text} onChange={(e) => setText(e.target.value)} maxLength={500} placeholder="A heavy wooden door slams in an empty hall" aria-label="Describe a sound effect" />
+          <label>seconds <input type="number" min={0.5} max={30} step={0.5} value={seconds} onChange={(e) => setSeconds(Math.min(30, Math.max(0.5, Number(e.target.value) || 1)))} /></label>
+          <button className="pill" disabled={busy || text.trim().length < 4} onClick={() => void make()}>{busy ? "Making…" : `Make it · $${price.toFixed(3)}`}</button>
+          <button className="plain" onClick={() => file.current?.click()}>Add a file</button>
+          <input ref={file} type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addFile(f); }} />
+        </div>
+        <small className="wf-small">An effect lands at the playhead ({playhead.toFixed(1)}s). Drag it on the timeline or set its time here.</small>
+        {error && <p className="library-error" role="alert">{error}</p>}
+      </div>
+
+      <TrackHead name="Music" hint={music ? music.name : "none yet"} muted={Boolean(snd.musicMute)} onMute={() => set({ musicMute: !snd.musicMute })} level={music?.gain ?? 0} onLevel={(n) => music && onMusic({ ...music, gain: n })} min={-24} max={6} />
+      <Soundtrack music={music} onChange={onMusic} />
     </div>
   );
 }

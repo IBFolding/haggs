@@ -137,6 +137,16 @@ export function speechWorkflow({ text, voice, model = "eleven_v4", stability = 0
   };
 }
 
+/** A sound effect from words: ElevenLabs Sound Effects on Comfy, 0.5 to 30 seconds. */
+export function soundEffectWorkflow({ text, seconds }: { text: string; seconds: number }): Workflow {
+  if (text.trim().length < 4 || text.length > 500) throw new Error("Describe the sound in 4–500 characters.");
+  if (!(seconds >= 0.5 && seconds <= 30)) throw new Error("A sound effect runs 0.5 to 30 seconds.");
+  return {
+    "1": { class_type: "ElevenLabsTextToSoundEffects", inputs: { text: text.trim(), model: "eleven_sfx_v2", "model.duration": seconds, "model.loop": false, "model.prompt_influence": 0.4, output_format: "mp3_44100_192" } },
+    "20": { class_type: "SaveAudioMP3", inputs: { audio: ["1", 0], filename_prefix: "haggs/sfx", quality: "V0" } },
+  };
+}
+
 export type Line = { text: string; voice: string };
 
 export function voiceWorkflow({ video, lines, model = "eleven_v4", stability = 0.5 }: { video: string; lines: Line[]; model?: "eleven_v3" | "eleven_v4" | "eleven_v4_turbo"; stability?: number }): Workflow {
@@ -165,7 +175,7 @@ export function voiceWorkflow({ video, lines, model = "eleven_v4", stability = 0
   return w;
 }
 
-export type Tool = "flux3" | "speech" | "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
+export type Tool = "flux3" | "sfx" | "speech" | "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
 
 /**
  * Comfy's node price badges (2026-10-20): Regenerate $0.0715/s, Aleph 2
@@ -180,6 +190,8 @@ export function editEstimate({ tool, seconds, resolution = "720p", characters = 
   switch (tool) {
     case "flux3":
       return ({ "0.75K": 0.0586, "1K": 0.0686, "1.5K": 0.1001, "2K": 0.143 } as Record<string, number>)[resolution] ?? 0.1001;
+    case "sfx":
+      return r((0.14 * seconds) / 60);
     case "speech":
       return r((0.1144 * characters) / 1000);
     case "kontext":
