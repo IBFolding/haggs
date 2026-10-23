@@ -2358,3 +2358,13 @@ a.logo { color: var(--text); text-decoration: none; }
 .ed-empty { white-space: nowrap; }
 .ed-card { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px; }
 .ed-card input { flex: 1 1 180px; min-width: 0; background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; }
+
+.quick-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 10px; }
+.quick-head h2 { margin: 0; }
+.quick-tabs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.quick-tabs button { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--text-2); font: inherit; font-size: 12.5px; cursor: pointer; }
+.quick-tabs button.on { border-color: var(--volt); color: var(--volt); background: var(--surface); }
+.quick-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 18px; }
+.quick-row .quick-card { padding: 10px 12px; gap: 2px; }
+.quick-row .quick-card b { font-size: 13px; }
+.quick-row .quick-card small { margin-top: 0; font-size: 11px; color: var(--text-3); }

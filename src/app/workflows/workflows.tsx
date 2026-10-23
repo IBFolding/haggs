@@ -24,6 +24,7 @@ export function Workflows() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [shelf, setShelf] = useState<(typeof SHELVES)[number]>("Featured");
   const [hunt, setHunt] = useState("");
+  const [group, setGroup] = useState<(typeof GROUPS)[number]>(GROUPS[0]);
   const [mine, setMine] = useState<SavedApp[]>([]);
   useEffect(() => {
     void createAppStore(defaultKv()).list().then(setMine).catch(() => setMine([]));
@@ -73,23 +74,24 @@ export function Workflows() {
           </header>
 
           <section className="quick" aria-label="Ready-made apps">
-            <h2>Start with one that works</h2>
-            {GROUPS.map((g) => (
-              <div key={g}>
-                <h3 className="quick-group">{g}</h3>
-                <div className="quick-grid">
-                  {QUICK_APPS.filter((a) => a.group === g).map((a) => (
-                    <Link key={a.id} className="quick-card" href={`/workflows/build?quick=${a.id}`}>
-                      <b>{a.name}</b>
-                      <span>{a.says}</span>
-                      <small>{isOpenApp(a) ? "Open weights · runs on your GPU" : `Makes a ${a.makes}`}</small>
-                    </Link>
-                  ))}
-                </div>
+            <div className="quick-head">
+              <h2>Start with one that works</h2>
+              <div className="quick-tabs" role="tablist" aria-label="Kind of job">
+                {GROUPS.map((g) => (
+                  <button key={g} role="tab" aria-selected={group === g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{g}</button>
+                ))}
               </div>
-            ))}
+              <Link className="plain" href="/workflows/community">Community apps</Link>
+            </div>
+            <div className="quick-row">
+              {QUICK_APPS.filter((a) => a.group === group).map((a) => (
+                <Link key={a.id} className="quick-card" href={`/workflows/build?quick=${a.id}`} title={a.says}>
+                  <b>{a.name}</b>
+                  <small>{isOpenApp(a) ? "Open weights" : a.makes === "video" ? "Video" : "Picture"}</small>
+                </Link>
+              ))}
+            </div>
           </section>
-          <p className="wf-small"><Link href="/workflows/community">Community apps</Link> · made by people using haggs, free or up to 12¢ a run.</p>
           {mine.length > 0 && (
             <section className="wf-mine" aria-label="Your apps">
               <h2>Your apps</h2>
