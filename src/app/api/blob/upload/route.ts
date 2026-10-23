@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
 import { ownerOf, signInRequired, verifyUser } from "../../../../server/auth";
 import { hosted } from "../../../../server/blob";
+import { allow, caller } from "../../../../server/limit";
 
 /**
  * Lets the browser send a file straight to the app's file store (hosted only),
@@ -16,6 +17,8 @@ export async function POST(request: Request) {
   if (!origin || !host || new URL(origin).host !== host) return Response.json({ ok: false, reason: "Not allowed." }, { status: 403 });
   const body = (await request.json()) as HandleUploadBody;
   const user = await verifyUser(request);
+  // 40 uploads an hour each, guests by address.
+  if (!allow(`upload:${caller(request, user?.id)}`, 40, 3_600_000)) return Response.json({ ok: false, reason: "That's a lot of uploads. Try again in a little while." }, { status: 429 });
   try {
     const result = await handleUpload({
       request,

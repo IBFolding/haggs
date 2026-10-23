@@ -26,7 +26,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "stripe": "^22.6.2",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
@@ -34,5 +34,10 @@
     "@types/react-dom": "^19.3.0",
     "tsx": "^4.19.2",
     "typescript": "^5.9.2"
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "$zod"
+    }
   }
 }

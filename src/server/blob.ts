@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 
 import { ownerOf, signInRequired, userNow } from "./auth";
+import { allow } from "./limit";
 
 /**
  * The hosted file store. On a deployment with a Vercel Blob store connected
@@ -17,6 +18,8 @@ const TYPES: Record<string, string> = { mp4: "video/mp4", webm: "video/webm", mo
 export async function putBlob(bytes: Uint8Array, extension: string, folder = "results"): Promise<string> {
   const user = await userNow();
   if (signInRequired() && !user) throw new Error("Sign in to save results here.");
+  // 300 saved files an hour each; guests share one allowance per server instance.
+  if (!allow(`save:${user ? user.id : "guest"}`, user ? 300 : 600, 3_600_000)) throw new Error("That's a lot of results for now. Try again in a little while.");
   const ext = extension.toLowerCase().replace(/^\./, "");
   const type = TYPES[ext];
   if (!type) throw new Error("That kind of file can't be kept.");

@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import sharp from "sharp";
 
 import { signInRequired, verifyUser } from "../../../server/auth";
+import { allow, caller } from "../../../server/limit";
 import { hosted, putBlob } from "../../../server/blob";
 import { bridgeAllowed } from "../../../server/bridge-guard";
 import { ffmpegBin, ffprobeBin } from "../../../server/ffmpeg";
@@ -26,7 +27,10 @@ export async function POST(request: Request) {
     // Only this site's own pages may start a render.
     const origin = request.headers.get("origin");
     if (!origin || new URL(origin).host !== request.headers.get("host")) return Response.json({ ok: false, reason: "Not allowed." }, { status: 403 });
-    if (signInRequired() && !(await verifyUser(request))) return Response.json({ ok: false, reason: "Sign in to render here." }, { status: 401 });
+    const who = await verifyUser(request);
+    if (signInRequired() && !who) return Response.json({ ok: false, reason: "Sign in to render here." }, { status: 401 });
+    // Renders are heavy: 12 an hour each.
+    if (!allow(`render:${caller(request, who?.id)}`, 12, 3_600_000)) return Response.json({ ok: false, reason: "That's a lot of renders for now. Try again in a little while." }, { status: 429 });
   }
   const scratch = online ? await mkdtemp(join(tmpdir(), "haggs-hosted-")) : null;
   const root = scratch ?? process.env.HAGGS_LOCAL_MEDIA;

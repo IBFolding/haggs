@@ -1,5 +1,6 @@
 "use client";
 
+import { safeReturn } from "../../story/handoff";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -15,7 +16,7 @@ import { supabase, useSession } from "../session";
 export function AuthForm({ mode }: { mode: "signup" | "signin" }) {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next")?.startsWith("/") ? params.get("next")! : "/library";
+  const next = safeReturn(params.get("next")) ?? "/library";
   const { session } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

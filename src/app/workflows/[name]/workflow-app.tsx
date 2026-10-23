@@ -29,6 +29,8 @@ async function addFile(file: File): Promise<string> {
   // In development the file goes to the local media folder; otherwise it travels with the run.
   const added = await uploadFile(file);
   if (added.ok) return added.url;
+  // Hosted, a file can't travel inside the request (Vercel allows 4.5 MB), so a failed upload is the end of it.
+  if (process.env.NEXT_PUBLIC_HOSTED === "1") throw new Error(added.reason);
   if (file.size > 20 * 1024 * 1024) throw new Error(added.reason);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

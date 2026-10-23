@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { safeReturn } from "../../../story/handoff";
 import { supabase } from "../../session";
 
 /** Where Google and email links come back to. The sign-in code is exchanged here, then you carry on. */
@@ -11,7 +12,7 @@ export default function Callback() {
   const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const next = params.get("next")?.startsWith("/") ? params.get("next")! : "/library";
+    const next = safeReturn(params.get("next")) ?? "/library";
     const code = params.get("code");
     const sb = supabase();
     if (!sb) return setProblem("Accounts aren't set up on this copy of haggs.");
