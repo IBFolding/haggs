@@ -60,3 +60,17 @@ test("the multi-angle app offers the picture and the camera, not the negative pr
   assert.deepEqual([filled["221"]!.inputs.horizontal_angle, filled["221"]!.inputs.vertical_angle, filled["221"]!.inputs.zoom], [90, -10, 8]);
   assert.throws(() => fill(prompt, app, { "221/vertical_angle": 90 }), /out of range/);
 });
+
+test("the open reshoot, filled from the dial, is a workflow Cloud would accept", async () => {
+  const { toCameraAngle, OPEN_RESHOOT } = await import("../story/reshoot");
+  const { validate } = await import("./convert");
+  const ma: UiWorkflow = JSON.parse(readFileSync(join(dir, "template_qwen_multiangle.app.json"), "utf8"));
+  const { prompt } = toApiPrompt(ma, catalog);
+  const app = appOf(ma, prompt, catalog);
+  const a = toCameraAngle({ az: -60, el: 20, zoom: -0.5 });
+  const filled = fill(prompt, app, { [OPEN_RESHOOT.image]: "frame_upload.png", [`${OPEN_RESHOOT.node}/horizontal_angle`]: a.horizontal_angle, [`${OPEN_RESHOOT.node}/vertical_angle`]: a.vertical_angle, [`${OPEN_RESHOOT.node}/zoom`]: a.zoom });
+  assert.deepEqual(validate(filled, catalog), []);
+  assert.deepEqual([filled["221"]!.inputs.horizontal_angle, filled["221"]!.inputs.vertical_angle, filled["221"]!.inputs.zoom], [300, 20, 7.5]);
+  assert.equal(filled["1"]!.inputs.image, "frame_upload.png");
+  assert.equal(app.output, "2");
+});

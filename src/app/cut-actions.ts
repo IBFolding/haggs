@@ -9,7 +9,8 @@ import { cookies } from "next/headers";
 
 import { createCloudRunner } from "../providers/cloud";
 import { flux3Workflow } from "../providers/cloud-edits";
-import { reshootPrompt, type Camera } from "../story/reshoot";
+import { OPEN_RESHOOT, reshootPrompt, toCameraAngle, type Camera } from "../story/reshoot";
+import { runWorkflow } from "./workflow-actions";
 import { keepResult } from "../server/keep";
 import { COMFY_COOKIE, keyIn } from "../server/keys";
 import { localFile, localUrl } from "../server/local-media";
@@ -63,4 +64,24 @@ export async function reshoot(url: string, at: number, kind: "image" | "video", 
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The reshoot didn't run." };
   }
+}
+
+/**
+ * The same reshoot on open weights: Comfy's Qwen-Image-Edit multi-angle
+ * workflow, driven by the dial's angle, height and zoom. It runs on Comfy
+ * Cloud's GPUs, so it is billed as GPU time on your plan rather than at a
+ * per-picture price Comfy publishes. Never retried automatically.
+ */
+export async function reshootOpen(url: string, at: number, kind: "image" | "video", move: Camera): Promise<Reshot> {
+  const frame = await frameAt(url, at, kind);
+  if (!frame.ok) return frame;
+  const angle = toCameraAngle({ az: Number(move.az) || 0, el: Number(move.el) || 0, zoom: Number(move.zoom) || 0 });
+  const r = await runWorkflow(
+    { template: OPEN_RESHOOT.template },
+    { [`${OPEN_RESHOOT.node}/horizontal_angle`]: angle.horizontal_angle, [`${OPEN_RESHOOT.node}/vertical_angle`]: angle.vertical_angle, [`${OPEN_RESHOOT.node}/zoom`]: angle.zoom },
+    { [OPEN_RESHOOT.image]: frame.url },
+  );
+  if (!r.ok) return r;
+  if (r.kind !== "image") return { ok: false, reason: "The multi-angle workflow didn't return a picture." };
+  return { ok: true, url: r.url, source: frame.url, usd: 0 };
 }

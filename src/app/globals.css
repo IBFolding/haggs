@@ -2187,3 +2187,8 @@ a.logo { color: var(--text); text-decoration: none; }
   .ed .stage { width: 100%; height: auto; }
   .ed-side { border-left: 0; border-top: 1px solid var(--line); }
 }
+.engine { display: flex; gap: 6px; margin: 0 0 10px; }
+.engine button { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 11px; border: 1px solid var(--line-hot); border-radius: 10px; background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; }
+.engine button small { font-size: 11px; font-weight: 500; color: var(--text-3); }
+.engine button.on { border-color: var(--volt); color: var(--text); background: var(--volt-soft); }
+.engine button:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }

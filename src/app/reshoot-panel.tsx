@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PRESETS, cameraWords, sameCamera, SAME, type Camera } from "../story/reshoot";
 import { openKeys } from "./nav";
-import { reshoot } from "./cut-actions";
+import { reshoot, reshootOpen } from "./cut-actions";
 
 /**
  * Reshoot, inside the shot: the camera on a ring around the subject. Drag it
@@ -81,6 +81,23 @@ export function ReshootPanel({
   onKeep: (made: { url: string; usd: number; label: string }[]) => void;
 }) {
   const [move, setMove] = useState<Camera>({ az: 140, el: 0, zoom: 0 });
+  // Partner: FLUX 3 with the move as words, priced per picture. Open weights: Comfy's Qwen multi-angle workflow with the move as numbers, billed as GPU time.
+  const [engine, setEngine] = useState<"partner" | "open">("partner");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("haggs.engine") === "open") setEngine("open");
+    } catch {
+      // Nothing remembered.
+    }
+  }, []);
+  const pick = (e: "partner" | "open") => {
+    setEngine(e);
+    try {
+      localStorage.setItem("haggs.engine", e);
+    } catch {
+      // A convenience only.
+    }
+  };
   const [busy, setBusy] = useState<string | null>(null);
   const [results, setResults] = useState<Made[]>([]);
   const [shown, setShown] = useState(0);
@@ -93,7 +110,7 @@ export function ReshootPanel({
     setError(null);
     for (let i = 0; i < cams.length; i++) {
       setBusy(cams.length > 1 ? `Coverage ${i + 1} of ${cams.length}…` : "Reshooting…");
-      const r = await reshoot(source.url, source.at, source.kind, cams[i]!.move, source.beat);
+      const r = engine === "open" ? await reshootOpen(source.url, source.at, source.kind, cams[i]!.move) : await reshoot(source.url, source.at, source.kind, cams[i]!.move, source.beat);
       if (!r.ok) {
         if (r.needsKey) openKeys();
         setError(r.reason);
@@ -118,6 +135,10 @@ export function ReshootPanel({
   return (
     <div className="reshoot-panel">
       <header><b>Reshoot</b><span>Same scene, new camera. Slide to compare, keep what you like.</span></header>
+      <div className="engine" role="radiogroup" aria-label="Engine">
+        <button role="radio" aria-checked={engine === "partner"} className={engine === "partner" ? "on" : ""} onClick={() => pick("partner")}>FLUX 3 <small>$0.10</small></button>
+        <button role="radio" aria-checked={engine === "open"} className={engine === "open" ? "on" : ""} onClick={() => pick("open")}>Open weights <small>Qwen multi-angle · GPU time</small></button>
+      </div>
       <div className="reshoot-body">
         <div className="reshoot-controls">
           <Dial move={move} onChange={setMove} thumb={{ url: source.url, kind: source.kind, at: source.at }} />
@@ -146,8 +167,8 @@ export function ReshootPanel({
           )}
           {error && <p className="library-error" role="alert">{error}</p>}
           <div className="sheet-row">
-            <button className="fire" disabled={busy !== null || !words} onClick={() => void shoot([{ move }])}>{busy && !busy.startsWith("Coverage") ? busy : "Reshoot"} <span className="cost">$0.10</span></button>
-            <button className="pill" disabled={busy !== null} onClick={() => void shoot(COVERAGE)} title="Reverse, wide and close-up of the same moment">{busy?.startsWith("Coverage") ? busy : "Get coverage · $0.30"}</button>
+            <button className="fire" disabled={busy !== null || !words} onClick={() => void shoot([{ move }])}>{busy && !busy.startsWith("Coverage") ? busy : "Reshoot"} <span className="cost">{engine === "open" ? "GPU time" : "$0.10"}</span></button>
+            <button className="pill" disabled={busy !== null} onClick={() => void shoot(COVERAGE)} title="Reverse, wide and close-up of the same moment">{busy?.startsWith("Coverage") ? busy : `Get coverage · ${engine === "open" ? "3 runs" : "$0.30"}`}</button>
           </div>
           {results.length > 0 && (
             <div className="sheet-row">

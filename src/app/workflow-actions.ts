@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 
 import { fill, leaveOut, type App, type Values } from "../comfy/apps";
 import { validate } from "../comfy/convert";
-import { toApiPrompt, type UiWorkflow } from "../comfy/convert";
+import { prepare, type UiWorkflow } from "../comfy/convert";
 import { priceOf } from "../comfy/price";
 import { createCloudRunner, type Kept } from "../providers/cloud";
 import { appOf } from "../comfy/apps";
@@ -41,7 +41,7 @@ async function open(key: string, source: Source): Promise<Opened> {
   const catalog = await catalogOf(root(), key);
   // An API-format file is already a prompt: wrap each node so the editor-format path can read it unchanged.
   const ui = (raw as { nodes?: unknown }).nodes ? (raw as UiWorkflow) : apiToUi(raw as Record<string, { class_type: string; inputs: Record<string, unknown> }>);
-  const { prompt, problems } = toApiPrompt(ui, catalog);
+  const { prompt, problems } = prepare(ui, catalog);
   return { entry: null, ui, app: appOf(ui, prompt, catalog), problems, catalog };
 }
 
@@ -107,7 +107,7 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const name = "template" in source ? source.template : "your workflow";
   try {
     const opened = await open(key, source);
-    const { prompt } = toApiPrompt(opened.ui, opened.catalog);
+    const { prompt } = prepare(opened.ui, opened.catalog);
     const samples = Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && f.sample ? [[String(prompt[f.node]?.inputs[f.input] ?? ""), f.sample]] : [])));
     return {
       ok: true,
@@ -154,7 +154,7 @@ export async function quoteWorkflow(source: Source, values: Values): Promise<Quo
   if (!key) return { label: "add a Comfy key", min: 0, max: 0, perSecond: false };
   try {
     const opened = await open(key, source);
-    const { prompt } = toApiPrompt(opened.ui, opened.catalog);
+    const { prompt } = prepare(opened.ui, opened.catalog);
     const media = Object.fromEntries(Object.entries(values).filter(([k]) => opened.app.fields.some((f) => f.kind === "media" && `${f.node}/${f.input}` === k)));
     const words = Object.fromEntries(Object.entries(values).filter(([k]) => !(k in media)));
     const p = await priceOf(fill(prompt, opened.app, words), opened.catalog);
@@ -175,7 +175,7 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     if (opened.problems.length) return { ok: false, reason: opened.problems[0]! };
     if (!opened.app.output) return { ok: false, reason: "This workflow doesn't save a result haggs can show." };
     if (opened.app.produces === "3d" || opened.app.produces === "text") return { ok: false, reason: `This workflow makes ${opened.app.produces === "3d" ? "a 3D model" : "text"}; open it in ComfyUI. haggs shows pictures, video and sound.` };
-    const { prompt } = toApiPrompt(opened.ui, opened.catalog);
+    const { prompt } = prepare(opened.ui, opened.catalog);
     const cloud = createCloudRunner({ apiKey: key, keep: keepResult });
     const uploaded: Values = {};
     // An empty choice leaves that input out of the run, with the wire it fed.

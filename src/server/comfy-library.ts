@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { appOf, type App } from "../comfy/apps";
-import { toApiPrompt, type Catalog, type UiWorkflow } from "../comfy/convert";
+import { prepare, type Catalog, type UiWorkflow } from "../comfy/convert";
 
 /**
  * Comfy's public workflow templates (MIT, Comfy-Org/workflow_templates) and
@@ -108,7 +108,7 @@ export type Opened = { entry: Entry | null; ui: UiWorkflow; app: App; problems: 
 export async function openTemplate(root: string, apiKey: string, name: string): Promise<Opened> {
   const [ui, catalog, index] = await Promise.all([templateOf(root, name), catalogOf(root, apiKey), indexOf(root)]);
   const entry = index.find((e) => e.name === name) ?? null;
-  const { prompt, problems } = toApiPrompt(ui, catalog);
+  const { prompt, problems } = prepare(ui, catalog);
   const samples = Object.fromEntries((entry?.inputs ?? []).map((i) => [i.file, exampleUrl(i.file)]));
   return { entry, ui, app: appOf(ui, prompt, catalog, samples), problems, catalog };
 }
@@ -133,7 +133,7 @@ export async function checked(root: string, apiKey: string): Promise<Record<stri
       Array.from({ length: 12 }, async () => {
         for (let e = queue.shift(); e; e = queue.shift()) {
           try {
-            const { problems } = toApiPrompt(await templateOf(root, e.name), catalog);
+            const { problems } = prepare(await templateOf(root, e.name), catalog);
             out[e.name] = problems.length ? problems[0]! : true;
           } catch (caught) {
             out[e.name] = caught instanceof Error ? caught.message : "Couldn't be read.";
