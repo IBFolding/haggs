@@ -22,11 +22,12 @@ export function searchWords(description: string, max = 6): string[] {
 }
 
 /** The archive.org search for those words, inside Prelinger's films only. Quotes and operators are stripped so words can't change the query. */
-export function searchUrl(words: string[], rows = 24): string {
+export function searchUrl(words: string[], rows = 24, mode: "any" | "all" = "any"): string {
   const clean = words.map((w) => w.replace(/[^a-zA-Z0-9'-]/g, "")).filter(Boolean).slice(0, 8);
   if (!clean.length) throw new Error("Type a few words about what you need.");
-  const q = `(${clean.join(" OR ")}) AND collection:(prelinger) AND mediatype:(movies)`;
-  const params = new URLSearchParams({ q, rows: String(rows), page: "1", output: "json", sort: "downloads desc" });
+  const q = `(${clean.join(mode === "all" ? " AND " : " OR ")}) AND collection:(prelinger) AND mediatype:(movies)`;
+  // Best match first when every word must match; most-watched first when any will do.
+  const params = new URLSearchParams({ q, rows: String(rows), page: "1", output: "json", ...(mode === "any" ? { sort: "downloads desc" } : {}) });
   for (const f of ["identifier", "title", "year", "description"]) params.append("fl[]", f);
   return `https://archive.org/advancedsearch.php?${params}`;
 }

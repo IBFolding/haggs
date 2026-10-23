@@ -15,6 +15,7 @@ test("the archive search stays inside Prelinger's films and cannot be changed by
   assert.equal(u.hostname, "archive.org");
   assert.equal(u.searchParams.get("rows"), "12");
   assert.throws(() => searchUrl(["!!"]), /few words/);
+  assert.match(new URL(searchUrl(["night", "diner"], 5, "all")).searchParams.get("q")!, /^\(night AND diner\)/);
 });
 
 test("search results are read, with bad identifiers dropped", () => {

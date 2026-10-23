@@ -16,9 +16,16 @@ export type Kept = { ok: true; url: string; seconds: number } | { ok: false; rea
 /** Searches the Prelinger films on archive.org. A free public API: no key, nothing spent. */
 export async function findFootage(words: string[]): Promise<Searched> {
   try {
-    const res = await fetch(searchUrl(words), { headers: HEADERS, signal: AbortSignal.timeout(20_000) });
-    if (!res.ok) return { ok: false, reason: `The archive answered ${res.status}. Try again in a minute.` };
-    return { ok: true, found: parseSearch(await res.json()) };
+    // Scenes that match every one of the first words come first; any-word matches fill the rest.
+    const ask = async (mode: "any" | "all", list: string[]) => {
+      const res = await fetch(searchUrl(list, 24, mode), { headers: HEADERS, signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) throw new Error(`The archive answered ${res.status}. Try again in a minute.`);
+      return parseSearch(await res.json());
+    };
+    const exact = words.length > 1 ? await ask("all", words.slice(0, 3)) : [];
+    const seen = new Set(exact.map((f) => f.id));
+    const rest = exact.length >= 12 ? [] : (await ask("any", words)).filter((f) => !seen.has(f.id));
+    return { ok: true, found: [...exact, ...rest].slice(0, 24) };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "The archive couldn't be reached." };
   }

@@ -7,8 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
 import { fcpxml } from "../../../../story/fcpxml";
-import { needsApproval } from "../../../../story/grey";
-import { GreyRoom } from "./grey";
+import { needsApproval, tidy } from "../../../../story/grey";
+import { GreyRoom, GreySequence } from "./grey";
 import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
@@ -700,6 +700,16 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                       onGrey={(g) => onShot(shot.id, (s2) => ({ ...s2, grey: g }))}
                       onApprove={() => onShot(shot.id, (s2) => ({ ...s2, approved: true }))}
                       onTake={(url, usd) => onShot(shot.id, (s2) => addTake(s2, { url, kind: "image", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room"))}
+                    />
+                  )}
+                  {tab === "grey" && (
+                    <GreySequence
+                      shots={cut.clips.map((c) => { const sh = project.shots.find((x) => x.id === c.shotId); return { id: c.shotId, heading: c.heading, seconds: c.seconds, ...(sh?.grey ? { grey: sh.grey } : {}) }; })}
+                      currentId={shot.id}
+                      vertical={vertical}
+                      names={(id) => { const sh = project.shots.find((x) => x.id === id); return sh ? project.threads.filter((t) => t.kind === "character" && sh.threadIds.includes(t.id)).map((t) => t.name) : []; }}
+                      onSelect={(id) => setPicked(id)}
+                      onSet={(changes) => apply((c) => ({ ...c, shots: c.shots.map((x) => (changes[x.id] ? { ...x, grey: tidy(changes[x.id]!) } : x)) }))}
                     />
                   )}
                 </>

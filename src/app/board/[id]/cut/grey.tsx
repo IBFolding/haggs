@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, tidy, type GreyFrame } from "../../../../story/grey";
 import type { Shot } from "../../../../story/model";
@@ -14,25 +14,12 @@ import { runEdit } from "../../../actions";
  * changing it, so nothing finished is altered by accident.
  */
 
-/** How far the plan view reaches, in metres each way: the room and the camera's usual places. */
-const PLAN = 8;
-const MONEY = (n: number) => `$${n.toFixed(2)}`;
-const LENS_NAME = (mm: number) => (mm <= 24 ? "wide" : mm >= 85 ? "telephoto" : "natural");
-
-export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: { shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number) => void }) {
-  const grey = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
+/** The grey frame: a wall, a floor with a grid, and grey stand-ins lit from the light's side. Drawn the same big or small. */
+export function GreyScene({ grey, vertical, svgRef, className = "gr-view" }: { grey: GreyFrame; vertical: boolean; svgRef?: React.Ref<SVGSVGElement>; className?: string }) {
   const aspect = vertical ? 9 / 16 : 16 / 9;
   const W = vertical ? 900 : 1600;
   const H = vertical ? 1600 : 900;
-  const svg = useRef<SVGSVGElement>(null);
-  const plan = useRef<SVGSVGElement>(null);
-  const [drag, setDrag] = useState<null | { kind: "cam" } | { kind: "sub"; id: string }>(null);
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [label, setLabel] = useState("");
-  const locked = needsApproval(shot);
-  const set = (next: GreyFrame) => onGrey(tidy(next));
-
+  const id = useId().replace(/:/g, "");
   const view = useMemo(() => {
     // The floor as a grid, and each stand-in as a capsule from its feet to its head.
     const grid: [number, number, number, number][] = [];
@@ -52,6 +39,82 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
   const lit = Math.cos(((grey.light.az - grey.cam.angle) * Math.PI) / 180);
   const px = (u: number) => u * W;
   const py = (v: number) => v * H;
+  return (
+    <svg ref={svgRef} className={className} viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`Grey frame. ${describeGrey(grey)}`}>
+      <defs>
+        <linearGradient id={`${id}w`} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8a8a8e" /><stop offset="1" stopColor="#5d5d62" /></linearGradient>
+        <linearGradient id={`${id}f`} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#6f6f74" /><stop offset="1" stopColor="#9a9a9f" /></linearGradient>
+      </defs>
+      <rect width={W} height={H} fill={`url(#${id}w)`} />
+      <rect y={py(project(grey.cam, { x: 0, y: 0, z: ROOM * 2 }, aspect)?.v ?? 0.55)} width={W} height={H} fill={`url(#${id}f)`} />
+      {view.grid.map((l, i) => <line key={i} x1={px(l[0])} y1={py(l[1])} x2={px(l[2])} y2={py(l[3])} stroke="#ffffff" strokeOpacity=".12" strokeWidth="2" />)}
+      {view.figs.map(({ s, feet, head }) => {
+        const w = Math.max(18, Math.abs(py(feet.v) - py(head.v)) * 0.22);
+        const shade = Math.round(150 + lit * 40);
+        return (
+          <g key={s.id}>
+            <ellipse cx={px(feet.u)} cy={py(feet.v)} rx={w * 1.1} ry={w * 0.35} fill="#000" opacity=".28" />
+            <line x1={px(feet.u)} y1={py(feet.v)} x2={px(head.u)} y2={py(head.v) + w * 0.5} stroke={`rgb(${shade},${shade},${shade + 6})`} strokeWidth={w} strokeLinecap="round" />
+            <circle cx={px(head.u)} cy={py(head.v)} r={w * 0.62} fill={`rgb(${shade + 20},${shade + 20},${shade + 26})`} />
+            <text x={px(head.u)} y={py(head.v) - w * 0.9} fill="#111" fontSize={Math.max(22, w * 0.5)} textAnchor="middle" fontFamily="sans-serif" fontWeight="700">{s.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** The whole cut in grey: one frame per shot, in order. Pick one to work on it, give every shot a starting frame, or carry a camera down the line. */
+export function GreySequence({ shots, currentId, vertical, names, onSelect, onSet }: { shots: { id: string; heading: string; seconds: number; grey?: GreyFrame }[]; currentId: string; vertical: boolean; names: (id: string) => string[]; onSelect: (id: string) => void; onSet: (changes: Record<string, GreyFrame>) => void }) {
+  const [playing, setPlaying] = useState(false);
+  const [at, setAt] = useState(0);
+  useEffect(() => {
+    if (!playing) return;
+    const shot = shots[at];
+    const t = setTimeout(() => { if (at + 1 >= shots.length) { setPlaying(false); setAt(0); } else setAt(at + 1); }, Math.max(600, (shot?.seconds ?? 2) * 1000));
+    return () => clearTimeout(t);
+  }, [playing, at, shots]);
+  const here = shots.findIndex((s) => s.id === currentId);
+  const missing = shots.filter((s) => !s.grey);
+  const shown = playing ? shots[at] : undefined;
+  return (
+    <div className="gr-seq">
+      <div className="gr-seq-bar">
+        <b>The whole cut in grey</b>
+        <button className="plain" disabled={missing.length === 0} onClick={() => onSet(Object.fromEntries(missing.map((s) => [s.id, defaultGrey(names(s.id).length ? names(s.id) : ["Subject"])])))}>Give every shot a frame{missing.length ? ` (${missing.length})` : ""}</button>
+        <button className="plain" disabled={here < 0 || !shots[here]?.grey || here >= shots.length - 1} onClick={() => { const g = shots[here]!.grey!; onSet(Object.fromEntries(shots.slice(here + 1).map((s) => [s.id, { ...(s.grey ?? defaultGrey(names(s.id).length ? names(s.id) : ["Subject"])), cam: { ...g.cam }, light: { ...g.light } }]))); }} title="Use this shot's camera and light on every shot after it">Camera to the shots after</button>
+        <button className="pill" onClick={() => { setAt(0); setPlaying((p) => !p); }} disabled={shots.every((s) => !s.grey)}>{playing ? "Stop" : "Play in grey"}</button>
+      </div>
+      {shown?.grey && <div className="gr-seq-play"><GreyScene grey={shown.grey} vertical={vertical} className="gr-view" /><small>{shown.heading || `Shot ${at + 1}`} · {shown.seconds}s</small></div>}
+      <ol className="gr-strip">
+        {shots.map((s, i) => (
+          <li key={s.id} className={s.id === currentId ? "on" : ""}>
+            <button onClick={() => onSelect(s.id)} aria-label={`Shot ${i + 1}${s.grey ? "" : ", no grey frame yet"}`}>
+              {s.grey ? <GreyScene grey={s.grey} vertical={vertical} className="gr-mini" /> : <span className="gr-none">{i + 1}</span>}
+              <small>{i + 1}</small>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** How far the plan view reaches, in metres each way: the room and the camera's usual places. */
+const PLAN = 8;
+const MONEY = (n: number) => `$${n.toFixed(2)}`;
+const LENS_NAME = (mm: number) => (mm <= 24 ? "wide" : mm >= 85 ? "telephoto" : "natural");
+
+export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: { shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number) => void }) {
+  const grey = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
+  const svg = useRef<SVGSVGElement>(null);
+  const plan = useRef<SVGSVGElement>(null);
+  const [drag, setDrag] = useState<null | { kind: "cam" } | { kind: "sub"; id: string }>(null);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [label, setLabel] = useState("");
+  const locked = needsApproval(shot);
+  const set = (next: GreyFrame) => onGrey(tidy(next));
 
   /** Plan view: the room from above, camera and stand-ins you can drag. */
   const planAt = (e: { clientX: number; clientY: number }) => {
@@ -99,27 +162,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
     <div className="gr">
       <p className="gr-says">Work the shot out in grey. Nothing here costs anything until you make it real.</p>
 
-      <svg ref={svg} className="gr-view" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`Grey frame. ${describeGrey(grey)}`}>
-        <defs>
-          <linearGradient id="gr-wall" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8a8a8e" /><stop offset="1" stopColor="#5d5d62" /></linearGradient>
-          <linearGradient id="gr-floor" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#6f6f74" /><stop offset="1" stopColor="#9a9a9f" /></linearGradient>
-        </defs>
-        <rect width={W} height={H} fill="url(#gr-wall)" />
-        <rect y={py(project(grey.cam, { x: 0, y: 0, z: ROOM * 2 }, aspect)?.v ?? 0.55)} width={W} height={H} fill="url(#gr-floor)" />
-        {view.grid.map((l, i) => <line key={i} x1={px(l[0])} y1={py(l[1])} x2={px(l[2])} y2={py(l[3])} stroke="#ffffff" strokeOpacity=".12" strokeWidth="2" />)}
-        {view.figs.map(({ s, feet, head }) => {
-          const w = Math.max(18, Math.abs(py(feet.v) - py(head.v)) * 0.22);
-          const shade = Math.round(150 + lit * 40);
-          return (
-            <g key={s.id}>
-              <ellipse cx={px(feet.u)} cy={py(feet.v)} rx={w * 1.1} ry={w * 0.35} fill="#000" opacity=".28" />
-              <line x1={px(feet.u)} y1={py(feet.v)} x2={px(head.u)} y2={py(head.v) + w * 0.5} stroke={`rgb(${shade},${shade},${shade + 6})`} strokeWidth={w} strokeLinecap="round" />
-              <circle cx={px(head.u)} cy={py(head.v)} r={w * 0.62} fill={`rgb(${shade + 20},${shade + 20},${shade + 26})`} />
-              <text x={px(head.u)} y={py(head.v) - w * 0.9} fill="#111" fontSize={Math.max(22, w * 0.5)} textAnchor="middle" fontFamily="sans-serif" fontWeight="700">{s.label}</text>
-            </g>
-          );
-        })}
-      </svg>
+      <GreyScene grey={grey} vertical={vertical} svgRef={svg} />
 
       <div className="gr-grid">
         <div>
