@@ -108,6 +108,9 @@ export type Sound = {
   fxGain?: number;
   fxMute?: boolean;
   musicMute?: boolean;
+  /** The video track's own sound. */
+  clipGain?: number;
+  clipMute?: boolean;
 };
 
 /** A sound effect on its own track, placed on the cut's clock. */

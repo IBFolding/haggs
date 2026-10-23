@@ -412,7 +412,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               <div className={`stage${vertical ? " vertical" : ""}`}>
                 {here &&
                   (here.clip.kind === "video" ? (
-                    <video key={here.clip.shotId} ref={video} src={here.clip.url} playsInline preload="auto" />
+                    <video key={here.clip.shotId} ref={video} src={here.clip.url} playsInline preload="auto" muted={Boolean(project.sound?.clipMute)} onLoadedMetadata={(ev) => { ev.currentTarget.volume = Math.min(1, Math.pow(10, (project.sound?.clipGain ?? 0) / 20)); }} />
                   ) : (
                     <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} />
                   ))}
@@ -550,7 +550,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
             </div>
             <div className="ed-tracks">
             <div className="ed-heads" aria-label="Tracks">
-              <div className="ed-head" style={{ top: 28, height: 94 }}><b>Video</b><small>{cut.clips.length} clips</small></div>
+              <div className={`ed-head${project.sound?.clipMute ? " muted" : ""}`} style={{ top: 28, height: 94 }}><b>Video</b><small>{cut.clips.length} clips</small><button className={`trk-m${project.sound?.clipMute ? " on" : ""}`} aria-pressed={Boolean(project.sound?.clipMute)} title={project.sound?.clipMute ? "Unmute the clips' sound" : "Mute the clips' sound"} onClick={() => apply((c) => ({ ...c, sound: { ...(c.sound ?? {}), clipMute: !c.sound?.clipMute } }))}>M</button></div>
               {([["Voice", 128, "voiceMute", cut.voices.length], ["Effects", 164, "fxMute", (project.effects ?? []).length], ["Music", 200, "musicMute", project.music ? 1 : 0]] as const).map(([name, top, flag, n]) => (
                 <div key={name} className={`ed-head${project.sound?.[flag] ? " muted" : ""}`} style={{ top, height: 30 }}>
                   <b>{name}</b>

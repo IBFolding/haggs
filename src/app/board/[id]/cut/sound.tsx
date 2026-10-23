@@ -314,6 +314,7 @@ export function Tracks({ sound, onSound, effects, onEffects, music, onMusic, pla
 
   return (
     <div className="tracks">
+      <TrackHead name="Video sound" hint="the clips' own audio" muted={Boolean(snd.clipMute)} onMute={() => set({ clipMute: !snd.clipMute })} level={snd.clipGain ?? 0} onLevel={(n) => set({ clipGain: n })} />
       <TrackHead name="Voice" hint={voices ? `${voices} line${voices === 1 ? "" : "s"} on shots` : "none yet"} muted={Boolean(snd.voiceMute)} onMute={() => set({ voiceMute: !snd.voiceMute })} level={snd.voiceGain ?? 0} onLevel={(n) => set({ voiceGain: n })} />
 
       <TrackHead name="Effects" hint={effects.length ? `${effects.length} on the timeline` : "none yet"} muted={Boolean(snd.fxMute)} onMute={() => set({ fxMute: !snd.fxMute })} level={snd.fxGain ?? 0} onLevel={(n) => set({ fxGain: n })} />

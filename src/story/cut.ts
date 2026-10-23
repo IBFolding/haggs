@@ -230,7 +230,10 @@ export function mixFilter(cut: Cut): { inputs: string[]; filter: string } | null
     } else bed = "[mus]";
   }
   const voice = vo && bed === "[bed]" ? "[vo2]" : vo;
-  const layers = ["[0:a]", bed, voice, fx].filter(Boolean) as string[];
+  // The clips' own sound is the video track: it has a level and a mute like the others.
+  const clipLevel = sound?.clipMute ? "0" : sound?.clipGain ? `${sound.clipGain}dB` : null;
+  if (clipLevel) parts.push(`[0:a]volume=${clipLevel}[clip]`);
+  const layers = [clipLevel ? "[clip]" : "[0:a]", bed, voice, fx].filter(Boolean) as string[];
   parts.push(`${layers.join("")}amix=inputs=${layers.length}:normalize=0:duration=first${sound?.loud ? "[pre];[pre]acompressor=threshold=-20dB:ratio=1.8:attack=30:release=250:makeup=1,loudnorm=I=-16:TP=-1.5:LRA=11" : ""}[mix]`);
   return { inputs, filter: parts.join(";") };
 }

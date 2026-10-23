@@ -125,7 +125,7 @@ export function checkCut(raw: unknown): Cut {
   const mix = (c as { sound?: Record<string, unknown> }).sound;
   const level = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : undefined);
   const sound = mix && typeof mix === "object"
-    ? Object.fromEntries(Object.entries({ room: level(mix.room, 0, 1), warmth: level(mix.warmth, -6, 6), clarity: level(mix.clarity, -6, 6), squeeze: level(mix.squeeze, 0, 1), duck: level(mix.duck, 0, 1), voiceGain: level(mix.voiceGain, -30, 12), fxGain: level(mix.fxGain, -30, 12), ...(mix.loud === true ? { loud: true } : {}), ...(mix.voiceMute === true ? { voiceMute: true } : {}), ...(mix.fxMute === true ? { fxMute: true } : {}), ...(mix.musicMute === true ? { musicMute: true } : {}) }).filter(([, v]) => v !== undefined))
+    ? Object.fromEntries(Object.entries({ room: level(mix.room, 0, 1), warmth: level(mix.warmth, -6, 6), clarity: level(mix.clarity, -6, 6), squeeze: level(mix.squeeze, 0, 1), duck: level(mix.duck, 0, 1), voiceGain: level(mix.voiceGain, -30, 12), fxGain: level(mix.fxGain, -30, 12), clipGain: level(mix.clipGain, -40, 12), ...(mix.loud === true ? { loud: true } : {}), ...(mix.voiceMute === true ? { voiceMute: true } : {}), ...(mix.fxMute === true ? { fxMute: true } : {}), ...(mix.musicMute === true ? { musicMute: true } : {}), ...(mix.clipMute === true ? { clipMute: true } : {}) }).filter(([, v]) => v !== undefined))
     : undefined;
   return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(effects.length ? { effects } : {}), ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
 }

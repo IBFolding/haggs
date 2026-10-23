@@ -246,3 +246,11 @@ test("each track has its own level and mute", async () => {
   assert.deepEqual(mixFilter({ ...withAll, sound: { musicMute: true } })!.inputs, ["/api/local/v.mp3", "/api/local/e.mp3"]);
   assert.equal(mixFilter({ ...withAll, sound: { voiceMute: true, fxMute: true, musicMute: true } }), null);
 });
+
+test("the video track's own sound has a level and a mute too", async () => {
+  const { mixFilter } = await import("./cut");
+  const base = { ...buildCut(board(shot({ render: video() }))), music: { url: "/api/local/m.wav", name: "m", gain: 0 } };
+  assert.match(mixFilter({ ...base, sound: { clipGain: -9 } })!.filter, /\[0:a\]volume=-9dB\[clip\]/);
+  assert.match(mixFilter({ ...base, sound: { clipMute: true } })!.filter, /\[0:a\]volume=0\[clip\]/);
+  assert.doesNotMatch(mixFilter(base)!.filter, /\[clip\]/);
+});
