@@ -347,7 +347,8 @@ export async function runEdit(request: EditRequest): Promise<EditResult> {
   const jar = await cookies();
   const key = keyIn(jar, COMFY_COOKIE);
   if (!key) return { ok: false, reason: "Add a Comfy key to run edits.", needsKey: true };
-  const cloud = createCloudRunner({ apiKey: key, keep: keepRender });
+  // Video edits (Kling, Aleph, Genjutsu) can queue and run for a quarter of an hour or more.
+  const cloud = createCloudRunner({ apiKey: key, keep: keepRender, timeoutMs: 45 * 60_000 });
   const up = async (url: string) => {
     const { bytes, mime } = await bytesOf(url);
     return cloud.uploadBytes(bytes, mime);

@@ -428,7 +428,7 @@ export function EditTools({
             </details>
             <div className="tools-run">
               <button className="fire" disabled={busy !== null || !sheet} onClick={() => void go("restyle", { tool: "kling", video, seconds: len, prompt: restylePrompt(style, prompt), references: [sheet!], resolution: restyleRes }, (r) => { take(shot, r.url, r.kind, r.usd, r.origin); setDone(`Redrawn as ${style.name}. It's a new take; the live action is still there.`); })}>
-                {busy === "restyle" ? "Redrawing… a few minutes" : `Restyle this take as ${style.name}`}
+                {busy === "restyle" ? "Redrawing… this can take 10 minutes" : `Restyle this take as ${style.name}`}
                 <span className="cost">about {money(quotes.restyle)}</span>
               </button>
             </div>
