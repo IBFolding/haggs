@@ -1,5 +1,7 @@
 "use client";
 
+import { ExtrasRow } from "../bank-picker";
+import { wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -73,7 +75,9 @@ export function SeriesMaker() {
 
   const person = cast.find((c) => c.id === who) ?? null;
   const style = STYLES.find((s) => s.id === lookId) ?? null;
-  const words = { ...(style ? { look: style.words } : {}), ...(person ? { lock: identityLock(person.traits) } : {}) };
+  const [extras, setExtras] = useState<BankItem[]>([]);
+  const lock = [person ? identityLock(person.traits) : "", wordsOf(extras)].filter(Boolean).join(" ");
+  const words = { ...(style ? { look: style.words } : {}), ...(lock ? { lock } : {}) };
 
   function usePreset(id: string) {
     const p = PRESETS.find((x) => x.id === id);
@@ -287,6 +291,7 @@ export function SeriesMaker() {
                   <BuildLink href="/characters" className="plain" label="your series">+ Build a character</BuildLink>
                 </div>
               </div>
+              <div className="series-pick"><ExtrasRow items={extras} onChange={setExtras} label="your series" title="Where it happens and what they wear" /></div>
               <div className="series-pick">
                 <b>How it looks</b>
                 <div className="series-chips">

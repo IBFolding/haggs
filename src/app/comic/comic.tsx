@@ -1,5 +1,7 @@
 "use client";
 
+import { ExtrasRow } from "../bank-picker";
+import { wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -29,6 +31,7 @@ export function Comic() {
   const [inIt, setInIt] = useState<string[]>([]);
   const [look, setLook] = useState<LookId>("ink");
   const [layout, setLayout] = useState<LayoutId>("page");
+  const [extras, setExtras] = useState<BankItem[]>([]);
   const [style, setStyle] = useState<StyleSheet>(emptyStyle);
   const [swatch, setSwatch] = useState("");
   const sheetFile = useRef<HTMLInputElement>(null);
@@ -65,7 +68,7 @@ export function Comic() {
       if (stop.current) break;
       setBusy(`Drawing ${p.id === list[0]!.id && list.length === 1 ? "panel" : `panel ${i + 1} of ${list.length}`}…`);
       const names = p.who.length ? cast.filter((c) => p.who.includes(c.id)) : cast.filter((c) => inIt.includes(c.id));
-      const r = await makeStill(panelPrompt(p, look, names.map((c) => identityLock(c.traits)), undefined, style), imageRatio(p.shape), [...names.map((c) => c.sheet).slice(0, 2), ...style.refs.slice(0, MAX_STYLE_REFS)], `${COMIC_FINISH}`);
+      const r = await makeStill(panelPrompt(p, look, names.map((c) => identityLock(c.traits)), wordsOf(extras) || undefined, style), imageRatio(p.shape), [...names.map((c) => c.sheet).slice(0, 2), ...style.refs.slice(0, MAX_STYLE_REFS)], `${COMIC_FINISH}`);
       if (!r.ok) { if (r.needsKey) openKeys(); setProblem(r.reason); break; }
       setPictures((all) => ({ ...all, [p.id]: r.url }));
     }
@@ -117,6 +120,7 @@ export function Comic() {
             <Link href="/photos">Make</Link>
             <Link href="/characters">Characters</Link>
             <Link href="/locations">Locations</Link>
+            <Link href="/accessories">Accessories</Link>
             <Link href="/comic" aria-current="page">Comic strip</Link>
           </nav>
           <header className="swap-head">
@@ -144,6 +148,10 @@ export function Comic() {
               <BuildLink href="/characters" label="your comic" className="cm-add">+ Make a character</BuildLink>
             </div>
             {cast.length === 0 && <p className="wf-small">No characters yet. Make one and you come straight back here with them chosen. Without one, every panel invents its own faces.</p>}
+          </section>
+
+          <section className="cm-block" aria-label="Places and accessories">
+            <ExtrasRow items={extras} onChange={setExtras} label="your comic" title="Where it happens and what they wear" />
           </section>
 
           <section className="cm-block" aria-label="Look and layout">

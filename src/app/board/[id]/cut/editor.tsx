@@ -1,5 +1,7 @@
 "use client";
 
+import { useReturnedPick } from "../../../bank-picker";
+import type { BankItem } from "../../../../story/bank";
 import { listVersions, removeVersion, restoreVersion, saveVersion, type Version } from "../../../../story/versions";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -65,6 +67,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const [versions, setVersions] = useState<Version[]>([]);
   const [versionName, setVersionName] = useState("");
   const router = useRouter();
+  // Back from building a character, place or accessory: it goes in as a reference, on the Edit tab.
+  const [bankPick, setBankPick] = useState<BankItem | null>(null);
+  useReturnedPick(["character", "place", "accessory"], (item) => { setTab("tools"); setBankPick(item); });
   const [win, setWin] = useState<{ from: number; to: number | null; name: string; problem: string }>({ from: 0, to: null, name: "", problem: "" });
   const [markerEdit, setMarkerEdit] = useState<string | null>(null);
   const [fxDrag, setFxDrag] = useState<{ id: string; start: number } | null>(null);
@@ -687,7 +692,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     {tab === "voice" && <VoiceLines shot={shot} project={project} onChange={(voices) => onShot(shot.id, (s2) => ({ ...s2, voices }))} />}
 
                     {tab === "tools" && (
-                      <EditTools project={project} shot={shot} stage={video} playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0} onTake={(shotId, render, origin) => onShot(shotId, (s2) => addTake(s2, render, origin))} />
+                      <EditTools project={project} shot={shot} stage={video} playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0} onTake={(shotId, render, origin) => onShot(shotId, (s2) => addTake(s2, render, origin))} incoming={bankPick} onIncoming={() => setBankPick(null)} />
                     )}
                   </fieldset>
 

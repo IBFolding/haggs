@@ -1,5 +1,7 @@
 "use client";
 
+import { BankPicker } from "../../../bank-picker";
+import type { BankItem } from "../../../../story/bank";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
@@ -72,6 +74,8 @@ export function EditTools({
   stage,
   playhead,
   onTake,
+  incoming,
+  onIncoming,
 }: {
   project: Project;
   shot: Shot;
@@ -79,6 +83,9 @@ export function EditTools({
   /** Seconds into the shot's footage under the playhead. */
   playhead: number;
   onTake: (shotId: string, render: NonNullable<Shot["render"]>, origin: string) => void;
+  /** Something just made in the bank, on its way in as a reference picture. */
+  incoming?: BankItem | null;
+  onIncoming?: () => void;
 }) {
   const [tool, setTool] = useState<ToolId | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -87,6 +94,12 @@ export function EditTools({
   const [fixed, setFixed] = useState<string | null>(null);
   const [sel, setSel] = useState<Sel | null>(null);
   const [refs, setRefs] = useState<string[]>([]);
+  useEffect(() => {
+    if (!incoming) return;
+    if (incoming.image) setRefs((r) => (r.includes(incoming.image!) ? r : [...r, incoming.image!].slice(0, 8)));
+    setTool("swap");
+    onIncoming?.();
+  }, [incoming, onIncoming]);
   const [engine, setEngine] = useState<"kling" | "aleph">("kling");
   const [scope, setScope] = useState<"take" | "scene">("take");
   const [resolution, setResolution] = useState<"480p" | "720p">("480p");
@@ -502,6 +515,7 @@ export function EditTools({
 }
 
 function RefPicker({ refs, setRefs, upload, max, suggested = [] }: { refs: string[]; setRefs: (r: string[]) => void; upload: RefObject<HTMLInputElement | null>; max: number; suggested?: string[] }) {
+  const [bank, setBank] = useState(false);
   return (
     <div className="refs">
       <span className="refs-label">Reference pictures ({refs.length}/{max})</span>
@@ -514,11 +528,13 @@ function RefPicker({ refs, setRefs, upload, max, suggested = [] }: { refs: strin
         ))}
         <div className="refs-add">
           <button className="pill" disabled={refs.length >= max} onClick={() => upload.current?.click()}>Upload</button>
+          <button className="pill" disabled={refs.length >= max} onClick={() => setBank(true)}>From your bank</button>
           {suggested.filter((s) => !refs.includes(s)).length > 0 && (
             <button className="pill" onClick={() => setRefs([...refs, ...suggested.filter((s) => !refs.includes(s))].slice(0, max))}>Use this shot's cast and place</button>
           )}
         </div>
       </div>
+      {bank && <BankPicker kinds={["character", "place", "accessory"]} label="the editor" onClose={() => setBank(false)} onPick={(item) => { if (item.image && !refs.includes(item.image)) setRefs([...refs, item.image].slice(0, max)); }} picked={[]} />}
     </div>
   );
 }

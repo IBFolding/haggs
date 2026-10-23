@@ -1,5 +1,7 @@
 "use client";
 
+import { ExtrasRow } from "../bank-picker";
+import { wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +37,7 @@ export function Recreate() {
   const [cast, setCast] = useState<Character[]>([]);
   const [who, setWho] = useState<string | null>(null);
   const [instructions, setInstructions] = useState("");
+  const [extras, setExtras] = useState<BankItem[]>([]);
   const [vertical, setVertical] = useState(false);
   const [mine, setMine] = useState<{ id: string; name: string; vertical: boolean; shots: RefShot[] }[]>([]);
   const [presetName, setPresetName] = useState("");
@@ -100,7 +103,7 @@ export function Recreate() {
   async function make() {
     if (!shots) return;
     const person = cast.find((c) => c.id === who);
-    const project = buildRecreation(`Edit recreation · ${shots.length} shots`, shots, { ...(person ? { lock: identityLock(person.traits), refs: [person.sheet] } : {}), instructions, aspect: vertical ? "9:16" : "16:9" });
+    const project = buildRecreation(`Edit recreation · ${shots.length} shots`, shots, { ...(person ? { lock: identityLock(person.traits), refs: [person.sheet] } : {}), instructions: [instructions.trim(), wordsOf(extras)].filter(Boolean).join(" "), aspect: vertical ? "9:16" : "16:9" });
     await store.save(project);
     router.push(`/board/${project.id}?b=${encodeURIComponent(project.boards![0]!.id)}`);
   }
@@ -167,7 +170,8 @@ export function Recreate() {
                         <BuildLink className="plain" href="/characters" label="Recreate an edit">+ Build a character</BuildLink>
                       </div>
                     </div>
-                    <label className="wf-field"><span>Anything to change (place, outfit, mood)</span><textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Set it in Tokyo at night. She wears a red coat." maxLength={500} /></label>
+                    <ExtrasRow items={extras} onChange={setExtras} label="Recreate an edit" title="Where it is set and what they wear" />
+                    <label className="wf-field"><span>Anything else to change (mood, time of day)</span><textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Set it in Tokyo at night. She wears a red coat." maxLength={500} /></label>
                     {video && (
                       <form className="cast-add" onSubmit={(e) => { e.preventDefault(); void savePreset(); }}>
                         <input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="Save this edit as a preset: name it" aria-label="Preset name" maxLength={60} />

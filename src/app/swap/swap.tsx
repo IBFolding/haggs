@@ -1,5 +1,6 @@
 "use client";
 
+import { BankPicker, useReturnedPick } from "../bank-picker";
 import { uploadFile } from "../upload-client";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -39,6 +40,7 @@ async function addFile(file: File): Promise<string> {
 
 function Drop({ label, hint, accept, value, onChange }: { label: string; hint: string; accept: "video" | "image"; value: string | null; onChange: (url: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
+  const [bank, setBank] = useState(false);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +65,8 @@ function Drop({ label, hint, accept, value, onChange }: { label: string; hint: s
         )}
       </button>
       {value && <span className="swap-drop-label">{label} · <button className="plain" onClick={() => input.current?.click()}>Change</button></span>}
+      {accept === "image" && <button className="plain swap-bank" onClick={() => setBank(true)}>From your bank</button>}
+      {bank && <BankPicker kinds={["character", "accessory"]} label="Swap a character" onClose={() => setBank(false)} onPick={(item) => { if (item.image) onChange(item.image); else setError("That one has no picture yet. Open it and add one."); }} />}
       {error && <span className="library-error" role="alert">{error}</span>}
       <input ref={input} type="file" accept={`${accept}/*`} hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void take(f); }} />
     </div>
@@ -75,6 +79,8 @@ export function Swap() {
   const sent = useSearchParams().get("face");
   const [face, setFace] = useState<string | null>(sent && (sent.startsWith("/api/local/") || sent.startsWith("https://")) ? sent : null);
   const [who, setWho] = useState("");
+  // Back from building a character: they are the new face.
+  useReturnedPick(["character"], (item) => { if (item.image) setFace(item.image); });
   const [quality, setQuality] = useState<"480p" | "720p">("480p");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [seconds, setSeconds] = useState<number | null>(null);

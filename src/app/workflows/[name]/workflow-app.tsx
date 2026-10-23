@@ -1,5 +1,7 @@
 "use client";
 
+import { BankPicker, useReturnedPick } from "../../bank-picker";
+import type { BankItem } from "../../../story/bank";
 import { uploadFile } from "../../upload-client";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -45,6 +47,7 @@ function MediaDrop({ field, value, onChange, onBusy }: { field: Extract<Field, {
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bank, setBank] = useState(false);
   const shown = value ?? field.sample;
   const accept = field.media === "image" ? "image/*" : field.media === "video" ? "video/*" : "audio/*";
 
@@ -81,7 +84,9 @@ function MediaDrop({ field, value, onChange, onBusy }: { field: Extract<Field, {
       </button>
       <span className="wf-drop-foot">
         {busy ? "Adding…" : value ? <>Yours · <button className="plain" onClick={() => onChange(undefined)}>use the example</button></> : field.sample ? "The example — drop your own" : "Choose or drop a file"}
+        {field.media === "image" && <> · <button className="plain" onClick={() => setBank(true)}>From your bank</button></>}
       </span>
+      {bank && <BankPicker kinds={["character", "place", "accessory"]} label="this workflow" onClose={() => setBank(false)} onPick={(item) => { if (item.image) onChange(item.image); else setError("That one has no picture yet. Open it and add one."); }} />}
       {error && <span className="library-error" role="alert">{error}</span>}
       <input ref={input} type="file" accept={accept} hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void take(f); }} />
     </div>
@@ -156,6 +161,15 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
   const apps = useMemo(() => createAppStore(defaultKv()), []);
   const [mine, setMine] = useState<SavedApp | null>(savedApp ?? null);
   const [appNote, setAppNote] = useState<string | null>(null);
+  // Back from building a character, place or accessory: it goes into the first empty picture slot.
+  const [returned, setReturned] = useState<BankItem | null>(null);
+  useReturnedPick(["character", "place", "accessory"], setReturned);
+  useEffect(() => {
+    if (!returned || !opened?.ok) return;
+    const slot = opened.app.fields.find((f) => f.kind === "media" && f.media === "image" && !files[keyOf(f)]);
+    if (slot && returned.image) setFiles((prior) => ({ ...prior, [keyOf(slot)]: returned.image! }));
+    setReturned(null);
+  }, [returned, opened, files]);
 
   /** Save this workflow as one of your apps; the latest result becomes its cover. */
   async function saveApp() {

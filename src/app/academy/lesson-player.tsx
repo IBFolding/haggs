@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LESSONS, createProgress } from "../../academy/lessons";
 import { defaultKv } from "../../story/kv";
 import { Nav } from "../nav";
+import { BuildLink } from "./../return-bar";
 import { LABS, type Lab } from "./labs-ui";
 
 /**
@@ -89,7 +90,7 @@ export function LessonPlayer({ index }: { index: number }) {
             {passed || alreadyDone ? (
               <>
                 <div><b>{passed ? "Lesson complete." : "You’ve done this one."}</b><span>Now do it for real.</span></div>
-                <Link className="fire" href={lesson.doIt.href}>{lesson.doIt.label}</Link>
+                {/^\/(characters|locations|accessories)/.test(lesson.doIt.href) ? <BuildLink className="fire" href={lesson.doIt.href} label={`lesson: ${lesson.title}`}>{lesson.doIt.label}</BuildLink> : <Link className="fire" href={lesson.doIt.href}>{lesson.doIt.label}</Link>}
                 {next ? <Link className="pill on" href={`/academy/learn/${next.id}`}>Next: {next.title}</Link> : <Link className="pill on" href="/academy">Get your certificate</Link>}
               </>
             ) : (

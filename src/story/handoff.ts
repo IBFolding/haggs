@@ -6,7 +6,7 @@
  * already has it chosen.
  */
 
-export type PickKind = "character" | "place";
+export type PickKind = "character" | "place" | "accessory";
 
 /** Only a path on this site, so a link can't send anyone elsewhere. */
 export function safeReturn(raw: string | null | undefined): string | null {
@@ -41,6 +41,6 @@ export function pickUrl(returnTo: string, kind: PickKind, id: string): string {
 /** What a page returned to should select, from its own URL. */
 export function readPick(search: string): { kind: PickKind; id: string } | null {
   const raw = new URLSearchParams(search).get("pick");
-  const m = /^(character|place):([A-Za-z0-9._-]{1,80})$/.exec(raw ?? "");
+  const m = /^(character|place|accessory):([A-Za-z0-9._-]{1,80})$/.exec(raw ?? "");
   return m ? { kind: m[1] as PickKind, id: m[2]! } : null;
 }

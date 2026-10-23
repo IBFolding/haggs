@@ -29,3 +29,8 @@ test("a pick that isn't one is ignored", () => {
   assert.equal(readPick("?pick=weapon:1"), null);
   assert.equal(readPick(""), null);
 });
+
+test("an accessory can be picked too", () => {
+  assert.deepEqual(readPick("?pick=accessory:abc-1"), { kind: "accessory", id: "abc-1" });
+  assert.equal(pickUrl("/comic", "accessory", "abc-1"), "/comic?pick=accessory%3Aabc-1");
+});

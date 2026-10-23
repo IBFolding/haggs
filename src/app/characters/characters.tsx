@@ -132,6 +132,7 @@ export function Characters() {
             {surfaceAvailable("Edit") && <Link href="/edit">Edit a photo</Link>}
             <Link href="/characters" aria-current="page">Characters</Link>
             <Link href="/locations">Locations</Link>
+            <Link href="/accessories">Accessories</Link>
             <Link href="/comic">Comic strip</Link>
           </nav>
 

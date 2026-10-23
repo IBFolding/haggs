@@ -17,6 +17,7 @@ import { defaultKv } from "../story/kv";
 import { createRunStore, type Run } from "../story/runs";
 import { rates, run, type Rate } from "./actions";
 import { Nav, openKeys } from "./nav";
+import { BankPicker, useReturnedPick } from "./bank-picker";
 import { BuildLink } from "./return-bar";
 import { readPick } from "../story/handoff";
 import { REUSE_KEY } from "./gallery/gallery";
@@ -113,6 +114,9 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const [outfit, setOutfit] = useState<string[]>([]);
   const [tile, setTile] = useState<"character" | "location" | "wardrobe" | null>(null);
   const [custom, setCustom] = useState("");
+  const [bankOpen, setBankOpen] = useState(false);
+  // Back from making an accessory: it is on the character now.
+  useReturnedPick(["accessory"], (item) => setOutfit((all) => (item.words && !all.includes(item.words) ? [...all, item.words] : all)));
   useEffect(() => {
     const pick = readPick(window.location.search);
     void createCharacterStore(defaultKv()).list().then((all) => { setPeople(all); const c = pick?.kind === "character" ? all.find((x) => x.id === pick.id) : undefined; if (c) setWho(c); }).catch(() => undefined);
@@ -350,6 +354,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             {surfaceAvailable("Edit") && <Link href="/edit" aria-current={surface === "Edit" ? "page" : undefined}>Edit a photo</Link>}
             <Link href="/characters">Characters</Link>
             <Link href="/locations">Locations</Link>
+            <Link href="/accessories">Accessories</Link>
             <Link href="/comic">Comic strip</Link>
           </nav>
         )}
@@ -487,6 +492,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
                     {OUTFIT_IDEAS.map((o) => <button key={o} className={outfit.includes(o) ? "on" : ""} onClick={() => setOutfit((all) => (all.includes(o) ? all.filter((x) => x !== o) : [...all, o]))}>{o}</button>)}
                     {outfit.filter((o) => !OUTFIT_IDEAS.includes(o)).map((o) => <button key={o} className="on" onClick={() => setOutfit((all) => all.filter((x) => x !== o))}>{o} ×</button>)}
                   </div>
+                  <p className="cast-bank"><button className="plain" onClick={() => setBankOpen(true)}>From your accessories</button></p>
+                  {bankOpen && <BankPicker kinds={["accessory"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setBankOpen(false)} onPick={(item) => setOutfit((all) => (item.words && !all.includes(item.words) ? [...all, item.words] : all))} />}
                   <form className="cast-add" onSubmit={(e) => { e.preventDefault(); const v = custom.trim(); if (v && !outfit.includes(v)) setOutfit((all) => [...all, v]); setCustom(""); }}>
                     <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Something else: a silver watch, a red kimono…" aria-label="Add clothing or an accessory" maxLength={60} />
                     <button className="pill">Add</button>
