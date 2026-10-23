@@ -57,6 +57,11 @@ test("mistakes come back as errors Claude can read, and only haggs pages can be 
   assert.equal((await runTool("open_page", { path: "javascript:alert(1)" }, ctx)).error, true);
   await runTool("open_page", { path: `/board/${p.id}/cut?b=b1` }, ctx);
   assert.deepEqual(opened, [`/board/${p.id}/cut?b=b1`]);
+  for (const page of ["/series", "/academy", "/characters", "/locations", "/workflows/build?quick=relight", "/workflows/community"]) {
+    assert.equal((await runTool("open_page", { path: page }, ctx)).error, undefined, page);
+  }
+  assert.equal(opened.at(-1), "/workflows/community");
+  assert.equal((await runTool("open_page", { path: "/workflows/build?quick=../x" }, ctx)).error, true);
   assert.equal(saved.length, 0, "nothing was saved by a failed edit");
   assert.equal((await runTool("delete_board", {}, ctx)).error, true);
 });
