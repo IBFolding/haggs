@@ -2715,3 +2715,7 @@ fieldset.gr-fence { border: 0; margin: 0; padding: 0; min-width: 0; } fieldset.g
 .extras { display: grid; gap: 8px; margin: 6px 0; } .extras > b { font-size: 13px; }
 .save-to-dest { margin: 4px 0 10px; }
 .sh-bank { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+
+/* The page-level tabs scroll inside their own row on a phone; the page itself never scrolls sideways. */
+.modes { max-width: 100%; overflow-x: auto; scrollbar-width: none; } .modes::-webkit-scrollbar { display: none; } .modes a { white-space: nowrap; flex: none; }
+html, body { overflow-x: clip; }
