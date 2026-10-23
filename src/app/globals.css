@@ -2236,3 +2236,11 @@ a.logo { color: var(--text); text-decoration: none; }
 .cv-status { position: absolute; z-index: 5; left: 16px; bottom: 12px; display: flex; gap: 14px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 12.5px; color: var(--text-2); }
 .cv-plan { display: flex; gap: 8px; flex: 1; min-width: 200px; }
 .cv-plan input { flex: 1; min-width: 0; }
+.cv-bar { flex-wrap: wrap; }
+.cv-hint { flex: 1 1 100%; order: 9; }
+.cv-plan input, .cv-menu input { background: var(--surface-2, #151515); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font: inherit; }
+.cv-plan input::placeholder, .cv-menu input::placeholder { color: var(--text-2); }
+.cv-menu { top: 118px; }
+.cv-bar .fire { margin-left: auto; white-space: nowrap; }
+@media (min-width: 1250px) { .cv-hint { flex: 1; order: 0; } .cv-menu { top: 68px; } }
+.cv-plane { top: 110px; }
