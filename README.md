@@ -59,7 +59,12 @@ split it (S), undo anything (⌘Z). Then:
   more from a style sheet, or make a whole **style reel**: one take in several
   looks, each named on screen.
 - **Swap, recast, voice and lip-sync, bridge and extend.**
-- **Render MP4** with captions burned in, or export an ffmpeg script.
+- **Finish.** Review markers (M), fades in and out on a clip, fit or fill with a
+  focal point, titles laid over the picture on their own lane, named versions
+  you can restore (the current cut is kept first), and cutdowns: a window of
+  the cut as its own board.
+- **Render MP4** with captions and titles burned in, or export an ffmpeg script
+  or a Final Cut / Resolve file (FCPXML 1.10, 30 fps, connected lanes).
 
 **Academy.** Seven short lessons, about 90 minutes, from your first video to a
 finished film. Each ends in something real in haggs; finish all seven for a
