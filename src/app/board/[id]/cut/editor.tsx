@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
 import { fcpxml } from "../../../../story/fcpxml";
+import { needsApproval } from "../../../../story/grey";
+import { GreyRoom } from "./grey";
 import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, type Shot } from "../../../../story/model";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
@@ -297,7 +299,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
   // The timeline is drawn at a zoom (pixels per second), so every clip has a width you can see and grab.
   const [pps, setPps] = useState(36);
-  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "sound" | "titles">("shot");
+  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "grey" | "sound" | "titles">("shot");
   const [title, setTitle] = useState({ text: "", place: "lower" as "lower" | "center" | "top", seconds: 3, busy: false, problem: "" });
   const scroller = useRef<HTMLDivElement>(null);
   const lane = useRef<HTMLDivElement>(null);
@@ -543,7 +545,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
           <aside className="ed-side" aria-label="Shot tools">
             <div className="ed-tabs" role="tablist">
-              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["sound", "Sound"], ["titles", "Titles"]] as const).map(([id2, label]) => (
+              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["grey", "Grey"], ["sound", "Sound"], ["titles", "Titles"]] as const).map(([id2, label]) => (
                 <button key={id2} role="tab" aria-selected={tab === id2} className={tab === id2 ? "on" : ""} onClick={() => setTab(id2)}>{label}</button>
               ))}
             </div>
@@ -641,7 +643,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                         ))}
                       </div>
                       <div className="clip-actions">
-                        <button className="pill on" disabled={rolling === shot.id} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
+                        <button className="pill on" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it on the Grey tab to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
                         <button className="pill" disabled={!(t > selected.start + 0.2 && t < selected.start + selected.seconds)} title="Cut off the start of this clip at the playhead (I)" onClick={() => apply((current) => trimHead(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim start to playhead</button>
                         <button className="pill" disabled={!(t >= selected.start + 0.2 && t < selected.start + selected.seconds - 0.05)} title="Cut off the end of this clip at the playhead (O)" onClick={() => apply((current) => trimTail(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim end to playhead</button>
                         <button className="pill" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>
@@ -670,14 +672,35 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     </>
                   )}
 
-                  {tab === "reshoot" && (shot.render
-                    ? <ReshootPanel key={shot.id} source={{ url: shot.render.url, kind: shot.render.kind, at: reshootFrameAt(shot), beat: shot.beat }} onKeep={(list) => list.forEach((made) => keepReshoot(shot.id, made))} />
-                    : <p className="takes-note">This shot has nothing to reshoot yet.</p>)}
+                  {(tab === "reshoot" || tab === "voice" || tab === "tools") && needsApproval(shot) && (
+                    <div className="gr-lock" role="status">
+                      <span aria-hidden="true">🔒</span>
+                      <div><b>This is a real take, locked.</b><small>Approve it and these tools can change it. What is there now is always kept as a take.</small></div>
+                      <button className="pill" onClick={() => onShot(shot.id, (s2) => ({ ...s2, approved: true }))}>Approve to alter</button>
+                    </div>
+                  )}
+                  <fieldset className="gr-fence" disabled={(tab === "reshoot" || tab === "voice" || tab === "tools") && needsApproval(shot)}>
+                    {tab === "reshoot" && (shot.render
+                      ? <ReshootPanel key={shot.id} source={{ url: shot.render.url, kind: shot.render.kind, at: reshootFrameAt(shot), beat: shot.beat }} onKeep={(list) => list.forEach((made) => keepReshoot(shot.id, made))} />
+                      : <p className="takes-note">This shot has nothing to reshoot yet.</p>)}
 
-                  {tab === "voice" && <VoiceLines shot={shot} project={project} onChange={(voices) => onShot(shot.id, (s2) => ({ ...s2, voices }))} />}
+                    {tab === "voice" && <VoiceLines shot={shot} project={project} onChange={(voices) => onShot(shot.id, (s2) => ({ ...s2, voices }))} />}
 
-                  {tab === "tools" && (
-                    <EditTools project={project} shot={shot} stage={video} playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0} onTake={(shotId, render, origin) => onShot(shotId, (s2) => addTake(s2, render, origin))} />
+                    {tab === "tools" && (
+                      <EditTools project={project} shot={shot} stage={video} playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0} onTake={(shotId, render, origin) => onShot(shotId, (s2) => addTake(s2, render, origin))} />
+                    )}
+                  </fieldset>
+
+                  {tab === "grey" && (
+                    <GreyRoom
+                      key={shot.id}
+                      shot={shot}
+                      vertical={vertical}
+                      names={project.threads.filter((t) => t.kind === "character" && shot.threadIds.includes(t.id)).map((t) => t.name)}
+                      onGrey={(g) => onShot(shot.id, (s2) => ({ ...s2, grey: g }))}
+                      onApprove={() => onShot(shot.id, (s2) => ({ ...s2, approved: true }))}
+                      onTake={(url, usd) => onShot(shot.id, (s2) => addTake(s2, { url, kind: "image", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room"))}
+                    />
                   )}
                 </>
               )}

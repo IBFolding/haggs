@@ -54,6 +54,10 @@ export type Shot = {
   };
   /** Excluded from reorder recompute, so a finished shot stays finished. */
   locked?: boolean;
+  /** The shot worked out in grey: camera, stand-ins and light, before anything real is made. */
+  grey?: import("./grey").GreyFrame;
+  /** A real take is locked against change until it is approved for it; this is that approval. */
+  approved?: boolean;
   /** Seconds the picture and its own sound fade in from, and out to, black. */
   fadeIn?: number;
   fadeOut?: number;
