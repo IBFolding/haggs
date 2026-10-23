@@ -2,6 +2,7 @@
 
 import { listVersions, removeVersion, restoreVersion, saveVersion, type Version } from "../../../../story/versions";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
@@ -19,6 +20,7 @@ import { EditTools } from "./tools";
 import { defaultKv } from "../../../../story/kv";
 import type { Project } from "../../../../story/model";
 import { commit, view } from "../../../../story/boards";
+import { addCutdown } from "../../../../story/cutdown";
 import { createProjectStore } from "../../../../story/store";
 import { createSaveQueue } from "../../../../story/use-autosave";
 import { Nav, openKeys } from "../../../nav";
@@ -59,6 +61,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const [card, setCard] = useState<{ text: string; sub: string; busy: boolean } | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
   const [versionName, setVersionName] = useState("");
+  const router = useRouter();
+  const [win, setWin] = useState<{ from: number; to: number | null; name: string; problem: string }>({ from: 0, to: null, name: "", problem: "" });
   const [markerEdit, setMarkerEdit] = useState<string | null>(null);
   const [fxDrag, setFxDrag] = useState<{ id: string; start: number } | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -420,6 +424,35 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
           {rendering ? "Rendering…" : "Render MP4"}
         </button>
       )}
+      <details className="ed-more">
+        <summary>Cutdown</summary>
+        <div>
+          <p>Make a shorter cut from part of this one, on its own board. This cut stays as it is.</p>
+          <div className="ed-version-new">
+            <label>From <input type="number" min={0} step={0.1} value={win.from} onChange={(e) => setWin({ ...win, from: Number(e.target.value) || 0 })} />s</label>
+            <button className="plain" onClick={() => setWin({ ...win, from: Math.round(t * 10) / 10 })}>Playhead</button>
+            <label>To <input type="number" min={0} step={0.1} value={win.to ?? Math.round(cut.total * 10) / 10} onChange={(e) => setWin({ ...win, to: Number(e.target.value) || 0 })} />s</label>
+            <button className="plain" onClick={() => setWin({ ...win, to: Math.round(t * 10) / 10 })}>Playhead</button>
+          </div>
+          <form className="ed-version-new" onSubmit={(e) => {
+            e.preventDefault();
+            const f = full.current; const cur = now.current;
+            if (!f || !cur) return;
+            try {
+              const made = addCutdown(f, boardId, cur, win.name.trim() || `Cutdown ${win.from}–${win.to ?? Math.round(cut.total * 10) / 10}s`, win.from, win.to ?? cut.total);
+              full.current = made.project;
+              saves.queue(made.project);
+              router.push(`/board/${id}/cut?b=${encodeURIComponent(made.board.id)}`);
+            } catch (err) {
+              setWin({ ...win, problem: err instanceof Error ? err.message : "That window didn't work." });
+            }
+          }}>
+            <input value={win.name} onChange={(e) => setWin({ ...win, name: e.target.value })} placeholder="Name it, e.g. 15s teaser" aria-label="Cutdown name" />
+            <button className="plain" type="submit">Make a board</button>
+          </form>
+          {win.problem && <p className="library-error" role="alert">{win.problem}</p>}
+        </div>
+      </details>
       <details className="ed-more">
         <summary>Versions{versions.length ? ` · ${versions.length}` : ""}</summary>
         <div>
