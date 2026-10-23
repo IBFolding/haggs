@@ -1,3 +1,4 @@
+import type { Canvas } from "../comfy/canvas";
 import type { Recipe } from "../comfy/recipe";
 import type { Kv } from "./kv";
 
@@ -8,7 +9,7 @@ import type { Kv } from "./kv";
  */
 
 export type Cover = { url: string; kind: "image" | "video" };
-export type SavedApp = { id: string; name: string; description: string; workflow: string; recipe?: Recipe; cover?: Cover; /** Set when this copy came from the Community shelf: runs are charged to the creator's fee. */ community?: { id: string; feeCents: number; creatorName: string }; createdAt: number; updatedAt: number };
+export type SavedApp = { id: string; name: string; description: string; workflow: string; recipe?: Recipe; /** The canvas it was built on, to open and change again. */ canvas?: Canvas; cover?: Cover; /** Set when this copy came from the Community shelf: runs are charged to the creator's fee. */ community?: { id: string; feeCents: number; creatorName: string }; createdAt: number; updatedAt: number };
 export type NewApp = Omit<SavedApp, "id" | "createdAt" | "updatedAt"> & Partial<Pick<SavedApp, "id" | "createdAt">>;
 
 const INDEX = "apps/index";

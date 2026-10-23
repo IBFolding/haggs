@@ -2208,3 +2208,31 @@ a.logo { color: var(--text); text-decoration: none; }
 .community-card p { font-size: 13px; color: var(--text-2); margin: 0; }
 .community-card small { color: var(--text-2); font-size: 12px; }
 .publish { display: grid; gap: 8px; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.cv { position: relative; height: calc(100vh - 64px); overflow: hidden; background: radial-gradient(circle, #ffffff12 1px, transparent 1px) 0 0 / 24px 24px, var(--bg, #0a0a0a); cursor: grab; }
+.cv-bar { position: absolute; z-index: 5; left: 16px; right: 16px; top: 12px; display: flex; gap: 12px; align-items: center; padding: 8px 12px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface) 92%, transparent); cursor: default; }
+.cv-name { background: transparent; border: 0; color: var(--text); font-size: 15px; font-weight: 700; min-width: 160px; }
+.cv-hint { flex: 1; color: var(--text-2); font-size: 12.5px; }
+.cv-menu { position: absolute; z-index: 6; left: 16px; top: 68px; width: 380px; max-height: 70vh; overflow: auto; display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.cv-steps, .cv-lib { display: grid; gap: 6px; }
+.cv-menu button[role="menuitem"] { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2, #151515); color: var(--text); cursor: pointer; }
+.cv-menu button[role="menuitem"]:hover { border-color: var(--volt); }
+.cv-menu span { color: var(--text-2); font-size: 12px; }
+.cv-plane { position: absolute; inset: 0; transform-origin: 0 0; }
+.cv-links { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.cv-links path { fill: none; stroke: var(--volt); stroke-width: 2.5; opacity: .85; }
+.cv-link-x { fill: var(--surface); stroke: var(--volt); stroke-width: 2; pointer-events: all; cursor: pointer; }
+.cv-link-x:hover { fill: var(--volt); }
+.cv-node { position: absolute; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 8px 28px #0008; cursor: default; }
+.cv-node.from { border-color: var(--volt); }
+.cv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; cursor: grab; touch-action: none; }
+.cv-head b { flex: 1; font-size: 13.5px; text-align: center; }
+.cv-port { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--volt); background: var(--surface); cursor: pointer; padding: 0; }
+.cv-port.out { background: var(--volt); }
+.cv-port.live { box-shadow: 0 0 0 4px #d2f55a44; }
+.cv-body { display: grid; gap: 8px; padding: 0 12px 12px; }
+.cv-body small { color: var(--text-2); font-size: 11.5px; line-height: 1.35; }
+.cv-body textarea { width: 100%; resize: vertical; }
+.cv-opts { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.cv-status { position: absolute; z-index: 5; left: 16px; bottom: 12px; display: flex; gap: 14px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 12.5px; color: var(--text-2); }
+.cv-plan { display: flex; gap: 8px; flex: 1; min-width: 200px; }
+.cv-plan input { flex: 1; min-width: 0; }

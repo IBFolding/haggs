@@ -7,6 +7,7 @@ import type { Field } from "../../../comfy/apps";
 import { defaultKv } from "../../../story/kv";
 import { createRunStore, type Run } from "../../../story/runs";
 import { appFile, createAppStore, type Cover, type SavedApp } from "../../../story/apps";
+import type { Canvas } from "../../../comfy/canvas";
 import type { Recipe } from "../../../comfy/recipe";
 import { chargeRun, refundRun } from "../../../community/community";
 import { dbOf } from "../../../community/supabase-db";
@@ -136,7 +137,7 @@ async function embed(url: string): Promise<string | null> {
   });
 }
 
-export function WorkflowApp({ name, file, recipe, saved: savedApp, onBack }: { name: string; file?: string; recipe?: Recipe; saved?: SavedApp; onBack?: () => void }) {
+export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBack }: { name: string; file?: string; recipe?: Recipe; canvas?: Canvas; saved?: SavedApp; onBack?: () => void }) {
   const source: Source = useMemo(() => (file ? { file } : { template: name }), [name, file]);
   const [opened, setOpened] = useState<OpenedApp | null>(null);
   const [tab, setTab] = useState<"app" | "nodes">("app");
@@ -160,7 +161,7 @@ export function WorkflowApp({ name, file, recipe, saved: savedApp, onBack }: { n
     if (!title?.trim()) return;
     const cover: Cover | undefined = result?.ok && result.kind !== "audio" ? { url: result.url, kind: result.kind } : mine?.cover;
     const workflow = file ?? opened.workflow;
-    const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: title.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(cover ? { cover } : {}) });
+    const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: title.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(canvas ?? mine?.canvas ? { canvas: (canvas ?? mine?.canvas)! } : {}), ...(cover ? { cover } : {}) });
     setMine(app);
     setAppNote(cover ? "Saved to your apps, with this result as its cover." : "Saved to your apps. Run it and save again to give it a cover.");
   }
@@ -271,7 +272,7 @@ export function WorkflowApp({ name, file, recipe, saved: savedApp, onBack }: { n
         <div className="wf wf-one">
           <header className="wf-head">
             <div>
-              {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to the steps</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
+              {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to the canvas</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
               <h1>{opened.title}</h1>
               {opened.description && <p>{opened.description}</p>}
             </div>

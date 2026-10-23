@@ -14,7 +14,8 @@ import { catalogOf, checked, indexOf, openTemplate, type Entry, type Opened } fr
 import { keepResult } from "../server/keep";
 import { partnerNodes } from "../comfy/partner";
 import { createLocalRunner, localBase } from "../providers/local";
-import { COMFY_COOKIE, keyIn, localIn } from "../server/keys";
+import { CLAUDE_COOKIE, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
+import { STEPS } from "../comfy/recipe";
 import { localFile, localUrl } from "../server/local-media";
 
 /**
@@ -210,4 +211,54 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The workflow didn't run." };
   }
+}
+
+/** Library workflows as API prompts, ready to stack on the canvas. Each must convert for Comfy Cloud. */
+export async function libraryPrompts(names: string[]): Promise<{ ok: true; prompts: Record<string, import("../comfy/convert").ApiPrompt> } | { ok: false; reason: string; needsKey?: boolean }> {
+  const key = await comfyKey();
+  if (!key) return { ok: false, reason: "Add a Comfy key to stack library workflows.", needsKey: true };
+  const prompts: Record<string, import("../comfy/convert").ApiPrompt> = {};
+  try {
+    for (const name of names.slice(0, 12)) {
+      const opened = await openTemplate(root(), key, name);
+      if (opened.problems.length) return { ok: false, reason: `“${opened.entry?.title ?? name}” can't be stacked: ${opened.problems[0]}` };
+      prompts[name] = prepare(opened.ui, opened.catalog).prompt;
+    }
+    return { ok: true, prompts };
+  } catch (caught) {
+    return { ok: false, reason: caught instanceof Error ? caught.message : "That workflow couldn't be loaded." };
+  }
+}
+
+export type Planned = { ok: true; plan: import("../comfy/canvas").Plan; offered: string[]; titles: Record<string, string> } | { ok: false; reason: string; needsKey?: boolean };
+
+/** Haggy turns a description into a chain of steps and library workflows. Costs a few cents of your own Claude account. */
+export async function planCanvas(goal: string): Promise<Planned> {
+  const claude = keyIn(await cookies(), CLAUDE_COOKIE);
+  if (!claude) return { ok: false, reason: "Add a Claude key to let Haggy plan it.", needsKey: true };
+  if (goal.trim().length < 6) return { ok: false, reason: "Say what the app should do, in a sentence." };
+  const words = goal.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+  const index = await indexOf(root());
+  const key = await comfyKey();
+  const runs = key ? await checked(root(), key) : null;
+  const pool = index.filter((e) => (e.kind === "image" || e.kind === "video") && (!runs || runs[e.name] === true));
+  const score = (e: Entry) => words.reduce((n, w) => n + (`${e.title} ${e.description} ${e.tags.join(" ")} ${e.models.join(" ")}`.toLowerCase().includes(w) ? 1 : 0), 0);
+  const offered = pool.map((e) => ({ e, s: score(e) })).sort((a, b) => b.s - a.s || b.e.usage - a.e.usage).slice(0, 30).map((x) => x.e);
+  const STEP_LINES = STEPS.map((s) => `- ${s.kind}: ${s.label} (takes ${s.needs.join(" + ") || "nothing"}, makes ${s.makes})`).join("\n");
+  const system = `You design small Comfy apps as a chain of steps. Use only these step kinds:\n${STEP_LINES}\nand, when one fits better than a plain step, these library workflows by name:\n${offered.map((e) => `- ${e.name}: ${e.title}${e.models.length ? ` [${e.models.slice(0, 2).join(", ")}]` : ""}`).join("\n")}\nEach step needs a picture or video that an earlier step makes. Keep it to 2-6 steps. Write each prompt as the person would want it. Prefer open-weights library workflows when quality is similar.`;
+  const { askClaude } = await import("../writer/draft");
+  const obj = (properties: Record<string, unknown>) => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });
+  const str = { type: "string" };
+  const schema = obj({ name: str, steps: { type: "array", items: obj({ kind: str, template: str, prompt: str }) } });
+  const r = await askClaude<import("../comfy/canvas").Plan>({
+    key: claude,
+    request: { system, user: goal.trim().slice(0, 1000), maxTokens: 1500 },
+    schema,
+    read: (v) => {
+      const p = v as { name?: unknown; steps?: { kind?: unknown; template?: unknown; prompt?: unknown }[] };
+      return { name: String(p.name ?? "My app"), steps: (p.steps ?? []).map((s) => ({ ...(s.kind ? { kind: String(s.kind) } : {}), ...(s.template ? { template: String(s.template) } : {}), ...(s.prompt ? { prompt: String(s.prompt) } : {}) })) };
+    },
+  });
+  if (!r.ok) return { ok: false, reason: r.reason };
+  return { ok: true, plan: r.draft, offered: offered.map((e) => e.name), titles: Object.fromEntries(offered.map((e) => [e.name, e.title])) };
 }

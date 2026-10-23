@@ -39,70 +39,74 @@ export function nextSteps(steps: Step[]): StepInfo[] {
 
 const words = (s: Step, fallback: string) => (s.prompt?.trim() || fallback).slice(0, 4000);
 
+export type Ref = [string, number];
+export type Inputs = { image?: Ref; video?: Ref };
+
+/** Adds one step's nodes to the workflow and returns what it makes. Inputs come from wherever the caller wired them. */
+export function addStep(w: ApiPrompt, id: () => string, step: Step, inp: Inputs, seed: number): Inputs {
+  switch (step.kind) {
+    case "picture-in": {
+      const k = id();
+      w[k] = { class_type: "LoadImage", inputs: { image: "your-picture.png" }, _meta: { title: "Your picture" } };
+      return { image: [k, 0] };
+    }
+    case "video-in": {
+      const k = id();
+      w[k] = { class_type: "LoadVideo", inputs: { file: "your-video.mp4" }, _meta: { title: "Your video" } };
+      return { video: [k, 0] };
+    }
+    case "make-picture": {
+      const k = id();
+      w[k] = { class_type: "Flux3ImageNode", inputs: { prompt: words(step, "A cinematic film still"), aspect_ratio: "16:9", resolution: "1K", grounding: false, safety_tolerance: 2, seed, ...(inp.image ? { "images.image_1": inp.image } : {}) }, _meta: { title: "Make a picture" } };
+      return { image: [k, 0] };
+    }
+    case "edit-picture": {
+      const k = id();
+      w[k] = { class_type: "FluxKontextProImageNode", inputs: { prompt: words(step, "Keep everything the same"), aspect_ratio: "16:9", guidance: 3, steps: 50, seed, prompt_upsampling: false, input_image: inp.image! }, _meta: { title: "Edit the picture" } };
+      return { image: [k, 0] };
+    }
+    case "animate": {
+      const k = id();
+      const seconds = Math.min(15, Math.max(4, Math.round(step.seconds ?? 5)));
+      w[k] = { class_type: "MinimaxHailuo03FirstLastFrameNode", inputs: { model: "MiniMax H3", "model.prompt": words(step, "Slow push-in, natural motion"), "model.resolution": step.resolution === "2K" ? "2K" : "768P", "model.duration": seconds, seed, watermark: false, first_frame: inp.image! }, _meta: { title: "Animate it" } };
+      return { video: [k, 0] };
+    }
+    case "recast": {
+      const k = id();
+      w[k] = { class_type: "HiggsfieldMotionTransferNode", inputs: { model: "genjutsu-v1.0", "model.video": inp.video!, "model.reference_images.image_1": inp.image!, "model.prompt": words(step, "Replace the main person with the person in the first reference image. Keep the motion, camera, timing and audio."), "model.resolution": ["480p", "720p", "1080p"].includes(step.resolution ?? "") ? step.resolution! : "480p", "model.seed": seed }, _meta: { title: "Recast the video" } };
+      return { video: [k, 0] };
+    }
+    case "speak": {
+      const voice = id();
+      w[voice] = { class_type: "ElevenLabsVoiceSelector", inputs: { voice: step.voice || "Sarah (female, american)" } };
+      const tts = id();
+      w[tts] = { class_type: "ElevenLabsTextToSpeech", inputs: { voice: [voice, 0], text: words(step, "Hello."), stability: 0.5, apply_text_normalization: "auto", model: "eleven_v4", "model.similarity_boost": 0.75, language_code: "", seed, output_format: "mp3_44100_192" }, _meta: { title: "The line" } };
+      const sync = id();
+      w[sync] = { class_type: "SyncLipSyncNode", inputs: { video: inp.video!, audio: [tts, 0], seed: 42, model: "sync-3", "model.sync_mode": "bounce", "model.speaker_selection": "auto-detect", "model.speaker_frame": 0, "model.speaker_x": 0, "model.speaker_y": 0 }, _meta: { title: "Lip-sync" } };
+      return { video: [sync, 0] };
+    }
+  }
+}
+
+/** The Save node for whatever ends the workflow. */
+export function addSave(w: ApiPrompt, id: () => string, out: Inputs, ends: Kind): void {
+  const save = id();
+  w[save] = ends === "video"
+    ? { class_type: "SaveVideo", inputs: { video: out.video!, filename_prefix: "haggs/app", format: "mp4", "format.codec": "h264" }, _meta: { title: "Result" } }
+    : { class_type: "SaveImage", inputs: { images: out.image!, filename_prefix: "haggs/app" }, _meta: { title: "Result" } };
+}
+
 export function compile(recipe: Recipe): ApiPrompt {
   if (!recipe.steps.length) throw new Error("Add a step first.");
   const w: ApiPrompt = {};
   let n = 0;
   const id = () => String(++n);
-  const last: Partial<Record<Kind, [string, number]>> = {};
+  const last: Inputs = {};
   recipe.steps.forEach((step, i) => {
     const s = info(step.kind);
     for (const need of s.needs) if (!last[need]) throw new Error(`Step ${i + 1}, “${s.label}”, needs a ${need === "image" ? "picture" : "video"} before it.`);
-    const seed = 1000 + i;
-    switch (step.kind) {
-      case "picture-in": {
-        const k = id();
-        w[k] = { class_type: "LoadImage", inputs: { image: "your-picture.png" }, _meta: { title: "Your picture" } };
-        last.image = [k, 0];
-        break;
-      }
-      case "video-in": {
-        const k = id();
-        w[k] = { class_type: "LoadVideo", inputs: { file: "your-video.mp4" }, _meta: { title: "Your video" } };
-        last.video = [k, 0];
-        break;
-      }
-      case "make-picture": {
-        const k = id();
-        w[k] = { class_type: "Flux3ImageNode", inputs: { prompt: words(step, "A cinematic film still"), aspect_ratio: "16:9", resolution: "1K", grounding: false, safety_tolerance: 2, seed, ...(last.image ? { "images.image_1": last.image } : {}) }, _meta: { title: "Make a picture" } };
-        last.image = [k, 0];
-        break;
-      }
-      case "edit-picture": {
-        const k = id();
-        w[k] = { class_type: "FluxKontextProImageNode", inputs: { prompt: words(step, "Keep everything the same"), aspect_ratio: "16:9", guidance: 3, steps: 50, seed, prompt_upsampling: false, input_image: last.image! }, _meta: { title: "Edit the picture" } };
-        last.image = [k, 0];
-        break;
-      }
-      case "animate": {
-        const k = id();
-        const seconds = Math.min(15, Math.max(4, Math.round(step.seconds ?? 5)));
-        w[k] = { class_type: "MinimaxHailuo03FirstLastFrameNode", inputs: { model: "MiniMax H3", "model.prompt": words(step, "Slow push-in, natural motion"), "model.resolution": step.resolution === "2K" ? "2K" : "768P", "model.duration": seconds, seed, watermark: false, first_frame: last.image! }, _meta: { title: "Animate it" } };
-        last.video = [k, 0];
-        break;
-      }
-      case "recast": {
-        const k = id();
-        w[k] = { class_type: "HiggsfieldMotionTransferNode", inputs: { model: "genjutsu-v1.0", "model.video": last.video!, "model.reference_images.image_1": last.image!, "model.prompt": words(step, "Replace the main person with the person in the first reference image. Keep the motion, camera, timing and audio."), "model.resolution": ["480p", "720p", "1080p"].includes(step.resolution ?? "") ? step.resolution! : "480p", "model.seed": seed }, _meta: { title: "Recast the video" } };
-        last.video = [k, 0];
-        break;
-      }
-      case "speak": {
-        const voice = id();
-        w[voice] = { class_type: "ElevenLabsVoiceSelector", inputs: { voice: step.voice || "Sarah (female, american)" } };
-        const tts = id();
-        w[tts] = { class_type: "ElevenLabsTextToSpeech", inputs: { voice: [voice, 0], text: words(step, "Hello."), stability: 0.5, apply_text_normalization: "auto", model: "eleven_v4", "model.similarity_boost": 0.75, language_code: "", seed, output_format: "mp3_44100_192" }, _meta: { title: "The line" } };
-        const sync = id();
-        w[sync] = { class_type: "SyncLipSyncNode", inputs: { video: last.video!, audio: [tts, 0], seed: 42, model: "sync-3", "model.sync_mode": "bounce", "model.speaker_selection": "auto-detect", "model.speaker_frame": 0, "model.speaker_x": 0, "model.speaker_y": 0 }, _meta: { title: "Lip-sync" } };
-        last.video = [sync, 0];
-        break;
-      }
-    }
+    Object.assign(last, addStep(w, id, step, last, 1000 + i));
   });
-  const ends = info(recipe.steps.at(-1)!.kind).makes;
-  const save = id();
-  w[save] = ends === "video"
-    ? { class_type: "SaveVideo", inputs: { video: last.video!, filename_prefix: "haggs/app", format: "mp4", "format.codec": "h264" }, _meta: { title: "Result" } }
-    : { class_type: "SaveImage", inputs: { images: last.image!, filename_prefix: "haggs/app" }, _meta: { title: "Result" } };
+  addSave(w, id, last, info(recipe.steps.at(-1)!.kind).makes);
   return w;
 }
