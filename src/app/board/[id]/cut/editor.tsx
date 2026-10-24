@@ -1,5 +1,7 @@
 "use client";
 
+import { galleryShot } from "../../../gallery-log";
+import { track as inHeader } from "../../../../activity/activity";
 import { useReturnedPick } from "../../../bank-picker";
 import type { BankItem } from "../../../../story/bank";
 import { listVersions, removeVersion, restoreVersion, saveVersion, type Version } from "../../../../story/versions";
@@ -107,6 +109,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const here = cut ? atTime(cut, t) : null;
   usePreviewSound(cut, t, playing);
   const [rendering, setRendering] = useState(false);
+  /** Preview only: hide the words laid over the picture so you can watch it clean. The render still has them. */
+  const [showText, setShowText] = useState(true);
   const [rendered, setRendered] = useState<{ url: string } | { reason: string } | null>(null);
 
   const seek = useCallback((to: number) => {
@@ -204,7 +208,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
     if (!project) return;
     setProblem(null);
     setRolling(shotId);
-    const result = await shoot(project, project.shots.findIndex((s) => s.id === shotId));
+    const result = await inHeader({ label: `Shot ${project.shots.findIndex((s) => s.id === shotId) + 1}`, href: `/board/${project.id}/cut`, failure: (x) => (x.ok ? null : x.reason), after: galleryShot(project.shots.find((s) => s.id === shotId)?.beat ?? "", project.shots.find((s) => s.id === shotId)?.model?.id ?? "") }, () => shoot(project, project.shots.findIndex((s) => s.id === shotId)));
     setRolling(null);
     if (!result.ok) {
       if (result.needsKey) openKeys();
@@ -234,7 +238,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       const placed = { ...latest, shots };
       apply(() => placed);
       setPicked(made.id);
-      const result = await shoot(placed, plan.insertAt);
+      const result = await inHeader({ label: `New shot between`, href: `/board/${placed.id}/cut`, failure: (x) => (x.ok ? null : x.reason), after: galleryShot(placed.shots[plan.insertAt]?.beat ?? "", placed.shots[plan.insertAt]?.model?.id ?? "") }, () => shoot(placed, plan.insertAt));
       if (!result.ok) {
         if (result.needsKey) openKeys();
         throw new Error(`The new shot is on the board, but it didn't render: ${result.reason}`);
@@ -424,8 +428,14 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
           onClick={async () => {
             setRendering(true);
             setRendered(null);
-            const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut }) }).catch(() => null);
-            const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
+            // Tracked in the header, so you can leave this page and still see when it's done.
+            const body = await inHeader(
+              { label: `Rendering ${project.name}`, href: `/board/${project.id}/cut`, result: (b) => (b?.ok && b.url ? { url: b.url } : null), failure: (b) => (b?.ok && b.url ? null : (b?.reason ?? "The render didn't finish.")) },
+              async () => {
+                const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut }) }).catch(() => null);
+                return (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
+              },
+            );
             setRendered(body?.ok && body.url ? { url: body.url } : { reason: body?.reason ?? "The render didn't finish." });
             setRendering(false);
           }}
@@ -436,14 +446,29 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       <details className="ed-more">
         <summary>Cutdown</summary>
         <div>
-          <p>Make a shorter cut from part of this one, on its own board. This cut stays as it is.</p>
-          <div className="ed-version-new">
-            <label>From <input type="number" min={0} step={0.1} value={win.from} onChange={(e) => setWin({ ...win, from: Number(e.target.value) || 0 })} />s</label>
-            <button className="plain" onClick={() => setWin({ ...win, from: Math.round(t * 10) / 10 })}>Playhead</button>
-            <label>To <input type="number" min={0} step={0.1} value={win.to ?? Math.round(cut.total * 10) / 10} onChange={(e) => setWin({ ...win, to: Number(e.target.value) || 0 })} />s</label>
-            <button className="plain" onClick={() => setWin({ ...win, to: Math.round(t * 10) / 10 })}>Playhead</button>
-          </div>
-          <form className="ed-version-new" onSubmit={(e) => {
+          <p>A shorter cut from part of this one, on its own board. This cut stays exactly as it is.</p>
+          {(() => {
+            const total = Math.round(cut.total * 10) / 10;
+            const to = win.to ?? total;
+            const len = Math.max(0, Math.round((to - win.from) * 10) / 10);
+            const tick = (n: number) => `${Math.min(100, Math.max(0, (n / Math.max(total, 0.1)) * 100))}%`;
+            const clip = (n: number) => Math.min(total, Math.max(0, Math.round(n * 10) / 10));
+            return (
+              <div className="cd">
+                <div className="cd-bar" aria-hidden="true"><i style={{ left: tick(win.from), width: `calc(${tick(to)} - ${tick(win.from)})` }} /><span style={{ left: tick(t) }} /></div>
+                <div className="cd-grid">
+                  <label>From<span><input type="number" min={0} max={total} step={0.1} value={win.from} onChange={(e) => setWin({ ...win, from: clip(Number(e.target.value) || 0) })} /><em>s</em></span><button className="plain" onClick={() => setWin({ ...win, from: clip(t) })}>Use playhead</button></label>
+                  <label>To<span><input type="number" min={0} max={total} step={0.1} value={to} onChange={(e) => setWin({ ...win, to: clip(Number(e.target.value) || 0) })} /><em>s</em></span><button className="plain" onClick={() => setWin({ ...win, to: clip(t) })}>Use playhead</button></label>
+                </div>
+                <div className="cd-presets">
+                  <small>{len}s of {total}s</small>
+                  {[15, 30, 60].filter((n) => n < total).map((n) => <button key={n} className="plain" onClick={() => setWin({ ...win, from: 0, to: clip(n) })}>First {n}s</button>)}
+                  <button className="plain" onClick={() => setWin({ ...win, from: clip(t), to: total })}>Playhead to end</button>
+                </div>
+              </div>
+            );
+          })()}
+          <form className="cd-make" onSubmit={(e) => {
             e.preventDefault();
             const f = full.current; const cur = now.current;
             if (!f || !cur) return;
@@ -457,7 +482,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
             }
           }}>
             <input value={win.name} onChange={(e) => setWin({ ...win, name: e.target.value })} placeholder="Name it, e.g. 15s teaser" aria-label="Cutdown name" />
-            <button className="plain" type="submit">Make a board</button>
+            <button className="fire" type="submit">Make a board</button>
           </form>
           {win.problem && <p className="library-error" role="alert">{win.problem}</p>}
         </div>
@@ -519,11 +544,12 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   ) : (
                     <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} style={here.clip.fit === "fill" ? { objectFit: "cover", objectPosition: `${(here.clip.focus?.x ?? 0.5) * 100}% ${(here.clip.focus?.y ?? 0.5) * 100}%` } : undefined} />
                   ))}
-                {here && project.shots.find((x) => x.id === here.clip.shotId)?.caption && <span className="stage-caption">{project.shots.find((x) => x.id === here.clip.shotId)!.caption}</span>}
+                {here && showText && project.shots.find((x) => x.id === here.clip.shotId)?.caption && <span className="stage-caption">{project.shots.find((x) => x.id === here.clip.shotId)!.caption}</span>}
                 {(project.overlays ?? []).filter((o) => t >= o.start && t < o.start + o.seconds).map((o) => <img key={o.id} className="stage-overlay" src={o.url} alt="" />)}
-                {here && <span className="stage-slate">{here.clip.heading || `Shot ${here.clip.index + 1}`}</span>}
               </div>
             </div>
+            {/* Which shot this is, under the picture and never over it. */}
+            {here && <p className="stage-slate" title={here.clip.heading}>{here.clip.heading || `Shot ${here.clip.index + 1}`}</p>}
             <div className="ed-transport">
               <button className="pill" onClick={() => jump(idxHere - 1)} aria-label="Previous shot" disabled={idxHere <= 0}>⏮</button>
               <button
@@ -536,6 +562,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                 {playing ? "Pause" : t >= cut.total ? "Replay" : "Play"}
               </button>
               <button className="pill" onClick={() => jump(idxHere + 1)} aria-label="Next shot" disabled={idxHere >= cut.clips.length - 1}>⏭</button>
+              <button className="pill" onClick={() => setShowText((v) => !v)} aria-pressed={showText} title="Show or hide the captions on the preview. The render keeps them.">{showText ? "Captions on" : "Captions off"}</button>
               <span className="transport-time">{clock(t)} <i>/</i> {clock(cut.total)}</span>
               {cut.skipped.length > 0 && <span className="transport-note">{cut.skipped.length} shot{cut.skipped.length === 1 ? "" : "s"} not shot yet</span>}
               <span className="ed-spacer" />
