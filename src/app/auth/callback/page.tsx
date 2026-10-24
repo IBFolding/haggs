@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { safeReturn } from "../../../story/handoff";
 import { supabase } from "../../session";
@@ -10,7 +10,11 @@ import { supabase } from "../../session";
 export default function Callback() {
   const router = useRouter();
   const [problem, setProblem] = useState<string | null>(null);
+  // A sign-in code works once; the effect must not run it twice.
+  const started = useRef(false);
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     const params = new URLSearchParams(window.location.search);
     const next = safeReturn(params.get("next")) ?? "/library";
     const code = params.get("code");

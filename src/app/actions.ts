@@ -19,6 +19,7 @@ import type { Provider } from "../providers/types";
 
 import { CLAUDE_COOKIE, COMFY_COOKIE, KEY_COOKIE, LOCAL_COOKIE, keyIn, localIn } from "../server/keys";
 import { localBase } from "../providers/local";
+import { keptExtension, mayFetchForKeeping } from "../server/keep-url";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -182,6 +183,28 @@ async function keepRender(bytes: Uint8Array, extension: Kept): Promise<string> {
 
 export type Shot = { url: string; kind: "image" | "video" };
 
+/**
+ * Provider links expire, which left Gallery tiles blank a day later. Every
+ * finished picture or clip is copied to our own store as it arrives; if the
+ * copy fails, the provider's link is still returned so the run is not lost.
+ */
+async function keepShots(shots: Shot[]): Promise<Shot[]> {
+  return Promise.all(
+    shots.map(async (shot) => {
+      if (!mayFetchForKeeping(shot.url)) return shot;
+      try {
+        const got = await fetch(shot.url, { signal: AbortSignal.timeout(90_000) });
+        const size = Number(got.headers.get("content-length") ?? 0);
+        if (!got.ok || size > 200_000_000) return shot;
+        const bytes = new Uint8Array(await got.arrayBuffer());
+        return { ...shot, url: await keepRender(bytes, keptExtension(got.headers.get("content-type") ?? "", shot.kind)) };
+      } catch {
+        return shot;
+      }
+    }),
+  );
+}
+
 export type RunResult =
   | { ok: true; shots: Shot[]; usd: number | null }
   | { ok: false; reason: string; needsKey?: boolean };
@@ -254,7 +277,7 @@ export async function run(
     if (result.assets.length === 0) {
       return done({ ok: false as const, reason: "The model returned no media." });
     }
-    return done({ ok: true as const, shots: result.assets, usd: result.usd });
+    return done({ ok: true as const, shots: await keepShots(result.assets), usd: result.usd });
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : String(caught);
     // A 401 here is almost always a bad key, and saying so beats a raw dump.

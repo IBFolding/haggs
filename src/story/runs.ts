@@ -10,7 +10,8 @@ import type { Kv } from "./kv";
  */
 
 const KEY = "runs";
-const DEFAULT_CAP = 60;
+const DEFAULT_CAP = 500;
+const GONE = "runs/deleted";
 
 export type Run = {
   id: string;
@@ -23,9 +24,13 @@ export type Run = {
   usd: number | null;
   at: number;
   favorite?: boolean;
+  /** When it last changed, so devices agree on which copy is newest. */
+  rev?: number;
+  /** The link in the account's file store once it has been kept there, so every device can play it. */
+  remote?: string;
 };
 
-export type NewRun = Omit<Run, "id" | "at" | "favorite">;
+export type NewRun = Omit<Run, "id" | "at" | "favorite" | "rev" | "remote">;
 
 export type RunStore = {
   list(): Promise<Run[]>;
@@ -33,6 +38,14 @@ export type RunStore = {
   setFavorite(id: string, favorite: boolean): Promise<void>;
   remove(id: string): Promise<void>;
   clear(): Promise<void>;
+  /** Runs removed here that the account hasn't been told about yet. */
+  deleted(): Promise<string[]>;
+  settled(ids: string[]): Promise<void>;
+  /** Brings runs from the account in, replacing the same id. */
+  adopt(runs: Run[]): Promise<void>;
+  drop(ids: string[]): Promise<void>;
+  /** Fills in fields on one run without counting as a change you made. */
+  patch(id: string, fields: Partial<Pick<Run, "remote">>): Promise<void>;
 };
 
 function isRun(value: unknown): value is Run {
@@ -85,7 +98,8 @@ export function createRunStore(kv: Kv, cap = DEFAULT_CAP): RunStore {
     list: () => read(),
 
     record(run) {
-      const saved: Run = { ...run, id: crypto.randomUUID(), at: Date.now() };
+      const at = Date.now();
+      const saved: Run = { ...run, id: crypto.randomUUID(), at, rev: at };
       return serialize(async () => {
         await write([saved, ...(await read())]);
         return saved;
@@ -95,7 +109,7 @@ export function createRunStore(kv: Kv, cap = DEFAULT_CAP): RunStore {
     setFavorite(id, favorite) {
       return serialize(async () => {
         const runs = await read();
-        await write(runs.map((run) => (run.id === id ? { ...run, favorite } : run)));
+        await write(runs.map((run) => (run.id === id ? { ...run, favorite, rev: Date.now() } : run)));
       });
     },
 
@@ -103,11 +117,50 @@ export function createRunStore(kv: Kv, cap = DEFAULT_CAP): RunStore {
       return serialize(async () => {
         const runs = await read();
         await write(runs.filter((run) => run.id !== id));
+        const gone = (await kv.get<string[]>(GONE)) ?? [];
+        if (!gone.includes(id)) await kv.set(GONE, [...gone, id]);
       });
     },
 
     clear() {
-      return serialize(() => kv.remove(KEY));
+      return serialize(async () => {
+        const gone = (await kv.get<string[]>(GONE)) ?? [];
+        await kv.set(GONE, [...new Set([...gone, ...(await read()).map((r) => r.id)])]);
+        await kv.remove(KEY);
+      });
+    },
+
+    async deleted() {
+      return (await kv.get<string[]>(GONE)) ?? [];
+    },
+
+    settled(ids) {
+      return serialize(async () => {
+        const gone = (await kv.get<string[]>(GONE)) ?? [];
+        await kv.set(GONE, gone.filter((id) => !ids.includes(id)));
+      });
+    },
+
+    adopt(runs) {
+      return serialize(async () => {
+        const mine = await read();
+        const incoming = new Map(runs.filter(isRun).map((r) => [r.id, r]));
+        const kept = mine.map((r) => incoming.get(r.id) ?? r);
+        const fresh = [...incoming.values()].filter((r) => !mine.some((m) => m.id === r.id));
+        await write([...kept, ...fresh].sort((a, b) => b.at - a.at));
+      });
+    },
+
+    drop(ids) {
+      return serialize(async () => {
+        await write((await read()).filter((r) => !ids.includes(r.id)));
+      });
+    },
+
+    patch(id, fields) {
+      return serialize(async () => {
+        await write((await read()).map((r) => (r.id === id ? { ...r, ...fields } : r)));
+      });
     },
   };
 }

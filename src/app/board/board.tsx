@@ -1,5 +1,7 @@
 "use client";
 
+import { galleryShot } from "../gallery-log";
+import { track as inHeader } from "../../activity/activity";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -102,7 +104,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
       const at = project.shots.findIndex((s) => s.id === target.id);
       setError(null);
       setRunning((prior) => [...prior, target.id]);
-      const result = await shoot(project, at);
+      const result = await inHeader({ label: `Shot ${at + 1}${target.heading ? ` · ${target.heading}` : ""}`, href: `/board/${project.id}`, failure: (x) => (x.ok ? null : x.reason), after: galleryShot(target.beat, target.model?.id ?? "") }, () => shoot(project, at));
       setRunning((prior) => prior.filter((runId) => runId !== target.id));
 
       if (!result.ok) {
@@ -154,7 +156,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
       if (at < 0) return "That shot is not on the board any more.";
       const prepared = { ...latest, shots: latest.shots.map((s, i) => (i === at ? readyToAnimate(s) : s)) };
       setRunning((prior) => [...prior, shotId]);
-      const result = await shoot(prepared, at);
+      const result = await inHeader({ label: `Animating shot ${at + 1}`, href: `/board/${prepared.id}`, failure: (x) => (x.ok ? null : x.reason), after: galleryShot(prepared.shots[at]?.beat ?? "", prepared.shots[at]?.model?.id ?? "") }, () => shoot(prepared, at));
       setRunning((prior) => prior.filter((runId) => runId !== shotId));
       if (!result.ok) {
         if (result.needsKey) openKeys();

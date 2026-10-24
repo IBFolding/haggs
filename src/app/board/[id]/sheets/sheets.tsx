@@ -1,5 +1,7 @@
 "use client";
 
+import { track as inHeader } from "../../../../activity/activity";
+import { galleryRun } from "../../../gallery-log";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -178,7 +180,8 @@ function RefStrip({ refs, pool, describe, onChange }: { refs: string[]; pool: st
     }
     setBusy(true);
     setProblem(null);
-    const result = await run(REF_MODEL, `Character and location reference sheet, neutral light, clear face and full costume, no text. ${describe}`, {});
+    const refPrompt = `Character and location reference sheet, neutral light, clear face and full costume, no text. ${describe}`;
+    const result = await inHeader({ label: "Making a reference picture", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryRun(refPrompt, REF_MODEL, "Reference sheet") }, () => run(REF_MODEL, refPrompt, {}));
     if (!result.ok) {
       setBusy(false);
       if (result.needsKey) openKeys();

@@ -10,6 +10,7 @@ import { ReturnBar } from "../return-bar";
 import { makeStill } from "../series-actions";
 import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
+import { ModeTabs } from "../mode-tabs";
 
 const FINISH = "Product photograph of the single item on a plain light grey background, soft studio light, no person, no text, no watermark.";
 const PRICE = 0.07;
@@ -69,14 +70,7 @@ export function Accessories() {
       <div className="canvas">
         <div className="swap">
           <ReturnBar kind="accessory" savedId={saved?.id} savedName={saved?.name} />
-          <nav className="modes" aria-label="Photos">
-            <Link href="/photos">Make</Link>
-            {surfaceAvailable("Edit") && <Link href="/edit">Edit a photo</Link>}
-            <Link href="/characters">Characters</Link>
-            <Link href="/locations">Locations</Link>
-            <Link href="/accessories" aria-current="page">Accessories</Link>
-            <Link href="/comic">Comic strip</Link>
-          </nav>
+          <ModeTabs group="Photos" current="/accessories" canEdit={surfaceAvailable("Edit")} />
           <header className="swap-head">
             <h1>Accessories</h1>
             <p>A scarf, glasses, a jacket, a camera. Describe it once, add a picture, and put it on anyone, in any shot, from anywhere in haggs.</p>

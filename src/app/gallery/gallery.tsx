@@ -1,5 +1,6 @@
 "use client";
 
+import { RUNS_SYNCED } from "../run-sync";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -68,6 +69,10 @@ export function Gallery() {
       .then(setAll)
       .catch(() => setError("Storage is unavailable in this browser, so runs can't be kept here."))
       .finally(() => setReady(true));
+    // Runs that arrive from your account while the Gallery is open.
+    const again = () => void runs.list().then(setAll).catch(() => undefined);
+    window.addEventListener(RUNS_SYNCED, again);
+    return () => window.removeEventListener(RUNS_SYNCED, again);
   }, [runs]);
 
   const shown = useMemo(() => all.filter((run) => inScope(run, scope)), [all, scope]);

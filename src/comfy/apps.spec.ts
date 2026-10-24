@@ -90,3 +90,10 @@ test("string primitives are left alone when the workflow already has a prompt bo
   const app = appOf(ui, { ...prompt, "999": { class_type: "PrimitiveStringMultiline", inputs: { value: "a long enough helper string here" } } } as never, catalog);
   assert.equal(app.fields.filter((f) => f.kind === "text").length, 1);
 });
+
+test("a transparent WebM is a finished video, so a cut-out workflow has a result to show", () => {
+  const prompt = { "1": { class_type: "LoadVideo", inputs: { file: "a.mp4" } }, "7": { class_type: "SaveWEBM", inputs: { filename_prefix: "x", codec: "vp9", fps: 24, crf: 32 } } };
+  const app = appOf({ nodes: [] } as unknown as UiWorkflow, prompt, catalog);
+  assert.equal(app.output, "7");
+  assert.equal(app.produces, "video");
+});

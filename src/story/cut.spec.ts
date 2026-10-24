@@ -306,3 +306,24 @@ test("framing and fades ride from the shot to the clip, the script and the rende
   assert.match(f.a, /afade=t=out/);
   assert.match(ffmpegScript(cut, "x"), /crop=1920:1080/);
 });
+
+test("a caption can start later in its shot and last a set time, and defaults to the whole shot", async () => {
+  const { captionSpan } = await import("./cut");
+  const cut = buildCut(board(shot({ render: video(), seconds: 2 }), shot({ render: video(), seconds: 4, caption: "A" }), shot({ render: video(), seconds: 4, caption: "B", captionAt: 1, captionFor: 1.5 }), shot({ render: video(), seconds: 2, caption: "C", captionAt: 1, captionFor: 9 })));
+  assert.deepEqual(captionSpan(cut.clips[1]!), { start: 2, end: 6 });
+  assert.deepEqual(captionSpan(cut.clips[2]!), { start: 7, end: 8.5 });
+  assert.deepEqual(captionSpan(cut.clips[3]!), { start: 11, end: 12 }, "never runs past its shot");
+});
+
+test("the burn-in overlay follows the caption's own timing", async () => {
+  const { captionFilter } = await import("./cut");
+  const cut = buildCut(board(shot({ render: video(), seconds: 4, caption: "B", captionAt: 1, captionFor: 1.5 })));
+  assert.match(captionFilter(cut)!.filter, /between\(t,1,2\.5\)/);
+});
+
+test("captions export as a subtitle file anyone can edit, in cut time", async () => {
+  const { captionsSrt } = await import("./cut");
+  const cut = buildCut(board(shot({ render: video(), seconds: 2 }), shot({ render: video(), seconds: 3.5, caption: "Marlow has a plan." })));
+  assert.equal(captionsSrt(cut), "1\n00:00:02,000 --> 00:00:05,500\nMarlow has a plan.\n");
+  assert.equal(captionsSrt(buildCut(board(shot({ render: video() })))), "");
+});

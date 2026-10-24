@@ -24,6 +24,9 @@ export type Clip = {
   seconds: number;
   /** Words burned into the picture while this clip is on screen. */
   caption?: string;
+  /** When within the clip the caption shows; see captionSpan. */
+  captionAt?: number;
+  captionFor?: number;
   /** Seconds to fade in from, and out to, black (picture and its own sound). */
   fadeIn?: number;
   fadeOut?: number;
@@ -104,6 +107,8 @@ export function buildCut(project: Project): Cut {
       from: positive(shot.trimIn) ?? 0,
       seconds,
       ...(shot.caption?.trim() ? { caption: shot.caption.trim() } : {}),
+      ...(shot.caption?.trim() && positive(shot.captionAt) ? { captionAt: shot.captionAt! } : {}),
+      ...(shot.caption?.trim() && positive(shot.captionFor) ? { captionFor: shot.captionFor! } : {}),
       ...(positive(shot.fadeIn) ? { fadeIn: shot.fadeIn! } : {}),
       ...(positive(shot.fadeOut) ? { fadeOut: shot.fadeOut! } : {}),
       ...(shot.fit === "fill" ? { fit: "fill" as const, ...(shot.focus ? { focus: shot.focus } : {}) } : {}),
@@ -249,6 +254,32 @@ export function mixFilter(cut: Cut): { inputs: string[]; filter: string } | null
   return { inputs, filter: parts.join(";") };
 }
 
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/** When a clip's caption is on screen, in cut time: from `captionAt` for `captionFor`, never past the end of the clip. */
+export function captionSpan(clip: Pick<Clip, "start" | "seconds" | "captionAt" | "captionFor">): { start: number; end: number } {
+  const at = Math.min(clip.captionAt ?? 0, clip.seconds);
+  const end = Math.min(clip.seconds, at + (clip.captionFor ?? clip.seconds - at));
+  return { start: round3(clip.start + at), end: round3(clip.start + end) };
+}
+
+const srtTime = (t: number) => {
+  const ms = Math.round(t * 1000);
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${p(Math.floor(ms / 3_600_000))}:${p(Math.floor(ms / 60_000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`;
+};
+
+/** The cut's captions as a subtitle file (SRT), so they can be edited or burned in later without re-rendering the picture. Empty when there are none. */
+export function captionsSrt(cut: Cut): string {
+  return cut.clips
+    .filter((c) => c.caption)
+    .map((c, i) => {
+      const span = captionSpan(c);
+      return `${i + 1}\n${srtTime(span.start)} --> ${srtTime(span.end)}\n${c.caption}\n`;
+    })
+    .join("\n");
+}
+
 /**
  * Captions as overlays on the joined picture: one transparent frame-sized PNG
  * per captioned clip (input 1…n), each shown only while its clip plays. Null
@@ -260,7 +291,8 @@ export function captionFilter(cut: Cut): { captions: { text: string; index: numb
   let last = "0:v";
   const parts = cut.clips.filter((c) => c.caption).map((c, i) => {
     const out = i === captions.length - 1 ? "out" : `c${i}`;
-    const part = `[${last}][${i + 1}:v]overlay=0:0:enable='between(t,${c.start},${Math.round((c.start + c.seconds) * 1000) / 1000})'[${out}]`;
+    const span = captionSpan(c);
+    const part = `[${last}][${i + 1}:v]overlay=0:0:enable='between(t,${span.start},${span.end})'[${out}]`;
     last = out;
     return part;
   });

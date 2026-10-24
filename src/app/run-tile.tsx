@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import type { Run } from "../story/runs";
 
 /**
@@ -29,15 +31,21 @@ export function RunTile({
   onReuse?: () => void;
   onDelete?: () => void;
 }) {
+  /* A link that has expired shows as a labelled gap, not an empty tile. */
+  const [lost, setLost] = useState(false);
+  const gone = () => setLost(true);
   return (
     // tabIndex makes the tile focusable, which is how a tap reveals the
     // caption on touch, and how a keyboard reaches Reuse and Delete.
     <figure className="cell" tabIndex={0}>
+      {/* A run made on another computer whose file hasn't reached your account yet has nothing to play here. */}
       {run.kind === "video" ? (
-        <video src={run.url} loop muted playsInline onMouseOver={(e) => void e.currentTarget.play()} onMouseOut={(e) => e.currentTarget.pause()} />
+        <video src={run.url} onError={gone} loop muted playsInline onMouseOver={(e) => void e.currentTarget.play()} onMouseOut={(e) => e.currentTarget.pause()} />
       ) : (
-        <img src={run.url} alt={run.prompt} loading="lazy" />
+        <img src={run.url} alt={run.prompt} loading="lazy" onError={gone} />
       )}
+
+      {lost && <span className="cell-lost">This {run.kind === "video" ? "clip" : "picture"} has expired. The prompt is kept.</span>}
 
       <span className="cell-cost">{run.usd === null ? "—" : `$${run.usd.toFixed(3)}`}</span>
 

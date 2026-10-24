@@ -17,6 +17,7 @@ import { Nav, openKeys } from "../nav";
 import { BuildLink } from "../return-bar";
 import { readPick } from "../../story/handoff";
 import { draftSeries, makeStill } from "../series-actions";
+import { ModeTabs } from "../mode-tabs";
 
 /**
  * Series: a topic becomes a run of short vertical videos, and you watch it
@@ -236,11 +237,7 @@ export function SeriesMaker() {
       <Nav current="Video" />
       <div className="canvas">
         <div className="swap">
-          <nav className="modes" aria-label="Video">
-            <Link href="/video">Make a clip</Link>
-            <Link href="/series" aria-current="page">Series</Link>
-            <Link href="/recreate">Recreate an edit</Link>
-          </nav>
+          <ModeTabs group="Video" current="/series" />
 
           {sent.length > 0 && (
             <div className="cv-sent series-sent" role="status">

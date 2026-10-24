@@ -25,7 +25,7 @@ export function supabase(): SupabaseClient | null {
   if (client !== undefined) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  client = url && key ? createClient(url, key, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true, storageKey: "haggs-auth" } }) : null;
+  client = url && key ? createClient(url, key, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: false, storageKey: "haggs-auth" } }) : null;
   if (client) {
     // The server sees who you are through this cookie (server actions can't read a bearer header).
     void client.auth.getSession().then(({ data }) => keepCookie(data.session));

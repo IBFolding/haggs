@@ -13,6 +13,8 @@ import { bridgeAllowed } from "../../../server/bridge-guard";
 import { ffmpegBin, ffprobeBin } from "../../../server/ffmpeg";
 import { readRendered, stageHosted } from "../../../server/render-hosted";
 import { localFile } from "../../../server/local-media";
+import { wrapCaption } from "../../../server/caption-wrap";
+import { captionsSrt } from "../../../story/cut";
 import { checkCut, renderCut } from "../../../server/render";
 
 const run = promisify(execFile);
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
   const scratch = online ? await mkdtemp(join(tmpdir(), "haggs-hosted-")) : null;
   const root = scratch ?? process.env.HAGGS_LOCAL_MEDIA;
   if (!root) return Response.json({ ok: false, reason: "Set HAGGS_LOCAL_MEDIA so the film has somewhere to be kept." }, { status: 400 });
-  const body = (await request.json().catch(() => null)) as { cut?: unknown; name?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { cut?: unknown; name?: unknown; burn?: unknown } | null;
   let work: string | null = null;
   try {
     let cut = checkCut(body?.cut);
@@ -62,19 +64,28 @@ export async function POST(request: Request) {
         return stdout.trim().length > 0;
       },
       write: (path, text) => writeFile(path, text),
-      caption: async (path, text, { w, h }) => {
-        const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const size = Math.round(h * 0.05);
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><text x="${w / 2}" y="${h * 0.9}" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${size}" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="${size / 9}" paint-order="stroke" stroke-linejoin="round">${esc}</text></svg>`;
+      // Captions stay a separate layer (a subtitle file) unless you ask for them burned in.
+      ...(body?.burn === true ? { caption: async (path: string, text: string, { w, h }: { w: number; h: number }) => {
+        // Words wrap to the frame and grow upward from the bottom, so a long line is never cut off.
+        const size = Math.round(Math.min(h * 0.045, w * 0.075));
+        const lines = wrapCaption(text, Math.max(8, Math.floor((w * 0.86) / (size * 0.56))));
+        const lead = size * 1.18;
+        const last = h * 0.9;
+        const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const rows = lines.map((l, i) => `<text x="${w / 2}" y="${last - (lines.length - 1 - i) * lead}" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${size}" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="${size / 9}" paint-order="stroke" stroke-linejoin="round">${esc(l)}</text>`).join("");
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${rows}</svg>`;
         await sharp(Buffer.from(svg)).png().toFile(path);
-      },
+      } } : {}),
     });
+    const srt = captionsSrt(cut);
+    // Beside the film, so the words can be fixed and burned in later without touching the picture.
+    if (srt && !online) await writeFile(out.path.replace(/\.mp4$/, ".srt"), srt);
     if (online) {
       // The film goes to the file store, so the browser can play and download it.
       const url = await putBlob(new Uint8Array(await readRendered(out.path)), "mp4", "renders");
-      return Response.json({ ok: true, url, seconds: cut.total });
+      return Response.json({ ok: true, url, seconds: cut.total, burned: body?.burn === true, ...(srt ? { srt } : {}) });
     }
-    return Response.json({ ok: true, url: out.url, seconds: cut.total });
+    return Response.json({ ok: true, url: out.url, seconds: cut.total, burned: body?.burn === true, ...(srt ? { srt } : {}) });
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : "The render failed.";
     return Response.json({ ok: false, reason: /ENOENT.*ffmpeg|spawn ffmpeg/.test(message) ? "ffmpeg isn't installed on this machine. Use the ffmpeg script instead." : message.split("\n")[0]!.slice(0, 300) }, { status: 400 });

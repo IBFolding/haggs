@@ -56,6 +56,8 @@ export type Shot = {
   locked?: boolean;
   /** The shot worked out in grey: camera, stand-ins and light, before anything real is made. */
   grey?: import("./grey").GreyFrame;
+  /** The Grey Room's set for this shot: where it takes place, chosen from your saved places. */
+  greyScene?: import("./grey-scene").GreyScene;
   /** A real take is locked against change until it is approved for it; this is that approval. */
   approved?: boolean;
   /** Seconds the picture and its own sound fade in from, and out to, black. */
@@ -74,6 +76,10 @@ export type Shot = {
   refs?: string[];
   /** The on-screen words for this shot (a hook, a line of text). */
   caption?: string;
+  /** Seconds into the shot the caption appears (default: from the start). */
+  captionAt?: number;
+  /** How long it stays up, in seconds (default: to the end of the shot). */
+  captionFor?: number;
   /** A picture this shot should end on: the next shot's first frame, when it bridges two shots. */
   endsOn?: string;
   /** Voice-over lines spoken over this shot; they move with it when the board is reordered. */

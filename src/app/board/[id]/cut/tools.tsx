@@ -1,5 +1,7 @@
 "use client";
 
+import { galleryEdit } from "../../../gallery-log";
+import { track as inHeader } from "../../../../activity/activity";
 import { BankPicker } from "../../../bank-picker";
 import type { BankItem } from "../../../../story/bank";
 import { useRouter } from "next/navigation";
@@ -190,7 +192,7 @@ export function EditTools({
     setBusy(label);
     setProblem(null);
     setDone(null);
-    const result = await runEdit(request);
+    const result = await inHeader({ label: `Editing a shot`, href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit((request as { prompt?: string }).prompt ?? label) }, () => runEdit(request));
     setBusy(null);
     if (!result.ok) {
       if (result.needsKey) openKeys();
@@ -439,7 +441,7 @@ export function EditTools({
                           setSheets((all) => ({ ...all, [id]: r.url }));
                         }
                         setBusy(`reel:${st.name}: redrawing the clip`);
-                        const r = await runEdit({ tool: "kling", video, seconds: len, prompt: restylePrompt(st, prompt), references: [sh], resolution: restyleRes });
+                        const r = await inHeader({ label: `Restyling a take`, href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit(restylePrompt(st, prompt)) }, () => runEdit({ tool: "kling", video, seconds: len, prompt: restylePrompt(st, prompt), references: [sh], resolution: restyleRes }));
                         if (!r.ok) { setBusy(null); if (r.needsKey) openKeys(); return setProblem(`${st.name}: ${r.reason} Stopped; ${clips.length} look${clips.length === 1 ? "" : "s"} done.`); }
                         clips.push({ style: st, url: r.url, seconds: len, usd: r.usd });
                       }

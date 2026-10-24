@@ -103,3 +103,32 @@ test("concurrent records both survive", async () => {
   await Promise.all([runs.record(made({ prompt: "a" })), runs.record(made({ prompt: "b" }))]);
   assert.equal((await runs.list()).length, 2);
 });
+
+test("a removed run is remembered until the account has been told", async () => {
+  const runs = createRunStore(memoryKv());
+  const a = await runs.record(made());
+  await runs.remove(a.id);
+  assert.deepEqual(await runs.deleted(), [a.id]);
+  await runs.settled([a.id]);
+  assert.deepEqual(await runs.deleted(), []);
+});
+
+test("starring a run counts as a change, so it wins over an older copy", async () => {
+  const runs = createRunStore(memoryKv());
+  const a = await runs.record(made());
+  await new Promise((r) => setTimeout(r, 5));
+  await runs.setFavorite(a.id, true);
+  const [after] = await runs.list();
+  assert.ok((after!.rev ?? 0) > (a.rev ?? 0));
+});
+
+test("runs from the account come in newest first and replace the same id, and a patch doesn't count as a change", async () => {
+  const runs = createRunStore(memoryKv());
+  const a = await runs.record(made({ prompt: "mine" }));
+  await runs.adopt([{ ...a, favorite: true, rev: a.rev! + 10 }, { ...a, id: "theirs", at: 1, rev: 1, prompt: "elsewhere" }]);
+  const all = await runs.list();
+  assert.deepEqual(all.map((r) => r.id), [a.id, "theirs"]);
+  assert.equal(all[0]!.favorite, true);
+  await runs.patch(a.id, { remote: "https://x.public.blob.vercel-storage.com/a.png" });
+  assert.equal((await runs.list())[0]!.rev, a.rev! + 10);
+});

@@ -129,6 +129,8 @@ export function checkCut(raw: unknown): Cut {
     from: num(x.from ?? 0, 0, 600),
     seconds: num(x.seconds, 0.1, 600),
     ...(typeof x.caption === "string" && x.caption.trim() ? { caption: x.caption.trim().slice(0, 140) } : {}),
+    ...(typeof x.caption === "string" && x.caption.trim() && Number.isFinite(x.captionAt) && Number(x.captionAt) > 0 ? { captionAt: Math.min(Number(x.captionAt), 7200) } : {}),
+    ...(typeof x.caption === "string" && x.caption.trim() && Number.isFinite(x.captionFor) && Number(x.captionFor) > 0 ? { captionFor: Math.min(Number(x.captionFor), 7200) } : {}),
     ...(x.fit === "fill" ? { fit: "fill" as const, ...(x.focus && typeof x.focus === "object" ? { focus: { x: unit((x.focus as { x?: unknown }).x), y: unit((x.focus as { y?: unknown }).y) } } : {}) } : {}),
     ...(typeof x.fadeIn === "number" && x.fadeIn > 0 && x.fadeIn <= 10 ? { fadeIn: x.fadeIn } : {}),
     ...(typeof x.fadeOut === "number" && x.fadeOut > 0 && x.fadeOut <= 10 ? { fadeOut: x.fadeOut } : {}),

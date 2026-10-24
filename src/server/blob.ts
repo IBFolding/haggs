@@ -37,3 +37,18 @@ export function isBlobUrl(url: string): boolean {
     return false;
   }
 }
+
+/** The token for the file store: the deployment's own, or on a developer's machine the one set aside for keeping files in your account. */
+export const libraryToken = () => process.env.BLOB_READ_WRITE_TOKEN ?? process.env.HAGGS_SYNC_BLOB_TOKEN;
+
+/** Keeps a file in a signed-in person's own folder of the file store, and returns the public link. */
+export async function putLibrary(bytes: Uint8Array, extension: string, userId: string): Promise<string> {
+  const token = libraryToken();
+  if (!token) throw new Error("File sync isn't set up on this copy of haggs.");
+  const ext = extension.toLowerCase().replace(/^\./, "");
+  const type = TYPES[ext];
+  if (!type) throw new Error("That kind of file can't be kept.");
+  const day = new Date().toISOString().slice(0, 10);
+  const made = await put(`haggs/u-${userId}/library/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: "public", contentType: type, addRandomSuffix: true, token });
+  return made.url;
+}

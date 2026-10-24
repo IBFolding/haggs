@@ -1,5 +1,7 @@
 "use client";
 
+import { galleryEdit } from "../../../gallery-log";
+import { track as inHeader } from "../../../../activity/activity";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, tidy, type GreyFrame } from "../../../../story/grey";
@@ -148,7 +150,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
       canvas.height = vertical ? 1536 : 864;
       canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
       const frame = canvas.toDataURL("image/jpeg", 0.92);
-      const r = await runEdit({ tool: "kontext", frame, prompt: realPrompt(shot.beat, grey), ratio: vertical ? "9:16" : "16:9" });
+      const r = await inHeader({ label: `Making a real picture from the grey room`, href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit(realPrompt(shot.beat, grey)) }, () => runEdit({ tool: "kontext", frame, prompt: realPrompt(shot.beat, grey), ratio: vertical ? "9:16" : "16:9" }));
       if (!r.ok) return setProblem(r.reason);
       onTake(r.url, r.usd);
     } catch (e) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "../../../activity/activity";
 import { BankPicker, useReturnedPick } from "../../bank-picker";
 import type { BankItem } from "../../../story/bank";
 import { uploadFile } from "../../upload-client";
@@ -255,7 +256,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
         return setResult({ ok: false, reason: caught instanceof Error ? caught.message : "The run couldn't be charged." });
       }
     }
-    const r = await runWorkflow(source, values, files);
+    const r = await track({ label: `Running ${opened.title}`, href: window.location.pathname + window.location.search, failure: (r) => (r.ok ? null : r.reason) }, () => runWorkflow(source, values, files));
     if (!r.ok && paid && sb) await refundRun(dbOf(sb), paid).catch(() => undefined);
     setRunning(false);
     setResult(r);

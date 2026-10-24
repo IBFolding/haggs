@@ -9,6 +9,7 @@ import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { findFootage, keepFootage } from "../found-actions";
 import { Nav } from "../nav";
+import { ModeTabs } from "../mode-tabs";
 
 /**
  * Found footage: say what the film is, find archive scenes that fit, keep the
@@ -56,12 +57,7 @@ export function Found() {
       <Nav current="Video" />
       <div className="canvas">
         <div className="swap">
-          <nav className="modes" aria-label="Video">
-            <Link href="/video">Make a clip</Link>
-            <Link href="/series">Series</Link>
-            <Link href="/recreate">Recreate an edit</Link>
-            <Link href="/found" aria-current="page">Found footage</Link>
-          </nav>
+          <ModeTabs group="Video" current="/found" />
           <header className="swap-head">
             <h1>Found footage</h1>
             <p>Describe the film. haggs searches the Prelinger Archives, thousands of public-domain films from the Internet Archive, for scenes that fit. Keep the ones you like, then restyle them into your own look and cut them together. Searching is free.</p>

@@ -15,6 +15,8 @@ import { Nav, openKeys } from "../nav";
 import { BuildLink } from "../return-bar";
 import { makeStill } from "../series-actions";
 import { drawComic } from "./draw";
+import { ModeTabs } from "../mode-tabs";
+import { surfaceAvailable } from "../studio";
 
 const PRICE = 0.07;
 const COMIC_FINISH = "Illustrated comic art, no text, no letters, no watermark.";
@@ -116,13 +118,7 @@ export function Comic() {
       <Nav current="Photos" />
       <div className="canvas">
         <div className="swap comic">
-          <nav className="modes" aria-label="Photos">
-            <Link href="/photos">Make</Link>
-            <Link href="/characters">Characters</Link>
-            <Link href="/locations">Locations</Link>
-            <Link href="/accessories">Accessories</Link>
-            <Link href="/comic" aria-current="page">Comic strip</Link>
-          </nav>
+          <ModeTabs group="Photos" current="/comic" canEdit={surfaceAvailable("Edit")} />
           <header className="swap-head">
             <h1>Comic strip</h1>
             <p>Write the panels, pick who is in them and a look, and haggs draws every panel with captions and speech bubbles. The same characters in every panel. Then send it to a project to bring it to life.</p>

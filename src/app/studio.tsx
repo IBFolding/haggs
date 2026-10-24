@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "../activity/activity";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +15,7 @@ import { createCharacterStore, identityLock, type Character } from "../character
 import { createPlaceStore, placeLock, type SavedPlace } from "../locations/location";
 import type { Capability } from "../providers/types";
 import { defaultKv } from "../story/kv";
+import { currentWork, workSince } from "../story/current-work";
 import { createRunStore, type Run } from "../story/runs";
 import { rates, run, type Rate } from "./actions";
 import { Nav, openKeys } from "./nav";
@@ -22,6 +24,7 @@ import { MakeBanner } from "./return-bar";
 import { readPick } from "../story/handoff";
 import { REUSE_KEY } from "./gallery/gallery";
 import { useStartProject } from "./start-project";
+import { ModeTabs } from "./mode-tabs";
 import { RunTile } from "./run-tile";
 import { SaveToProject } from "./save-to-project";
 import { SettingsRail } from "./settings-rail";
@@ -150,6 +153,9 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [history, setHistory] = useState<Run[]>([]);
+  /* Photos and Video show this stretch of work; the Gallery keeps the rest. */
+  const [since, setSince] = useState(Number.MAX_SAFE_INTEGER);
+  const [reused, setReused] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState<Run | null>(null);
   const startProject = useStartProject();
   const [showTemplates, setShowTemplates] = useState(false);
@@ -181,6 +187,11 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const runs = useMemo(() => createRunStore(defaultKv()), []);
 
+  const shownRuns = useMemo(
+    () => currentWork(history, surface === "Video" ? "video" : "image", since, reused),
+    [history, surface, since, reused],
+  );
+
   const card = useMemo(() => getModelCard(modelId), [modelId]);
   const rate = rateMap[modelId];
 
@@ -191,6 +202,14 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     setSettings((held) =>
       coerceSettings(getModelCard(item.modelId).settings, { ...held, ...item.settings }),
     );
+  }, []);
+
+  useEffect(() => {
+    try {
+      setSince(workSince(sessionStorage, Date.now()));
+    } catch {
+      setSince(Date.now());
+    }
   }, []);
 
   useEffect(() => {
@@ -211,7 +230,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
           /* Private mode blocks sessionStorage; nothing to restore. */
         }
         const found = wanted ? list.find((item) => item.id === wanted) : undefined;
-        if (found) reuse(found);
+        if (found) { reuse(found); setReused(found.id); }
       })
       .catch(() => setHistory([]));
   }, [runs, reuse]);
@@ -254,7 +273,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     const sent = surface === "Edit" ? prompt : withLook(cast ? castWords(prompt, cast) : prompt, look);
     // A picture you attached is the opening frame; with none, your character's and place's sheets go in as references.
     const refs = surface === "Edit" ? [] : castReferences({ attached: images, character: who?.sheet ?? null, place: where?.plate ?? null, max: card.inputImages });
-    const result = refs.length ? await run(modelId, sent, settings, refs, false) : await run(modelId, sent, settings, images.length ? images : undefined);
+    const result = await track({ label: `Making a ${surface === "Edit" ? "picture edit" : "picture"}`, href: window.location.pathname + window.location.search, failure: (r) => (r.ok ? null : r.reason) }, () => (refs.length ? run(modelId, sent, settings, refs, false) : run(modelId, sent, settings, images.length ? images : undefined)));
 
     setSlots((prior) => {
       const rest = prior.filter((slot) => slot.id !== id);
@@ -341,25 +360,10 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
       <div className="canvas" onClick={() => setPicking(false)}>
         <AcademyNudge />
-        {surface === "Video" && (
-          <nav className="modes" aria-label="Video">
-            <Link href="/video" aria-current="page">Make a clip</Link>
-            <Link href="/series">Series</Link>
-            <Link href="/recreate">Recreate an edit</Link>
-          </nav>
-        )}
+        {surface === "Video" && <ModeTabs group="Video" current="/video" />}
         {surface !== "Video" && <MakeBanner />}
-        {surface !== "Video" && (
-          <nav className="modes" aria-label="Photos">
-            <Link href="/photos" aria-current={surface === "Create" ? "page" : undefined}>Make</Link>
-            {surfaceAvailable("Edit") && <Link href="/edit" aria-current={surface === "Edit" ? "page" : undefined}>Edit a photo</Link>}
-            <Link href="/characters">Characters</Link>
-            <Link href="/locations">Locations</Link>
-            <Link href="/accessories">Accessories</Link>
-            <Link href="/comic">Comic strip</Link>
-          </nav>
-        )}
-        {slots.length === 0 && history.length === 0 ? (
+        {surface !== "Video" && <ModeTabs group="Photos" current={surface === "Edit" ? "/edit" : "/photos"} canEdit={surfaceAvailable("Edit")} />}
+        {slots.length === 0 && shownRuns.length === 0 ? (
           <div className="blank">
             <h1>
               {surface === "Edit" ? "Edit with " : "Start with "}
@@ -367,12 +371,13 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </h1>
             <p>{BLURB[surface]}</p>
             <p className="blank-rate">
-              This model runs at <b>{rate?.label ?? "a rate loading now"}</b>. Every run you
-              make is kept here with what it cost.
+              This model runs at <b>{rate?.label ?? "a rate loading now"}</b>. What you make
+              shows up here with what it cost. Earlier work is in the <Link href="/gallery">Gallery</Link>.
             </p>
           </div>
         ) : (
           <>
+          <p className="work-note">Showing what you've made this session. <Link href="/gallery">Everything else is in the Gallery</Link>.</p>
           <div className="grid">
             {slots.map((slot) =>
               slot.state === "working" ? (
@@ -383,7 +388,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
                 </div>
               ),
             )}
-            {history.map((item) => (
+            {shownRuns.map((item) => (
               <RunTile
                 key={item.id}
                 run={item}
@@ -474,7 +479,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               </button>
               <button className={`cast-tile${outfit.length ? " set" : ""}`} onClick={() => setTile(tile === "wardrobe" ? null : "wardrobe")} aria-expanded={tile === "wardrobe"}>
                 <span className="cast-plus">{outfit.length || "+"}</span>
-                <b>Wardrobe</b>
+                <b>Accessories</b>
               </button>
             </div>
           )}

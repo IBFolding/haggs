@@ -15,6 +15,7 @@ import { uploadFile } from "../upload-client";
 import { BuildLink } from "../return-bar";
 import { readPick } from "../../story/handoff";
 import { analyzeEdit } from "../recreate-actions";
+import { ModeTabs } from "../mode-tabs";
 
 /**
  * Recreate an edit: drop a reference video (an edit you love), say who is in
@@ -116,12 +117,7 @@ export function Recreate() {
       <Nav current="Video" />
       <div className="canvas">
         <div className="swap">
-          <nav className="modes" aria-label="Video">
-            <Link href="/video">Make a clip</Link>
-            <Link href="/series">Series</Link>
-            <Link href="/recreate" aria-current="page">Recreate an edit</Link>
-            <Link href="/found">Found footage</Link>
-          </nav>
+          <ModeTabs group="Video" current="/recreate" />
           <header className="swap-head">
             <h1>Recreate an edit</h1>
             <p>Drop an edit you love: a trailer, an ad, a viral cut. haggs finds every shot, then rebuilds the same edit around your character and your place.</p>

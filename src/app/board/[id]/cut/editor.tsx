@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { atTime, buildCut, cutList, ffmpegScript } from "../../../../story/cut";
+import { atTime, buildCut, cutList, ffmpegScript, captionSpan } from "../../../../story/cut";
 import { fcpxml } from "../../../../story/fcpxml";
 import { needsApproval, tidy } from "../../../../story/grey";
 import { GreyRoom, GreySequence } from "./grey";
@@ -111,7 +111,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const [rendering, setRendering] = useState(false);
   /** Preview only: hide the words laid over the picture so you can watch it clean. The render still has them. */
   const [showText, setShowText] = useState(true);
-  const [rendered, setRendered] = useState<{ url: string } | { reason: string } | null>(null);
+  /** Export only: draw the captions into the picture. Off, they ship as a separate subtitle file. */
+  const [burn, setBurn] = useState(false);
+  const [rendered, setRendered] = useState<{ url: string; srt?: string } | { reason: string } | null>(null);
 
   const seek = useCallback((to: number) => {
     tRef.current = to;
@@ -308,7 +310,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
   // The timeline is drawn at a zoom (pixels per second), so every clip has a width you can see and grab.
   const [pps, setPps] = useState(36);
-  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "grey" | "sound" | "titles">("shot");
+  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "sound" | "titles">("shot");
+  /** Reshoot has two ways in: from the footage you have, or blocked out in grey first. */
+  const [reshootMode, setReshootMode] = useState<"footage" | "grey">("footage");
   const [title, setTitle] = useState({ text: "", place: "lower" as "lower" | "center" | "top", seconds: 3, busy: false, problem: "" });
   const scroller = useRef<HTMLDivElement>(null);
   const lane = useRef<HTMLDivElement>(null);
@@ -432,16 +436,22 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
             const body = await inHeader(
               { label: `Rendering ${project.name}`, href: `/board/${project.id}/cut`, result: (b) => (b?.ok && b.url ? { url: b.url } : null), failure: (b) => (b?.ok && b.url ? null : (b?.reason ?? "The render didn't finish.")) },
               async () => {
-                const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut }) }).catch(() => null);
-                return (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
+                const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut, burn }) }).catch(() => null);
+                return (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string; srt?: string } | null;
               },
             );
-            setRendered(body?.ok && body.url ? { url: body.url } : { reason: body?.reason ?? "The render didn't finish." });
+            setRendered(body?.ok && body.url ? { url: body.url, ...(body.srt ? { srt: body.srt } : {}) } : { reason: body?.reason ?? "The render didn't finish." });
             setRendering(false);
           }}
         >
           {rendering ? "Rendering…" : "Render MP4"}
         </button>
+      )}
+      {process.env.NODE_ENV !== "production" && cut.clips.some((c) => c.caption) && (
+        <label className="ed-burn" title="Off: the film is clean and the captions come as a subtitle file you can edit. On: they're drawn into the picture.">
+          <input type="checkbox" checked={burn} onChange={(e) => setBurn(e.target.checked)} />
+          Burn captions in
+        </label>
       )}
       <details className="ed-more">
         <summary>Cutdown</summary>
@@ -544,7 +554,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   ) : (
                     <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} style={here.clip.fit === "fill" ? { objectFit: "cover", objectPosition: `${(here.clip.focus?.x ?? 0.5) * 100}% ${(here.clip.focus?.y ?? 0.5) * 100}%` } : undefined} />
                   ))}
-                {here && showText && project.shots.find((x) => x.id === here.clip.shotId)?.caption && <span className="stage-caption">{project.shots.find((x) => x.id === here.clip.shotId)!.caption}</span>}
+                {here && showText && here.clip.caption && t >= captionSpan(here.clip).start && t < captionSpan(here.clip).end && <span className="stage-caption">{here.clip.caption}</span>}
                 {(project.overlays ?? []).filter((o) => t >= o.start && t < o.start + o.seconds).map((o) => <img key={o.id} className="stage-overlay" src={o.url} alt="" />)}
               </div>
             </div>
@@ -567,7 +577,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               {cut.skipped.length > 0 && <span className="transport-note">{cut.skipped.length} shot{cut.skipped.length === 1 ? "" : "s"} not shot yet</span>}
               <span className="ed-spacer" />
               {rendered && ("url" in rendered ? (
-                <span className="exports-done" role="status">Rendered. <a href={rendered.url} target="_blank" rel="noreferrer">Watch</a> · <a href={rendered.url} download>Download</a></span>
+                <span className="exports-done" role="status">Rendered. <a href={rendered.url} target="_blank" rel="noreferrer">Watch</a> · <a href={rendered.url} download>Download</a>{rendered.srt && <> · <a href={`data:text/plain;charset=utf-8,${encodeURIComponent(rendered.srt)}`} download={`${project.name}.srt`}>Captions (.srt)</a></>}</span>
               ) : (
                 <span className="library-error" role="alert">{rendered.reason}</span>
               ))}
@@ -577,7 +587,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
           <aside className="ed-side" aria-label="Shot tools">
             <div className="ed-tabs" role="tablist">
-              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["grey", "Grey"], ["sound", "Sound"], ["titles", "Titles"]] as const).map(([id2, label]) => (
+              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["sound", "Sound"], ["titles", "Titles"]] as const).map(([id2, label]) => (
                 <button key={id2} role="tab" aria-selected={tab === id2} className={tab === id2 ? "on" : ""} onClick={(e) => { setTab(id2); e.currentTarget.scrollIntoView({ block: "nearest", inline: "center" }); }}>{label}</button>
               ))}
             </div>
@@ -674,8 +684,22 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                           </label>
                         ))}
                       </div>
+                      <div className="ed-row ed-caption">
+                        <label title="Words on screen for this shot. They stay a separate layer: fix them here any time, and burn them in only when you export.">
+                          Caption
+                          <input type="text" maxLength={140} placeholder="No caption" value={shot.caption ?? ""} onChange={(e) => onShot(shot.id, (s2) => { const { caption: _c, ...rest } = s2; return e.target.value ? { ...rest, caption: e.target.value } : rest; })} />
+                        </label>
+                        {shot.caption && (["captionAt", "captionFor"] as const).map((key) => (
+                          <label key={key} title={key === "captionAt" ? "Seconds into the shot before the caption appears" : "Seconds it stays up. Blank means to the end of the shot."}>
+                            {key === "captionAt" ? "Shows at" : "Stays for"}
+                            <input type="number" min={0} step={0.1} placeholder={key === "captionAt" ? "0" : "end"} value={shot[key] ?? ""} onChange={(e) => { const v = e.target.value === "" ? null : Number(e.target.value); onShot(shot.id, (s2) => { const { [key]: _k, ...rest } = s2; return v !== null && Number.isFinite(v) && v >= 0 ? { ...rest, [key]: v } : rest; }); }} />
+                            s
+                          </label>
+                        ))}
+                      </div>
                       <div className="clip-actions">
-                        <button className="pill on" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it on the Grey tab to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
+                        <Link className="pill" href={`/board/${project.id}/grey/${shot.id}${boardId ? `?b=${boardId}` : ""}`} title="Cut out the actor, build a new set around them, place props and lights, then render a new take">Open in Grey Room</Link>
+                        <button className="pill on" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
                         <button className="pill" disabled={!(t > selected.start + 0.2 && t < selected.start + selected.seconds)} title="Cut off the start of this clip at the playhead (I)" onClick={() => apply((current) => trimHead(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim start to playhead</button>
                         <button className="pill" disabled={!(t >= selected.start + 0.2 && t < selected.start + selected.seconds - 0.05)} title="Cut off the end of this clip at the playhead (O)" onClick={() => apply((current) => trimTail(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim end to playhead</button>
                         <button className="pill" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>
@@ -704,15 +728,21 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     </>
                   )}
 
-                  {(tab === "reshoot" || tab === "voice" || tab === "tools") && needsApproval(shot) && (
+                  {(tab === "reshoot" || tab === "voice" || tab === "tools") && !(tab === "reshoot" && reshootMode === "grey") && needsApproval(shot) && (
                     <div className="gr-lock" role="status">
                       <span aria-hidden="true">🔒</span>
                       <div><b>This is a real take, locked.</b><small>Approve it and these tools can change it. What is there now is always kept as a take.</small></div>
                       <button className="pill" onClick={() => onShot(shot.id, (s2) => ({ ...s2, approved: true }))}>Approve to alter</button>
                     </div>
                   )}
-                  <fieldset className="gr-fence" disabled={(tab === "reshoot" || tab === "voice" || tab === "tools") && needsApproval(shot)}>
-                    {tab === "reshoot" && (shot.render
+                  <fieldset className="gr-fence" disabled={(tab === "reshoot" || tab === "voice" || tab === "tools") && !(tab === "reshoot" && reshootMode === "grey") && needsApproval(shot)}>
+                    {tab === "reshoot" && (
+                      <div className="rs-modes" role="group" aria-label="How to reshoot">
+                        <button className={`pill${reshootMode === "footage" ? " on" : ""}`} aria-pressed={reshootMode === "footage"} onClick={() => setReshootMode("footage")}>From the footage</button>
+                        <button className={`pill${reshootMode === "grey" ? " on" : ""}`} aria-pressed={reshootMode === "grey"} onClick={() => setReshootMode("grey")} title="Work out the camera, stand-ins and light in grey, for free, then make it real">Block out in grey</button>
+                      </div>
+                    )}
+                    {tab === "reshoot" && reshootMode === "footage" && (shot.render
                       ? <ReshootPanel key={shot.id} source={{ url: shot.render.url, kind: shot.render.kind, at: reshootFrameAt(shot), beat: shot.beat }} onKeep={(list) => list.forEach((made) => keepReshoot(shot.id, made))} />
                       : <p className="takes-note">This shot has nothing to reshoot yet.</p>)}
 
@@ -723,7 +753,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     )}
                   </fieldset>
 
-                  {tab === "grey" && (
+                  {tab === "reshoot" && reshootMode === "grey" && (
                     <GreyRoom
                       key={shot.id}
                       shot={shot}
@@ -734,7 +764,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                       onTake={(url, usd) => onShot(shot.id, (s2) => addTake(s2, { url, kind: "image", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room"))}
                     />
                   )}
-                  {tab === "grey" && (
+                  {tab === "reshoot" && reshootMode === "grey" && (
                     <GreySequence
                       shots={cut.clips.map((c) => { const sh = project.shots.find((x) => x.id === c.shotId); return { id: c.shotId, heading: c.heading, seconds: c.seconds, ...(sh?.grey ? { grey: sh.grey } : {}) }; })}
                       currentId={shot.id}

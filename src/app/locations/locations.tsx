@@ -1,5 +1,7 @@
 "use client";
 
+import { galleryEdit } from "../gallery-log";
+import { track as inHeader } from "../../activity/activity";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -13,6 +15,7 @@ import { ReturnBar } from "../return-bar";
 import { ReshootPanel } from "../reshoot-panel";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
+import { ModeTabs } from "../mode-tabs";
 
 /**
  * Locations: describe a place or start from a picture of a real one, make an
@@ -90,7 +93,7 @@ export function Locations() {
     if (!plate || !change.trim()) return;
     setBusy("change");
     setError(null);
-    const r = await runEdit({ tool: "kontext", frame: plate, prompt: `${change.trim()}. Keep the place itself, its layout and architecture the same, and keep it empty of people.`, ratio: "16:9" });
+    const r = await inHeader({ label: `Changing a place`, href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit(change.trim()) }, () => runEdit({ tool: "kontext", frame: plate, prompt: `${change.trim()}. Keep the place itself, its layout and architecture the same, and keep it empty of people.`, ratio: "16:9" }));
     setBusy(null);
     if (!r.ok) {
       if (r.needsKey) openKeys();
@@ -117,14 +120,7 @@ export function Locations() {
       <div className="canvas">
         <div className="chars">
           <ReturnBar kind="place" savedId={current?.id} savedName={current?.traits.name} />
-          <nav className="modes" aria-label="Photos">
-            <Link href="/photos">Make</Link>
-            {surfaceAvailable("Edit") && <Link href="/edit">Edit a photo</Link>}
-            <Link href="/characters">Characters</Link>
-            <Link href="/locations" aria-current="page">Locations</Link>
-            <Link href="/accessories">Accessories</Link>
-            <Link href="/comic">Comic strip</Link>
-          </nav>
+          <ModeTabs group="Photos" current="/locations" canEdit={surfaceAvailable("Edit")} />
 
           {saved.length > 0 && (
             <div className="chars-shelf" aria-label="Your locations">

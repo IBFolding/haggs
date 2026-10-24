@@ -42,7 +42,7 @@ function negativeNodes(prompt: ApiPrompt): Set<string> {
   for (const node of Object.values(prompt)) for (const [k, v] of Object.entries(node.inputs)) if (/negative/i.test(k) && Array.isArray(v) && typeof v[0] === "string") walk(v[0]);
   return seen;
 }
-const SAVERS: Record<string, App["produces"]> = { SaveImage: "image", SaveImageAdvanced: "image", SaveVideo: "video", VHS_VideoCombine: "video", SaveAnimatedWEBP: "image", SaveAudio: "audio", SaveAudioMP3: "audio", SaveAudioOpus: "audio", SaveGLB: "3d", Save3D: "3d", SaveText: "text", PreviewAny: "text" };
+const SAVERS: Record<string, App["produces"]> = { SaveImage: "image", SaveImageAdvanced: "image", SaveVideo: "video", SaveWEBM: "video", VHS_VideoCombine: "video", SaveAnimatedWEBP: "image", SaveAudio: "audio", SaveAudioMP3: "audio", SaveAudioOpus: "audio", SaveGLB: "3d", Save3D: "3d", SaveText: "text", PreviewAny: "text" };
 
 const pretty = (s: string) => s.replace(/^model\./, "").replace(/_/g, " ").replace(/\b\w/, (c) => c.toUpperCase());
 

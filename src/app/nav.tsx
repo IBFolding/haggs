@@ -8,7 +8,9 @@ import { useEffect, useState } from "react";
 import { keysHeld } from "./actions";
 import { useSession } from "./session";
 import { KeySheet } from "./key-sheet";
+import { ActivityMenu } from "./activity-menu";
 import { CloudSync } from "./cloud-sync";
+import { RunSync } from "./run-sync";
 import { TOUR_EVENT, Tour } from "./tour";
 
 /**
@@ -73,6 +75,7 @@ export function Nav({ current }: { current: Place }) {
           ))}
         </div>
         <span className="nav-right">
+          <ActivityMenu />
           <button className="nav-ask" onClick={() => openProducer()} data-tour="ask">Ask Haggy</button>
           <button className="key-state" onClick={() => setOpen(true)} title="Provider keys" data-tour="keys">
             <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />
@@ -92,6 +95,7 @@ export function Nav({ current }: { current: Place }) {
       <Producer />
       <Tour />
       <CloudSync />
+      <RunSync />
     </>
   );
 }
