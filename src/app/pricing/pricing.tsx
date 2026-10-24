@@ -56,7 +56,7 @@ export function Pricing({ plans, credits }: { plans: Shown[]; credits: boolean }
                 <article key={p.id} className={`pr-plan${current === p.id ? " on" : ""}`}>
                   <h2>{p.name}</h2>
                   <p className="pr-price"><b>${p.monthly}</b> a month</p>
-                  <p className="pr-credits">{p.credits ? `Room for about ${capacity(p.credits).clips} clips or ${capacity(p.credits).pictures} pictures a month` : "Your own key or GPU, at Comfy's prices"}</p>
+                  <p className="pr-credits">{p.id === "byok" ? "Your own key or GPU, at Comfy's prices" : p.credits && credits ? `Room for about ${capacity(p.credits).clips} clips or ${capacity(p.credits).pictures} pictures a month` : "Generation included"}</p>
                   <p className="pr-blurb">{p.blurb}</p>
                   {current === p.id ? (
                     <span className="pr-current">Your plan</span>
