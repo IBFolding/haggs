@@ -38,8 +38,13 @@ export type Entry = {
 
 const dirOf = (root: string) => join(root, ".haggs", "comfy");
 
+/** Warm copies kept in memory, so a host with a read-only disk still fetches each file once an hour of use, not on every request. */
+const warm = new Map<string, { at: number; value: unknown }>();
+
 async function cached<T>(root: string, file: string, ttl: number, fetcher: () => Promise<T>): Promise<T> {
   const path = join(dirOf(root), file);
+  const held = warm.get(path);
+  if (held && Date.now() - held.at < ttl) return held.value as T;
   try {
     const raw = JSON.parse(await readFile(path, "utf8")) as { at: number; value: T };
     if (Date.now() - raw.at < ttl) return raw.value;
@@ -48,8 +53,14 @@ async function cached<T>(root: string, file: string, ttl: number, fetcher: () =>
   }
   try {
     const value = await fetcher();
-    await mkdir(join(dirOf(root), "templates"), { recursive: true });
-    await writeFile(path, JSON.stringify({ at: Date.now(), value }));
+    warm.set(path, { at: Date.now(), value });
+    // Keeping a copy on disk is a convenience. A read-only disk must not make a good answer fail.
+    try {
+      await mkdir(join(dirOf(root), "templates"), { recursive: true });
+      await writeFile(path, JSON.stringify({ at: Date.now(), value }));
+    } catch {
+      // Hosted functions can't write here; the memory copy above still serves.
+    }
     return value;
   } catch (caught) {
     // Offline or refused: an old copy is better than nothing.
@@ -59,6 +70,32 @@ async function cached<T>(root: string, file: string, ttl: number, fetcher: () =>
       throw caught;
     }
   }
+}
+
+/** Keeps a computed answer in memory and, where the disk allows, on disk too. */
+async function keepAnswer<T>(root: string, file: string, value: T): Promise<void> {
+  const at = Date.now();
+  warm.set(join(dirOf(root), file), { at, value });
+  try {
+    await mkdir(dirOf(root), { recursive: true });
+    await writeFile(join(dirOf(root), file), JSON.stringify({ at, value }));
+  } catch {
+    // A read-only disk is fine; the memory copy serves.
+  }
+}
+
+/** The answer kept by keepAnswer, from memory or disk, while it is still fresh. */
+async function recallAnswer<T>(root: string, file: string): Promise<T | null> {
+  const path = join(dirOf(root), file);
+  const held = warm.get(path);
+  if (held && Date.now() - held.at < DAY) return held.value as T;
+  try {
+    const raw = JSON.parse(await readFile(path, "utf8")) as { at: number; value: T };
+    if (Date.now() - raw.at < DAY) return raw.value;
+  } catch {
+    // Not kept yet.
+  }
+  return null;
 }
 
 async function getJson(url: string, headers: Record<string, string> = {}) {
@@ -122,12 +159,8 @@ export async function openTemplate(root: string, apiKey: string, name: string): 
  */
 let checking: Promise<void> | null = null;
 export async function checked(root: string, apiKey: string): Promise<Record<string, string | true> | null> {
-  try {
-    const raw = JSON.parse(await readFile(join(dirOf(root), "runnable.json"), "utf8")) as { at: number; value: Record<string, string | true> };
-    if (Date.now() - raw.at < DAY) return raw.value;
-  } catch {
-    // Not checked yet.
-  }
+  const known = await recallAnswer<Record<string, string | true>>(root, "runnable.json");
+  if (known) return known;
   checking ??= (async () => {
     const [index, catalog] = await Promise.all([indexOf(root), catalogOf(root, apiKey)]);
     const out: Record<string, string | true> = {};
@@ -144,7 +177,7 @@ export async function checked(root: string, apiKey: string): Promise<Record<stri
         }
       }),
     );
-    await writeFile(join(dirOf(root), "runnable.json"), JSON.stringify({ at: Date.now(), value: out }));
+    await keepAnswer(root, "runnable.json", out);
   })().finally(() => {
     checking = null;
   });
@@ -157,12 +190,8 @@ export async function checked(root: string, apiKey: string): Promise<Record<stri
  */
 let opening: Promise<void> | null = null;
 export async function opens(root: string, apiKey: string): Promise<Record<string, boolean> | null> {
-  try {
-    const raw = JSON.parse(await readFile(join(dirOf(root), "open.json"), "utf8")) as { at: number; value: Record<string, boolean> };
-    if (Date.now() - raw.at < DAY) return raw.value;
-  } catch {
-    // Not computed yet.
-  }
+  const known = await recallAnswer<Record<string, boolean>>(root, "open.json");
+  if (known) return known;
   opening ??= (async () => {
     const [index, catalog] = await Promise.all([indexOf(root), catalogOf(root, apiKey)]);
     const out: Record<string, boolean> = {};
@@ -178,7 +207,7 @@ export async function opens(root: string, apiKey: string): Promise<Record<string
         }
       }),
     );
-    await writeFile(join(dirOf(root), "open.json"), JSON.stringify({ at: Date.now(), value: out }));
+    await keepAnswer(root, "open.json", out);
   })().finally(() => {
     opening = null;
   });
