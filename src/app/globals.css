@@ -2765,3 +2765,10 @@ html, body { overflow-x: clip; }
 /* The three popovers (Cutdown, Versions, Export) open as one sheet under the header, so they are never clipped by a short window. */
 .ed-more > div { position: fixed; left: 50%; top: 84px; right: auto; bottom: auto; transform: translateX(-50%); z-index: 40; max-height: calc(100vh - 110px); }
 @media (max-width: 860px) { .ed-more > div { top: 64px; } }
+
+/* Editor side tabs: seven fit across the panel; if the panel is narrower they scroll, and the chosen one scrolls into view. */
+.ed-tabs { overflow-x: auto; scrollbar-width: none; gap: 0; padding: 8px 6px 0; } .ed-tabs::-webkit-scrollbar { display: none; }
+.ed-tabs button { flex: 1 0 auto; padding: 9px 9px; font-size: 12.5px; white-space: nowrap; }
+.ed-tabs button:focus-visible { outline-offset: -3px; }
+.tracks textarea, .ed-side textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-hot); background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; resize: vertical; }
+.ed-side textarea:focus-visible { outline: none; border-color: var(--volt); box-shadow: 0 0 0 3px var(--volt-soft); }

@@ -578,7 +578,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
           <aside className="ed-side" aria-label="Shot tools">
             <div className="ed-tabs" role="tablist">
               {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["grey", "Grey"], ["sound", "Sound"], ["titles", "Titles"]] as const).map(([id2, label]) => (
-                <button key={id2} role="tab" aria-selected={tab === id2} className={tab === id2 ? "on" : ""} onClick={() => setTab(id2)}>{label}</button>
+                <button key={id2} role="tab" aria-selected={tab === id2} className={tab === id2 ? "on" : ""} onClick={(e) => { setTab(id2); e.currentTarget.scrollIntoView({ block: "nearest", inline: "center" }); }}>{label}</button>
               ))}
             </div>
             <div className="ed-side-body">
