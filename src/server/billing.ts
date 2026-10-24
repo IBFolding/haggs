@@ -6,25 +6,35 @@
  */
 
 /**
- * A credit is one cent of generation at Comfy's list price. A plan's credits
- * are what it includes each month, at cost; the cut is the plan's price. They
- * do not roll over. Top-up packs are sold at 1.5 times cost and do not expire.
+ * A credit is one cent of generation at Comfy's list price. Of every paid plan
+ * and pack, we keep a share (HAGGS_PLATFORM_CUT, a percentage set in the
+ * deployment's environment, not in the code) and the rest is the customer's,
+ * as generation credits that also cover their storage. The Platform plan
+ * includes none: it pays for the studio itself. Credits don't roll over; pack
+ * credits don't expire. The split is never shown to customers: they see what
+ * they can make. With no cut configured, paid plans include no credits.
  */
+function customerShare(): number {
+  const cut = Number(process.env.HAGGS_PLATFORM_CUT);
+  return Number.isFinite(cut) && cut > 0 && cut < 100 ? 1 - cut / 100 : 0;
+}
+/** What a price turns into in credits: the customer's share, in cents, rounded down. */
+export const creditsForPrice = (usd: number) => Math.floor(usd * 100 * customerShare() + 1e-9);
 export type Plan = { id: "byok" | "starter" | "mid" | "pro"; name: string; monthly: number; credits: number; priceEnv: string; blurb: string };
 
 export const PLANS: Plan[] = [
   { id: "byok", name: "Platform", monthly: 15, credits: 0, priceEnv: "STRIPE_PRICE_BYOK", blurb: "The whole studio, unlocked. Generation runs on your own Comfy key or your own GPU, at Comfy's price." },
-  { id: "starter", name: "Creator", monthly: 39, credits: 1500, priceEnv: "STRIPE_PRICE_STARTER", blurb: "Everything, plus $15 of generation a month. About 28 clips or 200 pictures." },
-  { id: "mid", name: "Studio", monthly: 69, credits: 2800, priceEnv: "STRIPE_PRICE_MID", blurb: "Plus $28 a month. A series' worth of boards." },
-  { id: "pro", name: "Production", monthly: 99, credits: 4500, priceEnv: "STRIPE_PRICE_PRO", blurb: "Plus $45 a month, for work every week." },
+  { id: "starter", name: "Creator", monthly: 39, get credits() { return creditsForPrice(39); }, priceEnv: "STRIPE_PRICE_STARTER", blurb: "The whole studio, with generation included. For a first short, a comic or a series." },
+  { id: "mid", name: "Studio", monthly: 69, get credits() { return creditsForPrice(69); }, priceEnv: "STRIPE_PRICE_MID", blurb: "More generation every month: a whole series' worth of boards." },
+  { id: "pro", name: "Production", monthly: 99, get credits() { return creditsForPrice(99); }, priceEnv: "STRIPE_PRICE_PRO", blurb: "The most generation, for work every week." },
 ];
 
 export type Topup = { id: "t10" | "t25" | "t50"; usd: number; credits: number; priceEnv: string };
-/** Packs of generation, sold at 1.5 times what it costs. */
+/** Packs of generation. */
 export const TOPUPS: Topup[] = [
-  { id: "t10", usd: 10, credits: 667, priceEnv: "STRIPE_PRICE_TOPUP_10" },
-  { id: "t25", usd: 25, credits: 1667, priceEnv: "STRIPE_PRICE_TOPUP_25" },
-  { id: "t50", usd: 50, credits: 3333, priceEnv: "STRIPE_PRICE_TOPUP_50" },
+  { id: "t10", usd: 10, get credits() { return creditsForPrice(10); }, priceEnv: "STRIPE_PRICE_TOPUP_10" },
+  { id: "t25", usd: 25, get credits() { return creditsForPrice(25); }, priceEnv: "STRIPE_PRICE_TOPUP_25" },
+  { id: "t50", usd: 50, get credits() { return creditsForPrice(50); }, priceEnv: "STRIPE_PRICE_TOPUP_50" },
 ];
 
 /** What a run is worth in credits: its Comfy price in cents, rounded up so a run is never undercharged. */
@@ -142,4 +152,9 @@ export function changeFor(event: { id: string; type: string; data: { object: Rec
     return { user: o.metadata.haggs_user, bucket: "topup", cents: pack.credits, ref: o.id ?? event.id, kind: "topup" };
   }
   return null;
+}
+
+/** What credits buy, in things people make: the outputs, not the dollars. Priced at Comfy's list: a 4-second clip about 52 cents, a picture about 7. */
+export function capacity(credits: number): { clips: number; pictures: number } {
+  return { clips: Math.floor(credits / 52 / 5) * 5, pictures: Math.floor(credits / 7 / 10) * 10 };
 }

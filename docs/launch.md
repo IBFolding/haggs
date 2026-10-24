@@ -45,5 +45,6 @@ In Stripe create recurring prices for the four plans (Platform $15, Creator $39,
 | `HAGGS_WEBHOOK_SECRET` | the string you stored in `app_secrets` |
 | `COMFY_PLATFORM_KEY` | the platform's own Comfy API key |
 | `HAGGS_PLATFORM_KEYS=1` | people on a plan run on that key, paid for in credits |
+| `HAGGS_PLATFORM_CUT` | the percentage you keep of each paid plan and pack (private; leave it out of the repo) |
 
-A credit is one cent of generation at Comfy's list price. Plans include 0 / $15 / $28 / $45 a month (no rollover); packs are sold at 1.5 times cost. Before charging anyone, top up the Comfy account behind `COMFY_PLATFORM_KEY` and watch its balance against the credits sold.
+A credit is one cent of generation at Comfy's list price. Set `HAGGS_PLATFORM_CUT` (a percentage, in Vercel only, not in the repo) to the share you keep of every paid plan and pack; the rest becomes the customer's credits, which also cover their storage. Leave it unset and paid plans include no credits. Customers are shown what their plan lets them make, never the split. Before charging anyone, top up the Comfy account behind `COMFY_PLATFORM_KEY` and watch its balance against the credits sold.

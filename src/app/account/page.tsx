@@ -66,7 +66,7 @@ export default function Account() {
             </section>
           )}
           {topups.length > 0 && plan?.plan && (
-            <div className="au-row">{topups.map((t) => <button key={t.id} className="pill" onClick={() => void topUp(t.id)}>Add ${t.usd} of generation</button>)}</div>
+            <div className="au-row">{topups.map((t) => <button key={t.id} className="pill" onClick={() => void topUp(t.id)}>Add a ${t.usd} pack</button>)}</div>
           )}
           <div className="au-row">
             {plan?.plan ? <button className="fire" onClick={() => void manage()}>Manage subscription</button> : <Link className="fire" href="/pricing">See plans</Link>}

@@ -22,7 +22,7 @@ function fakeStripe(subs: { price: string; status: string; end: number }[] = [])
 }
 
 test("the four v1 plans are offered, and only the ones with a price are configured", () => {
-  assert.deepEqual(PLANS.map((p) => [p.id, p.monthly, p.credits]), [["byok", 15, 0], ["starter", 39, 1500], ["mid", 69, 2800], ["pro", 99, 4500]]);
+  assert.deepEqual(PLANS.map((p) => [p.id, p.monthly, p.credits]), [["byok", 15, 0], ["starter", 39, 2925], ["mid", 69, 5175], ["pro", 99, 7425]]);
   assert.deepEqual(configured(env).map((p) => p.id), ["byok", "starter", "mid", "pro"]);
   assert.deepEqual(configured({ ...env, STRIPE_API_KEY: "" }), [], "no Stripe key, no checkout");
   assert.deepEqual(configured({ ...env, STRIPE_PRICE_MID: "" }).map((p) => p.id), ["byok", "starter", "pro"]);
@@ -56,20 +56,20 @@ test("the billing portal opens for an existing customer only", async () => {
   await assert.rejects(portal(fakeStripe().stripe, env, user, "http://x"), /no subscription/);
 });
 
-import { TOPUPS, changeFor, creditsFor } from "./billing";
+import { TOPUPS, capacity, changeFor, creditsFor } from "./billing";
 
-test("every plan and pack keeps its margin after card fees, even when all the credits are used", () => {
-  const fee = (usd: number) => usd * 0.029 + 0.3;
-  for (const p of PLANS.filter((x) => x.credits)) {
-    const kept = p.monthly - p.credits / 100 - fee(p.monthly);
-    assert.ok(kept / p.monthly >= 0.5, `${p.id} keeps ${(kept / p.monthly * 100).toFixed(0)}%`);
-  }
-  for (const t of TOPUPS) {
-    const kept = t.usd - t.credits / 100 - fee(t.usd);
-    assert.ok(kept / t.usd >= 0.25, `${t.id} keeps ${(kept / t.usd * 100).toFixed(0)}%`);
-  }
-  const platform = PLANS.find((p) => p.id === "byok")!;
-  assert.equal(platform.credits, 0, "the platform plan includes no generation");
+process.env.HAGGS_PLATFORM_CUT = "25"; // a test value, not the real cut
+
+test("the share we keep comes from the environment; the rest of every paid plan and pack is the customer's, and the platform plan includes nothing", () => {
+  for (const p of PLANS.filter((x) => x.credits)) assert.equal(p.credits, Math.floor(p.monthly * 100 * 0.75), p.id);
+  for (const t of TOPUPS) assert.equal(t.credits, Math.floor(t.usd * 100 * 0.75), t.id);
+  assert.equal(PLANS.find((p) => p.id === "byok")!.credits, 0);
+});
+
+test("customers see what credits make, never what they cost or what we keep", () => {
+  const { clips, pictures } = capacity(2925);
+  assert.deepEqual([clips, pictures], [55, 410]);
+  for (const p of PLANS) assert.doesNotMatch(p.blurb, /\$\d|%|credit|margin/i, `${p.id}: the blurb shows no figures`);
 });
 
 test("a run is worth its price in cents, rounded up", () => {
@@ -82,10 +82,19 @@ test("a run is worth its price in cents, rounded up", () => {
 test("a paid invoice resets the person's monthly credits; a paid top-up adds a pack; nothing else does", () => {
   const env = { STRIPE_API_KEY: "k", STRIPE_PRICE_STARTER: "price_s" };
   const renewal = changeFor({ id: "evt1", type: "invoice.paid", data: { object: { id: "in_1", lines: { data: [{ price: { id: "price_s" } }] }, subscription_details: { metadata: { haggs_user: "u1", haggs_plan: "starter" } } } } }, env);
-  assert.deepEqual(renewal, { user: "u1", bucket: "plan", cents: 1500, ref: "in_1", kind: "renewal" });
+  assert.deepEqual(renewal, { user: "u1", bucket: "plan", cents: 2925, ref: "in_1", kind: "renewal" });
   const topup = changeFor({ id: "evt2", type: "checkout.session.completed", data: { object: { id: "cs_1", payment_status: "paid", metadata: { haggs_user: "u1", haggs_topup: "t25" } } } }, env);
-  assert.deepEqual(topup, { user: "u1", bucket: "topup", cents: 1667, ref: "cs_1", kind: "topup" });
+  assert.deepEqual(topup, { user: "u1", bucket: "topup", cents: 1875, ref: "cs_1", kind: "topup" });
   assert.equal(changeFor({ id: "e3", type: "checkout.session.completed", data: { object: { id: "cs_2", payment_status: "unpaid", metadata: { haggs_user: "u1", haggs_topup: "t25" } } } }, env), null);
   assert.equal(changeFor({ id: "e4", type: "customer.created", data: { object: {} } }, env), null);
   assert.equal(changeFor({ id: "e5", type: "invoice.paid", data: { object: { id: "in_2", subscription_details: { metadata: {} } } } }, env), null);
+});
+
+test("with no cut configured, paid plans include no credits rather than guessing", () => {
+  const was = process.env.HAGGS_PLATFORM_CUT;
+  delete process.env.HAGGS_PLATFORM_CUT;
+  assert.deepEqual(PLANS.map((p) => p.credits), [0, 0, 0, 0]);
+  process.env.HAGGS_PLATFORM_CUT = "150";
+  assert.equal(PLANS[1]!.credits, 0, "a nonsense cut is ignored");
+  process.env.HAGGS_PLATFORM_CUT = was ?? "25";
 });
