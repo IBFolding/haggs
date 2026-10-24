@@ -1,4 +1,5 @@
 import type { Kv } from "./kv";
+import { localLinks, withLinks } from "./portable";
 import type { Project } from "./model";
 import type { ProjectStore } from "./store";
 
@@ -43,21 +44,59 @@ export function plan(local: Stamp[], remote: Stamp[], known: string[]): Plan {
 const KNOWN = "sync/known";
 const MAX_BYTES = 4 * 1024 * 1024;
 
+/**
+ * Copies a file on this machine to the account's file store. It answers with the cloud address,
+ * "never" when that file can't ever be kept (missing, wrong kind), or null to try again later.
+ */
+export type Portable = { keep(url: string): Promise<string | "never" | null>; perRound?: number };
+
+const FILES = "sync/files";
+const PENDING = "sync/pending";
+const COPYING = "sync/copying";
+
 export type Report = { pushed: number; pulled: number; removed: number; skipped: string[] };
 
-export async function syncProjects(kv: Kv, store: ProjectStore, remote: Remote): Promise<Report> {
+export async function syncProjects(kv: Kv, store: ProjectStore, remote: Remote, portable?: Portable): Promise<Report> {
   const known = (await kv.get<string[]>(KNOWN)) ?? [];
   const local = (await store.list()).map(({ id, updatedAt }) => ({ id, updatedAt }));
   const todo = plan(local, await remote.list(), known);
   const report: Report = { pushed: 0, pulled: 0, removed: 0, skipped: [] };
 
-  for (const id of todo.push) {
+  // Projects whose files were only partly copied last time are sent again until they are whole.
+  const stillHere = new Set(local.map((x) => x.id));
+  // The first time files are copied, everything already in the account is sent once more, since it went up without them.
+  const started = portable ? await kv.get<boolean>(COPYING) : true;
+  if (portable && !started) await kv.set(COPYING, true);
+  const pending = (started ? ((await kv.get<string[]>(PENDING)) ?? []) : [...stillHere]).filter((id) => stillHere.has(id));
+  const toPush = [...new Set([...todo.push, ...(portable ? pending : [])])];
+  const files = (await kv.get<Record<string, string>>(FILES)) ?? {};
+  let budget = portable?.perRound ?? 20;
+  const unfinished = new Set<string>();
+
+  for (const id of toPush) {
     const project = await store.load(id);
     if (!project) continue;
-    const sheets = (await kv.get<string>(`sheets/${id}`)) ?? null;
-    if (JSON.stringify(project).length + (sheets?.length ?? 0) > MAX_BYTES) { report.skipped.push(project.name); continue; }
-    await remote.put(project, sheets);
+    let sheets = (await kv.get<string>(`sheets/${id}`)) ?? null;
+    let sent: Project = project;
+    if (portable) {
+      for (const url of localLinks([project, sheets])) {
+        if (files[url] || budget <= 0) continue;
+        budget -= 1;
+        const kept = await portable.keep(url).catch(() => null);
+        if (kept) files[url] = kept;
+      }
+      const cloud = Object.fromEntries(Object.entries(files).filter(([, v]) => v !== "never"));
+      sent = withLinks(project, cloud);
+      sheets = sheets === null ? null : withLinks(sheets, cloud);
+      if (localLinks([project, sheets]).some((url) => !files[url])) unfinished.add(id);
+    }
+    if (JSON.stringify(sent).length + (sheets?.length ?? 0) > MAX_BYTES) { report.skipped.push(project.name); continue; }
+    await remote.put(sent, sheets);
     report.pushed += 1;
+  }
+  if (portable) {
+    await kv.set(FILES, files);
+    await kv.set(PENDING, [...unfinished]);
   }
   for (const id of todo.pull) {
     const got = await remote.get(id);

@@ -2,10 +2,11 @@
 
 import { useEffect } from "react";
 
-import { syncProjects, type Remote } from "../story/cloud-sync";
+import { syncProjects, type Portable, type Remote } from "../story/cloud-sync";
 import { defaultKv } from "../story/kv";
 import type { Project } from "../story/model";
 import { createProjectStore } from "../story/store";
+import { keepInLibrary } from "./library-actions";
 import { supabase, useSession } from "./session";
 
 /** Keeps this browser's projects and the account's in step while someone is signed in. Renders nothing. */
@@ -37,12 +38,16 @@ export function CloudSync() {
         if (error) throw error;
       },
     };
+    // On your own computer, the files a project points at are copied to your account so the live site can show them. The live site has no such files to copy.
+    const portable: Portable | undefined = process.env.NEXT_PUBLIC_HOSTED
+      ? undefined
+      : { keep: async (url) => { const r = await keepInLibrary(url); return r.ok ? r.url : r.final ? "never" : null; } };
     let busy = false;
     const run = () => {
       if (busy || document.visibilityState === "hidden") return;
       busy = true;
       // A table that isn't there yet, or no network, just means no sync this time.
-      void syncProjects(kv, store, remote).catch(() => undefined).finally(() => { busy = false; });
+      void syncProjects(kv, store, remote, portable).catch(() => undefined).finally(() => { busy = false; });
     };
     run();
     const timer = setInterval(run, 45_000);

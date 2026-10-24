@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { plan, syncProjects, type Remote } from "./cloud-sync";
+import { plan, syncProjects, type Portable, type Remote } from "./cloud-sync";
 import { memoryKv } from "./kv";
 import { createProject, type Project } from "./model";
 import { createProjectStore } from "./store";
@@ -74,4 +74,67 @@ test("a project too big for the account is skipped and reported, not lost", asyn
   assert.deepEqual(r.skipped, ["Huge"]);
   assert.equal(rows.size, 0);
   assert.equal((await s.list()).length, 1);
+});
+
+function projectWithFiles(name: string, files: string[]): Project {
+  return { ...createProject(name), shots: files.map((f, i) => ({ id: `s${i}`, picture: f })) } as unknown as Project;
+}
+
+test("files on this machine go to the account and the account copy points at them; the local copy is left alone", async () => {
+  const { rows, remote } = fakeRemote();
+  const kv = memoryKv();
+  const s = createProjectStore(kv);
+  const p = projectWithFiles("Waylight", ["/api/local/a.png", "/api/local/b.mp4"]);
+  await s.save(p);
+  await kv.set(`sheets/${p.id}`, JSON.stringify({ look: "/api/local/a.png" }));
+  const kept: string[] = [];
+  const portable: Portable = { keep: async (url) => (kept.push(url), `https://store.test/${url.split("/").pop()}`) };
+  await syncProjects(kv, s, remote, portable);
+  const sent = JSON.stringify(rows.get(p.id)!.project);
+  assert.ok(sent.includes("https://store.test/a.png") && sent.includes("https://store.test/b.mp4") && !sent.includes("/api/local/"));
+  assert.equal(rows.get(p.id)!.sheets, JSON.stringify({ look: "https://store.test/a.png" }));
+  assert.ok(JSON.stringify(await s.load(p.id)).includes("/api/local/a.png"), "this machine still plays its own files");
+  await syncProjects(kv, s, remote, portable);
+  assert.deepEqual(kept.sort(), ["/api/local/a.png", "/api/local/b.mp4"], "each file is uploaded once");
+});
+
+test("a big project finishes over several rounds, and what is not copied yet is re-sent until it is", async () => {
+  const { rows, remote } = fakeRemote();
+  const kv = memoryKv();
+  const s = createProjectStore(kv);
+  const p = projectWithFiles("Big", ["/api/local/1.png", "/api/local/2.png", "/api/local/3.png"]);
+  await s.save(p);
+  const portable: Portable = { perRound: 2, keep: async (url) => `https://store.test/${url.split("/").pop()}` };
+  await syncProjects(kv, s, remote, portable);
+  assert.equal(JSON.stringify(rows.get(p.id)!.project).match(/\/api\/local\//g)?.length, 1, "one file still to go");
+  await syncProjects(kv, s, remote, portable);
+  assert.ok(!JSON.stringify(rows.get(p.id)!.project).includes("/api/local/"), "finished on the next round");
+});
+
+test("a file that can never be kept is left as it is and does not hold the project back for ever", async () => {
+  const { rows, remote } = fakeRemote();
+  const kv = memoryKv();
+  const s = createProjectStore(kv);
+  const p = projectWithFiles("Odd", ["/api/local/ok.png", "/api/local/missing.png"]);
+  await s.save(p);
+  const portable: Portable = { keep: async (url) => (url.includes("missing") ? "never" : "https://store.test/ok.png") };
+  await syncProjects(kv, s, remote, portable);
+  const again = await syncProjects(kv, s, remote, portable);
+  assert.equal(again.pushed, 0, "nothing keeps being re-sent");
+  assert.ok(JSON.stringify(rows.get(p.id)!.project).includes("/api/local/missing.png"));
+});
+
+test("a project already in the account without its files is sent once more when file copying first starts", async () => {
+  const { rows, remote } = fakeRemote();
+  const kv = memoryKv();
+  const s = createProjectStore(kv);
+  const p = projectWithFiles("Earlier", ["/api/local/a.png"]);
+  await s.save(p);
+  await syncProjects(kv, s, remote);
+  assert.ok(JSON.stringify(rows.get(p.id)!.project).includes("/api/local/a.png"), "sent without files, as before");
+  const portable: Portable = { keep: async () => "https://store.test/a.png" };
+  await syncProjects(kv, s, remote, portable);
+  assert.ok(JSON.stringify(rows.get(p.id)!.project).includes("https://store.test/a.png"));
+  const again = await syncProjects(kv, s, remote, portable);
+  assert.equal(again.pushed, 0, "only the one time");
 });
