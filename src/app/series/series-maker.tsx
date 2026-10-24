@@ -18,6 +18,7 @@ import { BuildLink } from "../return-bar";
 import { readPick } from "../../story/handoff";
 import { draftSeries, makeStill } from "../series-actions";
 import { ModeTabs } from "../mode-tabs";
+import { galleryRun, galleryStill } from "../gallery-log";
 
 /**
  * Series: a topic becomes a run of short vertical videos, and you watch it
@@ -126,6 +127,7 @@ export function SeriesMaker() {
     const key = `${e}.${s}`;
     setMaking(key);
     const r = await makeStill(pictureWords(sh.picture, words), "9:16", seriesRefs());
+    galleryStill(sh.picture, "Series picture")(r);
     setMaking(null);
     if (!r.ok) {
       if (r.needsKey) openKeys();
@@ -145,6 +147,7 @@ export function SeriesMaker() {
     if (!still) return false;
     setMaking(`clip:${key}`);
     const r = await runModel("minimax/minimax-h3", `${sh.picture}. Gentle camera move, natural motion, the moment plays out.`, { resolution: "768P", ratio: "9:16", duration: Math.max(4, Math.round(sh.seconds)) }, [still], true);
+    galleryRun(sh.picture, "minimax/minimax-h3", "Series clip")(r);
     setMaking(null);
     const first = r.ok ? r.shots[0] : undefined;
     if (!r.ok || !first) {

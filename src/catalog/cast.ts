@@ -18,7 +18,7 @@ export function castWords(prompt: string, { characterLock, placeLock, outfit = [
 }
 
 /** The sheets to send as references. A picture you attached is the opening frame, so then only words are used; and never more than the model takes. */
-export function castReferences({ attached, character, place, max }: { attached: string[]; character: string | null; place: string | null; max: number }): string[] {
+export function castReferences({ attached, character, place, accessories = [], max }: { attached: string[]; character: string | null; place: string | null; accessories?: string[]; max: number }): string[] {
   if (attached.length || max <= 0) return [];
-  return [character, place].filter((x): x is string => Boolean(x)).slice(0, max);
+  return [character, place, ...accessories].filter((x): x is string => Boolean(x)).slice(0, max);
 }

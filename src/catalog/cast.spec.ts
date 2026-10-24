@@ -24,6 +24,13 @@ test("pictures of your cast go in as references only when you haven't attached a
   assert.deepEqual(castReferences({ attached: [], character: "/c.png", place: null, max: 0 }), []);
 });
 
+test("pictures of accessories follow the character and place, within what the model takes", () => {
+  assert.deepEqual(castReferences({ attached: [], character: "/c.png", place: "/p.png", accessories: ["/a.png", "/b.png"], max: 4 }), ["/c.png", "/p.png", "/a.png", "/b.png"]);
+  assert.deepEqual(castReferences({ attached: [], character: "/c.png", place: "/p.png", accessories: ["/a.png"], max: 2 }), ["/c.png", "/p.png"]);
+  assert.deepEqual(castReferences({ attached: [], character: null, place: null, accessories: ["/a.png"], max: 4 }), ["/a.png"]);
+  assert.deepEqual(castReferences({ attached: ["/mine.png"], character: null, place: null, accessories: ["/a.png"], max: 4 }), []);
+});
+
 test("there are accessories and clothes to start from", () => {
   assert.ok(OUTFIT_IDEAS.length >= 10);
 });

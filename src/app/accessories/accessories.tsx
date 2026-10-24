@@ -11,6 +11,7 @@ import { makeStill } from "../series-actions";
 import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
 import { ModeTabs } from "../mode-tabs";
+import { galleryStill } from "../gallery-log";
 
 const FINISH = "Product photograph of the single item on a plain light grey background, soft studio light, no person, no text, no watermark.";
 const PRICE = 0.07;
@@ -36,6 +37,7 @@ export function Accessories() {
     setBusy("Drawing it…");
     setProblem(null);
     const r = await makeStill(`${words.trim() || name.trim()}. ${FINISH}`, "16:9", [], "");
+    galleryStill(words.trim() || name.trim(), "Accessory")(r);
     setBusy(null);
     if (!r.ok) { if (r.needsKey) openKeys(); return setProblem(r.reason); }
     setPicture(r.url);
@@ -69,8 +71,8 @@ export function Accessories() {
       <Nav current="Photos" />
       <div className="canvas">
         <div className="swap">
-          <ReturnBar kind="accessory" savedId={saved?.id} savedName={saved?.name} />
           <ModeTabs group="Photos" current="/accessories" canEdit={surfaceAvailable("Edit")} />
+          <ReturnBar kind="accessory" savedId={saved?.id} savedName={saved?.name} />
           <header className="swap-head">
             <h1>Accessories</h1>
             <p>A scarf, glasses, a jacket, a camera. Describe it once, add a picture, and put it on anyone, in any shot, from anywhere in haggs.</p>

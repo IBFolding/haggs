@@ -2935,3 +2935,6 @@ html, body { overflow-x: clip; }
   .gs-pickwrap .cp { max-height: 46vh; width: min(100%, calc(46vh * var(--ar))); }
   .gs-nav { position: sticky; bottom: 0; margin: 0 -16px; padding: 10px 16px; background: linear-gradient(to top, var(--surface) 70%, transparent); z-index: 3; }
 }
+
+/* The Photos and Video tab strip sits at the same height on every page: the page's own top padding goes when the tabs open it. */
+.swap:has(> .modes:first-child), .chars:has(> .modes:first-child) { padding-top: 0; }

@@ -119,8 +119,8 @@ export function Locations() {
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
       <div className="canvas">
         <div className="chars">
-          <ReturnBar kind="place" savedId={current?.id} savedName={current?.traits.name} />
           <ModeTabs group="Photos" current="/locations" canEdit={surfaceAvailable("Edit")} />
+          <ReturnBar kind="place" savedId={current?.id} savedName={current?.traits.name} />
 
           {saved.length > 0 && (
             <div className="chars-shelf" aria-label="Your locations">

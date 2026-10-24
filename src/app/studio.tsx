@@ -115,11 +115,18 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const [who, setWho] = useState<Character | null>(null);
   const [where, setWhere] = useState<SavedPlace | null>(null);
   const [outfit, setOutfit] = useState<string[]>([]);
+  /** The picture behind an accessory picked from your bank, by its words, sent as a reference alongside them. */
+  const [outfitPics, setOutfitPics] = useState<Record<string, string>>({});
   const [tile, setTile] = useState<"character" | "location" | "wardrobe" | null>(null);
   const [custom, setCustom] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
   // Back from making an accessory: it is on the character now.
-  useReturnedPick(["accessory"], (item) => setOutfit((all) => (item.words && !all.includes(item.words) ? [...all, item.words] : all)));
+  const pickAccessory = (item: { words: string; image: string | null }) => {
+    if (!item.words) return;
+    if (item.image) setOutfitPics((all) => ({ ...all, [item.words]: item.image! }));
+    setOutfit((all) => (all.includes(item.words) ? all : [...all, item.words]));
+  };
+  useReturnedPick(["accessory"], pickAccessory);
   useEffect(() => {
     const pick = readPick(window.location.search);
     void createCharacterStore(defaultKv()).list().then((all) => { setPeople(all); const c = pick?.kind === "character" ? all.find((x) => x.id === pick.id) : undefined; if (c) setWho(c); }).catch(() => undefined);
@@ -272,7 +279,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     const cast = surface === "Edit" ? null : { characterLock: who ? identityLock(who.traits) : undefined, placeLock: where ? placeLock(where.traits) : undefined, outfit };
     const sent = surface === "Edit" ? prompt : withLook(cast ? castWords(prompt, cast) : prompt, look);
     // A picture you attached is the opening frame; with none, your character's and place's sheets go in as references.
-    const refs = surface === "Edit" ? [] : castReferences({ attached: images, character: who?.sheet ?? null, place: where?.plate ?? null, max: card.inputImages });
+    const refs = surface === "Edit" ? [] : castReferences({ attached: images, character: who?.sheet ?? null, place: where?.plate ?? null, accessories: outfit.map((w) => outfitPics[w]).filter((x): x is string => Boolean(x)), max: card.inputImages });
     const result = await track({ label: `Making a ${surface === "Edit" ? "picture edit" : "picture"}`, href: window.location.pathname + window.location.search, failure: (r) => (r.ok ? null : r.reason) }, () => (refs.length ? run(modelId, sent, settings, refs, false) : run(modelId, sent, settings, images.length ? images : undefined)));
 
     setSlots((prior) => {
@@ -302,7 +309,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
     if (!result.ok && result.needsKey) openKeys();
     setBusy(false);
-  }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs, look, surface, who, where, outfit, card.inputImages]);
+  }, [prompt, busy, needsImage, modelId, settings, images, card.name, runs, look, surface, who, where, outfit, outfitPics, card.inputImages]);
 
   useEffect(() => {
     if (pendingSlot.current === null || pendingSlot.current !== prompt) return;
@@ -359,10 +366,11 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
       <div className="canvas" onClick={() => setPicking(false)}>
-        <AcademyNudge />
+        {/* The tabs sit in the same place on every page; anything else goes under them. */}
         {surface === "Video" && <ModeTabs group="Video" current="/video" />}
-        {surface !== "Video" && <MakeBanner />}
         {surface !== "Video" && <ModeTabs group="Photos" current={surface === "Edit" ? "/edit" : "/photos"} canEdit={surfaceAvailable("Edit")} />}
+        <AcademyNudge />
+        {surface !== "Video" && <MakeBanner />}
         {slots.length === 0 && shownRuns.length === 0 ? (
           <div className="blank">
             <h1>
@@ -495,7 +503,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
                     {outfit.filter((o) => !OUTFIT_IDEAS.includes(o)).map((o) => <button key={o} className="on" onClick={() => setOutfit((all) => all.filter((x) => x !== o))}>{o} ×</button>)}
                   </div>
                   <p className="cast-bank"><button className="plain" onClick={() => setBankOpen(true)}>From your accessories</button></p>
-                  {bankOpen && <BankPicker kinds={["accessory"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setBankOpen(false)} onPick={(item) => setOutfit((all) => (item.words && !all.includes(item.words) ? [...all, item.words] : all))} />}
+                  {bankOpen && <BankPicker kinds={["accessory"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setBankOpen(false)} onPick={pickAccessory} />}
                   <form className="cast-add" onSubmit={(e) => { e.preventDefault(); const v = custom.trim(); if (v && !outfit.includes(v)) setOutfit((all) => [...all, v]); setCustom(""); }}>
                     <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Something else: a silver watch, a red kimono…" aria-label="Add clothing or an accessory" maxLength={60} />
                     <button className="pill">Add</button>

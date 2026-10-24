@@ -17,6 +17,7 @@ import { makeStill } from "../series-actions";
 import { drawComic } from "./draw";
 import { ModeTabs } from "../mode-tabs";
 import { surfaceAvailable } from "../studio";
+import { galleryStill } from "../gallery-log";
 
 const PRICE = 0.07;
 const COMIC_FINISH = "Illustrated comic art, no text, no letters, no watermark.";
@@ -71,6 +72,7 @@ export function Comic() {
       setBusy(`Drawing ${p.id === list[0]!.id && list.length === 1 ? "panel" : `panel ${i + 1} of ${list.length}`}…`);
       const names = p.who.length ? cast.filter((c) => p.who.includes(c.id)) : cast.filter((c) => inIt.includes(c.id));
       const r = await makeStill(panelPrompt(p, look, names.map((c) => identityLock(c.traits)), wordsOf(extras) || undefined, style), imageRatio(p.shape), allocateRefs({ characters: names.map((c) => c.sheet), place: extras.filter((i) => i.kind === "place" && i.image).map((i) => i.image!), style: style.refs.slice(0, MAX_STYLE_REFS), accessories: extras.filter((i) => i.kind === "accessory" && i.image).map((i) => i.image!) }, 4), `${COMIC_FINISH}`);
+      galleryStill(p.action, "Comic panel")(r);
       if (!r.ok) { if (r.needsKey) openKeys(); setProblem(r.reason); break; }
       setPictures((all) => ({ ...all, [p.id]: r.url }));
     }
@@ -94,6 +96,7 @@ export function Comic() {
     setProblem(null);
     setBusy("Drawing the style sheet…");
     const r = await makeStill(styleSheetPrompt(look, style, locks), "16:9", refs.slice(0, 2), COMIC_FINISH);
+    galleryStill("Comic style sheet", "Comic style sheet")(r);
     setBusy(null);
     if (!r.ok) { if (r.needsKey) openKeys(); return setProblem(r.reason); }
     setStyle((st) => ({ ...st, refs: [...st.refs, r.url].slice(-MAX_STYLE_REFS) }));

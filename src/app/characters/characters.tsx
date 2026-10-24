@@ -129,8 +129,8 @@ export function Characters() {
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
       <div className="canvas">
         <div className="chars">
-          <ReturnBar kind="character" savedId={current?.id} savedName={current?.traits.name} />
           <ModeTabs group="Photos" current="/characters" canEdit={surfaceAvailable("Edit")} />
+          <ReturnBar kind="character" savedId={current?.id} savedName={current?.traits.name} />
 
           {saved.length > 0 && (
             <div className="chars-shelf" aria-label="Your characters">

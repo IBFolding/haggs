@@ -1,5 +1,6 @@
 "use client";
 
+import { runFromStill } from "../story/gallery-run";
 import { createRunStore } from "../story/runs";
 import { defaultKv } from "../story/kv";
 
@@ -32,5 +33,13 @@ export function galleryRun(prompt: string, modelId: string, modelName: string) {
   return (r: { ok: boolean; shots?: { url: string; kind: "image" | "video" }[]; usd?: number | null }) => {
     const first = r.ok ? r.shots?.[0] : undefined;
     if (first) keep({ modelId, modelName, prompt, url: first.url, kind: first.kind, usd: r.usd ?? null });
+  };
+}
+
+/** A finished picture from Comic, Series or Accessories. Call it with the maker's result; it keeps nothing on a failure. */
+export function galleryStill(prompt: string, origin: string) {
+  return (r: { ok: boolean; url?: string }) => {
+    const run = runFromStill(prompt, origin, r);
+    if (run) void createRunStore(defaultKv()).record(run).catch(() => undefined);
   };
 }
