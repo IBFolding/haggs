@@ -29,10 +29,13 @@ export async function draftSeries(format: FormatId | CustomRules, topic: string,
 
 export const priceOfStill = async (resolution: "1K" | "1.5K" = "1K") => editEstimate({ tool: "flux3", seconds: 0, resolution });
 
+/** The picture shapes a still can be made in. */
+export type StillRatio = "16:9" | "9:16" | "1:1" | "4:5";
+
 export type MadeStill = { ok: true; url: string } | { ok: false; reason: string; needsKey?: boolean };
 
 /** One picture for a shot, from its beat, at the board's frame shape. Never retried automatically. */
-export async function makeStill(prompt: string, ratio: "16:9" | "9:16", references: string[] = [], finish = "Cinematic, natural, no text, no watermark."): Promise<MadeStill> {
+export async function makeStill(prompt: string, ratio: StillRatio, references: string[] = [], finish = "Cinematic, natural, no text, no watermark."): Promise<MadeStill> {
   if (prompt.trim().length < 4) return { ok: false, reason: "Give the shot a description first." };
   const own = keyIn(await cookies(), COMFY_COOKIE);
   if (own) return stillWith(own, prompt, ratio, references, finish);
@@ -41,7 +44,7 @@ export async function makeStill(prompt: string, ratio: "16:9" | "9:16", referenc
   return charged(acc, (key) => stillWith(key, prompt, ratio, references, finish));
 }
 
-async function stillWith(key: string, prompt: string, ratio: "16:9" | "9:16", references: string[], finish: string): Promise<MadeStill> {
+async function stillWith(key: string, prompt: string, ratio: StillRatio, references: string[], finish: string): Promise<MadeStill> {
   try {
     const cloud = createCloudRunner({ apiKey: key, keep: keepResult });
     const { readFile } = await import("node:fs/promises");

@@ -3092,3 +3092,29 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 
 .music-maker { display: grid; grid-template-columns: 1fr auto auto; gap: 8px 10px; align-items: end; flex: 1 1 100%; margin-top: 8px; } .music-maker label { display: grid; gap: 4px; font-size: 12px; color: var(--text-3); } .music-maker input { padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line-hot); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; min-width: 0; } .music-maker input[type=number] { width: 72px; } .music-maker .library-error { grid-column: 1 / -1; }
 @media (max-width: 640px) { .music-maker { grid-template-columns: 1fr; } }
+
+.doctor-report { margin-top: 24px; }
+.doctor-score { display: grid; gap: 4px; margin-bottom: 20px; }
+.doctor-score b { font-size: 56px; line-height: 1; color: var(--volt); }
+.doctor-score span { font-size: 16px; font-weight: 600; }
+.doctor-score small { color: var(--text-2); }
+.doctor-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-width: 70ch; }
+.doctor-list li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.doctor-list h2 { margin: 0 0 4px; font-size: 15px; display: flex; gap: 10px; align-items: baseline; }
+.doctor-list h2 span { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.doctor-list li[data-level="good"] h2 span { color: var(--volt); }
+.doctor-list li[data-level="fail"] { border-color: var(--text-2); }
+.doctor-list p { margin: 0; color: var(--text-2); }
+.doctor-list .doctor-fix { margin-top: 6px; color: var(--text); }
+
+.ads-h { margin: 28px 0 10px; font-size: 16px; }
+.ads-url { min-width: 260px; }
+.ads-swatches { display: flex; gap: 6px; }
+.ads-swatches i { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--line); }
+.ads-logo { max-height: 48px; max-width: 160px; object-fit: contain; }
+.ads-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }
+.ads-grid { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.ads-grid li { display: grid; gap: 6px; align-content: start; }
+.ads-grid img, .ads-wait { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
+.ads-wait { display: grid; place-items: center; padding: 12px; color: var(--text-2); font-size: 13px; text-align: center; }
+.ads-grid small { color: var(--text-2); }
