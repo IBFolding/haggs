@@ -3163,3 +3163,8 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .examples li { display: grid; gap: 6px; align-content: start; }
 .examples img, .examples video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
 .examples small { color: var(--text-2); }
+
+.suggest { margin: 4px 4px 0; font-size: 13px; color: var(--text-2); }
+.suggest button { font-weight: 600; color: var(--volt); }
+
+.gallery-search { min-width: 220px; }

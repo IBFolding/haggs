@@ -18,7 +18,8 @@ cost totals. Workflow library and community apps. Academy.
 
 Items 1 (music in the editor), 2 (video effects pack), 3 (export presets and the face-following vertical re-frame), 5 (the
 model line-up) and 6 (the sizzle doctor) are in. Item 4 is in part: brand kit from a URL, products, five ad formats, batches of 20
-and the Ad Multiplier. Samples on every page.
+and the Ad Multiplier. Samples on every page. Item 7 in part: a rules-based model suggestion under the prompt (no "improve my prompt" button yet).
+Item 9 was already there: the Look panel has camera body, lens, focal length and aperture. Item 17 in part: gallery search (no folders yet).
 
 ## Missing, in the order I would build them
 

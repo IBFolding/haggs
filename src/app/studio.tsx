@@ -9,6 +9,7 @@ import { MODELS, getModelCard, outputCount, searchModels } from "../catalog/mode
 import { coerceSettings, defaultSettings, toWireSettings, type Settings } from "../catalog/settings";
 import { cloudPrice } from "../providers/cloud-models";
 import { slotIn, templatesFor, type Template } from "../catalog/templates";
+import { recommend } from "../catalog/recommend";
 import { lookPhrase, withLook, type LookChoice } from "../catalog/look";
 import { LookPanel } from "./look-panel";
 import { OUTFIT_IDEAS, castReferences, castWords } from "../catalog/cast";
@@ -426,6 +427,13 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     [runs],
   );
 
+  /** A model to try for what is typed, by plain rules; shown as a suggestion you can ignore. */
+  const suggestion = useMemo(() => {
+    if (prompt.trim().length < 12) return null;
+    const r = recommend(prompt, surface, catalog.map((m) => ({ id: m.id, name: m.name, inputImages: getModelCard(m.id).inputImages })), images.length);
+    return r && r.id !== modelId ? r : null;
+  }, [prompt, surface, catalog, images.length, modelId]);
+
   return (
     <div className="app">
       <Nav current={surface === "Video" ? "Video" : "Photos"} />
@@ -668,6 +676,12 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               }}
             />
           </div>
+
+          {suggestion && (
+            <p className="suggest" onClick={(e) => e.stopPropagation()}>
+              Try <button className="plain" onClick={() => setModelId(suggestion.id)}>{suggestion.name}</button>: {suggestion.why}
+            </p>
+          )}
 
           <div className="composer-bottom">
             <button

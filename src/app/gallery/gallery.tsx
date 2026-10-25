@@ -2,6 +2,7 @@
 
 import { RUNS_SYNCED } from "../run-sync";
 import { useRouter } from "next/navigation";
+import { searchRuns } from "../../story/gallery-search";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getModelCard } from "../../catalog/models";
@@ -70,6 +71,7 @@ export function Gallery() {
   const startProject = useStartProject();
   const [ready, setReady] = useState(false);
   const [scope, setScope] = useState<Scope>("All");
+  const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const [finding, setFinding] = useState<string | null>(null);
@@ -109,7 +111,7 @@ export function Gallery() {
     return () => window.removeEventListener(RUNS_SYNCED, again);
   }, [runs]);
 
-  const shown = useMemo(() => all.filter((run) => inScope(run, scope)), [all, scope]);
+  const shown = useMemo(() => searchRuns(all.filter((run) => inScope(run, scope)), query), [all, scope, query]);
 
   /* The total is the point of the view. A studio that bills in credits cannot
      show you this number, because credits are not worth the same to two people. */
@@ -178,6 +180,7 @@ export function Gallery() {
                 </button>
               ))}
             </div>
+            <input type="search" className="gallery-search" aria-label="Search your work" placeholder="Search prompts, models, settings" value={query} onChange={(e) => setQuery(e.target.value)} />
             <dl className="tally">
               <dt>Runs</dt>
               <dd>{shown.length}</dd>
@@ -207,10 +210,17 @@ export function Gallery() {
           {error && <p className="library-error" role="alert">{error}</p>}
 
           {!ready ? null : shown.length === 0 ? (
-            <div className="library-blank">
-              <p>{EMPTY[scope].head}</p>
-              <p className="library-blank-sub">{EMPTY[scope].body}</p>
-            </div>
+            query.trim() && all.length > 0 ? (
+              <div className="library-blank">
+                <p>Nothing matches “{query.trim()}”.</p>
+                <p className="library-blank-sub">Try fewer words, or search a model name such as FLUX or Veo.</p>
+              </div>
+            ) : (
+              <div className="library-blank">
+                <p>{EMPTY[scope].head}</p>
+                <p className="library-blank-sub">{EMPTY[scope].body}</p>
+              </div>
+            )
           ) : (
             <div className="grid">
               {shown.map((run) => (
