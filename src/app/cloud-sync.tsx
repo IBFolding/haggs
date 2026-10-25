@@ -43,7 +43,7 @@ export function CloudSync() {
     let problem: string | null = null;
     const portable: Portable | undefined = process.env.NEXT_PUBLIC_HOSTED
       ? undefined
-      : { keep: async (url) => { const r = await keepInLibrary(url); if (!r.ok) problem = r.reason; return r.ok ? r.url : r.final ? "never" : null; } };
+      : { perRound: 40, keep: async (url) => { const r = await keepInLibrary(url); if (!r.ok) problem = r.reason; return r.ok ? r.url : r.final ? "never" : null; } };
     let busy = false;
     const run = () => {
       if (busy || document.visibilityState === "hidden") return;
@@ -51,7 +51,11 @@ export function CloudSync() {
       // A table that isn't there yet, or no network, just means no sync this time.
       problem = null;
       void syncProjects(kv, store, remote, portable)
-        .then((r) => portable && kv.set(FILE_SYNC, { at: Date.now(), waiting: r.waiting, problem }))
+        .then(async (r) => {
+          if (portable) await kv.set(FILE_SYNC, { at: Date.now(), waiting: r.waiting, problem });
+          // Files still to copy and nothing in the way: carry straight on instead of waiting for the next round.
+          if (portable && r.waiting > 0 && !problem) setTimeout(run, 2_000);
+        })
         .catch(() => portable && kv.set(FILE_SYNC, { at: Date.now(), waiting: -1, problem: "The account couldn't be reached." }))
         .finally(() => { busy = false; });
     };

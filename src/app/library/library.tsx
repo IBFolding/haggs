@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { defaultKv } from "../../story/kv";
-import { createProject, type ProjectSummary } from "../../story/model";
+import { coverOf, createProject, type ProjectSummary } from "../../story/model";
 import { createProjectStore } from "../../story/store";
 import { exportSheets, importSheets } from "../../sheets/sheets";
 import { TransferError, exportProject, importBundle } from "../../story/transfer";
@@ -51,6 +51,22 @@ export function Library() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Projects saved before thumbnails existed get theirs read from the project itself, a few at a time.
+  const [covers, setCovers] = useState<Record<string, NonNullable<ProjectSummary["cover"]>>>({});
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      for (const summary of projects.filter((x) => !x.cover && !covers[x.id]).slice(0, 30)) {
+        const project = await store.load(summary.id).catch(() => undefined);
+        const cover = project ? coverOf(project) : undefined;
+        if (!live) return;
+        if (cover) setCovers((held) => ({ ...held, [summary.id]: cover }));
+      }
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, store]);
 
   // In development the app keeps a copy of every project on disk. If the browser has started over, offer those back.
   const [backups, setBackups] = useState<OnDisk[]>([]);
@@ -230,6 +246,15 @@ export function Library() {
             <ul className="library-list">
               {projects.map((summary) => (
                 <li key={summary.id} className="library-row">
+                  <Link className="library-thumb" href={`/board/${summary.id}`} tabIndex={-1} aria-hidden>
+                    {(() => {
+                      const cover = summary.cover ?? covers[summary.id];
+                      if (!cover) return <span>{summary.name.slice(0, 1).toUpperCase() || "·"}</span>;
+                      return cover.kind === "video"
+                        ? <video src={`${cover.url}#t=0.5`} muted playsInline preload="metadata" />
+                        : <img src={cover.url} alt="" loading="lazy" />;
+                    })()}
+                  </Link>
                   {editing === summary.id ? (
                     <input
                       className="library-rename"

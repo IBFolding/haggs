@@ -232,6 +232,8 @@ export type ProjectSummary = {
   updatedAt: number;
   shotCount: number;
   boardCount?: number;
+  /** The first finished picture or clip, shown as the project's thumbnail. */
+  cover?: { url: string; kind: "image" | "video" };
 };
 
 const EMPTY_DIRECTION: Direction = {
@@ -255,8 +257,17 @@ export function createProject(name: string): Project {
   };
 }
 
+/** The first finished picture or clip in story order. */
+export function coverOf(project: Project): ProjectSummary["cover"] {
+  const shots = project.boards ? project.boards.flatMap((b) => b.shots) : project.shots;
+  const made = shots.find((s) => s.render?.url);
+  return made?.render ? { url: made.render.url, kind: made.render.kind } : undefined;
+}
+
 export function summarize(project: Project): ProjectSummary {
+  const cover = coverOf(project);
   return {
+    ...(cover ? { cover } : {}),
     id: project.id,
     name: project.name,
     updatedAt: project.updatedAt,
