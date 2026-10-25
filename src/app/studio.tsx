@@ -27,6 +27,10 @@ import { readPick } from "../story/handoff";
 import { REUSE_KEY } from "./gallery/gallery";
 import { useStartProject } from "./start-project";
 import { ModeTabs } from "./mode-tabs";
+import { Workspace, type WorkItem } from "./workspace";
+import { projectFromWorkspace } from "../story/workspace-project";
+import { createProjectStore } from "../story/store";
+import type { Layout } from "../story/workspace";
 import { RunTile } from "./run-tile";
 import { SaveToProject } from "./save-to-project";
 import { SettingsRail } from "./settings-rail";
@@ -76,6 +80,12 @@ const HANDOFF_KEY = "haggs.handoff";
 
 /** Whether any model is switched on for a surface. Edit a photo waits on fal, which is off until it is rolled out. */
 export const surfaceAvailable = (surface: Surface) => MODELS.some((m) => SURFACE_CAPABILITIES[surface].includes(m.capability));
+
+const hashOf = (text: string) => {
+  let h = 5381;
+  for (let i = 0; i < text.length; i += Math.max(1, Math.floor(text.length / 4000))) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36) + text.length.toString(36);
+};
 
 export function Studio(props: { surface?: Surface }) {
   return surfaceAvailable(props.surface ?? "Create") ? <StudioBody {...props} /> : <Waiting />;
@@ -201,8 +211,50 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     [history, surface, since, reused],
   );
 
+  /* The table and the minimised box are per-tab conveniences; they come back after a refresh. */
+  const [view, setView] = useState<"grid" | "workspace">("grid");
+  const [mini, setMini] = useState(false);
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(`haggs:view:${surface}`) === "workspace") setView("workspace");
+      if (sessionStorage.getItem("haggs:mini") === "1") setMini(true);
+    } catch { /* Private mode: the defaults are fine. */ }
+  }, [surface]);
+  const chooseView = (next: "grid" | "workspace") => {
+    setView(next);
+    try { sessionStorage.setItem(`haggs:view:${surface}`, next); } catch { /* A convenience only. */ }
+    // The table needs the room; the box is one click away.
+    if (next === "workspace") chooseMini(true);
+  };
+  const chooseMini = (next: boolean) => {
+    setMini(next);
+    try { sessionStorage.setItem("haggs:mini", next ? "1" : "0"); } catch { /* A convenience only. */ }
+  };
+
   const card = useMemo(() => getModelCard(modelId), [modelId]);
   const rate = rateMap[modelId];
+  const workItems = useMemo<WorkItem[]>(
+    () => [
+      ...images.map((src) => ({ id: `ref:${hashOf(src)}`, src, kind: "image" as const, tag: "Reference" })),
+      ...shownRuns.map((r) => ({ id: r.id, src: r.url, kind: r.kind, title: r.prompt, usd: r.usd, at: r.at })),
+    ],
+    [images, shownRuns],
+  );
+
+  const startFromWorkspace = useCallback(
+    async (layout: Layout, name: string) => {
+      const project = projectFromWorkspace(
+        name,
+        layout,
+        workItems.map((i) => ({ id: i.id, src: i.src, kind: i.kind, ...(i.title ? { prompt: i.title } : {}), usd: i.usd ?? null, ...(i.at ? { at: i.at } : {}), reference: i.tag === "Reference" })),
+      );
+      if (!project) return;
+      await createProjectStore(defaultKv()).save(project);
+      router.push(`/board/${project.id}?b=${encodeURIComponent(project.boards![0]!.id)}`);
+    },
+    [workItems, router],
+  );
+
 
   /** Put a past run back in the composer — model, prompt and the settings it ran with. */
   const reuse = useCallback((item: Run) => {
@@ -264,16 +316,20 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const costLabel = cost === null ? (rate ? rate.label : "···") : `$${cost.toFixed(3)}`;
   const needsImage = card.inputImages > 0 && images.length === 0;
 
-  const attach = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      // fal accepts a data URI wherever it takes an image URL, which keeps this
-      // working with no upload host. Big files make a big request body — a real
-      // blob store is the fix when that starts to bite.
-      if (typeof reader.result === "string") setImages([reader.result]);
-    };
-    reader.readAsDataURL(file);
-  }, []);
+  const attach = useCallback((files: File[]) => {
+    const room = Math.max(1, card.inputImages);
+    // fal accepts a data URI wherever it takes an image URL, which keeps this
+    // working with no upload host. Big files make a big request body, so they are shrunk before they are sent.
+    for (const file of files.slice(0, room)) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result !== "string") return;
+        const src = reader.result;
+        setImages((held) => (held.includes(src) ? held : [...held, src].slice(-room)));
+      };
+      reader.readAsDataURL(file);
+    }
+  }, [card.inputImages]);
 
   const fire = useCallback(async () => {
     if (!prompt.trim() || busy || needsImage) return;
@@ -380,7 +436,20 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
         {surface !== "Video" && <ModeTabs group="Photos" current={surface === "Edit" ? "/edit" : "/photos"} canEdit={surfaceAvailable("Edit")} />}
         <AcademyNudge />
         {surface !== "Video" && <MakeBanner />}
-        {slots.length === 0 && shownRuns.length === 0 ? (
+        {(images.length > 0 || shownRuns.length > 0 || view === "workspace") && (
+          <div className="view-toggle" role="tablist" aria-label="How to show your pictures">
+            <button role="tab" aria-selected={view === "grid"} onClick={() => chooseView("grid")}>Grid</button>
+            <button role="tab" aria-selected={view === "workspace"} onClick={() => chooseView("workspace")}>Workspace</button>
+          </div>
+        )}
+        {view === "workspace" ? (
+          <Workspace
+            storeKey={`workspace/${surface}`}
+            items={workItems}
+            onStart={(layout, name) => void startFromWorkspace(layout, name)}
+            onUse={(src) => setImages((held) => (held.includes(src) ? held : [...held, src].slice(-Math.max(1, card.inputImages))))}
+          />
+        ) : slots.length === 0 && shownRuns.length === 0 ? (
           <div className="blank">
             <h1>
               {surface === "Edit" ? "Edit with " : "Start with "}
@@ -423,7 +492,27 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
       </div>
 
       <div className="dock">
+        {mini ? (
+          <div className="composer mini">
+            {images.length > 0 && (
+              <div className="tray">
+                {images.map((src) => (
+                  <span key={src.slice(0, 64)} className="tray-item"><img src={src} alt="" /></span>
+                ))}
+              </div>
+            )}
+            <button className="mini-say" onClick={() => chooseMini(false)} title="Open the box">
+              {prompt.trim() || "Describe the scene you imagine"}
+            </button>
+            <button className="fire" onClick={() => void fire()} disabled={busy || !prompt.trim() || needsImage} title={needsImage ? "Attach an image first" : undefined}>
+              {busy ? "Generating…" : "Generate"}
+              <span className="cost">{costLabel}</span>
+            </button>
+            <button className="mini-toggle" onClick={() => chooseMini(false)} title="Open the box" aria-label="Open the box">▴</button>
+          </div>
+        ) : (
         <div className="composer">
+          <button className="mini-toggle" onClick={() => chooseMini(true)} title="Minimise the box" aria-label="Minimise the box">▾</button>
           {picking && (
             <div className="picker" onClick={(event) => event.stopPropagation()}>
               <input
@@ -474,7 +563,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               {images.map((src) => (
                 <span key={src.slice(0, 64)} className="tray-item">
                   <img src={src} alt="" />
-                  <button onClick={() => setImages([])} title="Remove">
+                  <button onClick={() => setImages((held) => held.filter((x) => x !== src))} title="Remove">
                     ×
                   </button>
                 </span>
@@ -536,11 +625,12 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               ref={fileInput}
               type="file"
               accept="image/*"
+              multiple={card.inputImages > 1}
               hidden
               onChange={(event) => {
-                const file = event.target.files?.[0];
+                const files = Array.from(event.target.files ?? []);
                 event.target.value = "";
-                if (file) attach(file);
+                if (files.length) attach(files);
               }}
             />
             {surface !== "Edit" && (
@@ -606,6 +696,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </button>
           </div>
         </div>
+        )}
       </div>
 
     </div>

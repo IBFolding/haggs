@@ -3118,3 +3118,41 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ads-grid img, .ads-wait { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
 .ads-wait { display: grid; place-items: center; padding: 12px; color: var(--text-2); font-size: 13px; text-align: center; }
 .ads-grid small { color: var(--text-2); }
+
+/* Photos and Video: the box can shrink to a bar, and the pictures can sit on a free workspace. */
+.view-toggle { display: inline-flex; gap: 2px; padding: 3px; margin: 0 0 12px 0; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.canvas > .view-toggle { margin-left: max(24px, calc((100% - 1180px) / 2 + 24px)); margin-right: 12px; }
+.view-toggle button { padding: 6px 14px; border: 0; border-radius: 999px; background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.view-toggle button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
+
+.mini-toggle { position: absolute; top: -13px; right: 18px; width: 30px; height: 26px; padding: 0; border-radius: 8px; border: 1px solid var(--line-hot); background: var(--surface); color: var(--text-2); font-size: 12px; cursor: pointer; z-index: 2; }
+.mini-toggle:hover { color: var(--text); border-color: var(--volt); }
+.composer.mini { display: flex; align-items: center; gap: 10px; padding: 8px 10px; max-width: 760px; }
+.composer.mini .tray { margin: 0; gap: 6px; }
+.composer.mini .tray-item { width: 38px; height: 38px; }
+.composer.mini .tray-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 7px; }
+.mini-say { flex: 1; min-width: 0; padding: 9px 12px; border: 0; border-radius: 10px; background: var(--bg); color: var(--text-2); font: inherit; font-size: 13.5px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
+.mini-say:hover { color: var(--text); }
+
+.ws { margin: 0 auto; width: min(1400px, calc(100% - 36px)); padding-bottom: 96px; }
+.ws-bar { display: flex; align-items: center; gap: 8px; padding: 0 2px 10px; flex-wrap: wrap; }
+.ws-hint { color: var(--text-3); font-size: 13px; margin-right: auto; }
+.ws-bar .plain:disabled { opacity: 0.4; cursor: not-allowed; }
+.ws-scroll { height: max(420px, calc(100vh - 360px)); overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: radial-gradient(circle at 1px 1px, rgba(255,255,255,.07) 1px, transparent 0) 0 0 / 28px 28px, var(--bg); }
+.ws-canvas { position: relative; touch-action: none; }
+.ws-card { position: absolute; margin: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--line-hot); background: var(--surface); cursor: grab; user-select: none; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.ws-card:active { cursor: grabbing; }
+.ws-card.on { border-color: var(--volt); box-shadow: 0 0 0 2px rgba(212,248,58,.28), 0 8px 24px rgba(0,0,0,.45); }
+.ws-card img, .ws-card video { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.ws-tag { position: absolute; left: 8px; top: 8px; padding: 3px 9px; border-radius: 999px; background: rgba(10,10,10,.8); border: 1px solid var(--volt); color: var(--volt); font-size: 11.5px; font-weight: 700; }
+.ws-frame { position: absolute; border: 1.5px dashed var(--volt); border-radius: 14px; background: rgba(212,248,58,.04); }
+.ws-frame-head { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; cursor: grab; }
+.ws-frame-head input { flex: 1; min-width: 0; background: none; border: 0; color: var(--volt); font: inherit; font-weight: 700; font-size: 15px; outline: none; }
+.ws-frame-head button, .ws-note-head button { border: 0; background: none; color: var(--text-3); font-size: 16px; cursor: pointer; }
+.ws-size { position: absolute; right: 4px; bottom: 4px; width: 16px; height: 16px; cursor: nwse-resize; border-right: 2px solid var(--volt); border-bottom: 2px solid var(--volt); border-radius: 0 0 6px 0; }
+.ws-note { position: absolute; width: 200px; border-radius: 10px; background: #1b1d12; border: 1px solid rgba(212,248,58,.35); box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.ws-note-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; font-size: 11.5px; font-weight: 700; color: var(--volt); cursor: grab; }
+.ws-note textarea { width: 100%; min-height: 84px; padding: 4px 10px 10px; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; resize: vertical; outline: none; }
+.ws-empty { position: absolute; left: 40px; top: 40px; color: var(--text-3); }
+@media (max-width: 640px) { .composer.mini { max-width: none; } .ws-scroll { height: max(380px, calc(100vh - 330px)); } }
+.ws-name { display: flex; gap: 8px; align-items: center; } .ws-name input { padding: 8px 11px; border-radius: 9px; border: 1px solid var(--line-hot); background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; width: 220px; } .ws-name .fire { padding: 8px 16px; font-size: 13.5px; } .ws-start:not(:disabled) { color: var(--volt); }
