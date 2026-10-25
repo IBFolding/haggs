@@ -85,6 +85,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const tRef = useRef(0);
   const track = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
+  const viewRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
 
   // The producer changed this project from the chat: load it again, so this page's next save keeps the change.
   useEffect(() => {
@@ -115,6 +117,18 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const [rendering, setRendering] = useState(false);
   /** Preview only: hide the words laid over the picture so you can watch it clean. The render still has them. */
   const [showText, setShowText] = useState(true);
+  /** The preview, with its captions, overlays and look, fills the screen. Esc leaves it. */
+  const toggleFullscreen = useCallback(() => {
+    const el = viewRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    else void el.requestFullscreen?.().catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    const on = () => setFullscreen(document.fullscreenElement === viewRef.current);
+    document.addEventListener("fullscreenchange", on);
+    return () => document.removeEventListener("fullscreenchange", on);
+  }, []);
   /** Export only: draw the captions into the picture. Off, they ship as a separate subtitle file. */
   const [burn, setBurn] = useState(false);
   const [rendered, setRendered] = useState<{ url: string; srt?: string } | { reason: string } | null>(null);
@@ -372,6 +386,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       else if (e.key === " ") {
         e.preventDefault();
         setPlaying((p) => !p);
+      } else if (e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        toggleFullscreen();
       } else if (e.key.toLowerCase() === "m") {
         e.preventDefault();
         const at = Math.round(tRef.current * 10) / 10;
@@ -553,7 +570,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       ) : (
         <div className="ed">
           <section className="ed-stage-area" aria-label="Preview">
-            <div className="ed-view">
+            <div className={`ed-view${fullscreen ? " full" : ""}`} ref={viewRef} onClick={() => fullscreen && setPlaying((p) => !p)}>
               <div className={`stage${vertical ? " vertical" : ""}`} data-fx={here?.clip.fx}>
                 {here &&
                   (here.clip.kind === "video" ? (
@@ -580,6 +597,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               </button>
               <button className="pill" onClick={() => jump(idxHere + 1)} aria-label="Next shot" disabled={idxHere >= cut.clips.length - 1}>⏭</button>
               <button className="pill" onClick={() => setShowText((v) => !v)} aria-pressed={showText} title="Show or hide the captions on the preview. The render keeps them.">{showText ? "Captions on" : "Captions off"}</button>
+              <button className="pill" onClick={toggleFullscreen} title="Fill the screen with the preview (F). Esc to leave.">Full screen</button>
               <span className="transport-time">{clock(t)} <i>/</i> {clock(cut.total)}</span>
               {cut.skipped.length > 0 && <span className="transport-note">{cut.skipped.length} shot{cut.skipped.length === 1 ? "" : "s"} not shot yet</span>}
               <span className="ed-spacer" />
