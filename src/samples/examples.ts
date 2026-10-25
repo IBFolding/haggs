@@ -10,4 +10,4 @@ export const EXAMPLES: Example[] = [
 ];
 
 export const examplesFor = (surface: string): Example[] =>
-  surface === "Video" ? EXAMPLES.filter((e) => e.kind === "video") : surface === "Photos" ? EXAMPLES.filter((e) => e.kind === "image") : [];
+  surface === "Video" ? EXAMPLES.filter((e) => e.kind === "video") : surface === "Edit" ? [] : EXAMPLES.filter((e) => e.kind === "image");

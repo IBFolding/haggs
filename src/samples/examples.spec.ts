@@ -8,8 +8,8 @@ test("every example points at a file that is shipped", () => {
   for (const e of EXAMPLES) assert.ok(existsSync(`public${e.src}`), e.src);
 });
 
-test("Photos shows pictures, Video shows clips, Edit shows none", () => {
-  assert.ok(examplesFor("Photos").length >= 3 && examplesFor("Photos").every((e) => e.kind === "image"));
+test("Photos (the Create surface) shows pictures, Video shows clips, Edit shows none", () => {
+  assert.ok(examplesFor("Create").length >= 3 && examplesFor("Create").every((e) => e.kind === "image"));
   assert.ok(examplesFor("Video").length >= 2 && examplesFor("Video").every((e) => e.kind === "video"));
   assert.equal(examplesFor("Edit").length, 0);
 });
