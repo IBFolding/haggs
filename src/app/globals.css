@@ -3185,3 +3185,7 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .folder-row { margin: 0 0 12px; flex-wrap: wrap; }
 .gallery-item { display: grid; gap: 6px; align-content: start; }
 .folder-pick { width: 100%; font-size: 12px; padding: 4px 6px; color: var(--text-2); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+
+/* With examples under it, the empty state starts at the top and scrolls, so nothing overlaps or hides under the composer. */
+.canvas .blank:has(.examples) { justify-content: flex-start; height: auto; min-height: 100%; padding-top: 28px; }
+.blank .examples { width: min(1040px, 100%); }

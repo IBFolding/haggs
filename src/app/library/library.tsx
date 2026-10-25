@@ -248,7 +248,9 @@ export function Library() {
                 <li key={summary.id} className="library-row">
                   <Link className="library-thumb" href={`/board/${summary.id}`} tabIndex={-1} aria-hidden>
                     {(() => {
-                      const cover = summary.cover ?? covers[summary.id];
+                      const found = summary.cover ?? covers[summary.id];
+                      // On the live site a file that still lives only on your computer can't play yet; show the letter until it has been copied.
+                      const cover = found && !(process.env.NEXT_PUBLIC_HOSTED && found.url.startsWith("/api/local/")) ? found : undefined;
                       if (!cover) return <span>{summary.name.slice(0, 1).toUpperCase() || "·"}</span>;
                       return cover.kind === "video"
                         ? <video src={`${cover.url}#t=0.5`} muted playsInline preload="metadata" />
