@@ -3156,3 +3156,10 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ws-empty { position: absolute; left: 40px; top: 40px; color: var(--text-3); }
 @media (max-width: 640px) { .composer.mini { max-width: none; } .ws-scroll { height: max(380px, calc(100vh - 330px)); } }
 .ws-name { display: flex; gap: 8px; align-items: center; } .ws-name input { padding: 8px 11px; border-radius: 9px; border: 1px solid var(--line-hot); background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; width: 220px; } .ws-name .fire { padding: 8px 16px; font-size: 13.5px; } .ws-start:not(:disabled) { color: var(--volt); }
+
+.examples { margin-top: 28px; text-align: left; }
+.examples h2 { margin: 0 0 12px; font-size: 16px; }
+.examples ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.examples li { display: grid; gap: 6px; align-content: start; }
+.examples img, .examples video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
+.examples small { color: var(--text-2); }

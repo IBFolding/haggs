@@ -26,6 +26,7 @@ import { MakeBanner } from "./return-bar";
 import { readPick } from "../story/handoff";
 import { REUSE_KEY } from "./gallery/gallery";
 import { useStartProject } from "./start-project";
+import { Examples } from "./examples";
 import { ModeTabs } from "./mode-tabs";
 import { Workspace, type WorkItem } from "./workspace";
 import { projectFromWorkspace } from "../story/workspace-project";
@@ -460,6 +461,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               This model runs at <b>{rate?.label ?? "a rate loading now"}</b>. What you make
               shows up here with what it cost. Earlier work is in the <Link href="/gallery">Gallery</Link>.
             </p>
+            <Examples surface={surface} onUse={setPrompt} />
           </div>
         ) : (
           <>
