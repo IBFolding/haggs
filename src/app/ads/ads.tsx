@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { AD_FORMATS, adJobs, adPrompt, MAX_BATCH, type AdFormat } from "../../brand/ads";
+import { SAMPLES } from "../../brand/samples";
 import { createBrandStore, type BrandKit } from "../../brand/brand";
 import { multiplierJobs, multiplyPrompt, nearestRatio } from "../../brand/multiplier";
 import { createProductStore, type SavedProduct } from "../../brand/product";
@@ -70,6 +71,19 @@ export function Ads() {
     const saved = await brands.save(r.kit);
     setKit(saved);
     setKits(await brands.list());
+  }
+
+  async function useSample(id: string) {
+    const sample = SAMPLES.find((x) => x.id === id);
+    if (!sample) return;
+    setProblem(null);
+    setKit(await brands.save(sample.brand));
+    setKits(await brands.list());
+    const p = await products.save({ ...sample.product, picture: null, price: "" });
+    setList(await products.list());
+    setChosen([p.id]);
+    setFormats(sample.formats);
+    setAudiences(sample.audiences.join("\n"));
   }
 
   async function saveKit(next: BrandKit) {
@@ -153,6 +167,11 @@ export function Ads() {
             <h1>Ads</h1>
             <p>Give haggs a company&apos;s website and it reads the brand: name, logo, colours, fonts. Add the products, pick the formats, and make a batch of ads that look like they belong to that company.</p>
           </header>
+
+          <div className="cm-row" aria-label="Samples">
+            <span className="muted">Try a sample:</span>
+            {SAMPLES.map((x) => <button key={x.id} className="pill" onClick={() => void useSample(x.id)}>{x.label}</button>)}
+          </div>
 
           <h2 className="ads-h">1. The brand</h2>
           <div className="cm-row">
