@@ -21,6 +21,7 @@ import { currentWork, workSince } from "../story/current-work";
 import { looksTooBig, shrinkAll } from "./shrink";
 import { createRunStore, isPicture, type PictureRun, type Run } from "../story/runs";
 import { rates, run, type Rate, type RunResult } from "./actions";
+import { improvePrompt } from "./improve-actions";
 import { Nav, openKeys } from "./nav";
 import { BankPicker, useReturnedPick } from "./bank-picker";
 import { MakeBanner } from "./return-bar";
@@ -204,6 +205,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const pendingSlot = useRef<string | null>(null);
   const templates = useMemo(() => templatesFor(surface), [surface]);
   const [busy, setBusy] = useState(false);
+  const [improving, setImproving] = useState(false);
+  const [improveNote, setImproveNote] = useState<string | null>(null);
   const nextId = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const runs = useMemo(() => createRunStore(defaultKv()), []);
@@ -426,6 +429,19 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     },
     [runs],
   );
+
+  /** Claude rewrites the prompt into a fuller one; it lands in the box to read and change, and nothing is made. */
+  const improve = useCallback(async () => {
+    setImproving(true);
+    setImproveNote(null);
+    const r = await improvePrompt(prompt, surface);
+    setImproving(false);
+    if (r.ok) setPrompt(r.prompt);
+    else {
+      if (r.needsKey) openKeys();
+      setImproveNote(r.reason);
+    }
+  }, [prompt, surface]);
 
   /** A model to try for what is typed, by plain rules; shown as a suggestion you can ignore. */
   const suggestion = useMemo(() => {
@@ -677,6 +693,13 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             />
           </div>
 
+          {prompt.trim().length >= 4 && (
+            <p className="suggest" onClick={(e) => e.stopPropagation()}>
+              <button className="plain" disabled={improving || busy} onClick={() => void improve()}>{improving ? "Improving…" : "Improve my prompt"}</button>
+              <span> Claude fills it out; read it before you make anything. A few cents on your Claude key.</span>
+              {improveNote && <span className="library-error" role="alert"> {improveNote}</span>}
+            </p>
+          )}
           {suggestion && (
             <p className="suggest" onClick={(e) => e.stopPropagation()}>
               Try <button className="plain" onClick={() => setModelId(suggestion.id)}>{suggestion.name}</button>: {suggestion.why}

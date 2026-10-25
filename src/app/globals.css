@@ -3179,3 +3179,9 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .library-thumb { flex: none; width: 76px; height: 48px; border-radius: 8px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); display: grid; place-items: center; color: var(--text-3); font-weight: 800; font-size: 18px; text-decoration: none; }
 .library-thumb img, .library-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .library-row .library-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sprite-sheet { max-width: 100%; border-radius: 10px; border: 1px solid var(--line); background: repeating-conic-gradient(var(--surface) 0% 25%, var(--surface-3) 0% 50%) 50% / 16px 16px; image-rendering: pixelated; }
+
+.folder-row { margin: 0 0 12px; flex-wrap: wrap; }
+.gallery-item { display: grid; gap: 6px; align-content: start; }
+.folder-pick { width: 100%; font-size: 12px; padding: 4px 6px; color: var(--text-2); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }

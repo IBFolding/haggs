@@ -24,6 +24,8 @@ export type Run = {
   usd: number | null;
   at: number;
   favorite?: boolean;
+  /** The folder it was filed in, if any. */
+  folder?: string;
   /** When it last changed, so devices agree on which copy is newest. */
   rev?: number;
   /** The Comfy job this came from, when it was recovered from Comfy, so it is only added once. */
@@ -36,13 +38,15 @@ export type Run = {
 export type PictureRun = Run & { kind: "image" | "video" };
 export const isPicture = (run: Run): run is PictureRun => run.kind !== "audio";
 
-export type NewRun = Omit<Run, "id" | "at" | "favorite" | "rev" | "remote">;
+export type NewRun = Omit<Run, "id" | "at" | "favorite" | "folder" | "rev" | "remote">;
 
 export type RunStore = {
   list(): Promise<Run[]>;
   /** `at` is when it was made, for a render recovered from earlier. */
   record(run: NewRun, at?: number): Promise<Run>;
   setFavorite(id: string, favorite: boolean): Promise<void>;
+  /** Files a run in a folder, or takes it out with null. */
+  setFolder(id: string, folder: string | null): Promise<void>;
   remove(id: string): Promise<void>;
   clear(): Promise<void>;
   /** Runs removed here that the account hasn't been told about yet. */
@@ -119,6 +123,17 @@ export function createRunStore(kv: Kv, cap = DEFAULT_CAP): RunStore {
       return serialize(async () => {
         const runs = await read();
         await write(runs.map((run) => (run.id === id ? { ...run, favorite, rev: Date.now() } : run)));
+      });
+    },
+
+    setFolder(id, folder) {
+      return serialize(async () => {
+        const runs = await read();
+        await write(runs.map((run) => {
+          if (run.id !== id) return run;
+          const { folder: _gone, ...rest } = run;
+          return { ...rest, ...(folder ? { folder } : {}), rev: Date.now() };
+        }));
       });
     },
 

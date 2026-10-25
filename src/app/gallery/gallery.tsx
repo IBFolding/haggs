@@ -2,6 +2,7 @@
 
 import { RUNS_SYNCED } from "../run-sync";
 import { useRouter } from "next/navigation";
+import { ALL, UNFILED, cleanFolder, folderNames, inFolder } from "../../story/gallery-folders";
 import { searchRuns } from "../../story/gallery-search";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -72,6 +73,7 @@ export function Gallery() {
   const [ready, setReady] = useState(false);
   const [scope, setScope] = useState<Scope>("All");
   const [query, setQuery] = useState("");
+  const [folder, setFolder] = useState<string>(ALL);
   const [error, setError] = useState<string | null>(null);
 
   const [finding, setFinding] = useState<string | null>(null);
@@ -111,7 +113,8 @@ export function Gallery() {
     return () => window.removeEventListener(RUNS_SYNCED, again);
   }, [runs]);
 
-  const shown = useMemo(() => searchRuns(all.filter((run) => inScope(run, scope)), query), [all, scope, query]);
+  const folders = useMemo(() => folderNames(all), [all]);
+  const shown = useMemo(() => searchRuns(all.filter((run) => inScope(run, scope) && inFolder(run, folder)), query), [all, scope, query, folder]);
 
   /* The total is the point of the view. A studio that bills in credits cannot
      show you this number, because credits are not worth the same to two people. */
@@ -120,6 +123,20 @@ export function Gallery() {
     [shown],
   );
   const unpriced = shown.filter((run) => run.usd === null).length;
+
+  /** Files a run in a folder (a new name makes one), or takes it out with null. */
+  const file = useCallback(
+    async (run: Run, name: string | null) => {
+      const next = name === null ? null : cleanFolder(name);
+      setAll((prior) => prior.map((r) => {
+        if (r.id !== run.id) return r;
+        const { folder: _gone, ...rest } = r;
+        return next ? { ...rest, folder: next } : rest;
+      }));
+      await runs.setFolder(run.id, next);
+    },
+    [runs],
+  );
 
   const keep = useCallback(
     async (run: Run) => {
@@ -189,6 +206,14 @@ export function Gallery() {
             </dl>
           </header>
 
+          {(folders.length > 0 || folder !== ALL) && (
+            <div className="scopes folder-row" role="tablist" aria-label="Folders">
+              {[ALL, ...folders, UNFILED].map((name) => (
+                <button key={name} role="tab" className="scope" aria-selected={name === folder} onClick={() => setFolder(name)}>{name}</button>
+              ))}
+            </div>
+          )}
+
           {scope === "Sounds" && (
             <p className="gallery-note">
               <button className="plain" onClick={() => void findSounds()}>Find sounds in my projects</button> {finding ?? "Voice lines, effects and soundtracks from every project."}
@@ -224,6 +249,7 @@ export function Gallery() {
           ) : (
             <div className="grid">
               {shown.map((run) => (
+                <div key={run.id} className="gallery-item">
                 <RunTile
                   key={run.id}
                   run={run}
@@ -233,6 +259,16 @@ export function Gallery() {
                   onSave={isPicture(run) ? () => setSaving(run) : undefined as never}
                 onStart={isPicture(run) ? () => void startProject(run) : undefined as never}
                 />
+                <select className="folder-pick" aria-label="Move to folder" value={run.folder ?? ""} onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "__new") { const name = window.prompt("Name the new folder"); if (name) void file(run, name); }
+                  else void file(run, v || null);
+                }}>
+                  <option value="">No folder</option>
+                  {folders.map((f) => <option key={f} value={f}>{f}</option>)}
+                  <option value="__new">New folder…</option>
+                </select>
+                </div>
               ))}
             </div>
           )}
