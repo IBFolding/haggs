@@ -14,6 +14,12 @@ video background. UGC and product-in-hand ads, product ad grids, fashion try-on 
 part of a frame). Editor with captions, FCPXML export, versions, cutdowns. Grey room (3D set, Blender export). Gallery with
 cost totals. Workflow library and community apps. Academy.
 
+## Built since this survey
+
+Items 1 (music in the editor), 2 (video effects pack), 3 (export presets and the face-following vertical re-frame), 5 (the
+model line-up) and 6 (the sizzle doctor) are in. Item 4 is in part: brand kit from a URL, products, five ad formats, batches of 20
+and the Ad Multiplier. Samples on every page.
+
 ## Missing, in the order I would build them
 
 | # | Feature | Higgsfield has | haggs today | How to build it | Effort | Cost |

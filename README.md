@@ -77,6 +77,28 @@ series, or an app laid out on the canvas (`haggs_propose_canvas`,
 (`haggs_find_workflows`). Nothing changes until you press Apply, and no
 separate API key is needed.
 
+**Ads.** Type a company's website and haggs reads the brand (name, logo, colours,
+fonts, a line about it). Add the products, choose formats (product shot, poster,
+marketplace listing, social post, story ad) and audiences, and make a batch of up
+to 20 ads that look like they belong to that company. The **Ad Multiplier**
+remakes an ad that already works for new audiences and in other languages, keeping
+the product and layout. Three one-tap samples fill the page in; a picture costs
+about 7¢.
+
+**Sizzle doctor.** Add a finished film and haggs reads the cut itself, on the
+server with ffmpeg and no model: length, how fast it opens, hard cuts against
+dissolves, whether it builds, movement, loudness and dead air at the start. It
+scores the cut and says what to change. Free, and nothing is generated.
+
+**Finish for the feed.** Export presets for X, vertical (TikTok, Reels, Shorts)
+and YouTube, with a vertical re-frame that follows the faces and a pass that
+masters to -14 LUFS. A pack of one-click looks (VHS, CRT, glitch, thermal, night
+vision) made from ffmpeg filters. Music from words, made in the editor.
+
+**More models, one route.** Kling 3, Seedance 2 and 2.5, Veo 3.1, Nano Banana 2
+and FLUX Kontext run as Comfy Cloud workflows, so they work on every account and
+Comfy prices them before they run.
+
 ## Open weights and your own GPU
 
 Open weights means the model's weights are published, so anyone can run it
