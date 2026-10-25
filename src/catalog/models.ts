@@ -182,6 +182,113 @@ const ALL_MODELS: readonly ModelCard[] = [
     },
   },
 
+  /* ── Comfy Cloud workflows: Kling 3, Seedance 2, Veo 3.1, Nano Banana 2, FLUX Kontext ───────────────
+     These run as Comfy API nodes (providers/cloud-models.ts) rather than through Router, so every
+     account can run them and the price on the button is Comfy's own estimate for these exact settings. */
+  {
+    provider: "comfy",
+    id: "kling/kling-v3",
+    name: "Kling 3",
+    blurb: "Cinematic video with sound, from text or a first frame",
+    badge: "premium",
+    capability: "text-to-video",
+    inputImages: 1,
+    settings: {
+      duration: { type: "range", label: "Duration", min: 3, max: 15, default: 5, unit: "s" },
+      resolution: { type: "enum", label: "Resolution", values: ["720p", "1080p"], default: "1080p" },
+      aspect_ratio: aspect(["16:9", "9:16", "1:1"], "16:9"),
+      sound: { type: "boolean", label: "Sound", default: false, input: "generate_audio" },
+    },
+  },
+  {
+    provider: "comfy",
+    id: "kling/kling-3.0-turbo",
+    name: "Kling 3 Turbo",
+    blurb: "The fast Kling, always with sound",
+    badge: "fast",
+    capability: "text-to-video",
+    inputImages: 1,
+    settings: {
+      duration: { type: "range", label: "Duration", min: 3, max: 15, default: 5, unit: "s" },
+      resolution: { type: "enum", label: "Resolution", values: ["720p", "1080p"], default: "720p" },
+      aspect_ratio: aspect(["16:9", "9:16", "1:1"], "16:9"),
+    },
+  },
+  ...(
+    [
+      ["byteplus/seedance-2-5", "Seedance 2.5", "ByteDance's newest: sharper motion, with sound", "new", ["480p", "720p", "1080p"]],
+      ["byteplus/seedance-2-0", "Seedance 2.0", "Reliable motion and a long list of looks, with sound", undefined, ["480p", "720p", "1080p"]],
+      ["byteplus/seedance-2-0-fast", "Seedance 2.0 Fast", "Seedance 2.0 at a quicker, lower price", "fast", ["480p", "720p"]],
+      ["byteplus/seedance-2-0-mini", "Seedance 2.0 Mini", "The cheapest Seedance, for trying ideas", "fast", ["480p", "720p"]],
+    ] as const
+  ).map(([id, name, blurb, badge, resolutions]): ModelCard => ({
+    provider: "comfy",
+    id,
+    name,
+    blurb,
+    ...(badge ? { badge } : {}),
+    capability: "text-to-video",
+    inputImages: 1,
+    settings: {
+      duration: { type: "range", label: "Duration", min: 4, max: 15, default: 5, unit: "s" },
+      resolution: { type: "enum", label: "Resolution", values: resolutions, default: "720p" },
+      aspect_ratio: aspect(["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"], "16:9"),
+      sound: { type: "boolean", label: "Sound", default: true, input: "generate_audio" },
+    },
+  })),
+  ...(
+    [
+      ["google/veo-3-1", "Veo 3.1", "Google's most realistic video, with sound", "premium"],
+      ["google/veo-3-1-fast", "Veo 3.1 Fast", "Veo 3.1 in a fraction of the price", "fast"],
+      ["google/veo-3-1-lite", "Veo 3.1 Lite", "The budget Veo, for batches of clips", undefined],
+    ] as const
+  ).map(([id, name, blurb, badge]): ModelCard => ({
+    provider: "comfy",
+    id,
+    name,
+    blurb,
+    ...(badge ? { badge } : {}),
+    capability: "text-to-video",
+    inputImages: 1,
+    settings: {
+      duration: { type: "range", label: "Duration", min: 4, max: 8, default: 8, unit: "s" },
+      resolution: { type: "enum", label: "Resolution", values: ["720p", "1080p"], default: "720p" },
+      aspect_ratio: aspect(["16:9", "9:16"], "16:9"),
+      sound: { type: "boolean", label: "Sound", default: true, input: "generate_audio" },
+    },
+  })),
+  ...(
+    [
+      ["google/nano-banana-2", "Nano Banana 2", "Google's fast, sharp image model that follows references", "new", ["1K", "2K", "4K"], ["MINIMAL", "HIGH"], "MINIMAL"],
+      ["google/nano-banana-2-1", "Nano Banana 2.1", "The newest Nano Banana, with a thinking level", "new", ["1K", "2K", "4K"], ["MINIMAL", "MEDIUM", "HIGH"], "MEDIUM"],
+      ["google/nano-banana-2-lite", "Nano Banana 2 Lite", "The cheapest Nano Banana, at 1K", "fast", ["1K"], ["MINIMAL", "HIGH"], "MINIMAL"],
+    ] as const
+  ).map(([id, name, blurb, badge, resolutions, thinking, fallback]): ModelCard => ({
+    provider: "comfy",
+    id,
+    name,
+    blurb,
+    badge,
+    capability: "text-to-image",
+    inputImages: 14,
+    settings: {
+      aspect_ratio: aspect(["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"], "auto"),
+      resolution: { type: "enum", label: "Resolution", values: resolutions, default: "1K" },
+      thinking: { type: "enum", label: "Thinking", values: thinking, default: fallback },
+    },
+  })),
+  {
+    provider: "comfy",
+    id: "bfl/flux-kontext-pro",
+    name: "FLUX Kontext",
+    blurb: "Edit a picture with words, keeping the rest as it was",
+    capability: "image-edit",
+    inputImages: 1,
+    settings: {
+      aspect_ratio: aspect(["16:9", "1:1", "9:16", "4:3", "3:4"], "16:9"),
+    },
+  },
+
   /* ── fal, reached directly ─────────────────────────────────────────── */
   {
     provider: "fal",

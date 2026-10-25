@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MODELS, getModelCard, outputCount, searchModels } from "../catalog/models";
-import { coerceSettings, defaultSettings, type Settings } from "../catalog/settings";
+import { coerceSettings, defaultSettings, toWireSettings, type Settings } from "../catalog/settings";
+import { cloudPrice } from "../providers/cloud-models";
 import { slotIn, templatesFor, type Template } from "../catalog/templates";
 import { lookPhrase, withLook, type LookChoice } from "../catalog/look";
 import { LookPanel } from "./look-panel";
@@ -252,6 +253,9 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
   /** What the run will cost, in dollars, before it runs. */
   const cost = useMemo(() => {
+    // A model that runs as a Comfy workflow is priced from its own settings: length, resolution, sound.
+    const cloud = card.provider === "comfy" ? cloudPrice(card.id, toWireSettings(card.settings, settings), outputCount(card, settings)) : null;
+    if (cloud !== null) return cloud;
     if (!rate || rate.usd === null) return null;
     const perOutput = rate.unit === "image" || rate.unit === "video";
     return rate.usd * (perOutput ? outputCount(card, settings) : 1);

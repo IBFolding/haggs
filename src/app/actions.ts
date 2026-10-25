@@ -12,8 +12,10 @@ import { cookies } from "next/headers";
 
 import { fetchPricing, formatRate } from "../catalog/pricing";
 import { MODELS, getModelCard, outputCount } from "../catalog/models";
-import { toWireSettings } from "../catalog/settings";
+import { defaultSettings, toWireSettings } from "../catalog/settings";
 import { createComfyProvider } from "../providers/comfy";
+import { createCloudModelProvider } from "../providers/cloud-model-provider";
+import { cloudModel, cloudPrice } from "../providers/cloud-models";
 import { createFalProvider } from "../providers/fal";
 import type { Provider } from "../providers/types";
 
@@ -145,6 +147,12 @@ export async function rates(): Promise<Rate[]> {
         const usd = cloudEstimate({ seconds, resolution: "768P", references: 0 });
         return { id: model.id, label: `about $${usd.toFixed(2)} for ${seconds}s`, usd, unit: null };
       }
+      const cloud = model.provider === "comfy" ? cloudModel(model.id) : undefined;
+      if (cloud) {
+        const usd = cloudPrice(model.id, toWireSettings(model.settings, defaultSettings(model.settings))) ?? 0;
+        const len = model.settings.duration && "default" in model.settings.duration ? ` for ${model.settings.duration.default}s` : "";
+        return { id: model.id, label: `about $${usd.toFixed(2)}${len}`, usd, unit: null };
+      }
       if (model.provider === "comfy") {
         return { id: model.id, label: "quoted at run", usd: null, unit: null };
       }
@@ -227,10 +235,12 @@ export async function run(
   let key = keyIn(jar, wanted);
   // No key of your own: a person on a plan may run MiniMax H3 on the platform's key, paid for in credits.
   let acc: Extract<Access, { ok: true }> | null = null;
-  if (!key && card.provider === "comfy" && useCloud(card.id)) {
+  const cloudDef = card.provider === "comfy" ? cloudModel(card.id) : undefined;
+  if (!key && card.provider === "comfy" && (useCloud(card.id) || cloudDef)) {
     const seconds = Number(settings.duration ?? 5);
     const refs = firstFrame === false ? (images?.length ?? 0) : 0;
-    const a = await comfyAccess(cloudEstimate({ seconds, resolution: settings.resolution === "2K" ? "2K" : "768P", references: refs }) * Math.max(1, outputCount(card, settings)), `${card.name}`, "Add a Comfy API key to run this model.");
+    const price = cloudDef ? (cloudPrice(card.id, toWireSettings(card.settings, settings)) ?? 0) : cloudEstimate({ seconds, resolution: settings.resolution === "2K" ? "2K" : "768P", references: refs });
+    const a = await comfyAccess(price * Math.max(1, outputCount(card, settings)), `${card.name}`, "Add a Comfy API key to run this model.");
     if (!a.ok) return { ok: false, reason: a.reason, needsKey: true };
     acc = a;
     key = a.key;
@@ -251,7 +261,9 @@ export async function run(
   }
 
   const provider: Provider =
-    useCloud(card.id)
+    cloudDef
+      ? createCloudModelProvider({ apiKey: key, keep: keepRender, modelId: card.id, timeoutMs: 20 * 60_000 })
+      : useCloud(card.id)
       ? createCloudProvider({ apiKey: key, keep: keepRender })
       : card.provider === "comfy"
       ? createComfyProvider({
