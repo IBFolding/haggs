@@ -18,9 +18,33 @@ export async function readSite(address: string, fetcher: Fetcher = fetch): Promi
     // A redirect must not lead somewhere we would not have gone.
     if (res.url && !mayFetchForKeeping(res.url)) return { ok: false, reason: "That page couldn't be opened." };
     if (!/html/i.test(res.headers.get("content-type") ?? "")) return { ok: false, reason: "That address isn't a web page." };
-    const text = (await res.text()).slice(0, LIMIT);
-    return { ok: true, kit: brandFromHtml(text, new URL(res.url || link).toString()) };
+    const html = (await res.text()).slice(0, LIMIT);
+    const base = new URL(res.url || link).toString();
+    return { ok: true, kit: brandFromHtml(html + (await styles(html, base, fetcher)), base) };
   } catch {
     return { ok: false, reason: "That page couldn't be opened." };
   }
+}
+
+/** The text of the page's first few linked stylesheets, as a <style> block, so the palette and fonts come from the real design. */
+async function styles(html: string, base: string, fetcher: Fetcher): Promise<string> {
+  const hrefs: string[] = [];
+  for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
+    if (!/rel\s*=\s*["']?[^"'>]*stylesheet/i.test(tag)) continue;
+    try {
+      const u = new URL(/href\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1] ?? "", base).toString();
+      if (mayFetchForKeeping(u) && !hrefs.includes(u)) hrefs.push(u);
+    } catch {
+      // A broken link is skipped.
+    }
+  }
+  const sheets = await Promise.all(hrefs.slice(0, 3).map(async (u) => {
+    try {
+      const r = await fetcher(u, { redirect: "follow", signal: AbortSignal.timeout(6_000) });
+      return r.ok && (!r.url || mayFetchForKeeping(r.url)) ? (await r.text()).slice(0, 600_000) : "";
+    } catch {
+      return "";
+    }
+  }));
+  return sheets.map((c) => `<style>${c}</style>`).join("\n");
 }

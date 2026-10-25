@@ -39,3 +39,17 @@ test("nothing typed is asked for again", async () => {
   const r = await readSite("   ", page(""));
   assert.ok(!r.ok && /address/i.test(r.reason));
 });
+
+test("colours and fonts in a linked stylesheet count too, and a stylesheet on a private address is skipped", async () => {
+  const seen: string[] = [];
+  const fetcher = async (url: string) => {
+    seen.push(url);
+    if (url.endsWith("/app.css")) return new Response("a{color:#635bff} b{background:#635bff} body{font-family:'Sohne',sans-serif}", { headers: { "content-type": "text/css" } });
+    return new Response(`<title>S</title><link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="https://127.0.0.1/evil.css">`, { headers: { "content-type": "text/html" } });
+  };
+  const r = await readSite("s.example", fetcher);
+  assert.ok(r.ok);
+  assert.deepEqual(r.ok && r.kit.colors, ["#635bff"]);
+  assert.deepEqual(r.ok && r.kit.fonts, ["Sohne"]);
+  assert.ok(!seen.some((u) => u.includes("127.0.0.1")));
+});
