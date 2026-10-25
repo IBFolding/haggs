@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import type { Finding } from "../../story/doctor";
 import { Nav } from "../nav";
+import { EXAMPLE_FILM } from "../../samples/example-film";
+import { diagnose, summarize } from "../../story/doctor";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 import { uploadFile } from "../upload-client";
@@ -48,6 +50,10 @@ export function Doctor() {
             <h1>Sizzle doctor</h1>
             <p>Add a finished film. haggs reads the cut itself: its length, how fast it opens, hard cuts against dissolves, whether it builds, and the sound. It tells you what to change before you post. Free, and nothing is generated.</p>
           </header>
+          <div className="cm-row" aria-label="Sample">
+            <span className="muted">No film handy?</span>
+            <button className="pill" onClick={() => { const findings = diagnose(EXAMPLE_FILM.metrics); const m = EXAMPLE_FILM.metrics; setProblem(null); setName(EXAMPLE_FILM.name); setReport({ metrics: { seconds: m.seconds, width: m.width, height: m.height, cuts: m.hardCuts.length + m.dissolves.length }, findings, summary: summarize(findings) }); }}>See an example report</button>
+          </div>
 
           <label className="wf-field"><span>Film (mp4, mov or webm, up to 300 MB)</span>
             <input type="file" accept="video/*" disabled={busy !== null} onChange={(e) => { const f = e.target.files?.[0]; if (f) void check(f); }} />

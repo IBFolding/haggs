@@ -16,6 +16,7 @@ import { ReturnBar } from "../return-bar";
 import { ReshootPanel } from "../reshoot-panel";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
+import { PLACE_SAMPLES } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 
@@ -124,6 +125,10 @@ export function Locations() {
           <ModeTabs group="Photos" current="/locations" canEdit={surfaceAvailable("Edit")} />
           <h1 className="sr-only">Locations</h1>
           <ReturnBar kind="place" savedId={current?.id} savedName={current?.traits.name} />
+          <div className="cm-row" aria-label="Samples">
+            <span className="muted">Try a sample:</span>
+            {PLACE_SAMPLES.map((p) => <button key={p.name} className="pill" onClick={() => { setCurrent(null); setTraits(p); setReference(null); setPlate(null); setViews([]); setNote(null); setError(null); }}>{p.name}</button>)}
+          </div>
 
           {saved.length > 0 && (
             <div className="chars-shelf" aria-label="Your locations">

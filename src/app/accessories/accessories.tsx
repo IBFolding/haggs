@@ -10,6 +10,7 @@ import { ReturnBar } from "../return-bar";
 import { makeStill } from "../series-actions";
 import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
+import { ACCESSORY_SAMPLES } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { galleryStill } from "../gallery-log";
 import { SiteFooter } from "../site-footer";
@@ -78,6 +79,10 @@ export function Accessories() {
             <h1>Accessories</h1>
             <p>A scarf, glasses, a jacket, a camera. Describe it once, add a picture, and put it on anyone, in any shot, from anywhere in haggs.</p>
           </header>
+          <div className="cm-row" aria-label="Samples">
+            <span className="muted">Try a sample:</span>
+            {ACCESSORY_SAMPLES.map((a) => <button key={a.name} className="pill" onClick={() => { setSaved(null); setName(a.name); setWords(a.words); setPicture(null); setProblem(null); }}>{a.name}</button>)}
+          </div>
 
           {list.length > 0 && (
             <div className="cm-cast" aria-label="Your accessories">

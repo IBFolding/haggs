@@ -14,6 +14,7 @@ import { surfaceAvailable } from "../studio";
 import { ReturnBar } from "../return-bar";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
+import { CHARACTER_SAMPLES } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 
@@ -133,6 +134,10 @@ export function Characters() {
           <ModeTabs group="Photos" current="/characters" canEdit={surfaceAvailable("Edit")} />
           <h1 className="sr-only">Characters</h1>
           <ReturnBar kind="character" savedId={current?.id} savedName={current?.traits.name} />
+          <div className="cm-row" aria-label="Samples">
+            <span className="muted">Try a sample:</span>
+            {CHARACTER_SAMPLES.map((t) => <button key={t.name} className="pill" onClick={() => { setCurrent(null); setTraits(t); setLikeness([]); setSheet(null); setMade(null); setNote(null); setError(null); }}>{t.name}</button>)}
+          </div>
 
           {saved.length > 0 && (
             <div className="chars-shelf" aria-label="Your characters">

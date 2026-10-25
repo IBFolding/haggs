@@ -9,6 +9,7 @@ import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { findFootage, keepFootage } from "../found-actions";
 import { Nav } from "../nav";
+import { FOUND_SAMPLES } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 
@@ -63,6 +64,10 @@ export function Found() {
             <h1>Found footage</h1>
             <p>Describe the film. haggs searches the Prelinger Archives, thousands of public-domain films from the Internet Archive, for scenes that fit. Keep the ones you like, then restyle them into your own look and cut them together. Searching is free.</p>
           </header>
+          <div className="cm-row" aria-label="Samples">
+            <span className="muted">Try a sample:</span>
+            {FOUND_SAMPLES.map((s) => <button key={s.label} className="pill" onClick={() => { setBrief(s.brief); setWords(searchWords(s.brief).join(" ")); setFound(null); setProblem(null); }}>{s.label}</button>)}
+          </div>
 
           <label className="wf-field"><span>What is the film?</span>
             <textarea rows={2} value={brief} maxLength={300} placeholder="A lonely night shift in a city that is closing down" onChange={(e) => { setBrief(e.target.value); setWords(searchWords(e.target.value).join(" ")); }} />
