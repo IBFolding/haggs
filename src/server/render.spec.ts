@@ -87,3 +87,38 @@ test("a cut from the browser keeps checked titles and refuses links off this mac
   assert.equal(ok.overlays?.length, 1);
   assert.throws(() => checkCut({ ...base, overlays: [{ id: "o", name: "T", url: "https://x.test/t.png", start: 1, seconds: 2 }] }), /this machine/);
 });
+
+test("a look on a clip survives the check on the way to a render, and an unknown one does not", async () => {
+  const { checkCut } = await import("./render");
+  const cut = (fx: unknown) => ({ clips: [{ shotId: "a", heading: "", url: "/api/local/a.mp4", kind: "video", start: 0, from: 0, seconds: 2, ...(fx ? { fx } : {}) }], total: 2, voices: [], music: null, aspect: "16:9" });
+  assert.equal(checkCut(cut("thermal")).clips[0]!.fx, "thermal");
+  assert.equal(checkCut(cut("rm -rf /")).clips[0]!.fx, undefined);
+  assert.equal(checkCut(cut(undefined)).clips[0]!.fx, undefined);
+});
+
+test("a loudness target adds one last pass that levels the finished film and writes the final file", async () => {
+  const runs: string[][] = [];
+  const cut = { ...buildCut(sizzle()), loudness: -14 };
+  const out = await renderCut(cut, "Sizzle v2", { root: "/media", work: "/tmp/w", stamp: "s", ffmpeg: async (a) => void runs.push(a), hasAudio: async (p) => p.endsWith(".mp4"), write: async () => undefined });
+  const last = runs.at(-1)!;
+  assert.ok(last.join(" ").includes("loudnorm=I=-14:TP=-1.5:LRA=11"), last.join(" "));
+  assert.equal(last.at(-1), "/media/haggs-renders/Sizzle-v2-s.mp4");
+  assert.ok(last.includes("copy"), "the picture is not re-encoded");
+  assert.ok(!runs.slice(0, -1).some((a) => a.includes("/media/haggs-renders/Sizzle-v2-s.mp4")), "nothing before it writes the final file");
+  assert.equal(out.url, "/api/local/haggs-renders/Sizzle-v2-s.mp4");
+});
+
+test("with no loudness target the render has no extra pass", async () => {
+  const runs: string[][] = [];
+  await renderCut(buildCut(sizzle()), "Sizzle v2", { root: "/media", work: "/tmp/w", stamp: "s", ffmpeg: async (a) => void runs.push(a), hasAudio: async (p) => p.endsWith(".mp4"), write: async () => undefined });
+  assert.equal(runs.length, 4);
+});
+
+test("a loudness target is kept only when it is a sensible number", async () => {
+  const { checkCut } = await import("./render");
+  const cut = (loudness: unknown) => ({ clips: [{ shotId: "a", heading: "", url: "/api/local/a.mp4", kind: "video", start: 0, from: 0, seconds: 2 }], total: 2, voices: [], music: null, aspect: "16:9", loudness });
+  assert.equal(checkCut(cut(-14)).loudness, -14);
+  assert.equal(checkCut(cut(-30)).loudness, undefined);
+  assert.equal(checkCut(cut("loud")).loudness, undefined);
+  assert.equal(checkCut(cut(undefined)).loudness, undefined);
+});

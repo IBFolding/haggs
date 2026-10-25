@@ -10,7 +10,7 @@ import { defaultKv } from "../story/kv";
  * tools keep theirs here.
  */
 
-function keep(run: { modelId: string; modelName: string; prompt: string; url: string; kind: "image" | "video"; usd: number | null }) {
+function keep(run: { modelId: string; modelName: string; prompt: string; url: string; kind: "image" | "video" | "audio"; usd: number | null }) {
   void createRunStore(defaultKv()).record({ ...run, settings: {} }).catch(() => undefined);
 }
 
@@ -42,4 +42,9 @@ export function galleryStill(prompt: string, origin: string) {
     const run = runFromStill(prompt, origin, r);
     if (run) void createRunStore(defaultKv()).record(run).catch(() => undefined);
   };
+}
+
+/** A finished spoken line, sound effect or narration. */
+export function galleryAudio(url: string, prompt: string, name: string, usd: number | null) {
+  if (url) keep({ modelId: "sound", modelName: name, prompt, url, kind: "audio", usd });
 }

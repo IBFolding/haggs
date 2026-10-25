@@ -1,3 +1,4 @@
+import { fxFilter, isFx, type FxId } from "./fx";
 import type { Effect, Music, Overlay, Project, Shot, Sound } from "./model";
 
 /**
@@ -33,6 +34,8 @@ export type Clip = {
   /** How the picture meets the frame: fit leaves bars, fill crops around the focal point (0–1 across, 0–1 down). */
   fit?: "fit" | "fill";
   focus?: { x: number; y: number };
+  /** A look burned into the picture: VHS, CRT, glitch, thermal, night vision, retro, noir. */
+  fx?: FxId;
 };
 
 /** A spoken line placed on the cut's clock. */
@@ -51,6 +54,8 @@ export type Cut = {
   overlays?: Overlay[];
   /** The shape every clip is fitted to. */
   aspect: "16:9" | "9:16";
+  /** Integrated loudness to level the finished film to, in LUFS (-14 is what the social platforms play at). */
+  loudness?: number;
   /** Shots with nothing to show yet, so a gap in the cut is never a surprise. */
   skipped: string[];
 };
@@ -112,6 +117,7 @@ export function buildCut(project: Project): Cut {
       ...(positive(shot.fadeIn) ? { fadeIn: shot.fadeIn! } : {}),
       ...(positive(shot.fadeOut) ? { fadeOut: shot.fadeOut! } : {}),
       ...(shot.fit === "fill" ? { fit: "fill" as const, ...(shot.focus ? { focus: shot.focus } : {}) } : {}),
+      ...(isFx(shot.fx) ? { fx: shot.fx } : {}),
     });
     for (const line of shot.voices ?? []) {
       // A line that hasn't been spoken yet has nothing to play.
@@ -346,7 +352,8 @@ export const normFilter = (aspect: Cut["aspect"], framing?: Pick<Clip, "fit" | "
 /** Everything one clip is put through before the join: framing and fades for the picture, fades for its sound. */
 export function clipFilters(aspect: Cut["aspect"], clip: Clip): { v: string; a: string } {
   const fade = fadeFilters(clip);
-  const norm = normFilter(aspect, clip);
+  const look = fxFilter(clip.fx);
+  const norm = look ? `${normFilter(aspect, clip)},${look}` : normFilter(aspect, clip);
   return { v: fade.v ? `${norm},${fade.v}` : norm, a: fade.a };
 }
 

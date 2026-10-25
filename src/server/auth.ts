@@ -46,8 +46,8 @@ export async function userNow(): Promise<User | null> {
   }
 }
 
-/** Whether saving files needs a signed-in person (HAGGS_REQUIRE_SIGNIN=1). Off until sign-in is switched on for the project. */
-export const signInRequired = () => process.env.HAGGS_REQUIRE_SIGNIN === "1";
+/** Whether saving files needs a signed-in person (HAGGS_REQUIRE_SIGNIN=1, or HAGGS_GATE=1, which gates the whole studio). Off until switched on for the project. */
+export const signInRequired = () => process.env.HAGGS_REQUIRE_SIGNIN === "1" || process.env.HAGGS_GATE === "1";
 
 /** The folder name files are kept under: the signed-in person's, or a shared guest folder. */
 export const ownerOf = (user: User | null) => (user ? `u-${user.id}` : "guest");

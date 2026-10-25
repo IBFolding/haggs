@@ -39,13 +39,18 @@ export function RunTile({
     // caption on touch, and how a keyboard reaches Reuse and Delete.
     <figure className="cell" tabIndex={0}>
       {/* A run made on another computer whose file hasn't reached your account yet has nothing to play here. */}
-      {run.kind === "video" ? (
+      {run.kind === "audio" ? (
+        <div className="cell-sound">
+          <span className="cell-wave" aria-hidden="true">♪</span>
+          <audio src={run.url} onError={gone} controls preload="none" />
+        </div>
+      ) : run.kind === "video" ? (
         <video src={run.url} onError={gone} loop muted playsInline onMouseOver={(e) => void e.currentTarget.play()} onMouseOut={(e) => e.currentTarget.pause()} />
       ) : (
         <img src={run.url} alt={run.prompt} loading="lazy" onError={gone} />
       )}
 
-      {lost && <span className="cell-lost">This {run.kind === "video" ? "clip" : "picture"} has expired. The prompt is kept.</span>}
+      {lost && <span className="cell-lost">This {run.kind === "video" ? "clip" : run.kind === "audio" ? "sound" : "picture"} has expired. The prompt is kept.</span>}
 
       <span className="cell-cost">{run.usd === null ? "—" : `$${run.usd.toFixed(3)}`}</span>
 

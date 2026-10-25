@@ -154,3 +154,28 @@ test("a sound effect is made from words and a length, and priced by the second",
   assert.throws(() => soundEffectWorkflow({ text: "a door slams", seconds: 40 }), /0\.5.*30/);
   assert.equal(editEstimate({ tool: "sfx", seconds: 30 }), 0.07);
 });
+
+import { musicWorkflow } from "./cloud-edits";
+
+test("music from words is Sonilo's text-to-music node, saved as an MP3", () => {
+  const w = musicWorkflow({ text: "Slow cinematic strings that build to a swell", seconds: 30 });
+  assert.equal(w["1"]!.class_type, "SoniloTextToMusic");
+  assert.equal(w["1"]!.inputs.duration, 30);
+  assert.equal(w["1"]!.inputs.prompt, "Slow cinematic strings that build to a swell");
+  assert.equal(w["20"]!.class_type, "SaveAudioMP3");
+  assert.deepEqual(w["20"]!.inputs.audio, ["1", 0]);
+});
+
+test("music needs a description and a sensible length", () => {
+  assert.throws(() => musicWorkflow({ text: "ab", seconds: 30 }), /describe/i);
+  assert.throws(() => musicWorkflow({ text: "x".repeat(501), seconds: 30 }), /describe/i);
+  assert.throws(() => musicWorkflow({ text: "warm piano", seconds: 2 }), /5.*180/);
+  assert.throws(() => musicWorkflow({ text: "warm piano", seconds: 600 }), /5.*180/);
+  assert.throws(() => musicWorkflow({ text: "warm piano", seconds: Number.NaN }), /5.*180/);
+});
+
+test("music is priced from Comfy's own estimate: about a quarter of a cent a second", async () => {
+  const { editEstimate } = await import("./cloud-edits");
+  assert.equal(editEstimate({ tool: "music", seconds: 30 }), 0.075);
+  assert.ok(Math.abs(editEstimate({ tool: "music", seconds: 120 }) - 0.3) < 0.011);
+});

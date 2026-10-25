@@ -124,6 +124,8 @@ export function Producer() {
         if (!turn.ok) {
           if (turn.needsKey) openKeys();
           setLines((l) => [...l, { who: "error", text: turn.reason }]);
+          // No key is not a dead end: Claude (in Claude Code or Claude Desktop) can do the same over MCP, with no key at all.
+          if (turn.needsKey) setLines((l) => [...l, { who: "claude", text: "No key needed if you use Claude directly: it's connected to haggs over MCP. Ask it here, in your Claude app, for what you want (a board, a draft, a series). What it makes lands in the project on your own computer, and you press Apply to use it." }]);
           // The person's message stays; the failed turn leaves no half-answer behind.
           break;
         }

@@ -200,7 +200,66 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
     return { text: parts.join("\n"), jobId: id };
   }
 
-  return { upload, uploadBytes, run, runText };
+  const MEDIA = /\.(mp4|webm|png|jpe?g|webp|mp3|flac|wav)$/i;
+  /** Every finished file in a job's outputs, whichever node saved it. */
+  const filesIn = (outputs: unknown): { filename: string; subfolder: string }[] => {
+    const found: { filename: string; subfolder: string }[] = [];
+    for (const node of Object.values((outputs ?? {}) as Record<string, Record<string, unknown>>)) {
+      for (const key of ["video", "videos", "gifs", "images", "audio"]) {
+        for (const f of (Array.isArray(node?.[key]) ? node[key] : []) as { filename?: unknown; subfolder?: unknown; type?: unknown }[]) {
+          if (typeof f?.filename === "string" && MEDIA.test(f.filename) && (f.type === undefined || f.type === "output")) found.push({ filename: f.filename, subfolder: typeof f.subfolder === "string" ? f.subfolder : "" });
+        }
+      }
+    }
+    return found;
+  };
+  const when = (row: Record<string, unknown>) => {
+    for (const k of ["create_time", "created_at", "execution_start_time", "completed_at"]) {
+      const v = row[k];
+      if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
+      if (typeof v === "string" && Date.parse(v)) return Date.parse(v);
+    }
+    return 0;
+  };
+
+  return {
+    upload,
+    uploadBytes,
+    run,
+    runText,
+    /** The files your recent finished jobs saved on Comfy, newest first. Only reads; nothing is generated. */
+    async recent(limit = 40): Promise<{ job: string; at: number; filename: string; subfolder: string }[]> {
+      const list = (await call(`/api/jobs?status=completed&limit=${Math.min(100, limit)}`)) as unknown;
+      const rows = (Array.isArray(list) ? list : ((list as Record<string, unknown>).jobs ?? (list as Record<string, unknown>).data ?? [])) as Record<string, unknown>[];
+      const out: { job: string; at: number; filename: string; subfolder: string }[] = [];
+      const look = async (row: Record<string, unknown>) => {
+        const job = String(row.id ?? row.prompt_id ?? "");
+        if (!job) return;
+        const full = row.outputs ? row : ((await call(`/api/jobs/${encodeURIComponent(job)}`).catch(() => null)) as Record<string, unknown> | null);
+        if (!full) return;
+        for (const f of filesIn(full.outputs)) out.push({ job, at: when(full) || when(row), ...f });
+      };
+      // Six at a time, so forty jobs take seconds, not a minute.
+      const todo = rows.slice(0, limit);
+      for (let i = 0; i < todo.length; i += 6) await Promise.all(todo.slice(i, i + 6).map(look));
+      return out.sort((a, b) => b.at - a.at);
+    },
+    /** A link to one saved file that works for a few hours without your key, for showing it. */
+    async signed(file: { filename: string; subfolder?: string }): Promise<string | null> {
+      const query = new URLSearchParams({ filename: file.filename, subfolder: file.subfolder ?? "", type: "output" });
+      const response = await fetchImpl(`${ORIGIN}/api/view?${query}`, { headers: { "X-API-Key": apiKey }, redirect: "manual", signal: AbortSignal.timeout(30_000) }).catch(() => null);
+      const to = response && [301, 302, 303, 307, 308].includes(response.status) ? response.headers.get("location") : null;
+      await response?.body?.cancel().catch(() => undefined);
+      try {
+        const u = to ? new URL(to) : null;
+        return u && u.protocol === "https:" && u.hostname === "storage.googleapis.com" && !u.username ? u.href : null;
+      } catch {
+        return null;
+      }
+    },
+    /** One saved file's bytes, to keep. */
+    fetchOutput: (file: { filename: string; subfolder?: string }) => download(file),
+  };
 }
 
 export function createCloudProvider(options: CloudOptions): Provider {

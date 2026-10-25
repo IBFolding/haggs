@@ -7,7 +7,7 @@ import { exportSheets, importSheets, type Sheets } from "../sheets/sheets";
 import { normalize } from "../story/boards";
 import { defaultKv } from "../story/kv";
 import type { Project, ProjectSummary } from "../story/model";
-import type { Run } from "../story/runs";
+import type { PictureRun as Run } from "../story/runs";
 import { saveRun, type SaveTarget } from "../story/save-run";
 import { createProjectStore } from "../story/store";
 import { saveToBank, suggestName } from "../story/bank-save";

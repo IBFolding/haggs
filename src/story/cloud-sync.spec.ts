@@ -138,3 +138,21 @@ test("a project already in the account without its files is sent once more when 
   const again = await syncProjects(kv, s, remote, portable);
   assert.equal(again.pushed, 0, "only the one time");
 });
+
+test("another device that already has the version without files picks up the one with files, and this machine does not pull its own copy back", async () => {
+  const { rows, remote } = fakeRemote();
+  const kv1 = memoryKv(), kv2 = memoryKv();
+  const here = createProjectStore(kv1), live = createProjectStore(kv2);
+  const p = projectWithFiles("Earlier", ["/api/local/a.png"]);
+  await here.save(p);
+  await syncProjects(kv1, here, remote);
+  await syncProjects(kv2, live, remote);
+  assert.ok(JSON.stringify(await live.load(p.id)).includes("/api/local/a.png"), "the other device first got the version without files");
+  const portable: Portable = { keep: async () => "https://store.test/a.png" };
+  await syncProjects(kv1, here, remote, portable);
+  await syncProjects(kv2, live, remote);
+  assert.ok(JSON.stringify(await live.load(p.id)).includes("https://store.test/a.png"), "the other device now plays the copied file");
+  await syncProjects(kv1, here, remote, portable);
+  assert.ok(JSON.stringify(await here.load(p.id)).includes("/api/local/a.png"), "this machine keeps playing its own file");
+  assert.equal((await syncProjects(kv1, here, remote, portable)).pulled, 0);
+});

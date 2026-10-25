@@ -1,5 +1,6 @@
 "use client";
 
+import { shrinkAll } from "../shrink";
 import { galleryEdit } from "../gallery-log";
 import { track as inHeader } from "../../activity/activity";
 import Link from "next/link";
@@ -7,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { PLACE_ROWS, blankPlace, createPlaceStore, placeLock, placePrompt, type Place, type SavedPlace } from "../../locations/location";
 import { defaultKv } from "../../story/kv";
-import type { Run } from "../../story/runs";
+import type { PictureRun as Run } from "../../story/runs";
 import { runEdit } from "../actions";
 import { Nav, openKeys } from "../nav";
 import { surfaceAvailable } from "../studio";
@@ -16,6 +17,7 @@ import { ReshootPanel } from "../reshoot-panel";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
 import { ModeTabs } from "../mode-tabs";
+import { SiteFooter } from "../site-footer";
 
 /**
  * Locations: describe a place or start from a picture of a real one, make an
@@ -80,7 +82,7 @@ export function Locations() {
   async function makePlate() {
     setBusy("plate");
     setError(null);
-    const r = await makeStill(placePrompt(traits, reference !== null), "16:9", reference ? [reference] : []);
+    const r = await makeStill(placePrompt(traits, reference !== null), "16:9", reference ? await shrinkAll([reference]) : []);
     setBusy(null);
     if (!r.ok) {
       if (r.needsKey) openKeys();
@@ -120,6 +122,7 @@ export function Locations() {
       <div className="canvas">
         <div className="chars">
           <ModeTabs group="Photos" current="/locations" canEdit={surfaceAvailable("Edit")} />
+          <h1 className="sr-only">Locations</h1>
           <ReturnBar kind="place" savedId={current?.id} savedName={current?.traits.name} />
 
           {saved.length > 0 && (
@@ -218,6 +221,7 @@ export function Locations() {
             </div>
           </div>
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

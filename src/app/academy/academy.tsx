@@ -7,6 +7,7 @@ import { LESSONS, createProgress } from "../../academy/lessons";
 import { defaultKv } from "../../story/kv";
 import { MADE } from "../academy-path";
 import { Nav } from "../nav";
+import { SiteFooter } from "../site-footer";
 
 /**
  * Seven short lessons, each a few steps, a button into the real page, and a
@@ -89,6 +90,7 @@ export function Academy() {
             </section>
           )}
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

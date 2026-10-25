@@ -7,6 +7,7 @@ import { defaultKv } from "../story/kv";
 import type { Project } from "../story/model";
 import { createProjectStore } from "../story/store";
 import { keepInLibrary } from "./library-actions";
+import { FILE_SYNC } from "./file-sync-note";
 import { supabase, useSession } from "./session";
 
 /** Keeps this browser's projects and the account's in step while someone is signed in. Renders nothing. */
@@ -39,15 +40,20 @@ export function CloudSync() {
       },
     };
     // On your own computer, the files a project points at are copied to your account so the live site can show them. The live site has no such files to copy.
+    let problem: string | null = null;
     const portable: Portable | undefined = process.env.NEXT_PUBLIC_HOSTED
       ? undefined
-      : { keep: async (url) => { const r = await keepInLibrary(url); return r.ok ? r.url : r.final ? "never" : null; } };
+      : { keep: async (url) => { const r = await keepInLibrary(url); if (!r.ok) problem = r.reason; return r.ok ? r.url : r.final ? "never" : null; } };
     let busy = false;
     const run = () => {
       if (busy || document.visibilityState === "hidden") return;
       busy = true;
       // A table that isn't there yet, or no network, just means no sync this time.
-      void syncProjects(kv, store, remote, portable).catch(() => undefined).finally(() => { busy = false; });
+      problem = null;
+      void syncProjects(kv, store, remote, portable)
+        .then((r) => portable && kv.set(FILE_SYNC, { at: Date.now(), waiting: r.waiting, problem }))
+        .catch(() => portable && kv.set(FILE_SYNC, { at: Date.now(), waiting: -1, problem: "The account couldn't be reached." }))
+        .finally(() => { busy = false; });
     };
     run();
     const timer = setInterval(run, 45_000);

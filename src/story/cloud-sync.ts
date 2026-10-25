@@ -53,14 +53,20 @@ export type Portable = { keep(url: string): Promise<string | "never" | null>; pe
 const FILES = "sync/files";
 const PENDING = "sync/pending";
 const COPYING = "sync/copying";
+/** The stamp this machine gave each project when it sent a copy with its files swapped in, so it does not pull that copy back. */
+const SENT = "sync/sent";
 
-export type Report = { pushed: number; pulled: number; removed: number; skipped: string[] };
+export type Report = { pushed: number; pulled: number; removed: number; skipped: string[]; waiting: number };
 
 export async function syncProjects(kv: Kv, store: ProjectStore, remote: Remote, portable?: Portable): Promise<Report> {
   const known = (await kv.get<string[]>(KNOWN)) ?? [];
   const local = (await store.list()).map(({ id, updatedAt }) => ({ id, updatedAt }));
-  const todo = plan(local, await remote.list(), known);
-  const report: Report = { pushed: 0, pulled: 0, removed: 0, skipped: [] };
+  const sentStamps = (await kv.get<Record<string, number>>(SENT)) ?? {};
+  const mine = new Map(local.map((x) => [x.id, x.updatedAt]));
+  // A copy this machine sent itself, with its files swapped in, is the same project as the one here.
+  const theirs = (await remote.list()).map((x) => (sentStamps[x.id] === x.updatedAt && mine.has(x.id) ? { id: x.id, updatedAt: mine.get(x.id)! } : x));
+  const todo = plan(local, theirs, known);
+  const report: Report = { pushed: 0, pulled: 0, removed: 0, skipped: [], waiting: 0 };
 
   // Projects whose files were only partly copied last time are sent again until they are whole.
   const stillHere = new Set(local.map((x) => x.id));
@@ -88,14 +94,22 @@ export async function syncProjects(kv: Kv, store: ProjectStore, remote: Remote, 
       const cloud = Object.fromEntries(Object.entries(files).filter(([, v]) => v !== "never"));
       sent = withLinks(project, cloud);
       sheets = sheets === null ? null : withLinks(sheets, cloud);
-      if (localLinks([project, sheets]).some((url) => !files[url])) unfinished.add(id);
+      const left = localLinks([project, sheets]).filter((url) => !files[url]).length;
+      if (left) unfinished.add(id);
+      report.waiting += left;
+    }
+    // A copy with files swapped in is stamped newer, so a device that already holds the version without them takes it.
+    if (sent !== project && JSON.stringify(sent) !== JSON.stringify(project)) {
+      sent = { ...sent, updatedAt: Math.max(Date.now(), project.updatedAt + 1) };
     }
     if (JSON.stringify(sent).length + (sheets?.length ?? 0) > MAX_BYTES) { report.skipped.push(project.name); continue; }
     await remote.put(sent, sheets);
+    if (sent.updatedAt !== project.updatedAt) sentStamps[id] = sent.updatedAt;
     report.pushed += 1;
   }
   if (portable) {
     await kv.set(FILES, files);
+    await kv.set(SENT, sentStamps);
     await kv.set(PENDING, [...unfinished]);
   }
   for (const id of todo.pull) {

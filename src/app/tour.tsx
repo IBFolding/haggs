@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+
+import { defaultKv } from "../story/kv";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 
 /**
@@ -40,7 +42,13 @@ export function Tour() {
     try {
       // ?notour is for demos and tests: it marks the tour done and carries on.
       if (new URLSearchParams(window.location.search).has("notour")) localStorage.setItem(DONE, "skipped");
-      else if (!localStorage.getItem(DONE)) first = setTimeout(() => setAt(0), 1100);
+      // Only the first time someone is inside the app: never on the landing page, and never for someone who already has projects here.
+      else if (!localStorage.getItem(DONE) && window.location.pathname !== "/") {
+        void defaultKv().get<unknown[]>("projects/index").then((list) => {
+          if (Array.isArray(list) && list.length) { try { localStorage.setItem(DONE, "skipped"); } catch { /* private window */ } return; }
+          first = setTimeout(() => setAt(0), 1100);
+        }).catch(() => { first = setTimeout(() => setAt(0), 1100); });
+      }
     } catch { /* private window */ }
     const start = () => setAt(0);
     window.addEventListener(TOUR_EVENT, start);

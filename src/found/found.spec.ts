@@ -46,11 +46,38 @@ test("the web-sized h.264 copy is kept, not the original or anything too big", (
 });
 
 test("picks become a board, each shot naming where it came from", () => {
-  const found = { id: "Diner1954", title: "A Diner", year: "1954", about: "", thumb: "", page: "https://archive.org/details/Diner1954" };
+  const found = { id: "Diner1954", title: "A Diner", year: "1954", about: "", tags: "", thumb: "", page: "https://archive.org/details/Diner1954" };
   const p = foundBoard("Night shift", "a lonely night", [{ found, localUrl: "/api/local/haggs-renders/x.mp4", seconds: 4.26 }]);
   const shot = p.boards![0]!.shots[0]!;
   assert.equal(shot.seconds, 4.3);
   assert.match(shot.beat, /Prelinger Archives, https:\/\/archive\.org\/details\/Diner1954/);
   assert.equal(shot.render?.url, "/api/local/haggs-renders/x.mp4");
   assert.throws(() => foundBoard("x", "", []), /at least one/);
+});
+
+import { expandWords, fitOf, rankFound, variants, type Found } from "./found";
+
+const film = (id: string, title: string, about = "", tags = ""): Found => ({ id, title, year: "1955", about, tags, thumb: "", page: "" });
+
+test("a word is searched in the forms an old film might use", () => {
+  assert.deepEqual(variants("cars"), ["cars", "car"]);
+  assert.deepEqual(variants("car"), ["car", "cars"]);
+  assert.deepEqual(variants("cities"), ["cities", "city"]);
+  assert.deepEqual(variants("glass"), ["glass"]);
+  assert.deepEqual(expandWords(["cars", "road"]).sort(), ["car", "cars", "road", "roads"]);
+});
+
+test("films that fit the words come first, not the ones that were most watched", () => {
+  const list = [film("a", "Popular Dancing Film", "A dance, mentions a car once."), film("b", "Your New Car", "How an automobile is made."), film("c", "Cars and Roads", "", "automobiles highways"), film("d", "Unrelated Cooking")];
+  const ranked = rankFound(list, ["cars", "roads"]);
+  assert.deepEqual(ranked.map((f) => f.id), ["c", "b", "a"]);
+  assert.ok(fitOf(list[2]!, ["cars", "roads"]) > fitOf(list[0]!, ["cars", "roads"]));
+});
+
+test("a scene matching none of the words is dropped", () => {
+  assert.deepEqual(rankFound([film("x", "Cooking")], ["cars"]), []);
+});
+
+test("the title-only search looks only in titles", () => {
+  assert.match(new URL(searchUrl(["car", "cars"], 10, "title")).searchParams.get("q")!, /^\(title:\(car OR cars\)\) AND collection/);
 });

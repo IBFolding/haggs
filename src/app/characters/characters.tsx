@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { TRAIT_ROWS, blank, changeNote, characterPrompt, createCharacterStore, identityLock, type Character, type Traits } from "../../characters/character";
 import { defaultKv } from "../../story/kv";
-import type { Run } from "../../story/runs";
+import type { PictureRun as Run } from "../../story/runs";
 import { runEdit } from "../actions";
 import { Nav, openKeys } from "../nav";
 import { surfaceAvailable } from "../studio";
@@ -15,6 +15,7 @@ import { ReturnBar } from "../return-bar";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
 import { ModeTabs } from "../mode-tabs";
+import { SiteFooter } from "../site-footer";
 
 /**
  * Characters: change anything about a person and see them, or drop photos
@@ -130,6 +131,7 @@ export function Characters() {
       <div className="canvas">
         <div className="chars">
           <ModeTabs group="Photos" current="/characters" canEdit={surfaceAvailable("Edit")} />
+          <h1 className="sr-only">Characters</h1>
           <ReturnBar kind="character" savedId={current?.id} savedName={current?.traits.name} />
 
           {saved.length > 0 && (
@@ -230,6 +232,7 @@ export function Characters() {
             </div>
           </div>
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

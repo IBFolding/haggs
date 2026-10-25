@@ -1,5 +1,7 @@
 "use client";
 
+import { galleryAudio } from "../../../gallery-log";
+import { MusicMaker } from "./music-maker";
 import { uploadFile } from "../../../upload-client";
 import { useEffect, useRef, useState } from "react";
 
@@ -82,7 +84,7 @@ async function upload(file: File): Promise<{ url: string; name: string }> {
   return { url: added.url, name: added.name };
 }
 
-export function Soundtrack({ music, onChange }: { music: Music | undefined; onChange: (music: Music | undefined) => void }) {
+export function Soundtrack({ music, onChange, seconds = 30 }: { music: Music | undefined; onChange: (music: Music | undefined) => void; seconds?: number }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +123,7 @@ export function Soundtrack({ music, onChange }: { music: Music | undefined; onCh
         </>
       )}
       <input ref={input} type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void add(f); }} />
+      <MusicMaker seconds={seconds} onMade={(m) => onChange({ url: m.url, name: m.name, gain: music?.gain ?? -6 })} />
       {error && <p className="library-error" role="alert">{error}</p>}
     </div>
   );
@@ -172,6 +175,7 @@ export function VoiceLines({ shot, project, onChange }: { shot: Shot; project: P
       setError(result.reason);
       return;
     }
+    galleryAudio(result.url, line.text, "Voice line", result.usd);
     onChange(lines.map((l) => (l.id === line.id ? { ...l, url: result.url } : l)));
   }
 
@@ -276,7 +280,7 @@ function TrackHead({ name, hint, muted, onMute, level, onLevel, min = -24, max =
  * (placed on the timeline, from a file or made from words) and Music. Each
  * has its own mute and level.
  */
-export function Tracks({ sound, onSound, effects, onEffects, music, onMusic, playhead, voices }: { sound: Sound | undefined; onSound: (s: Sound | undefined) => void; effects: Effect[]; onEffects: (e: Effect[]) => void; music: Music | undefined; onMusic: (m: Music | undefined) => void; playhead: number; voices: number }) {
+export function Tracks({ sound, onSound, effects, onEffects, music, onMusic, playhead, voices, filmSeconds }: { sound: Sound | undefined; onSound: (s: Sound | undefined) => void; effects: Effect[]; onEffects: (e: Effect[]) => void; music: Music | undefined; onMusic: (m: Music | undefined) => void; playhead: number; voices: number; filmSeconds?: number }) {
   const snd = sound ?? {};
   const set = (patch: Partial<Sound>) => onSound({ ...snd, ...patch });
   const [text, setText] = useState("");
@@ -302,6 +306,7 @@ export function Tracks({ sound, onSound, effects, onEffects, music, onMusic, pla
       if (r.needsKey) openKeys();
       return setError(r.reason);
     }
+    galleryAudio(r.url, text, "Sound effect", r.usd);
     add({ name: text.trim().slice(0, 40), url: r.url, seconds });
     setText("");
   }
@@ -348,7 +353,7 @@ export function Tracks({ sound, onSound, effects, onEffects, music, onMusic, pla
       </div>
 
       <TrackHead name="Music" hint={music ? music.name : "none yet"} muted={Boolean(snd.musicMute)} onMute={() => set({ musicMute: !snd.musicMute })} level={music?.gain ?? 0} onLevel={(n) => music && onMusic({ ...music, gain: n })} min={-24} max={6} />
-      <Soundtrack music={music} onChange={onMusic} />
+      <Soundtrack music={music} onChange={onMusic} {...(filmSeconds ? { seconds: filmSeconds } : {})} />
     </div>
   );
 }

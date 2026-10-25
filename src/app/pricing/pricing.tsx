@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { capacity, type Plan } from "../../server/billing";
 import { Nav } from "../nav";
 import { authed, useSession } from "../session";
+import { SiteFooter } from "../site-footer";
 
 type Shown = Omit<Plan, "priceEnv">;
 
@@ -69,6 +71,12 @@ export function Pricing({ plans, credits }: { plans: Shown[]; credits: boolean }
               );
             })}
           </div>
+          {credits && (
+            <section className="pr-credits-only" aria-label="Credits without a plan">
+              <h2>No key and no plan? Just buy credits.</h2>
+              <p>Sign in, add credits, and use the whole studio through haggs. You pay only for what you run, at the price shown on each button, and credits never expire. <Link href="/account#credits">Add credits</Link></p>
+            </section>
+          )}
           {buyable !== null && buyable.length === 0 && (
             <p className="sh-note">Checkout isn't switched on in this copy of haggs yet: it needs a Stripe key. You can use everything on your own Comfy key meanwhile.</p>
           )}
@@ -79,6 +87,7 @@ export function Pricing({ plans, credits }: { plans: Shown[]; credits: boolean }
           </p>
           {problem && <p className="library-error" role="alert">{problem}</p>}
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

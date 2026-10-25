@@ -10,6 +10,7 @@ import { createProjectStore } from "../../story/store";
 import { findFootage, keepFootage } from "../found-actions";
 import { Nav } from "../nav";
 import { ModeTabs } from "../mode-tabs";
+import { SiteFooter } from "../site-footer";
 
 /**
  * Found footage: say what the film is, find archive scenes that fit, keep the
@@ -98,6 +99,7 @@ export function Found() {
             </>
           )}
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

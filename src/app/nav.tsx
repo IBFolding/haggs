@@ -12,6 +12,7 @@ import { ActivityMenu } from "./activity-menu";
 import { CloudSync } from "./cloud-sync";
 import { RunSync } from "./run-sync";
 import { TOUR_EVENT, Tour } from "./tour";
+import { CreditChip } from "./credit-chip";
 
 /**
  * The one header. Every page shows exactly this — the same five places and
@@ -76,6 +77,7 @@ export function Nav({ current }: { current: Place }) {
         </div>
         <span className="nav-right">
           <ActivityMenu />
+          <CreditChip ownKey={held.comfy} />
           <button className="nav-ask" onClick={() => openProducer()} data-tour="ask">Ask Haggy</button>
           <button className="key-state" onClick={() => setOpen(true)} title="Provider keys" data-tour="keys">
             <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />

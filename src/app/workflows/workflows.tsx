@@ -10,6 +10,7 @@ import { GROUPS, QUICK_APPS, isOpenApp } from "../../comfy/quick";
 import { createAppStore, type SavedApp } from "../../story/apps";
 import { defaultKv } from "../../story/kv";
 import { listWorkflows, type Listing } from "../workflow-actions";
+import { SiteFooter } from "../site-footer";
 
 /**
  * Comfy's workflows, ready to run: every public template that converts to a
@@ -95,16 +96,16 @@ export function Workflows() {
               </div>
               <div className="quick-row">
                 {QUICK_APPS.filter((a) => a.group === group).map((a) => (
-                  <Link key={a.id} className="quick-card" href={`/workflows/build?quick=${a.id}`}>
+                  <Link key={a.id} className="quick-card pic" href={`/workflows/build?quick=${a.id}`}>
+                    <span className="qc-pic" style={{ backgroundImage: `url(/quick/${a.id}.webp)` }} role="img" aria-label={`A sample of ${a.name}`} />
                     <b>{a.name}</b>
                     <span>{a.says}</span>
                     <small>{isOpenApp(a) ? "Open weights" : a.makes === "video" ? "Video" : "Picture"}</small>
                   </Link>
                 ))}
                 {group === "Swap and faces" && (
-                  <Link className="quick-card swap" href="/swap">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={SWAP_THUMB} alt="" />
+                  <Link className="quick-card swap pic" href="/swap">
+                    <span className="qc-pic" style={{ backgroundImage: `url(${SWAP_THUMB})` }} role="img" aria-label="A sample of swapping a character" />
                     <b>Swap a character</b>
                     <span>Drop a video and a picture, say who to replace. The scene, camera and sound stay.</span>
                     <small>Video</small>
@@ -153,6 +154,7 @@ export function Workflows() {
           )}
           <p className="wf-credit">Workflows and example results from Comfy&rsquo;s <a href="https://github.com/Comfy-Org/workflow_templates" target="_blank" rel="noreferrer">workflow templates</a> (MIT).</p>
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

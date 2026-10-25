@@ -16,6 +16,7 @@ import { BuildLink } from "../return-bar";
 import { readPick } from "../../story/handoff";
 import { analyzeEdit } from "../recreate-actions";
 import { ModeTabs } from "../mode-tabs";
+import { SiteFooter } from "../site-footer";
 
 /**
  * Recreate an edit: drop a reference video (an edit you love), say who is in
@@ -128,9 +129,12 @@ export function Recreate() {
               <b>Start from a structure</b>
               <div className="quick-row">
                 {EDIT_PRESETS.map((p) => (
-                  <button key={p.id} className="quick-card" onClick={() => { setShots(presetShots(p)); setVertical(p.vertical); setError(null); }} title={p.says}>
+                  <button key={p.id} className="quick-card struct" onClick={() => { setShots(presetShots(p)); setVertical(p.vertical); setError(null); }} title={p.says}>
+                    <span className={`st-strip${p.vertical ? "" : " land"}`} aria-label={`A sample ${p.name} edit`}>
+                      {[1, 2, 3].map((n) => <span key={n} className="st-frame" style={{ backgroundImage: `url(/structures/${p.id}-${n}.jpg)` }} />)}
+                    </span>
                     <b>{p.name}</b>
-                    <small>{p.shots.length} shots · {p.vertical ? "vertical" : "landscape"}</small>
+                    <small>{p.says} · {p.shots.length} shots · {p.vertical ? "vertical" : "landscape"}</small>
                   </button>
                 ))}
                 {mine.map((p) => (
@@ -196,6 +200,7 @@ export function Recreate() {
             </ol>
           )}
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

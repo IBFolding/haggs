@@ -117,3 +117,16 @@ test("presets fill in a whole series: format, topic, look, voice and count", () 
   assert.deepEqual([...new Set(faceless.map((p) => p.category))].sort(), ["Education", "History", "Kids", "Storytelling"]);
   assert.equal(presetById("nope"), undefined);
 });
+
+import { FORMATS as ALL_FORMATS, FORMAT_SAMPLES } from "./series";
+
+test("every format shows a real sample: an idea to load, the hook it makes and three shots", () => {
+  for (const f of ALL_FORMATS) {
+    const s = FORMAT_SAMPLES[f.id];
+    assert.ok(s, f.id);
+    assert.ok(s.topic.trim().length >= 12, `${f.id} has a topic worth loading`);
+    assert.ok(s.hook.trim().length >= 8, `${f.id} has a hook`);
+    assert.equal(s.shots.length, 3, `${f.id} shows three shots`);
+    assert.ok(s.count >= 1 && s.count <= 8);
+  }
+});

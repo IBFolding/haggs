@@ -132,3 +132,13 @@ test("runs from the account come in newest first and replace the same id, and a 
   await runs.patch(a.id, { remote: "https://x.public.blob.vercel-storage.com/a.png" });
   assert.equal((await runs.list())[0]!.rev, a.rev! + 10);
 });
+
+test("a sound is a run too, and a recovered render keeps the moment it was made and the Comfy job it came from", async () => {
+  const runs = createRunStore(memoryKv());
+  const s = await runs.record(made({ kind: "audio", prompt: "rain on a tin roof", url: "/api/local/x.mp3", modelName: "ElevenLabs Sound Effects" }));
+  assert.equal(s.kind, "audio");
+  const old = await runs.record(made({ comfyJob: "job-1", url: "/api/local/old.png" }), 1_700_000_000_000);
+  assert.equal(old.at, 1_700_000_000_000);
+  assert.equal((await runs.list()).map((r) => r.id)[0], s.id, "newest first, so the recovered one sorts below");
+  assert.equal((await runs.list()).find((r) => r.comfyJob === "job-1")!.at, 1_700_000_000_000);
+});

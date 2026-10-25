@@ -6,10 +6,11 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { defaultKv } from "../../story/kv";
-import { createRunStore, type Run } from "../../story/runs";
+import { createRunStore, type PictureRun, type Run } from "../../story/runs";
 import { Nav, openKeys } from "../nav";
 import { SaveToProject } from "../save-to-project";
 import { quoteWorkflow, runWorkflow, type Quote, type WorkflowResult } from "../workflow-actions";
+import { SiteFooter } from "../site-footer";
 
 /**
  * Swap a character into any video: drop the video, drop who should be in it,
@@ -86,8 +87,8 @@ export function Swap() {
   const [seconds, setSeconds] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<WorkflowResult | null>(null);
-  const [kept, setKept] = useState<Run | null>(null);
-  const [saving, setSaving] = useState<Run | null>(null);
+  const [kept, setKept] = useState<PictureRun | null>(null);
+  const [saving, setSaving] = useState<PictureRun | null>(null);
   const runs = useMemo(() => createRunStore(defaultKv()), []);
 
   const prompt = `Replace ${who.trim() || "the main person"} with the character from the first reference image, keeping their identity, face and clothes exactly. Keep everything else the same: the scene, the other people, the source motion, camera movement, timing and audio.`;
@@ -117,7 +118,7 @@ export function Swap() {
     setRunning(false);
     setResult(r);
     if (!r.ok && r.needsKey) openKeys();
-    if (r.ok && r.kind === "video") setKept(await runs.record({ modelId: "comfy:genjutsu-swap", modelName: "Character swap (Genjutsu)", prompt: `Swap ${who.trim() || "the main person"}`, settings: { resolution: quality }, url: r.url, kind: "video", usd: total }));
+    if (r.ok && r.kind === "video") setKept((await runs.record({ modelId: "comfy:genjutsu-swap", modelName: "Character swap (Genjutsu)", prompt: `Swap ${who.trim() || "the main person"}`, settings: { resolution: quality }, url: r.url, kind: "video", usd: total })) as PictureRun);
   }
 
   return (
@@ -171,6 +172,7 @@ export function Swap() {
             </div>
           </div>
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

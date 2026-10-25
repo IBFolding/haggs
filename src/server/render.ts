@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { isBlobUrl } from "./blob";
+import { isFx } from "../story/fx";
 import { captionFilter, clipFilters, overlayFilter, mixFilter, frameOf, type Cut } from "../story/cut";
 
 /**
@@ -77,12 +78,14 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
   const picture = join(o.work, "picture.mp4");
   const name_ = `${slug(name)}-${o.stamp}.mp4`;
   const out = join(o.root, "haggs-renders", name_);
+  // With a loudness target, every stage writes to a scratch file and one last pass levels it into the final one.
+  const pre = cut.loudness ? join(o.work, "prenorm.mp4") : out;
   await o.write(list, parts.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join("\n") + "\n");
   const caps = o.caption ? captionFilter(cut) : null;
   const titles = overlayFilter(cut);
   const titleFiles = titles ? titles.inputs.map(file) : [];
-  const afterCaps = titles ? join(o.work, "captioned.mp4") : mix ? picture : out;
-  const joined = caps ? join(o.work, "joined.mp4") : titles ? afterCaps : mix ? picture : out;
+  const afterCaps = titles ? join(o.work, "captioned.mp4") : mix ? picture : pre;
+  const joined = caps ? join(o.work, "joined.mp4") : titles ? afterCaps : mix ? picture : pre;
   await o.ffmpeg([...QUIET, "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", joined]);
   if (caps) {
     const size = frameOf(cut.aspect);
@@ -96,10 +99,13 @@ export async function renderCut(cut: Cut, name: string, o: RenderOptions): Promi
   }
   if (titles) {
     const src = caps ? afterCaps : joined;
-    await o.ffmpeg([...QUIET, "-i", src, ...titleFiles.flatMap((p) => ["-i", p]), "-filter_complex", titles.filter, "-map", "[out]", "-map", "0:a", "-c:v", "libx264", "-crf", "16", "-c:a", "copy", mix ? picture : out]);
+    await o.ffmpeg([...QUIET, "-i", src, ...titleFiles.flatMap((p) => ["-i", p]), "-filter_complex", titles.filter, "-map", "[out]", "-map", "0:a", "-c:v", "libx264", "-crf", "16", "-c:a", "copy", mix ? picture : pre]);
   }
   if (mix) {
-    await o.ffmpeg([...QUIET, "-i", picture, ...sounds.flatMap((s) => ["-i", s]), "-filter_complex", mix.filter, "-map", "0:v", "-map", "[mix]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", out]);
+    await o.ffmpeg([...QUIET, "-i", picture, ...sounds.flatMap((s) => ["-i", s]), "-filter_complex", mix.filter, "-map", "0:v", "-map", "[mix]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", pre]);
+  }
+  if (cut.loudness) {
+    await o.ffmpeg([...QUIET, "-i", pre, "-c:v", "copy", "-af", `loudnorm=I=${cut.loudness}:TP=-1.5:LRA=11`, "-c:a", "aac", "-b:a", "192k", "-ar", "48000", out]);
   }
   return { url: `/api/local/haggs-renders/${encodeURIComponent(name_)}`, path: out };
 }
@@ -134,6 +140,7 @@ export function checkCut(raw: unknown): Cut {
     ...(x.fit === "fill" ? { fit: "fill" as const, ...(x.focus && typeof x.focus === "object" ? { focus: { x: unit((x.focus as { x?: unknown }).x), y: unit((x.focus as { y?: unknown }).y) } } : {}) } : {}),
     ...(typeof x.fadeIn === "number" && x.fadeIn > 0 && x.fadeIn <= 10 ? { fadeIn: x.fadeIn } : {}),
     ...(typeof x.fadeOut === "number" && x.fadeOut > 0 && x.fadeOut <= 10 ? { fadeOut: x.fadeOut } : {}),
+    ...(isFx(x.fx) ? { fx: x.fx } : {}),
   }));
   const voices = (Array.isArray(c.voices) ? c.voices : []).slice(0, 200).map((v) => ({ shotId: String(v.shotId), id: String(v.id), url: link(v.url), text: String(v.text ?? "").slice(0, 200), start: num(v.start, 0, 7200), gain: num(v.gain ?? 0, -40, 20) }));
   const music = c.music ? { url: link(c.music.url), name: String(c.music.name ?? "").slice(0, 120), gain: num(c.music.gain ?? 0, -40, 20) } : null;
@@ -146,5 +153,6 @@ export function checkCut(raw: unknown): Cut {
   const overlays = (Array.isArray((c as { overlays?: unknown[] }).overlays) ? (c as { overlays: Record<string, unknown>[] }).overlays : []).slice(0, 50).map((e) => ({ id: String(e.id ?? ""), name: String(e.name ?? "").slice(0, 80), url: link(e.url), start: num(e.start, 0, 7200), seconds: num(e.seconds ?? 3, 0.1, 600) }));
   // A render on a deployment has five minutes and a small disk: nothing longer than ten minutes of film, and no more than a hundred clips.
   if (process.env.BLOB_READ_WRITE_TOKEN && (clips.length > 100 || Number(c.total) > 600)) throw new Error("A cut longer than ten minutes, or with over a hundred clips, can't be rendered here. Cut it down, or render on your own machine.");
-  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(overlays.length ? { overlays } : {}), ...(effects.length ? { effects } : {}), ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
+  const loudness = typeof (c as { loudness?: unknown }).loudness === "number" && Number.isFinite((c as { loudness: number }).loudness) && (c as { loudness: number }).loudness >= -24 && (c as { loudness: number }).loudness <= -9 ? (c as { loudness: number }).loudness : undefined;
+  return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(loudness !== undefined ? { loudness } : {}), ...(overlays.length ? { overlays } : {}), ...(effects.length ? { effects } : {}), ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
 }

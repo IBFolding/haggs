@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Sheets } from "../sheets/sheets";
 import { createProject, newShot, type Project } from "./model";
-import type { Run } from "./runs";
+import type { PictureRun as Run } from "./runs";
 import { saveRun } from "./save-run";
 
 const run: Run = { id: "r1", modelId: "flux3", modelName: "FLUX 3", prompt: "Rowan at the river, laughing", settings: {}, url: "/api/local/r1.png", kind: "image", usd: 0.1, at: 5 };

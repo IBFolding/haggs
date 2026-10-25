@@ -4,7 +4,7 @@ import { hosted, isBlobUrl, putBlob } from "../server/blob";
 import { comfyAccess, charged, readKey as platformReadKey, type Access } from "../server/platform";
 import { inlineLocal, localUrl } from "../server/local-media";
 import { cloudEstimate, createCloudProvider, createCloudRunner, type Kept } from "../providers/cloud";
-import { alephWorkflow, editEstimate, genjutsuWorkflow, soundEffectWorkflow, klingEditWorkflow, kontextWorkflow, regenerateWorkflow, speechWorkflow, VOICES, voiceWorkflow, type Line } from "../providers/cloud-edits";
+import { alephWorkflow, editEstimate, genjutsuWorkflow, musicWorkflow, soundEffectWorkflow, klingEditWorkflow, kontextWorkflow, regenerateWorkflow, speechWorkflow, VOICES, voiceWorkflow, type Line } from "../providers/cloud-edits";
 import { formatById } from "../sheets/formats";
 import { askClaude, draftRequest, type ClaudeResult, type DraftRequest } from "../writer/draft";
 import { FILL_SCHEMA, type Fill } from "../writer/fill";
@@ -487,5 +487,33 @@ async function effectWith(key: string, text: string, seconds: number): Promise<M
     return { ok: true, url: result.url, usd: await quoteEffect(seconds) };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The effect wasn't made." };
+  }
+}
+
+
+export type MadeMusic = { ok: true; url: string; usd: number } | { ok: false; reason: string; needsKey?: boolean };
+
+/** What music costs, before it is made. */
+export async function quoteMusic(seconds: number): Promise<number> {
+  return editEstimate({ tool: "music", seconds });
+}
+
+/** Makes music from words with Sonilo on Comfy Cloud. Never retried automatically. */
+export async function makeMusic(text: string, seconds: number): Promise<MadeMusic> {
+  const own = keyIn(await cookies(), COMFY_COOKIE);
+  if (own) return musicWith(own, text, seconds);
+  const acc = await comfyAccess(await quoteMusic(seconds), "Music", "Add a Comfy key to make music.");
+  if (!acc.ok) return { ok: false, reason: acc.reason, ...(acc.needsKey ? { needsKey: true as const } : {}) };
+  return charged(acc, (key) => musicWith(key, text, seconds));
+}
+
+async function musicWith(key: string, text: string, seconds: number): Promise<MadeMusic> {
+  try {
+    const cloud = createCloudRunner({ apiKey: key, keep: keepRender, timeoutMs: 10 * 60_000 });
+    const result = await cloud.run(musicWorkflow({ text, seconds }));
+    if (result.kind !== "audio") throw new Error("The music came back without sound. Check your Comfy jobs.");
+    return { ok: true, url: result.url, usd: await quoteMusic(seconds) };
+  } catch (caught) {
+    return { ok: false, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The music wasn't made." };
   }
 }

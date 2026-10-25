@@ -58,6 +58,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
 
   // What Claude has sent over MCP, waiting to be applied.
   useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
     let live = true;
     const look = () => fetch("/api/bridge/inbox?project=canvas").then((r) => (r.ok ? r.json() : null)).then((b: { items?: { id: string; kind: string; summary: string; payload: Plan }[] } | null) => live && b?.items && setSent(b.items.filter((i) => i.kind === "canvas").map((i) => ({ id: i.id, summary: i.summary, plan: i.payload })))).catch(() => undefined);
     void look();
@@ -215,6 +216,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   return (
     <div className="app">
       <Nav current="Workflows" />
+      <h1 className="sr-only">Build a workflow</h1>
       <div className="cv" ref={surface} onPointerDown={panStart}>
         <div className="cv-bar">
           <input className="cv-name" value={canvas.name} maxLength={80} onChange={(e) => setCanvas((c) => ({ ...c, name: e.target.value }))} aria-label="App name" />

@@ -1,5 +1,6 @@
 "use client";
 
+import { shrinkAll } from "../shrink";
 import { galleryShot } from "../gallery-log";
 import { track as inHeader } from "../../activity/activity";
 import Link from "next/link";
@@ -131,7 +132,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
       const target = latest?.shots.find((s) => s.id === shotId);
       if (!latest || !target) return "That shot is not on the board any more.";
       setRunning((prior) => [...prior, shotId]);
-      const made = await makeStill(target.beat, latest.aspect ?? "16:9", target.refs ?? []);
+      const made = await makeStill(target.beat, latest.aspect ?? "16:9", await shrinkAll(target.refs ?? []));
       setRunning((prior) => prior.filter((runId) => runId !== shotId));
       if (!made.ok) {
         if (made.needsKey) openKeys();

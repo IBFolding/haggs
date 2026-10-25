@@ -16,8 +16,9 @@ import { createPlaceStore, placeLock, type SavedPlace } from "../locations/locat
 import type { Capability } from "../providers/types";
 import { defaultKv } from "../story/kv";
 import { currentWork, workSince } from "../story/current-work";
-import { createRunStore, type Run } from "../story/runs";
-import { rates, run, type Rate } from "./actions";
+import { looksTooBig, shrinkAll } from "./shrink";
+import { createRunStore, isPicture, type PictureRun, type Run } from "../story/runs";
+import { rates, run, type Rate, type RunResult } from "./actions";
 import { Nav, openKeys } from "./nav";
 import { BankPicker, useReturnedPick } from "./bank-picker";
 import { MakeBanner } from "./return-bar";
@@ -159,11 +160,11 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const [rateMap, setRateMap] = useState<Record<string, Rate>>({});
 
   const [slots, setSlots] = useState<Slot[]>([]);
-  const [history, setHistory] = useState<Run[]>([]);
+  const [history, setHistory] = useState<PictureRun[]>([]);
   /* Photos and Video show this stretch of work; the Gallery keeps the rest. */
   const [since, setSince] = useState(Number.MAX_SAFE_INTEGER);
   const [reused, setReused] = useState<string | undefined>(undefined);
-  const [saving, setSaving] = useState<Run | null>(null);
+  const [saving, setSaving] = useState<PictureRun | null>(null);
   const startProject = useStartProject();
   const [showTemplates, setShowTemplates] = useState(false);
   const [showLook, setShowLook] = useState(false);
@@ -224,7 +225,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     void runs
       .list()
       .then((list) => {
-        setHistory(list);
+        // Sounds live in the Gallery; Photos and Video show pictures and clips.
+        setHistory(list.filter(isPicture));
 
         // Arriving from Reuse in the gallery: load that run into the composer.
         // Read once and clear, so a later refresh does not silently overwrite
@@ -280,7 +282,10 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     const sent = surface === "Edit" ? prompt : withLook(cast ? castWords(prompt, cast) : prompt, look);
     // A picture you attached is the opening frame; with none, your character's and place's sheets go in as references.
     const refs = surface === "Edit" ? [] : castReferences({ attached: images, character: who?.sheet ?? null, place: where?.plate ?? null, accessories: outfit.map((w) => outfitPics[w]).filter((x): x is string => Boolean(x)), max: card.inputImages });
-    const result = await track({ label: `Making a ${surface === "Edit" ? "picture edit" : "picture"}`, href: window.location.pathname + window.location.search, failure: (r) => (r.ok ? null : r.reason) }, () => (refs.length ? run(modelId, sent, settings, refs, false) : run(modelId, sent, settings, images.length ? images : undefined)));
+    // References are drawn smaller first: two full-size sheets together can pass the host's request limit.
+    const sendRefs = await shrinkAll(refs);
+    const sendImages = await shrinkAll(images, 1536);
+    const result: RunResult = await track({ label: `Making a ${surface === "Edit" ? "picture edit" : "picture"}`, href: window.location.pathname + window.location.search, failure: (r) => (r.ok ? null : r.reason) }, () => (sendRefs.length ? run(modelId, sent, settings, sendRefs, false) : run(modelId, sent, settings, sendImages.length ? sendImages : undefined))).catch((e: unknown): RunResult => ({ ok: false, reason: looksTooBig(e) ? "Those pictures were too big to send together. Try one reference, or smaller pictures." : e instanceof Error ? e.message : "The picture didn't finish." }));
 
     setSlots((prior) => {
       const rest = prior.filter((slot) => slot.id !== id);
@@ -290,10 +295,10 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     if (result.ok) {
       // Recorded before it is shown, so what you are looking at is what
       // survives a refresh — not a copy of it held in component state.
-      const kept: Run[] = [];
+      const kept: PictureRun[] = [];
       for (const shot of result.shots) {
         kept.push(
-          await runs.record({
+          (await runs.record({
             modelId,
             modelName: card.name,
             prompt: sent,
@@ -301,7 +306,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             url: shot.url,
             kind: shot.kind,
             usd: result.usd === null ? null : result.usd / result.shots.length,
-          }),
+          })) as PictureRun,
         );
       }
       setHistory((prior) => [...kept.reverse(), ...prior]);
@@ -350,7 +355,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   }, [templates, applyTemplate]);
 
   const toggleKeep = useCallback(
-    async (item: Run) => {
+    async (item: PictureRun) => {
       const next = !item.favorite;
       setHistory((prior) =>
         prior.map((run) => (run.id === item.id ? { ...run, favorite: next } : run)),

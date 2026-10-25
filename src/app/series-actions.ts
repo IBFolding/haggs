@@ -9,14 +9,14 @@ import { createCloudRunner } from "../providers/cloud";
 import { editEstimate, flux3Workflow } from "../providers/cloud-edits";
 import { keepResult } from "../server/keep";
 import { CLAUDE_COOKIE, COMFY_COOKIE, keyIn } from "../server/keys";
-import { FORMATS, SERIES_SCHEMA, seriesRequest, validateSeries, type FormatId, type Series } from "../series/series";
+import { FORMATS, SERIES_SCHEMA, seriesRequest, validateSeries, type CustomRules, type FormatId, type Series } from "../series/series";
 import { askClaude } from "../writer/draft";
 
 /** Claude writes the series: episodes of shots with the picture to make and the words on screen. Never retried automatically. */
-export async function draftSeries(format: FormatId, topic: string, count: number): Promise<{ ok: true; series: Series } | { ok: false; reason: string; needsKey?: boolean }> {
+export async function draftSeries(format: FormatId | CustomRules, topic: string, count: number): Promise<{ ok: true; series: Series } | { ok: false; reason: string; needsKey?: boolean }> {
   const key = keyIn(await cookies(), CLAUDE_COOKIE);
   if (!key) return { ok: false, reason: "Add a Claude key to write a series.", needsKey: true };
-  if (!FORMATS.some((f) => f.id === format)) return { ok: false, reason: "Pick a format for the series." };
+  if (typeof format === "string" ? !FORMATS.some((f) => f.id === format) : format.label.length > 60 || format.rules.length > 800) return { ok: false, reason: "Pick a format for the series." };
   let request;
   try {
     request = seriesRequest(format, topic.slice(0, 1000), count);

@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { FileSyncNote } from "../file-sync-note";
 import { FilesPanel } from "../files-panel";
 import { Nav } from "../nav";
 import { authed, supabase, useSession } from "../session";
+import { SiteFooter } from "../site-footer";
 
 /** Your account: who you're signed in as, your plan, and the way to change it. */
 export default function Account() {
@@ -59,14 +61,14 @@ export default function Account() {
             {plan?.renews && <i>Renews {new Date(plan.renews).toLocaleDateString()}</i>}
           </section>
           {bal && (
-            <section className="au-plan">
+            <section className="au-plan" id="credits">
               <span>Generation left</span>
               <b>${((bal.plan + bal.topup) / 100).toFixed(2)}</b>
               <i>{bal.plan ? `$${(bal.plan / 100).toFixed(2)} from your plan this month` : ""}{bal.plan && bal.topup ? ", " : ""}{bal.topup ? `$${(bal.topup / 100).toFixed(2)} in top-ups` : ""}</i>
             </section>
           )}
-          {topups.length > 0 && plan?.plan && (
-            <div className="au-row">{topups.map((t) => <button key={t.id} className="pill" onClick={() => void topUp(t.id)}>Add a ${t.usd} pack</button>)}</div>
+          {topups.length > 0 && (
+            <div className="au-row">{topups.map((t) => <button key={t.id} className="pill" onClick={() => void topUp(t.id)}>Add ${t.usd} of credits</button>)}</div>
           )}
           <div className="au-row">
             {plan?.plan ? <button className="fire" onClick={() => void manage()}>Manage subscription</button> : <Link className="fire" href="/pricing">See plans</Link>}
@@ -74,8 +76,10 @@ export default function Account() {
           </div>
           {problem && <p className="library-error" role="alert">{problem}</p>}
           <p className="sh-note">Your projects follow you across devices while you are signed in. Deleting one here also removes it from your account.</p>
+          <FileSyncNote />
           <FilesPanel />
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

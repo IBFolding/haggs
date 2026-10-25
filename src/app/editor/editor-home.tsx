@@ -10,6 +10,7 @@ import type { Project } from "../../story/model";
 import { createProjectStore } from "../../story/store";
 import { Nav } from "../nav";
 import { LAST_BOARD } from "../project-tabs";
+import { SiteFooter } from "../site-footer";
 
 /**
  * The editor in the header: the cut of the board you last worked on, or a
@@ -60,6 +61,7 @@ export function EditorHome() {
             </ul>
           )}
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

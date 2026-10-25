@@ -3,6 +3,7 @@
 import { FAL_ENABLED } from "../catalog/models";
 import { useEffect, useState } from "react";
 
+import { useSession } from "./session";
 import { clearClaudeKey, clearComfyKey, clearKey, clearLocalComfy, localComfy, saveClaudeKey, saveComfyKey, saveKey, saveLocalComfy } from "./actions";
 
 /**
@@ -39,8 +40,11 @@ export function KeySheet({
   const [gpu, setGpu] = useState<{ base: string; note: string } | null>(null);
   const [address, setAddress] = useState("127.0.0.1:8188");
   const [gpuError, setGpuError] = useState<string | null>(null);
+  const [view, setView] = useState<"choose" | "keys">(held.comfy ? "keys" : "choose");
+  const { session } = useSession();
+  const hosted = Boolean(process.env.NEXT_PUBLIC_HOSTED);
   useEffect(() => {
-    void localComfy().then((base) => base && setGpu({ base, note: "" }));
+    void localComfy().then((base) => { if (base) { setGpu({ base, note: "" }); setView("keys"); } });
   }, []);
 
   const rows: Row[] = ([
@@ -76,12 +80,45 @@ export function KeySheet({
     },
   ] as Row[]).filter((r) => FAL_ENABLED || r.id !== "fal");
 
+  if (view === "choose") {
+    const credits = session ? "/account#credits" : "/signin?next=/account%23credits";
+    return (
+      <div className="veil" onClick={onClose}>
+        <div className="sheet wide" onClick={(event) => event.stopPropagation()}>
+          <h3>How do you want to make things?</h3>
+          <p>Browsing is free. To make something, choose where the work runs. You can change this any time.</p>
+          <div className="path-grid">
+            <a className="path-card main" href={credits}>
+              <b>I just want to make things</b>
+              <span>No key, no setup. Buy credits and use the whole studio through haggs. You pay only for what you run, and the price shows on every button.</span>
+              <i>Buy credits</i>
+            </a>
+            <button className="path-card" onClick={() => setView("keys")}>
+              <b>I have a Comfy key</b>
+              <span>Add your key and run on your own Comfy account at Comfy&rsquo;s prices.{hosted ? " The studio is the Platform plan, $15 a month." : ""}</span>
+              <i>Add my key</i>
+            </button>
+            <button className="path-card" onClick={() => setView("keys")}>
+              <b>I run Comfy on my own GPU</b>
+              <span>Connect your ComfyUI. Your renders stay on your drive and show up here.{hosted ? " The studio is the Platform plan, $15 a month." : ""}</span>
+              <i>Connect my GPU</i>
+            </button>
+          </div>
+          <div className="sheet-row">
+            <button className="plain" onClick={onClose}>Close</button>
+            <a className="plain" href="/pricing">See plans</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="veil" onClick={onClose}>
       <div className="sheet wide" onClick={(event) => event.stopPropagation()}>
         <h3>Connect your keys</h3>
         <p>
-          You pay the provider directly, at their rate — there is no subscription here.
+          You pay the provider directly, at their rate.{hosted ? " The studio itself is the Platform plan, $15 a month." : ""}{" "}
           A key is posted once and kept in an httpOnly cookie.
         </p>
 
@@ -173,6 +210,7 @@ export function KeySheet({
           <button className="plain" onClick={onClose}>
             Close
           </button>
+          {!held.comfy && !gpu && <button className="plain" onClick={() => setView("choose")}>Back</button>}
         </div>
         <div className="sheet-note">
           Browsing works without a key. Every generation shows its price on the button

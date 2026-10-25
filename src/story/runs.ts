@@ -20,21 +20,28 @@ export type Run = {
   prompt: string;
   settings: Record<string, string | number | boolean>;
   url: string;
-  kind: "image" | "video";
+  kind: "image" | "video" | "audio";
   usd: number | null;
   at: number;
   favorite?: boolean;
   /** When it last changed, so devices agree on which copy is newest. */
   rev?: number;
+  /** The Comfy job this came from, when it was recovered from Comfy, so it is only added once. */
+  comfyJob?: string;
   /** The link in the account's file store once it has been kept there, so every device can play it. */
   remote?: string;
 };
+
+/** A picture or a clip: the runs that can be put to work in a project. A sound stays in the Gallery. */
+export type PictureRun = Run & { kind: "image" | "video" };
+export const isPicture = (run: Run): run is PictureRun => run.kind !== "audio";
 
 export type NewRun = Omit<Run, "id" | "at" | "favorite" | "rev" | "remote">;
 
 export type RunStore = {
   list(): Promise<Run[]>;
-  record(run: NewRun): Promise<Run>;
+  /** `at` is when it was made, for a render recovered from earlier. */
+  record(run: NewRun, at?: number): Promise<Run>;
   setFavorite(id: string, favorite: boolean): Promise<void>;
   remove(id: string): Promise<void>;
   clear(): Promise<void>;
@@ -97,11 +104,13 @@ export function createRunStore(kv: Kv, cap = DEFAULT_CAP): RunStore {
   return {
     list: () => read(),
 
-    record(run) {
-      const at = Date.now();
+    record(run, when) {
+      const at = when ?? Date.now();
       const saved: Run = { ...run, id: crypto.randomUUID(), at, rev: at };
       return serialize(async () => {
-        await write([saved, ...(await read())]);
+        // A render recovered from earlier takes its place by the time it was made, not at the top.
+        const all = [saved, ...(await read())];
+        await write(when === undefined ? all : all.sort((a, b) => b.at - a.at));
         return saved;
       });
     },

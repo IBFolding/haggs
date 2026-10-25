@@ -62,7 +62,7 @@ export function LessonPlayer({ index }: { index: number }) {
 
           <div className="ac-grid">
             <aside className="ac-steps" aria-label="Steps">
-              <h2>Do this</h2>
+              <h2>Then do it for real</h2>
               <ol>
                 {lesson.steps.map((s, i) => (
                   <li key={s} className={i < step ? "done" : i === step ? "now" : ""}>
@@ -78,11 +78,15 @@ export function LessonPlayer({ index }: { index: number }) {
 
             <section className="ac-lab" aria-label="Practice">
               <div className="ac-lab-top"><b>Practice</b><span>free, nothing is spent</span></div>
-              {Practice ? Practice({ onLab }) : null}
-              <div className="ac-challenge" role="status">
+              <div className="ac-pass" role="status">
                 <div className="ac-ring" style={{ "--p": lab.checks.length ? (checked / lab.checks.length) * 100 : 0 } as React.CSSProperties}><b>{checked}</b><small>/{lab.checks.length}</small></div>
-                <ul>{lab.checks.map((c) => <li key={c.label} className={c.ok ? "ok" : ""}><i>{c.ok ? "✓" : ""}</i>{c.label}</li>)}</ul>
+                <div>
+                  <b>{passed || alreadyDone ? "You passed this lesson." : "To pass this lesson"}</b>
+                  <p>{passed || alreadyDone ? "Do it for real below, or move on." : `Get all ${lab.checks.length || ""} of these right in the practice below. It's free and you can change an answer any time.`}</p>
+                  <ul>{lab.checks.map((c) => <li key={c.label} className={c.ok ? "ok" : ""}><i>{c.ok ? "✓" : ""}</i>{c.label}</li>)}</ul>
+                </div>
               </div>
+              {Practice ? Practice({ onLab }) : null}
             </section>
           </div>
 
@@ -94,7 +98,7 @@ export function LessonPlayer({ index }: { index: number }) {
                 {next ? <Link className="pill on" href={`/academy/learn/${next.id}`}>Next: {next.title}</Link> : <Link className="pill on" href="/academy">Get your certificate</Link>}
               </>
             ) : (
-              <><span>Finish the practice to unlock the real thing.</span><Link className="plain" href={lesson.doIt.href}>Skip to it</Link></>
+              <><span>Pass the practice above to complete this lesson. {checked} of {lab.checks.length} so far.</span><button className="plain" onClick={() => void progress.mark(lesson.id, true).then(() => progress.done()).then(setDone)}>I already know this: mark it done</button><Link className="plain" href={lesson.doIt.href}>Skip to the real thing</Link></>
             )}
           </footer>
         </div>

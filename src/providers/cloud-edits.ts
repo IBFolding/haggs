@@ -147,6 +147,16 @@ export function soundEffectWorkflow({ text, seconds }: { text: string; seconds: 
   };
 }
 
+/** Music from words: Sonilo on Comfy, 5 to 180 seconds. It makes whatever the words describe; it is not tied to a picture. */
+export function musicWorkflow({ text, seconds }: { text: string; seconds: number }): Workflow {
+  if (text.trim().length < 4 || text.length > 500) throw new Error("Describe the music in 4–500 characters.");
+  if (!(seconds >= 5 && seconds <= 180)) throw new Error("Music runs 5 to 180 seconds.");
+  return {
+    "1": { class_type: "SoniloTextToMusic", inputs: { prompt: text.trim(), duration: Math.round(seconds), seed: Math.floor(Math.random() * 2_000_000_000) } },
+    "20": { class_type: "SaveAudioMP3", inputs: { audio: ["1", 0], filename_prefix: "haggs/music", quality: "V0" } },
+  };
+}
+
 /** A video model watches a video and answers in words: Gemini on Comfy. The answer shows on node 20. */
 export function watchVideoWorkflow({ video, prompt, model = "gemini-2.5-flash" }: { video: string; prompt: string; model?: "gemini-2.5-flash" | "gemini-2.5-pro" | "gemini-3-1-pro" }): Workflow {
   if (prompt.trim().length < 10) throw new Error("Say what to look for.");
@@ -185,7 +195,7 @@ export function voiceWorkflow({ video, lines, model = "eleven_v4", stability = 0
   return w;
 }
 
-export type Tool = "flux3" | "sfx" | "speech" | "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
+export type Tool = "flux3" | "sfx" | "music" | "speech" | "kontext" | "regenerate" | "kling" | "aleph" | "genjutsu" | "voice";
 
 /**
  * Comfy's node price badges (2026-10-20): Regenerate $0.0715/s, Aleph 2
@@ -202,6 +212,9 @@ export function editEstimate({ tool, seconds, resolution = "720p", characters = 
       return ({ "0.75K": 0.0586, "1K": 0.0686, "1.5K": 0.1001, "2K": 0.143 } as Record<string, number>)[resolution] ?? 0.1001;
     case "sfx":
       return r((0.14 * seconds) / 60);
+    case "music":
+      // Comfy's estimate for Sonilo: 5 credits for 10s, 16 for 30s, 63 for 120s; a credit is about 0.47 cents.
+      return r(0.0025 * seconds);
     case "speech":
       return r((0.1144 * characters) / 1000);
     case "kontext":

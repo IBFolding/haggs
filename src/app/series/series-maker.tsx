@@ -1,17 +1,22 @@
 "use client";
 
+import { galleryAudio } from "../gallery-log";
 import { ExtrasRow } from "../bank-picker";
 import { allocateRefs, wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createCharacterStore, identityLock, type Character } from "../../characters/character";
 import { editEstimate, VOICES } from "../../providers/cloud-edits";
-import { FORMATS, PRESETS, buildSeries, pictureWords, type FormatId, type Series } from "../../series/series";
+import { FORMATS, FORMAT_SAMPLES, PRESETS, buildSeries, pictureWords, type FormatId, type Series } from "../../series/series";
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
-import { STYLES } from "../../styles/style";
+import { looksTooBig, shrinkAll } from "../shrink";
+import { createTemplateStore, templateRules, MY_FORMAT, type CustomFormat } from "../../series/custom";
+import { StyleMaker } from "../style-maker";
+import { TemplateMaker } from "../template-maker";
+import { useStyles } from "../use-styles";
 import { run as runModel, speakLine } from "../actions";
 import { Nav, openKeys } from "../nav";
 import { BuildLink } from "../return-bar";
@@ -19,6 +24,7 @@ import { readPick } from "../../story/handoff";
 import { draftSeries, makeStill } from "../series-actions";
 import { ModeTabs } from "../mode-tabs";
 import { galleryRun, galleryStill } from "../gallery-log";
+import { SiteFooter } from "../site-footer";
 
 /**
  * Series: a topic becomes a run of short vertical videos, and you watch it
@@ -38,10 +44,17 @@ export function SeriesMaker() {
   const router = useRouter();
   const store = useMemo(() => createProjectStore(defaultKv()), []);
   const characters = useMemo(() => createCharacterStore(defaultKv()), []);
-  const [format, setFormat] = useState<FormatId>("what-if");
+  const [format, setFormat] = useState<string>("what-if");
+  const [category, setCategory] = useState<string>("Storytelling");
+  const [mine, setMine] = useState<CustomFormat[]>([]);
+  const [makingTemplate, setMakingTemplate] = useState<"new" | string | null>(null);
+  const templates = useMemo(() => createTemplateStore(defaultKv()), []);
+  const refreshTemplates = useCallback(() => void templates.list().then(setMine).catch(() => undefined), [templates]);
+  useEffect(() => { refreshTemplates(); }, [refreshTemplates]);
+  const ownFormat = format.startsWith(MY_FORMAT) ? (mine.find((t) => `${MY_FORMAT}${t.id}` === format) ?? null) : null;
+  const formatLabel = ownFormat?.label ?? FORMATS.find((f) => f.id === format)?.label ?? "Series";
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState(3);
-  const [category, setCategory] = useState<string>("Storytelling");
   const [cast, setCast] = useState<Character[]>([]);
   const [who, setWho] = useState<string | null>(null);
   const [lookId, setLookId] = useState<string | null>(null);
@@ -66,8 +79,9 @@ export function SeriesMaker() {
     void characters.list().then((all) => { setCast(all); const pick = readPick(window.location.search); if (pick?.kind === "character" && all.some((c) => c.id === pick.id)) setWho(pick.id); });
   }, [characters]);
 
-  // What Claude has sent over MCP, waiting to be applied.
+  // What Claude has sent over MCP, waiting to be applied. The bridge only exists on your own computer.
   useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
     let live = true;
     const look = () => fetch("/api/bridge/inbox?project=series").then((r) => (r.ok ? r.json() : null)).then((b: { items?: (Sent & { kind: string })[] } | null) => live && b?.items && setSent(b.items.filter((i) => i.kind === "series"))).catch(() => undefined);
     void look();
@@ -76,13 +90,28 @@ export function SeriesMaker() {
   }, []);
 
   const person = cast.find((c) => c.id === who) ?? null;
-  const style = STYLES.find((s) => s.id === lookId) ?? null;
+  const looks = useStyles();
+  const [makingLook, setMakingLook] = useState<"new" | string | null>(null);
+  const style = looks.byId(lookId);
   const [extras, setExtras] = useState<BankItem[]>([]);
   const lock = [person ? identityLock(person.traits) : "", wordsOf(extras)].filter(Boolean).join(" ");
   const words = { ...(style ? { look: style.words } : {}), ...(lock ? { lock } : {}) };
   /** Pictures sent with every shot: who, then where, then what they wear, as many as the model takes. */
-  const seriesRefs = () => allocateRefs({ characters: person?.sheet ? [person.sheet] : [], place: extras.filter((i) => i.kind === "place" && i.image).map((i) => i.image!), accessories: extras.filter((i) => i.kind === "accessory" && i.image).map((i) => i.image!) }, 4);
+  const seriesRefs = () => allocateRefs({ characters: person?.sheet ? [person.sheet] : [], style: style?.sheet ? [style.sheet] : [], place: extras.filter((i) => i.kind === "place" && i.image).map((i) => i.image!), accessories: extras.filter((i) => i.kind === "accessory" && i.image).map((i) => i.image!) }, 4);
 
+  /** Choosing a format loads its example into the form, unless you've already written your own idea. */
+  function pickFormat(id: string) {
+    setFormat(id);
+    const own = id.startsWith(MY_FORMAT) ? mine.find((t) => `${MY_FORMAT}${t.id}` === id) : undefined;
+    const sample = own ? { topic: own.topic, count: own.count } : FORMAT_SAMPLES[id as FormatId];
+    const typed = topic.trim() && !Object.values(FORMAT_SAMPLES).some((x) => x.topic === topic.trim()) && !mine.some((t) => t.topic === topic.trim());
+    if (typed || !sample.topic) return setNote(null);
+    setTopic(sample.topic);
+    setCount(sample.count);
+    setNote(`Loaded an example for ${own?.label ?? FORMATS.find((f) => f.id === id)!.label}. Change the idea to your own whenever you like.`);
+  }
+
+  /** A ready idea: sets the format, the topic, the length, the look and the narrator in one click. */
   function usePreset(id: string) {
     const p = PRESETS.find((x) => x.id === id);
     if (!p) return;
@@ -91,18 +120,19 @@ export function SeriesMaker() {
     setCount(p.count);
     setLookId(p.look ?? null);
     if (p.voice) setVoice(p.voice);
+    setNote(`Loaded "${p.name}". Change anything, then write it.`);
   }
 
   async function write() {
     setBusy(true);
     setError(null);
     setNote(null);
-    const r = await draftSeries(format, topic, count);
+    const r = await draftSeries(ownFormat ? { label: ownFormat.label, rules: templateRules(ownFormat.how) } : (format as FormatId), topic, count);
     setBusy(false);
     if (!r.ok) {
       if (r.needsKey) {
         // No Claude key needed: the connected Claude writes it over MCP and sends it here.
-        const ask = `Use haggs_propose_series to write a ${FORMATS.find((f) => f.id === format)!.label} series of ${count} short vertical video${count === 1 ? "" : "s"} for haggs about: ${topic.trim()}`;
+        const ask = `Use haggs_propose_series to write a ${formatLabel} series of ${count} short vertical video${count === 1 ? "" : "s"} for haggs about: ${topic.trim()}`;
         await navigator.clipboard?.writeText(ask).catch(() => undefined);
         return setNote("Copied a request. Paste it to Claude (the haggs MCP is connected) and the series lands here for you to apply.");
       }
@@ -126,7 +156,7 @@ export function SeriesMaker() {
     const sh = series!.episodes[e]!.shots[s]!;
     const key = `${e}.${s}`;
     setMaking(key);
-    const r = await makeStill(pictureWords(sh.picture, words), "9:16", seriesRefs());
+    const r = await makeStill(pictureWords(sh.picture, words), "9:16", await shrinkAll(seriesRefs())).catch((e: unknown) => ({ ok: false as const, reason: looksTooBig(e) ? "Those reference pictures were too big to send together. Try fewer of them." : e instanceof Error ? e.message : "The picture didn't finish.", needsKey: false }));
     galleryStill(sh.picture, "Series picture")(r);
     setMaking(null);
     if (!r.ok) {
@@ -208,6 +238,7 @@ export function SeriesMaker() {
         const r = await speakLine(sh.narration, voice);
         setMaking(null);
         if (!r.ok) { if (r.needsKey) openKeys(); return setError(r.reason); }
+        galleryAudio(r.url, sh.narration, "Narration", r.usd);
         spokenRef.current[key] = r.url;
         setSpoken((all) => ({ ...all, [key]: r.url }));
       }
@@ -238,6 +269,8 @@ export function SeriesMaker() {
   return (
     <div className="app">
       <Nav current="Video" />
+      {makingTemplate && <TemplateMaker {...(makingTemplate !== "new" && mine.find((t) => t.id === makingTemplate) ? { start: mine.find((t) => t.id === makingTemplate)! } : {})} onClose={() => setMakingTemplate(null)} onSaved={(t) => { setMakingTemplate(null); refreshTemplates(); setTopic(t.topic); setCount(t.count); setFormat(`${MY_FORMAT}${t.id}`); }} />}
+      {makingLook && <StyleMaker {...(makingLook !== "new" && looks.custom.find((c) => c.id === makingLook) ? { start: looks.custom.find((c) => c.id === makingLook)! } : {})} onClose={() => setMakingLook(null)} onSaved={(c) => { setMakingLook(null); looks.refresh(); setLookId(`my-${c.id}`); }} />}
       <div className="canvas">
         <div className="swap">
           <ModeTabs group="Video" current="/series" />
@@ -260,27 +293,53 @@ export function SeriesMaker() {
                 <p>Pick the kind, who is in it and how it looks. Then watch it turn into pictures on this page.</p>
               </header>
               <div className="series-presets" aria-label="Start from a preset">
-                <div className="quick-tabs" role="tablist" aria-label="Preset kind">
+                <div className="quick-tabs" role="tablist">
                   {[...new Set(PRESETS.map((p) => p.category))].map((c) => (
                     <button key={c} role="tab" aria-selected={category === c} className={category === c ? "on" : ""} onClick={() => setCategory(c)}>{c}</button>
                   ))}
                 </div>
                 <div className="quick-row">
                   {PRESETS.filter((p) => p.category === category).map((p) => (
-                    <button key={p.id} className={`quick-card${topic === p.topic ? " picked" : ""}`} onClick={() => usePreset(p.id)} title={p.topic}>
+                    <button key={p.id} className="quick-card pic" onClick={() => usePreset(p.id)} title={p.topic}>
+                      <span className="qc-pic" style={{ backgroundImage: `url(/formats/${p.format}-${1 + (PRESETS.indexOf(p) % 3)}.jpg)` }} role="img" aria-label={`A sample frame for ${p.name}`} />
                       <b>{p.name}</b>
-                      <small>{FORMATS.find((f) => f.id === p.format)!.label} · {p.count} video{p.count === 1 ? "" : "s"}</small>
+                      <small>{p.count} {p.count === 1 ? "video" : "videos"}</small>
                     </button>
                   ))}
                 </div>
               </div>
               <div className="series-formats" role="radiogroup" aria-label="Format">
                 {FORMATS.map((f) => (
-                  <button key={f.id} role="radio" aria-checked={format === f.id} className={format === f.id ? "on" : ""} onClick={() => setFormat(f.id)}>
+                  <button key={f.id} role="radio" aria-checked={format === f.id} className={format === f.id ? "on" : ""} onClick={() => pickFormat(f.id)}>
+                    <span className="sf-strip" aria-label={`A sample ${f.label} series`}>
+                      {[1, 2, 3].map((n) => (
+                        <span key={n} className="sf-frame" style={{ backgroundImage: `url(/formats/${f.id}-${n}.jpg)` }}>
+                          {n === 1 && <i>{FORMAT_SAMPLES[f.id].hook}</i>}
+                        </span>
+                      ))}
+                    </span>
                     <b>{f.label}</b>
                     <span>{f.blurb}</span>
                   </button>
                 ))}
+                {mine.map((t) => (
+                  <span key={t.id} className={`sf-own${format === `${MY_FORMAT}${t.id}` ? " on" : ""}`}>
+                    <button role="radio" aria-checked={format === `${MY_FORMAT}${t.id}`} className={format === `${MY_FORMAT}${t.id}` ? "on" : ""} onClick={() => pickFormat(`${MY_FORMAT}${t.id}`)}>
+                      <span className="sf-cover" aria-hidden="true"><i>{t.label}</i></span>
+                      <b>{t.label}</b>
+                      <span>{t.how.length > 90 ? `${t.how.slice(0, 88)}…` : t.how}</span>
+                    </button>
+                    <span className="sf-own-tools">
+                      <button aria-label={`Edit ${t.label}`} title="Edit" onClick={() => setMakingTemplate(t.id)}>✎</button>
+                      <button aria-label={`Delete ${t.label}`} title="Delete" onClick={async () => { await templates.remove(t.id); if (format === `${MY_FORMAT}${t.id}`) setFormat("what-if"); refreshTemplates(); }}>×</button>
+                    </span>
+                  </span>
+                ))}
+                <button className="sf-add" onClick={() => setMakingTemplate("new")}>
+                  <span className="sf-plus" aria-hidden="true">+</span>
+                  <b>Make your own template</b>
+                  <span>Top ten, my favorite cars, a day in the life: describe the shape once and use it again.</span>
+                </button>
               </div>
 
               <div className="series-pick">
@@ -298,7 +357,16 @@ export function SeriesMaker() {
                 <b>How it looks</b>
                 <div className="series-chips">
                   <button className={!lookId ? "on" : ""} onClick={() => setLookId(null)}>Natural</button>
-                  {STYLES.map((st) => <button key={st.id} className={lookId === st.id ? "on" : ""} onClick={() => setLookId(st.id)} title={st.says}>{st.name}</button>)}
+                  {looks.all.map((st) => (
+                    <span key={st.id} className={`look-chip${st.id.startsWith("my-") ? " mine" : ""}`}>
+                      <button className={lookId === st.id ? "on" : ""} onClick={() => setLookId(st.id)} title={st.says}>{st.sheet && <img src={st.sheet} alt="" />}{st.name}</button>
+                      {st.id.startsWith("my-") && <>
+                        <button className="look-edit" aria-label={`Edit ${st.name}`} title="Edit" onClick={() => setMakingLook(st.id.slice(3))}>✎</button>
+                        <button className="look-edit" aria-label={`Delete ${st.name}`} title="Delete" onClick={async () => { await looks.store.remove(st.id.slice(3)); if (lookId === st.id) setLookId(null); looks.refresh(); }}>×</button>
+                      </>}
+                    </span>
+                  ))}
+                  <button className="look-add" onClick={() => setMakingLook("new")}>+ Your own style</button>
                 </div>
               </div>
 
@@ -366,6 +434,7 @@ export function SeriesMaker() {
             </div>
           )}
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

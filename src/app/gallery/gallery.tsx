@@ -7,18 +7,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getModelCard } from "../../catalog/models";
 
 import { defaultKv } from "../../story/kv";
-import { createRunStore, type Run } from "../../story/runs";
+import { createProjectStore } from "../../story/store";
+import { soundsInProjects } from "../../story/sound-backfill";
+import { createRunStore, isPicture, type PictureRun, type Run } from "../../story/runs";
 import { Nav } from "../nav";
 import { useStartProject } from "../start-project";
+import { RecoverPanel } from "./recover-panel";
 import { RunTile } from "../run-tile";
 import { SaveToProject } from "../save-to-project";
+import { SiteFooter } from "../site-footer";
 
-const SCOPES = ["All", "Images", "Video", "Kept"] as const;
+const SCOPES = ["All", "Images", "Video", "Sounds", "Kept"] as const;
 type Scope = (typeof SCOPES)[number];
 
 function inScope(run: Run, scope: Scope): boolean {
   if (scope === "Images") return run.kind === "image";
   if (scope === "Video") return run.kind === "video";
+  if (scope === "Sounds") return run.kind === "audio";
   if (scope === "Kept") return run.favorite === true;
   return true;
 }
@@ -36,6 +41,10 @@ const EMPTY: Record<Scope, { head: string; body: string }> = {
   Video: {
     head: "No video yet.",
     body: "Video has its own models, each with the duration and audio settings it actually accepts.",
+  },
+  Sounds: {
+    head: "No sounds yet.",
+    body: "Voice lines, sound effects and music you make or add in the editor land here, ready to play and download.",
   },
   Kept: {
     head: "Nothing kept yet.",
@@ -57,11 +66,36 @@ export function Gallery() {
   const router = useRouter();
   const runs = useMemo(() => createRunStore(defaultKv()), []);
   const [all, setAll] = useState<Run[]>([]);
-  const [saving, setSaving] = useState<Run | null>(null);
+  const [saving, setSaving] = useState<PictureRun | null>(null);
   const startProject = useStartProject();
   const [ready, setReady] = useState(false);
   const [scope, setScope] = useState<Scope>("All");
   const [error, setError] = useState<string | null>(null);
+
+  const [finding, setFinding] = useState<string | null>(null);
+
+  /** Sounds the projects already hold (voice lines, effects, music) that the Gallery hasn't listed. */
+  const findSounds = useCallback(async (quiet = false) => {
+    if (!quiet) setFinding("Looking…");
+    try {
+      const kv = defaultKv();
+      const store = createProjectStore(kv);
+      const full = (await Promise.all((await store.list()).map((p) => store.load(p.id)))).filter((p): p is NonNullable<typeof p> => Boolean(p));
+      const have = new Set((await runs.list()).map((r) => r.url));
+      const fresh = soundsInProjects(full).filter((r) => !have.has(r.url));
+      for (const r of fresh.reverse()) await runs.record(r);
+      setAll(await runs.list());
+      if (!quiet) setFinding(fresh.length ? `Added ${fresh.length} sound${fresh.length === 1 ? "" : "s"} from your projects.` : "No new sounds in your projects.");
+      await kv.set("gallery/sounds-found", true);
+    } catch {
+      if (!quiet) setFinding("The projects couldn't be read.");
+    }
+  }, [runs]);
+
+  useEffect(() => {
+    // The first time the Gallery opens, the sounds already in your projects come in.
+    void defaultKv().get<boolean>("gallery/sounds-found").then((done) => { if (!done) void findSounds(true); });
+  }, [findSounds]);
 
   useEffect(() => {
     runs
@@ -152,6 +186,17 @@ export function Gallery() {
             </dl>
           </header>
 
+          {scope === "Sounds" && (
+            <p className="gallery-note">
+              <button className="plain" onClick={() => void findSounds()}>Find sounds in my projects</button> {finding ?? "Voice lines, effects and soundtracks from every project."}
+            </p>
+          )}
+
+          <details className="rc-details">
+            <summary>Bring back earlier renders from Comfy</summary>
+            <RecoverPanel runs={runs} added={new Set(all.map((r) => r.comfyJob).filter((x): x is string => Boolean(x)))} onAdded={() => void runs.list().then(setAll)} />
+          </details>
+
           {unpriced > 0 && (
             <p className="gallery-note">
               {unpriced} of these ran on a rate the provider quotes per second or
@@ -175,13 +220,14 @@ export function Gallery() {
                   onFavorite={() => void keep(run)}
                   onReuse={() => reuse(run)}
                   onDelete={() => void drop(run)}
-                  onSave={() => setSaving(run)}
-                onStart={() => void startProject(run)}
+                  onSave={isPicture(run) ? () => setSaving(run) : undefined as never}
+                onStart={isPicture(run) ? () => void startProject(run) : undefined as never}
                 />
               ))}
             </div>
           )}
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

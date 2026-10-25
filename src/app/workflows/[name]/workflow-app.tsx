@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Field } from "../../../comfy/apps";
 import { defaultKv } from "../../../story/kv";
-import { createRunStore, type Run } from "../../../story/runs";
+import { createRunStore, type PictureRun, type Run } from "../../../story/runs";
 import { appFile, createAppStore, type Cover, type SavedApp } from "../../../story/apps";
 import type { Canvas } from "../../../comfy/canvas";
 import type { Recipe } from "../../../comfy/recipe";
@@ -156,8 +156,8 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
   const [adding, setAdding] = useState(0);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<WorkflowResult | null>(null);
-  const [saving, setSaving] = useState<Run | null>(null);
-  const [kept, setKept] = useState<Run | null>(null);
+  const [saving, setSaving] = useState<PictureRun | null>(null);
+  const [kept, setKept] = useState<PictureRun | null>(null);
   const runs = useMemo(() => createRunStore(defaultKv()), []);
   const apps = useMemo(() => createAppStore(defaultKv()), []);
   const [mine, setMine] = useState<SavedApp | null>(savedApp ?? null);
@@ -264,7 +264,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     if (r.ok && r.kind !== "audio") {
       const text = opened.app.fields.find((f) => f.kind === "text");
       const words = text ? String(values[keyOf(text)] ?? (text.kind === "text" ? text.value : "")) : opened.title;
-      setKept(await runs.record({ modelId: `comfy:${name}`, modelName: opened.title, prompt: words.slice(0, 2000), settings: {}, url: r.url, kind: r.kind, usd: null }));
+      setKept((await runs.record({ modelId: `comfy:${name}`, modelName: opened.title, prompt: words.slice(0, 2000), settings: {}, url: r.url, kind: r.kind, usd: null })) as PictureRun);
     }
   }
 

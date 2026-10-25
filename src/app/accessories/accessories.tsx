@@ -12,6 +12,7 @@ import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
 import { ModeTabs } from "../mode-tabs";
 import { galleryStill } from "../gallery-log";
+import { SiteFooter } from "../site-footer";
 
 const FINISH = "Product photograph of the single item on a plain light grey background, soft studio light, no person, no text, no watermark.";
 const PRICE = 0.07;
@@ -107,6 +108,7 @@ export function Accessories() {
             {problem && <p className="library-error" role="alert">{problem}</p>}
           </div>
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

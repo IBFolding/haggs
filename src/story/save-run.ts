@@ -2,7 +2,7 @@ import type { Sheets } from "../sheets/sheets";
 import { normalize } from "./boards";
 import { createProject, newShot, type Media, type Project } from "./model";
 import { applyTakes } from "./proposed-takes";
-import type { Run } from "./runs";
+import type { PictureRun as Run } from "./runs";
 
 /**
  * Save to project: a picture or clip made in Create or Video goes to work in

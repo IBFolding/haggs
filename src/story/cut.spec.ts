@@ -6,9 +6,11 @@ import {
   DEFAULT_VIDEO_SECONDS,
   atTime,
   buildCut,
+  clipFilters,
   clipSeconds,
   cutList,
   ffmpegScript,
+  normFilter,
 } from "./cut";
 import { createProject, newShot, type Project, type Shot } from "./model";
 
@@ -326,4 +328,25 @@ test("captions export as a subtitle file anyone can edit, in cut time", async ()
   const cut = buildCut(board(shot({ render: video(), seconds: 2 }), shot({ render: video(), seconds: 3.5, caption: "Marlow has a plan." })));
   assert.equal(captionsSrt(cut), "1\n00:00:02,000 --> 00:00:05,500\nMarlow has a plan.\n");
   assert.equal(captionsSrt(buildCut(board(shot({ render: video() })))), "");
+});
+
+test("a look is applied after framing and before the fades, so a fade still runs to black", () => {
+  const clip = { shotId: "a", index: 0, heading: "", url: "/x.mp4", kind: "video" as const, start: 0, from: 0, seconds: 4, fx: "noir" as const, fadeOut: 1 };
+  const { v } = clipFilters("16:9", clip);
+  const iFraming = v.indexOf("pad=1920:1080");
+  const iLook = v.indexOf("hue=s=0");
+  const iFade = v.indexOf("fade=t=out");
+  assert.ok(iFraming > -1 && iLook > iFraming && iFade > iLook, v);
+});
+
+test("a clip with no look is exactly as before", () => {
+  const clip = { shotId: "a", index: 0, heading: "", url: "/x.mp4", kind: "video" as const, start: 0, from: 0, seconds: 4 };
+  assert.equal(clipFilters("16:9", clip).v, normFilter("16:9"));
+});
+
+test("a shot's look reaches the cut, and an unknown one is dropped", () => {
+  const project = (fx: string | undefined): Project => ({ ...createProject("Looks"), shots: [shot({ render: video(), ...(fx ? { fx } : {}) })] });
+  assert.equal(buildCut(project("vhs")).clips[0]!.fx, "vhs");
+  assert.equal(buildCut(project("bogus")).clips[0]!.fx, undefined);
+  assert.equal(buildCut(project(undefined)).clips[0]!.fx, undefined);
 });

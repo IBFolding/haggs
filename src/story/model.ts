@@ -66,6 +66,8 @@ export type Shot = {
   /** How the footage meets the frame: fit it whole (bars where the shapes differ) or fill it (crop), around a focal point 0–1. */
   fit?: "fit" | "fill";
   focus?: { x: number; y: number };
+  /** A look burned into this shot's picture (see fx.ts). Anything unknown is ignored. */
+  fx?: string;
   /** The shot-list row this shot was sent from, so a re-send updates it in place. */
   sheetShotId?: string;
   /** Every take this shot has had. `render` is the one on the shot. */

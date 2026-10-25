@@ -22,6 +22,6 @@ export function workSince(tab: Tab, now: number): number {
 }
 
 /** The runs of one kind made since the stretch began, plus one run just sent back from the Gallery. */
-export function currentWork(runs: Run[], kind: Run["kind"], since: number, reused?: string): Run[] {
+export function currentWork<T extends Run>(runs: T[], kind: Run["kind"], since: number, reused?: string): T[] {
   return runs.filter((run) => run.kind === kind && (run.at >= since || run.id === reused));
 }

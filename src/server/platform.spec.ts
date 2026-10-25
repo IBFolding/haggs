@@ -30,11 +30,13 @@ test("with the platform off, no key means asking for one", async () => {
   assert.deepEqual(a, { ok: false, reason: NEED, needsKey: true });
 });
 
-test("the platform key is for people who are signed in and on a plan", async () => {
+test("the platform key is for people who are signed in and have credits, plan or not", async () => {
   const a = await decide(deps({ user: null }).d, 0.1, "x", NEED);
   assert.ok(!a.ok && /Sign in/.test(a.reason));
-  const b = await decide(deps({ subscribed: async () => false }).d, 0.1, "x", NEED);
-  assert.ok(!b.ok && /plan/.test(b.reason));
+  const { d, log } = deps({ subscribed: async () => false });
+  const b = await decide(d, 0.1, "x", NEED);
+  assert.ok(b.ok && b.platform, "credits bought without a plan are enough");
+  assert.deepEqual(log, ["spend 10 ref1"]);
 });
 
 test("a run on the platform is paid for in credits before it starts", async () => {
@@ -47,7 +49,7 @@ test("a run on the platform is paid for in credits before it starts", async () =
 test("not enough credits stops the run before the platform key is used", async () => {
   const { d } = deps({ spend: async () => false });
   const a = await decide(d, 0.52, "clip", NEED);
-  assert.ok(!a.ok && /Not enough credits.*52/.test(a.reason));
+  assert.ok(!a.ok && /Not enough credits.*52/.test(a.reason) && /Buy credits/.test(a.reason));
 });
 
 test("a run that did not complete gets its credits back, once; one that did keeps them spent", async () => {
@@ -62,4 +64,14 @@ test("a run that did not complete gets its credits back, once; one that did keep
   assert.ok(b.ok);
   await b.settle(true);
   assert.deepEqual(fine.log, ["spend 52 ref1"]);
+});
+
+test("when the studio is gated, your own key runs only on the Platform plan, and the owner's list runs free", async () => {
+  const gate = (free: string[]): NonNullable<Deps["gate"]> => async (user) => (free.includes(user?.email ?? "") ? null : !user ? "Sign in." : "Pick the Platform plan.");
+  const a = await decide(deps({ own: "mine", gate: gate([]) }).d, 0.1, "x", NEED);
+  assert.ok(!a.ok && /Platform plan/.test(a.reason), "a key without the plan is turned away");
+  const b = await decide(deps({ own: "mine", user: null, gate: gate([]) }).d, 0.1, "x", NEED);
+  assert.deepEqual(b, { ok: false, reason: "Sign in.", needsKey: true });
+  const c = await decide(deps({ own: "mine", gate: gate(["a@b.c"]) }).d, 0.1, "x", NEED);
+  assert.ok(c.ok);
 });

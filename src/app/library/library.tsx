@@ -11,6 +11,7 @@ import { exportSheets, importSheets } from "../../sheets/sheets";
 import { TransferError, exportProject, importBundle } from "../../story/transfer";
 import { backupsToOffer, toRestore, type OnDisk } from "../../story/restore";
 import { Nav } from "../nav";
+import { SiteFooter } from "../site-footer";
 
 function ago(at: number): string {
   const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
@@ -275,6 +276,7 @@ export function Library() {
             </ul>
           )}
         </div>
+        <SiteFooter />
       </div>
     </div>
   );

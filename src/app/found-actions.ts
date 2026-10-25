@@ -3,7 +3,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { parseSearch, pickFile, searchUrl, type Found } from "../found/found";
+import { expandWords, parseSearch, pickFile, rankFound, searchUrl, type Found } from "../found/found";
 import { hosted } from "../server/blob";
 import { keepResult } from "../server/keep";
 
@@ -16,16 +16,20 @@ export type Kept = { ok: true; url: string; seconds: number } | { ok: false; rea
 /** Searches the Prelinger films on archive.org. A free public API: no key, nothing spent. */
 export async function findFootage(words: string[]): Promise<Searched> {
   try {
-    // Scenes that match every one of the first words come first; any-word matches fill the rest.
-    const ask = async (mode: "any" | "all", list: string[]) => {
-      const res = await fetch(searchUrl(list, 24, mode), { headers: HEADERS, signal: AbortSignal.timeout(20_000) });
+    // Ask wide (any word, in any form), then put the scenes that fit best first: the archive alone returns the most watched.
+    const ask = async (mode: "any" | "all" | "title", list: string[], rows: number) => {
+      const res = await fetch(searchUrl(list, rows, mode), { headers: HEADERS, signal: AbortSignal.timeout(20_000) });
       if (!res.ok) throw new Error(`The archive answered ${res.status}. Try again in a minute.`);
       return parseSearch(await res.json());
     };
-    const exact = words.length > 1 ? await ask("all", words.slice(0, 3)) : [];
-    const seen = new Set(exact.map((f) => f.id));
-    const rest = exact.length >= 12 ? [] : (await ask("any", words)).filter((f) => !seen.has(f.id));
-    return { ok: true, found: [...exact, ...rest].slice(0, 24) };
+    const exact = words.length > 1 ? await ask("all", words.slice(0, 3), 40) : [];
+    const wide = expandWords(words);
+    // Films with the word in their title, and the most-watched films that mention it anywhere.
+    const [named, rest] = await Promise.all([ask("title", wide, 60), ask("any", wide, 100)]);
+    const merged = [...new Map([...exact, ...named, ...rest].map((f) => [f.id, f])).values()];
+    const ranked = rankFound(merged, words);
+    if (!ranked.length) return { ok: false, reason: `Nothing in the archive matched ${words.slice(0, 4).join(", ")}. The Prelinger films are mostly mid-century: try plainer words like "car", "factory", "kitchen", "school".` };
+    return { ok: true, found: ranked.slice(0, 24) };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "The archive couldn't be reached." };
   }

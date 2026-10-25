@@ -20,6 +20,17 @@ export const FORMATS: { id: FormatId; label: string; blurb: string; rules: strin
   { id: "influencer", label: "Influencer", blurb: "One consistent person talking to camera, in different places.", rules: "One recurring influencer character speaks to camera in every video, in a different everyday place each time. Each opens on their direct hook line. Keep their look identical in every picture description." },
 ];
 
+/** What each format looks like in practice: an idea that loads into the form, the hook it opens on, and three shots. Shown on the format cards. */
+export const FORMAT_SAMPLES: Record<FormatId, { topic: string; hook: string; shots: string[]; count: number }> = {
+  "what-if": { topic: "What would happen if the Moon vanished for one day", hook: "What if the Moon disappeared for 24 hours?", shots: ["Every tide pulls out at once", "A city goes pitch black at midnight", "A wolf stares at an empty sky"], count: 3 },
+  pov: { topic: "Relatable moments of someone who is always five minutes late and has an excuse for each", hook: "POV: you said you were two minutes away", shots: ["You, still in a towel, on the phone", "The excuse, delivered with total confidence", "Everyone at the table, not buying it"], count: 3 },
+  story: { topic: "A lonely lighthouse keeper finds a message in a bottle that answers a letter he sent years ago", hook: "Part 1: The bottle", shots: ["A storm breaks on the rocks", "A bottle rolls into the lamp's beam", "His hands shake over the cork"], count: 3 },
+  faceless: { topic: "How wolves became dogs: the first campfires, the first partnerships, 15,000 years in 60 seconds", hook: "Fifteen thousand years ago, a wolf walked into the firelight.", shots: ["Embers drifting over a cave mouth", "A pup curled against a sleeping hunter", "A village, and a dog at every door"], count: 2 },
+  "did-you-know": { topic: "Surprising true facts about the deep ocean", hook: "The ocean floor has lakes. Underwater.", shots: ["A brine pool glowing on the seabed", "A fish swimming up to its edge, then turning back", "The map: how little we have seen"], count: 3 },
+  "top-five": { topic: "The five strangest animals alive, best last", hook: "Five animals that shouldn't exist. Number one is real.", shots: ["5: the animal that looks like a rock", "3: the one that glows on purpose", "1: the one nobody believes"], count: 2 },
+  influencer: { topic: "A travel creator showing one thing she loves in each new city", hook: "Okay, you need to see this alley in Lisbon.", shots: ["Walking toward camera down a tiled street", "Holding up a tiny pastry, grinning", "Sunset rooftop, talking low and close"], count: 3 },
+};
+
 /** A starting point that fills in a whole series: the kind, the idea, the look, the voice. Faceless presets are grouped like a channel's categories. */
 export type Preset = { id: string; category: string; name: string; format: FormatId; topic: string; look?: string; voice?: string; count: number };
 export const PRESETS: Preset[] = [
@@ -48,8 +59,11 @@ export const SERIES_SCHEMA = obj({
 
 export type Series = { title: string; episodes: { hook: string; shots: { picture: string; seconds: number; caption: string; narration: string }[] }[] };
 
-export function seriesRequest(format: FormatId, topic: string, count: number): DraftRequest {
-  const f = FORMATS.find((x) => x.id === format);
+/** A format of your own: its name and the rules the writer follows. */
+export type CustomRules = { label: string; rules: string };
+
+export function seriesRequest(format: FormatId | CustomRules, topic: string, count: number): DraftRequest {
+  const f = typeof format === "string" ? FORMATS.find((x) => x.id === format) : format.label.trim() && format.rules.trim() ? format : undefined;
   if (!f) throw new Error("Pick a format for the series.");
   if (!topic.trim()) throw new Error("Say what the series is about: a topic or a theme.");
   if (!Number.isInteger(count) || count < 1 || count > 8) throw new Error("A series is 1–8 videos.");
@@ -92,7 +106,7 @@ export function pictureWords(picture: string, { look, lock }: SeriesLook): strin
  * on the page (keyed "episode.shot") arrive on their shots; the rest are made
  * later, priced on the board.
  */
-export function buildSeries(series: Series, format: FormatId, opts: SeriesLook & { refs?: string[]; pictures?: Record<string, string>; clips?: Record<string, string>; voice?: string; narrationUrls?: Record<string, string> } = {}): Project {
+export function buildSeries(series: Series, format: string, opts: SeriesLook & { refs?: string[]; pictures?: Record<string, string>; clips?: Record<string, string>; voice?: string; narrationUrls?: Record<string, string> } = {}): Project {
   const base = createProject(series.title);
   const boards = series.episodes.map((e, i) => ({
     id: crypto.randomUUID(),

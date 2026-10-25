@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo } from "react";
 
 import { defaultKv } from "../story/kv";
-import type { Run } from "../story/runs";
+import type { PictureRun as Run } from "../story/runs";
 import { projectFrom } from "../story/save-run";
 import { createProjectStore } from "../story/store";
 

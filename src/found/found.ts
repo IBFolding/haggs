@@ -7,10 +7,10 @@ import { createProject, newShot, type Project } from "../story/model";
  * ready to restyle into what you want and cut.
  */
 
-export type Found = { id: string; title: string; year: string; about: string; thumb: string; page: string };
+export type Found = { id: string; title: string; year: string; about: string; tags: string; thumb: string; page: string };
 export type FoundFile = { name: string; url: string; bytes: number };
 
-const STOP = new Set(["the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "about", "that", "this", "is", "are", "it", "my", "i", "make", "film", "video", "scene", "scenes", "want", "show", "like"]);
+const STOP = new Set(["the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "about", "that", "this", "is", "are", "it", "my", "i", "make", "film", "video", "scene", "scenes", "want", "show", "like", "favorite", "favourite", "best", "top", "ten", "five", "three", "great", "good", "nice", "some", "little", "really", "just", "things", "stuff", "footage", "clip", "clips", "movie", "movies", "films", "story", "making", "have", "has", "was", "were", "has", "all", "any", "from", "would", "could", "should", "please"]);
 
 /** Words worth searching on from a plain description: the nouns, not the filler. */
 export function searchWords(description: string, max = 6): string[] {
@@ -22,13 +22,14 @@ export function searchWords(description: string, max = 6): string[] {
 }
 
 /** The archive.org search for those words, inside Prelinger's films only. Quotes and operators are stripped so words can't change the query. */
-export function searchUrl(words: string[], rows = 24, mode: "any" | "all" = "any"): string {
+export function searchUrl(words: string[], rows = 24, mode: "any" | "all" | "title" = "any"): string {
   const clean = words.map((w) => w.replace(/[^a-zA-Z0-9'-]/g, "")).filter(Boolean).slice(0, 8);
   if (!clean.length) throw new Error("Type a few words about what you need.");
-  const q = `(${clean.join(mode === "all" ? " AND " : " OR ")}) AND collection:(prelinger) AND mediatype:(movies)`;
+  const list = clean.join(mode === "all" ? " AND " : " OR ");
+  const q = `(${mode === "title" ? `title:(${list})` : list}) AND collection:(prelinger) AND mediatype:(movies)`;
   // Best match first when every word must match; most-watched first when any will do.
   const params = new URLSearchParams({ q, rows: String(rows), page: "1", output: "json", ...(mode === "any" ? { sort: "downloads desc" } : {}) });
-  for (const f of ["identifier", "title", "year", "description"]) params.append("fl[]", f);
+  for (const f of ["identifier", "title", "year", "description", "subject"]) params.append("fl[]", f);
   return `https://archive.org/advancedsearch.php?${params}`;
 }
 
@@ -40,7 +41,7 @@ export function parseSearch(json: unknown): Found[] {
   return docs.flatMap((d) => {
     const id = text(d.identifier);
     if (!/^[A-Za-z0-9._-]{2,120}$/.test(id)) return [];
-    return [{ id, title: text(d.title).slice(0, 120) || id, year: text(d.year), about: text(d.description).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180), thumb: `https://archive.org/services/img/${id}`, page: `https://archive.org/details/${id}` }];
+    return [{ id, title: text(d.title).slice(0, 120) || id, year: text(d.year), about: text(d.description).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180), tags: (Array.isArray(d.subject) ? d.subject.join(" ") : typeof d.subject === "string" ? d.subject : "").slice(0, 300), thumb: `https://archive.org/services/img/${id}`, page: `https://archive.org/details/${id}` }];
   });
 }
 
@@ -79,4 +80,46 @@ export function foundBoard(name: string, brief: string, picks: Pick[]): Project 
     })),
   };
   return { ...base, boards: [board], source: { templateId: "found-footage", name } };
+}
+
+
+/** A word and the forms it might take in an old film's title: cars and car, boxes and box, cities and city. */
+export function variants(word: string): string[] {
+  const w = word.toLowerCase();
+  const out = new Set([w]);
+  if (/ies$/.test(w) && w.length > 4) out.add(w.slice(0, -3) + "y");
+  else if (/(ses|xes|ches|shes)$/.test(w)) out.add(w.slice(0, -2));
+  else if (/s$/.test(w) && !/ss$/.test(w) && w.length > 3) out.add(w.slice(0, -1));
+  else if (w.length > 2 && !/ss$/.test(w)) { out.add(w + "s"); if (/y$/.test(w)) out.add(w.slice(0, -1) + "ies"); }
+  return [...out];
+}
+
+/** Every searched word with its other forms, as one flat list of clean words. */
+export const expandWords = (words: string[]): string[] => [...new Set(words.flatMap(variants))].slice(0, 12);
+
+const has = (hay: string, w: string) => new RegExp(`(^|[^a-z])${w.replace(/[^a-z0-9]/gi, "")}($|[^a-z])`, "i").test(hay);
+
+/**
+ * How well a scene fits what you asked for: a word in the title counts most, in its subjects
+ * next, in its description least, and a scene that has every word you gave beats one that
+ * has a few. Without this the archive hands back whatever is most watched.
+ */
+export function fitOf(f: Found, words: string[]): number {
+  let matched = 0, score = 0;
+  for (const w of words) {
+    const forms = variants(w);
+    const t = forms.some((x) => has(f.title, x)), g = forms.some((x) => has(f.tags, x)), d = forms.some((x) => has(f.about, x));
+    if (t || g || d) matched += 1;
+    score += (t ? 3 : 0) + (g ? 2 : 0) + (d ? 1 : 0);
+  }
+  return score + (words.length > 1 && matched === words.length ? 4 : 0) + matched;
+}
+
+/** Best fit first, stable among equals (the archive's own order), and nothing that matches none of the words. */
+export function rankFound(list: Found[], words: string[]): Found[] {
+  return list
+    .map((f, i) => ({ f, i, s: fitOf(f, words) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => x.f);
 }

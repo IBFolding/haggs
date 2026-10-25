@@ -1,5 +1,9 @@
 "use client";
 
+import { ExportTargets } from "./export-targets";
+import { presetById } from "../../../../story/export-presets";
+import { LookPicker } from "./fx-picker";
+import { MediaThumb } from "../../../media-thumb";
 import { galleryShot } from "../../../gallery-log";
 import { track as inHeader } from "../../../../activity/activity";
 import { useReturnedPick } from "../../../bank-picker";
@@ -206,6 +210,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   );
   const [rolling, setRolling] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  /** Where the film is going; sets the loudness Render MP4 levels to. */
+  const [target, setTarget] = useState<string | null>(null);
   async function rollAgain(shotId: string) {
     if (!project) return;
     setProblem(null);
@@ -436,7 +442,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
             const body = await inHeader(
               { label: `Rendering ${project.name}`, href: `/board/${project.id}/cut`, result: (b) => (b?.ok && b.url ? { url: b.url } : null), failure: (b) => (b?.ok && b.url ? null : (b?.reason ?? "The render didn't finish.")) },
               async () => {
-                const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut, burn }) }).catch(() => null);
+                const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut: target && presetById(target) ? { ...cut, loudness: presetById(target)!.loudness } : cut, burn }) }).catch(() => null);
                 return (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string; srt?: string } | null;
               },
             );
@@ -519,6 +525,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       <details className="ed-more">
         <summary>Export</summary>
         <div>
+          <ExportTargets clips={cut.clips} target={target} onTarget={setTarget} apply={apply} onNeedKey={() => openKeys()} />
           <button className="plain" onClick={() => download(`${project.name}.cut.json`, cutList(cut, project.name), "application/json")}>Cut list (.json)</button>
           <button className="plain" onClick={() => download(`${project.name}.fcpxml`, fcpxml(cut, project.name, { origin: window.location.origin, markers: project.markers ?? [] }), "application/xml")}>Final Cut / Resolve (.fcpxml)</button>
           <button className="plain" onClick={() => download(`${project.name}.sh`, ffmpegScript(cut, project.name, window.location.origin), "text/x-shellscript")}>ffmpeg script (.sh)</button>
@@ -547,7 +554,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
         <div className="ed">
           <section className="ed-stage-area" aria-label="Preview">
             <div className="ed-view">
-              <div className={`stage${vertical ? " vertical" : ""}`}>
+              <div className={`stage${vertical ? " vertical" : ""}`} data-fx={here?.clip.fx}>
                 {here &&
                   (here.clip.kind === "video" ? (
                     <video key={here.clip.shotId} ref={video} style={here.clip.fit === "fill" ? { objectFit: "cover", objectPosition: `${(here.clip.focus?.x ?? 0.5) * 100}% ${(here.clip.focus?.y ?? 0.5) * 100}%` } : undefined} src={here.clip.url} playsInline preload="auto" muted={Boolean(project.sound?.clipMute)} onLoadedMetadata={(ev) => { ev.currentTarget.volume = Math.min(1, Math.pow(10, (project.sound?.clipGain ?? 0) / 20)); }} />
@@ -620,6 +627,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               ) : tab === "sound" ? (
                 <>
                 <Tracks
+                  filmSeconds={Math.round(cut.total)}
                   sound={project.sound}
                   onSound={(sound) => apply((current) => { const { sound: _old, ...rest } = current; return sound ? { ...rest, sound } : rest; })}
                   effects={project.effects ?? []}
@@ -684,6 +692,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                           </label>
                         ))}
                       </div>
+                      <LookPicker shot={shot} onShot={onShot} onAll={(fx) => apply((current) => ({ ...current, shots: current.shots.map((s2) => { const { fx: _drop, ...rest } = s2; return fx ? { ...rest, fx } : rest; }) }))} />
                       <div className="ed-row ed-caption">
                         <label title="Words on screen for this shot. They stay a separate layer: fix them here any time, and burn them in only when you export.">
                           Caption
@@ -713,7 +722,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                           return (
                             <figure key={take.id} className={`take${on ? " on" : ""}`}>
                               <button className="take-pick" onClick={() => onShot(shot.id, (s2) => chooseTake(s2, take.id))} aria-pressed={on} title={on ? "On the shot" : "Put this take on the shot"}>
-                                {take.kind === "video" ? <video src={`${take.url}#t=0.3`} muted preload="metadata" /> : <img src={take.url} alt="" />}
+                                <MediaThumb url={take.url} kind={take.kind} at={0.3} />
                               </button>
                               <figcaption>
                                 <span>Take {i + 1}{take.origin ? ` · ${take.origin}` : ""}{take.usd !== null ? ` · $${take.usd.toFixed(2)}` : ""}</span>
@@ -858,7 +867,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                         onClick={() => { setPicked(clip.shotId); seek(clip.start); }}
                         title={`${clip.index + 1}. ${clip.heading || "Shot"} — ${clip.seconds}s`}
                       >
-                        {clip.kind === "video" ? <video src={`${clip.url}#t=0.1`} muted preload="metadata" /> : <img src={clip.url} alt="" />}
+                        <MediaThumb url={clip.url} kind={clip.kind} />
                         {w > 54 && <span className="clip-label">{clip.heading || `Shot ${clip.index + 1}`}</span>}
                         {w > 30 && <span className="clip-len">{clip.seconds}s</span>}
                       </button>
