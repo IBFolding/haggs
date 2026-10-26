@@ -15,6 +15,7 @@ import { ReturnBar } from "../return-bar";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
 import { CHARACTER_SAMPLES } from "../../samples/starters";
+import { ChipRow } from "../chip-row";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 import { creditsText } from "../../story/price-text";
@@ -181,25 +182,16 @@ export function Characters() {
               </div>
 
               {GROUPS.map(([id, label]) => (
-                <fieldset key={id} className="chars-group">
-                  <legend>{label}</legend>
-                  {TRAIT_ROWS.filter((r) => r.group === id).map((row) => (
-                    <div key={row.id} className="chars-row">
-                      <span>{row.label}</span>
-                      <div role="radiogroup" aria-label={row.label}>
-                        {row.options.map((o) => (
-                          <button key={o} role="radio" aria-checked={traits[row.id] === o} className={traits[row.id] === o ? "on" : ""} onClick={() => set(row.id, o as never)}>{o}</button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                <details key={id} className="chars-group" open={id === "who"}>
+                  <summary><b>{label}</b><small>{[...TRAIT_ROWS.filter((r) => r.group === id).map((r) => String(traits[r.id])), ...(id === "style" ? [traits.wardrobe, traits.marks] : [])].filter(Boolean).join(" · ")}</small></summary>
+                  {TRAIT_ROWS.filter((r) => r.group === id).map((row) => <ChipRow key={row.id} label={row.label} options={row.options} value={String(traits[row.id])} onChange={(v) => set(row.id, v as never)} />)}
                   {id === "style" && (
                     <>
                       <label className="wf-field"><span>Wardrobe</span><input value={traits.wardrobe} maxLength={200} onChange={(e) => set("wardrobe", e.target.value)} /></label>
                       <label className="wf-field"><span>Marks and details</span><input value={traits.marks} maxLength={200} placeholder="a small scar through the left eyebrow, freckles" onChange={(e) => set("marks", e.target.value)} /></label>
                     </>
                   )}
-                </fieldset>
+                </details>
               ))}
             </div>
 

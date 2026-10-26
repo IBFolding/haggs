@@ -17,6 +17,7 @@ import { ReshootPanel } from "../reshoot-panel";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
 import { PLACE_SAMPLES } from "../../samples/starters";
+import { ChipRow } from "../chip-row";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 import { creditsText } from "../../story/price-text";
@@ -166,19 +167,12 @@ export function Locations() {
                 }} />
               </div>
 
-              <fieldset className="chars-group">
-                <legend>The place</legend>
-                {PLACE_ROWS.map((row) => (
-                  <div key={row.id} className="chars-row">
-                    <span>{row.label}</span>
-                    <div role="radiogroup" aria-label={row.label}>
-                      {row.options.map((o) => <button key={o} role="radio" aria-checked={traits[row.id] === o} className={traits[row.id] === o ? "on" : ""} onClick={() => set(row.id, o as never)}>{o}</button>)}
-                    </div>
-                  </div>
-                ))}
+              <details className="chars-group">
+                <summary><b>The place</b><small>{[...PLACE_ROWS.map((r) => traits[r.id]), traits.style].filter(Boolean).join(" · ")}</small></summary>
+                {PLACE_ROWS.map((row) => <ChipRow key={row.id} label={row.label} options={row.options} value={traits[row.id]} onChange={(v) => set(row.id, v as never)} />)}
                 <label className="wf-field"><span>Style and materials</span><input value={traits.style} maxLength={200} placeholder="weathered wood and brass, art deco, brutalist concrete" onChange={(e) => set("style", e.target.value)} /></label>
                 <label className="wf-field"><span>Details that matter</span><input value={traits.details} maxLength={300} placeholder="a jukebox in the corner, rain on the windows" onChange={(e) => set("details", e.target.value)} /></label>
-              </fieldset>
+              </details>
             </div>
 
             <div className="chars-stage">
