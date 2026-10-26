@@ -5,6 +5,7 @@ import { LESSONS } from "../academy/lessons";
 import { TEMPLATES } from "../catalog/templates";
 import { FORMATS } from "../sheets/formats";
 import { AcademyPath } from "./academy-path";
+import { JoinBand, JoinButton } from "./join-push";
 import { HeroReel } from "./hero-reel";
 import { ModelsWall } from "./models-wall";
 import { WorkflowDemo } from "./workflow-demo";
@@ -52,6 +53,7 @@ export default function Landing() {
             </p>
             <div className="lp-cta">
               <Link className="fire" href="/library">Start a project</Link>
+              <JoinButton />
               <Link className="plain" href="/workflows">See the Comfy workflows</Link>
             </div>
           </div>
@@ -71,6 +73,8 @@ export default function Landing() {
             ))}
           </div>
         </section>
+
+        <JoinBand />
 
         <section className="lp-wall" aria-label="What it makes">
           <h2>Made with it, and how</h2>

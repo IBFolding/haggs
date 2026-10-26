@@ -3219,3 +3219,10 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .mw-link { position: absolute; inset: 0; z-index: 3; border-radius: inherit; }
 .mw-link:focus-visible { outline: 2px solid var(--volt); outline-offset: -4px; }
 .mw-text { pointer-events: none; }
+
+.lp-join { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin: 40px auto 0; max-width: 1180px; padding: 22px 26px; border: 1px solid var(--volt); border-radius: 16px; background: var(--surface); }
+.lp-join h2 { margin: 0 0 6px; font-size: 22px; }
+.lp-join p { margin: 0; max-width: 56ch; color: var(--text-2); font-size: 14px; line-height: 1.6; }
+.lp-join-go { display: flex; gap: 10px; flex-wrap: wrap; }
+.lp-join-go .fire { margin-left: 0; text-decoration: none; }
+.lp-join-go .plain { text-decoration: none; display: inline-block; }
