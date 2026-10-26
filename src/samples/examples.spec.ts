@@ -15,5 +15,5 @@ test("Photos (the Create surface) shows pictures, Video shows clips, Edit shows 
 });
 
 test("each example carries the prompt that made it and what it cost", () => {
-  for (const e of EXAMPLES) assert.ok(e.prompt.length > 30 && e.model.length > 3 && e.cost.startsWith("$"), e.src);
+  for (const e of EXAMPLES) assert.ok(e.prompt.length > 30 && e.model.length > 3 && /^[0-9]+ credits?$/.test(e.cost), e.src);
 });
