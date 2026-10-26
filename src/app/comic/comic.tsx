@@ -138,6 +138,16 @@ export function Comic() {
             </div>
           </section>
 
+          <section className="cm-block cm-sample" aria-label="A finished page">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/samples/comic-page.jpg" alt="A finished comic page: a girl on a rooftop at night, a storm, a lightning strike, her eyes glowing blue" loading="lazy" />
+            <div>
+              <h2>A finished page</h2>
+              <p>Six panels, one look, the same girl in every one, with captions and a speech bubble. Six pictures at 7 credits each is 42 credits.</p>
+              <p>Pick a story above, press Draw, and yours will look like this.</p>
+            </div>
+          </section>
+
           <section className="cm-block" aria-label="Who is in it">
             <h2>Who is in it</h2>
             <div className="cm-cast">

@@ -23,14 +23,14 @@ export const metadata: Metadata = {
  */
 
 const TILES = [
-  { name: "Photos", says: "Make, edit, build characters and places.", href: "/photos" },
-  { name: "Video", says: "A clip from words or a picture.", href: "/video" },
-  { name: "Series", says: "A topic into short vertical videos, faceless channels too.", href: "/series" },
-  { name: "Comic strip", says: "Write panels, pick characters, get a finished page.", href: "/comic" },
-  { name: "Recreate an edit", says: "Drop an edit you love; rebuild it around your character.", href: "/recreate" },
-  { name: "Workflows", says: "26 ready-made apps: swap, relight, try on, upscale.", href: "/workflows" },
-  { name: "Editor", says: "Cut, reshoot, restyle, sound and render.", href: "/library" },
-  { name: "Academy", says: "Seven short lessons. Your first video in lesson one.", href: "/academy" },
+  { name: "Photos", img: "/tiles/photos.jpg", says: "Make, edit, build characters and places.", href: "/photos" },
+  { name: "Video", img: "/tiles/video.jpg", says: "A clip from words or a picture.", href: "/video" },
+  { name: "Series", img: "/tiles/series.jpg", says: "A topic into short vertical videos, faceless channels too.", href: "/series" },
+  { name: "Comic strip", img: "/tiles/comic.jpg", says: "Write panels, pick characters, get a finished page.", href: "/comic" },
+  { name: "Recreate an edit", img: "/tiles/recreate.jpg", says: "Drop an edit you love; rebuild it around your character.", href: "/recreate" },
+  { name: "Workflows", img: "/tiles/workflows.jpg", says: "26 ready-made apps: swap, relight, try on, upscale.", href: "/workflows" },
+  { name: "Editor", img: "/tiles/editor.jpg", says: "Cut, reshoot, restyle, sound and render.", href: "/library" },
+  { name: "Academy", img: "/tiles/academy.jpg", says: "Seven short lessons. Your first video in lesson one.", href: "/academy" },
 ] as const;
 
 const SHOWN = TEMPLATES.filter((t) => t.sample).slice(0, 8);
@@ -63,6 +63,8 @@ export default function Landing() {
           <div className="lp-tile-grid">
             {TILES.map((t) => (
               <Link key={t.href} href={t.href} className="lp-tile">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={t.img} alt="" loading="lazy" />
                 <b>{t.name}</b>
                 <span>{t.says}</span>
               </Link>
@@ -87,7 +89,7 @@ export default function Landing() {
                   <summary>How it was made</summary>
                   <div>
                     <p className="lp-wall-prompt">{t.prompt.replace(/[\[\]]/g, "")}</p>
-                    <p className="lp-wall-meta">{t.surface === "Video" ? "Video" : "Photo"} · {t.aspect ?? "any shape"}{t.fromPicture ? " · starts from your picture" : ""} · {t.surface === "Video" ? "MiniMax H3, about 13 credits a second" : "FLUX 3, about 7¢ a picture"}</p>
+                    <p className="lp-wall-meta">{t.surface === "Video" ? "Video" : "Photo"} · {t.aspect ?? "any shape"}{t.fromPicture ? " · starts from your picture" : ""} · {t.surface === "Video" ? "MiniMax H3, about 13 credits a second" : "FLUX 3, about 7 credits a picture"}</p>
                     <Link className="plain" href={`${t.surface === "Video" ? "/video" : "/photos"}?template=${t.id}`}>Try it with your own words</Link>
                   </div>
                 </details>

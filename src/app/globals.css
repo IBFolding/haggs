@@ -2317,6 +2317,8 @@ a.logo { color: var(--text); text-decoration: none; }
 .lp-tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-top: 14px; }
 .lp-tile { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); text-decoration: none; }
 .lp-tile:hover { border-color: var(--volt); }
+.lp-tile { align-content: start; overflow: hidden; }
+.lp-tile img { width: calc(100% + 32px); margin: -16px -16px 8px; aspect-ratio: 16 / 10; object-fit: cover; display: block; }
 .lp-tile b { font-size: 16px; }
 .lp-tile span, .lp-academy p, .lp-mcp p { color: var(--text-2); font-size: 14px; line-height: 1.6; margin: 0; }
 .lp-academy p, .lp-mcp > p { max-width: 64ch; margin-bottom: 14px; }
@@ -3208,3 +3210,8 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .dw-n { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #0a0a0a; background: #d4f83a; } .dw-n.camera { background: #fff; }
 .dw-marks input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line-hot); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; } .dw-cam { flex: 1; font-size: 13px; color: var(--text-2); }
 .dw-prompt { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-hot); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; line-height: 1.45; resize: vertical; }
+
+.cm-sample { display: grid; grid-template-columns: minmax(0, 260px) 1fr; gap: 18px; align-items: start; }
+.cm-sample img { width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+.cm-sample p { color: var(--text-2); font-size: 14px; line-height: 1.6; margin: 0 0 8px; }
+@media (max-width: 640px) { .cm-sample { grid-template-columns: 1fr; } }
