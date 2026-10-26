@@ -89,7 +89,11 @@ export async function syncProjects(kv: Kv, store: ProjectStore, remote: Remote, 
         if (files[url] || budget <= 0) continue;
         budget -= 1;
         const kept = await portable.keep(url).catch(() => null);
-        if (kept) files[url] = kept;
+        if (kept) {
+          files[url] = kept;
+          // Remembered at once: a tab closed or reloaded mid-round must not copy this file again.
+          await kv.set(FILES, files);
+        }
       }
       const cloud = Object.fromEntries(Object.entries(files).filter(([, v]) => v !== "never"));
       sent = withLinks(project, cloud);

@@ -50,8 +50,14 @@ export function CloudSync() {
       busy = true;
       // A table that isn't there yet, or no network, just means no sync this time.
       problem = null;
-      void syncProjects(kv, store, remote, portable)
+      // Only one tab copies at a time, so a second tab never uploads the same files again.
+      const locked = async <T,>(work: () => Promise<T>): Promise<T | undefined> => {
+        if (typeof navigator === "undefined" || !navigator.locks) return work();
+        return (await navigator.locks.request("haggs-cloud-sync", { ifAvailable: true }, async (lock) => (lock ? work() : undefined))) as T | undefined;
+      };
+      void locked(() => syncProjects(kv, store, remote, portable))
         .then(async (r) => {
+          if (!r) { busy = false; return; }
           if (portable) await kv.set(FILE_SYNC, { at: Date.now(), waiting: r.waiting, problem });
           // Files still to copy and nothing in the way: carry straight on instead of waiting for the next round.
           if (portable && r.waiting > 0 && !problem) setTimeout(run, 2_000);

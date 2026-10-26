@@ -156,3 +156,22 @@ test("another device that already has the version without files picks up the one
   assert.ok(JSON.stringify(await here.load(p.id)).includes("/api/local/a.png"), "this machine keeps playing its own file");
   assert.equal((await syncProjects(kv1, here, remote, portable)).pulled, 0);
 });
+
+test("a file already copied is remembered at once, so a tab closed mid-round does not copy it again", async () => {
+  const { remote } = fakeRemote();
+  const kv = memoryKv();
+  const s = createProjectStore(kv);
+  const p = projectWithFiles("Cut short", ["/api/local/a.png", "/api/local/b.png", "/api/local/c.png"]);
+  await s.save(p);
+  let savedBeforeThird = -1;
+  let calls = 0;
+  const portable: Portable = {
+    keep: async (url) => {
+      calls += 1;
+      if (calls === 3) savedBeforeThird = Object.keys((await kv.get<Record<string, string>>("sync/files")) ?? {}).length;
+      return `https://store.test/${url.split("/").pop()}`;
+    },
+  };
+  await syncProjects(kv, s, remote, portable);
+  assert.equal(savedBeforeThird, 2, "the first two were already saved when the third began");
+});
