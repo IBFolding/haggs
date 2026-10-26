@@ -76,7 +76,8 @@ split it (S), undo anything (⌘Z). Then:
 finished film. Each ends in something real in haggs; finish all seven for a
 certificate.
 
-**Claude, over MCP.** `scripts/mcp.ts` is an MCP server. Claude can read your
+**Claude and Codex, over MCP.** `scripts/mcp.ts` is an MCP server that Claude and Codex both
+can use. They can read your
 projects and send you work to apply: drafts, boards, edits, takes, voices, a
 series, or an app laid out on the canvas (`haggs_propose_canvas`,
 `haggs_propose_series`), and search Comfy's workflow library
@@ -156,7 +157,8 @@ Community needs the migration in `supabase/migrations/` applied to your
 Supabase project (paste it into the SQL editor).
 
 To use Claude with your projects, copy `.mcp.example.json` to `.mcp.json` (that file is local and not committed); it registers the haggs MCP
-server for Claude Code; for any other client run `npx tsx scripts/mcp.ts`.
+server for Claude Code. For Codex, run `codex mcp add haggs -- npx tsx scripts/mcp.ts` from the repo folder, or use
+`codex-mcp.example.toml`. Any other MCP client can run `npx tsx scripts/mcp.ts`.
 
 ### Development only
 

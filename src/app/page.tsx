@@ -176,9 +176,9 @@ export default function Landing() {
         </section>
 
         <section className="lp-mcp" id="mcp">
-          <h2>Works with Claude over MCP</h2>
+          <h2>Works with Claude and Codex over MCP</h2>
           <p>
-            haggs ships an MCP server. Connect Claude and it can read your projects, then send you work to apply: a whole board, takes,
+            haggs ships an MCP server. Connect Claude or Codex and it can read your projects, then send you work to apply: a whole board, takes,
             voice lines, a series, or an app laid out on the canvas. Nothing changes until you press Apply, and nothing is spent until you
             press a button that shows its price. No separate API key needed.
           </p>
@@ -188,7 +188,8 @@ export default function Landing() {
             <article><h3>Find</h3><p>Search Comfy&rsquo;s workflow library, open weights included, and stack what fits.</p></article>
           </div>
           <pre className="lp-code" aria-label="Connect Claude Code">claude mcp add haggs -- npx tsx scripts/mcp.ts</pre>
-          <p className="lp-small">Claude Code picks it up from the repo&rsquo;s <code>.mcp.json</code> automatically. Any other MCP client can run <code>npx tsx scripts/mcp.ts</code>.</p>
+          <pre className="lp-code" aria-label="Connect Codex">codex mcp add haggs -- npx tsx scripts/mcp.ts</pre>
+          <p className="lp-small">Claude Code picks it up from the repo&rsquo;s <code>.mcp.json</code> automatically; run the Codex line from the repo folder. Any other MCP client can run <code>npx tsx scripts/mcp.ts</code>.</p>
         </section>
 
         <section className="lp-honest">

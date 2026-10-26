@@ -1,5 +1,5 @@
 /**
- * The haggs MCP server: lets Claude (in Claude Code, Claude Desktop, anywhere
+ * The haggs MCP server: lets Claude and Codex (in Claude Code, Claude Desktop, the Codex CLI, anywhere
  * MCP runs) read your projects and send drafts, looks and sheet edits to them.
  *
  *   npx tsx scripts/mcp.ts
