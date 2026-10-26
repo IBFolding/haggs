@@ -34,7 +34,7 @@ Item 9 was already there: the Look panel has camera body, lens, focal length and
 | 7 | Auto model picker and prompt enhancer | `image_auto`, `recommend`, automatic prompt direction | You pick the model | Rules-based "recommend a model", and an "Improve my prompt" button using the Claude key | S | free or pennies |
 | 8 | Preset galleries | Viral Hub, Genjutsu styles ("redraw my video as knitted yarn"), Soul styles, What If | Looks panel and style sheets | A curated gallery of one-click looks and effects, each a stored prompt plus workflow | M | credits |
 | 9 | Cinema camera rig for stills | Camera body, lens, focal length and aperture pickers; genre control for video | Camera moves in prompts | Pickers that write the right words into the prompt | S | free |
-| 10 | Draw to video | Sketch on a frame, it animates | Region canvas exists | Reuse the region canvas: draw on a frame, send to image to video | M | credits |
+| 10 | Draw to video | Sketch on a frame, it animates | **Done.** `/draw`: arrows for subject and camera become a motion prompt, handed to Video | M | credits |
 | 11 | Sprite sheet maker | AutoSprite: character to game-ready sheet | Nothing | Video of the character, frames, remove background, pack into a sheet with ffmpeg | S | free |
 | 12 | Image to 3D and a rig animation library | Meshy 3D, 678 rig animations, scene builder | Grey room builds sets only | Comfy Meshy partner node for models. Animations would need a library | M to L | credits |
 | 13 | Layers (split an image into editable layers) | Image Decompose | Nothing | A Comfy layered-image template | M | credits |

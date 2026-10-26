@@ -14,6 +14,7 @@ import { ACCESSORY_SAMPLES } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { galleryStill } from "../gallery-log";
 import { SiteFooter } from "../site-footer";
+import { creditsText } from "../../story/price-text";
 
 const FINISH = "Product photograph of the single item on a plain light grey background, soft studio light, no person, no text, no watermark.";
 const PRICE = 0.07;
@@ -102,7 +103,7 @@ export function Accessories() {
             <div className="ac-pic">
               {picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={picture} alt="The accessory" /> : <span>No picture yet</span>}
               <div className="cm-row">
-                <button className="pill" disabled={busy !== null || (name.trim().length + words.trim().length) < 3} onClick={() => void makePicture()}>{busy ?? (picture ? "Draw again" : "Draw a picture")} <span className="cost">about ${PRICE.toFixed(2)}</span></button>
+                <button className="pill" disabled={busy !== null || (name.trim().length + words.trim().length) < 3} onClick={() => void makePicture()}>{busy ?? (picture ? "Draw again" : "Draw a picture")} <span className="cost">about {creditsText(PRICE)}</span></button>
                 <label className="pill">Add a picture<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addPicture(f); }} /></label>
               </div>
             </div>

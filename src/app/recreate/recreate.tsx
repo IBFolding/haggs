@@ -17,6 +17,7 @@ import { readPick } from "../../story/handoff";
 import { analyzeEdit } from "../recreate-actions";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
+import { creditsText } from "../../story/price-text";
 
 /**
  * Recreate an edit: drop a reference video (an edit you love), say who is in
@@ -28,8 +29,7 @@ import { SiteFooter } from "../site-footer";
 
 const PICTURE = 0.0686;
 const CLIP = 0.1287;
-const money = (n: number) => `$${n.toFixed(2)}`;
-
+const money = (n: number) => creditsText(n);
 export function Recreate() {
   const router = useRouter();
   const store = useMemo(() => createProjectStore(defaultKv()), []);
@@ -159,7 +159,7 @@ export function Recreate() {
               <div className="recreate-side">
                 <p className="wf-small">{video ? `${video.seconds}s · ${video.vertical ? "vertical" : "landscape"}. ` : "A starting structure. "}<button className="plain" onClick={() => { setVideo(null); setShots(null); }}>{video ? "Use a different one" : "Pick another"}</button></p>
                 {!shots ? (
-                  <button className="fire" disabled={busy !== null} onClick={() => void read()}>{busy ?? "Find the shots"} <span className="cost">about $0.03</span></button>
+                  <button className="fire" disabled={busy !== null} onClick={() => void read()}>{busy ?? "Find the shots"} <span className="cost">about 3 credits</span></button>
                 ) : (
                   <>
                     <div className="series-pick">

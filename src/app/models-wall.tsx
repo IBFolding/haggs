@@ -7,10 +7,10 @@
 type Model = { name: string; line: string; does: string; price: string; open?: boolean; media: string; poster?: string; kind: "video" | "image"; tint: string };
 
 const MODELS: Model[] = [
-  { name: "MiniMax H3", line: "Cinematic video with sound", does: "Text or a picture to a clip, 5 to 15 seconds, up to 2K.", price: "$0.13 a second", media: "/templates/product-orbit.mp4", poster: "/templates/poster-product-orbit.webp", kind: "video", tint: "#d4f83a" },
+  { name: "MiniMax H3", line: "Cinematic video with sound", does: "Text or a picture to a clip, 5 to 15 seconds, up to 2K.", price: "13 credits a second", media: "/templates/product-orbit.mp4", poster: "/templates/poster-product-orbit.webp", kind: "video", tint: "#d4f83a" },
   { name: "FLUX 3", line: "The picture model", does: "Photoreal stills, character sheets, key art, the first frame of every shot.", price: "7¢ a picture", media: "/templates/key-art.webp", kind: "image", tint: "#7dd3fc" },
   { name: "FLUX Kontext", line: "Fix just one thing", does: "Change a part of a frame and nothing else, then re-render the take.", price: "4¢ a fix", media: "/showcase/outfit-1.jpg", kind: "image", tint: "#f5a524" },
-  { name: "Kling Omni", line: "Edit video with words", does: "Swap a person, restyle a take, recast a scene.", price: "$0.13 a second", media: "/templates/dolly-zoom.mp4", poster: "/templates/poster-dolly-zoom.webp", kind: "video", tint: "#c4a7ff" },
+  { name: "Kling Omni", line: "Edit video with words", does: "Swap a person, restyle a take, recast a scene.", price: "13 credits a second", media: "/templates/dolly-zoom.mp4", poster: "/templates/poster-dolly-zoom.webp", kind: "video", tint: "#c4a7ff" },
   { name: "Runway Aleph", line: "Change the shot itself", does: "New angle, new light, same performance.", price: "Price on the button", media: "/templates/establishing-drone.mp4", poster: "/templates/poster-establishing-drone.webp", kind: "video", tint: "#ff7a90" },
   { name: "Genjutsu", line: "One video, many versions", does: "Recast any motion with your characters and places.", price: "Price on the button", media: "/templates/animate-still.mp4", poster: "/templates/poster-animate-still.webp", kind: "video", tint: "#d4f83a" },
   { name: "ElevenLabs", line: "Voices and sound", does: "Dry, human voices and sound effects made from words.", price: "11¢ per 1,000 letters", media: "/templates/ugc-talking.mp4", poster: "/templates/poster-ugc-talking.webp", kind: "video", tint: "#7dd3fc" },

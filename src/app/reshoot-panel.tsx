@@ -136,7 +136,7 @@ export function ReshootPanel({
     <div className="reshoot-panel">
       <header><b>Reshoot</b><span>Same scene, new camera. Slide to compare, keep what you like.</span></header>
       <div className="engine" role="radiogroup" aria-label="Engine">
-        <button role="radio" aria-checked={engine === "partner"} className={engine === "partner" ? "on" : ""} onClick={() => pick("partner")}>FLUX 3 <small>$0.10</small></button>
+        <button role="radio" aria-checked={engine === "partner"} className={engine === "partner" ? "on" : ""} onClick={() => pick("partner")}>FLUX 3 <small>10 credits</small></button>
         <button role="radio" aria-checked={engine === "open"} className={engine === "open" ? "on" : ""} onClick={() => pick("open")}>Open weights <small>Qwen multi-angle · GPU time</small></button>
       </div>
       <div className="reshoot-body">
@@ -167,8 +167,8 @@ export function ReshootPanel({
           )}
           {error && <p className="library-error" role="alert">{error}</p>}
           <div className="sheet-row">
-            <button className="fire" disabled={busy !== null || !words} onClick={() => void shoot([{ move }])}>{busy && !busy.startsWith("Coverage") ? busy : "Reshoot"} <span className="cost">{engine === "open" ? "GPU time" : "$0.10"}</span></button>
-            <button className="pill" disabled={busy !== null} onClick={() => void shoot(COVERAGE)} title="Reverse, wide and close-up of the same moment">{busy?.startsWith("Coverage") ? busy : `Get coverage · ${engine === "open" ? "3 runs" : "$0.30"}`}</button>
+            <button className="fire" disabled={busy !== null || !words} onClick={() => void shoot([{ move }])}>{busy && !busy.startsWith("Coverage") ? busy : "Reshoot"} <span className="cost">{engine === "open" ? "GPU time" : "10 credits"}</span></button>
+            <button className="pill" disabled={busy !== null} onClick={() => void shoot(COVERAGE)} title="Reverse, wide and close-up of the same moment">{busy?.startsWith("Coverage") ? busy : `Get coverage · ${engine === "open" ? "3 runs" : "30 credits"}`}</button>
           </div>
           {results.length > 0 && (
             <div className="sheet-row">

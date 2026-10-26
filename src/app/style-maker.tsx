@@ -9,6 +9,7 @@ import { styleSheetPrompt } from "../styles/style";
 import { defaultKv } from "../story/kv";
 import { openKeys } from "./nav";
 import { makeStill } from "./series-actions";
+import { creditsText } from "../story/price-text";
 
 /** A picture shrunk to a size Comfy takes comfortably, as a small jpeg. */
 async function shrink(file: File, max = 1280): Promise<string> {
@@ -77,7 +78,7 @@ export function StyleMaker({ onSaved, onClose, start }: { onSaved: (s: CustomSty
           {sheet ? <img src={sheet} alt="Your style sheet" /> : <div className="sm-none">No sheet yet</div>}
           <div className="gs-row">
             <button className="pill" disabled={busy !== null} onClick={() => pick.current?.click()}>{sheet ? "Use a different picture" : "Add a picture of the look"}</button>
-            <button className="pill on" disabled={busy !== null || !words.trim()} onClick={() => void draw()}>{busy === "sheet" ? "Drawing…" : sheet ? "Draw it again" : "Draw one from my words"} <span className="cost">about ${price.toFixed(2)}</span></button>
+            <button className="pill on" disabled={busy !== null || !words.trim()} onClick={() => void draw()}>{busy === "sheet" ? "Drawing…" : sheet ? "Draw it again" : "Draw one from my words"} <span className="cost">about {creditsText(price)}</span></button>
             {sheet && <button className="plain" onClick={() => setSheet(null)}>Remove the sheet</button>}
             <input ref={pick} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { try { setSheet(await shrink(f)); } catch (x) { setProblem(x instanceof Error ? x.message : "That picture couldn't be read."); } } }} />
           </div>

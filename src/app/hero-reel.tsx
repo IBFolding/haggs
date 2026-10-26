@@ -53,7 +53,7 @@ export function HeroReel() {
         <Column items={B} dir="down" />
         <Column items={C} dir="up" />
       </div>
-      <span className="hr-badge b1">$0.52 a clip</span>
+      <span className="hr-badge b1">52 credits a clip</span>
       <span className="hr-badge b2">Open source</span>
       <span className="hr-badge b3">Every price shown</span>
     </div>

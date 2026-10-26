@@ -63,12 +63,12 @@ export default function Account() {
           {bal && (
             <section className="au-plan" id="credits">
               <span>Generation left</span>
-              <b>${((bal.plan + bal.topup) / 100).toFixed(2)}</b>
-              <i>{bal.plan ? `$${(bal.plan / 100).toFixed(2)} from your plan this month` : ""}{bal.plan && bal.topup ? ", " : ""}{bal.topup ? `$${(bal.topup / 100).toFixed(2)} in top-ups` : ""}</i>
+              <b>{(bal.plan + bal.topup).toLocaleString("en-US")} credits</b>
+              <i>{bal.plan ? `${bal.plan.toLocaleString("en-US")} from your plan this month` : ""}{bal.plan && bal.topup ? ", " : ""}{bal.topup ? `${bal.topup.toLocaleString("en-US")} in top-ups` : ""}</i>
             </section>
           )}
           {topups.length > 0 && (
-            <div className="au-row">{topups.map((t) => <button key={t.id} className="pill" onClick={() => void topUp(t.id)}>Add ${t.usd} of credits</button>)}</div>
+            <div className="au-row">{topups.map((t) => <button key={t.id} className="pill" onClick={() => void topUp(t.id)}>Add {t.credits.toLocaleString("en-US")} credits · ${t.usd}</button>)}</div>
           )}
           <div className="au-row">
             {plan?.plan ? <button className="fire" onClick={() => void manage()}>Manage subscription</button> : <Link className="fire" href="/pricing">See plans</Link>}

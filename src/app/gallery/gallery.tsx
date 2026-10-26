@@ -18,6 +18,7 @@ import { RecoverPanel } from "./recover-panel";
 import { RunTile } from "../run-tile";
 import { SaveToProject } from "../save-to-project";
 import { SiteFooter } from "../site-footer";
+import { totalText } from "../../story/price-text";
 
 const SCOPES = ["All", "Images", "Video", "Sounds", "Kept"] as const;
 type Scope = (typeof SCOPES)[number];
@@ -118,10 +119,7 @@ export function Gallery() {
 
   /* The total is the point of the view. A studio that bills in credits cannot
      show you this number, because credits are not worth the same to two people. */
-  const spend = useMemo(
-    () => shown.reduce((sum, run) => sum + (run.usd ?? 0), 0),
-    [shown],
-  );
+  const spendText = useMemo(() => totalText(shown.map((run) => run.usd ?? 0)), [shown]);
   const unpriced = shown.filter((run) => run.usd === null).length;
 
   /** Files a run in a folder (a new name makes one), or takes it out with null. */
@@ -202,7 +200,7 @@ export function Gallery() {
               <dt>Runs</dt>
               <dd>{shown.length}</dd>
               <dt>Spent</dt>
-              <dd className="tally-spend">${spend.toFixed(3)}</dd>
+              <dd className="tally-spend">{spendText}</dd>
             </dl>
           </header>
 

@@ -17,6 +17,7 @@ import { makeStill } from "../series-actions";
 import { CHARACTER_SAMPLES } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
+import { creditsText } from "../../story/price-text";
 
 /**
  * Characters: change anything about a person and see them, or drop photos
@@ -210,7 +211,7 @@ export function Characters() {
               {note && <p className="wf-note" role="status">{note}</p>}
               <div className="sheet-row">
                 <button className="fire" disabled={busy !== null} onClick={() => void makeSheet()}>
-                  {sheet ? (stale ? "Remake with these changes" : "Roll the sheet again") : "Make the sheet"} <span className="cost">${SHEET_PRICE.toFixed(2)}</span>
+                  {sheet ? (stale ? "Remake with these changes" : "Roll the sheet again") : "Make the sheet"} <span className="cost">{creditsText(SHEET_PRICE)}</span>
                 </button>
                 {sheet && <button className="pill on" onClick={() => void save()}>{current ? "Save changes" : "Save character"}</button>}
               </div>
@@ -222,7 +223,7 @@ export function Characters() {
                     <span>Change this picture</span>
                     <div className="chars-change">
                       <input value={change} placeholder="give her silver hair, make him heavier, add round glasses" onChange={(e) => setChange(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void changeSheet()} />
-                      <button className="pill" disabled={busy !== null || !change.trim()} onClick={() => void changeSheet()}>{busy === "change" ? "Changing…" : `Change · $${CHANGE_PRICE.toFixed(2)}`}</button>
+                      <button className="pill" disabled={busy !== null || !change.trim()} onClick={() => void changeSheet()}>{busy === "change" ? "Changing…" : `Change · ${creditsText(CHANGE_PRICE)}`}</button>
                     </div>
                   </label>
                   <div className="chars-use">

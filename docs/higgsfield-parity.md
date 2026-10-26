@@ -31,7 +31,7 @@ that generates runs through Comfy.
 
 ## Beyond Higgsfield
 
-- Every price is on its button, in dollars, from Comfy's published node prices.
+- Every price is on its button, in credits, from Comfy's published node prices.
 - Open-weights workflows are labelled, and run free on your own ComfyUI.
 - Every project has Sheets → Board → Cut → Media: a script becomes a board, the
   board a cut, with every take kept.

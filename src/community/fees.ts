@@ -19,4 +19,4 @@ export function split(cents: number): { creator: number; platform: number } {
   return { creator, platform: cents - creator };
 }
 
-export const feeLabel = (cents: number) => (cents === 0 ? "free to use" : `+ ${cents}¢ to the creator`);
+export const feeLabel = (cents: number) => (cents === 0 ? "free to use" : `+ ${cents} credit${cents === 1 ? "" : "s"} to the creator`);

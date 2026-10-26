@@ -10,10 +10,10 @@ import { useEffect, useRef, useState } from "react";
  */
 
 const STEPS = [
-  { id: "write", tab: "Sheets", title: "Say what you want", says: "A sentence, a script or an edit you love. haggs fills the sheets: scenes, who is in them, where, and a shot list.", spent: "$0.00" },
-  { id: "board", tab: "Board", title: "See every shot and its price", says: "Each shot is a card on a flow chart. Make the pictures, look, then animate the ones you want.", spent: "$2.92" },
-  { id: "cut", tab: "Cut", title: "Cut it with real tracks", says: "Voice, effects and music on their own lanes. Fade, frame, title, mark, reshoot or fix part of a frame.", spent: "$2.92" },
-  { id: "render", tab: "Cut", title: "Render and take it with you", says: "One button makes the MP4. Or export to Final Cut and Resolve, or an ffmpeg script.", spent: "$2.92" },
+  { id: "write", tab: "Sheets", title: "Say what you want", says: "A sentence, a script or an edit you love. haggs fills the sheets: scenes, who is in them, where, and a shot list.", spent: "0 credits" },
+  { id: "board", tab: "Board", title: "See every shot and its price", says: "Each shot is a card on a flow chart. Make the pictures, look, then animate the ones you want.", spent: "292 credits" },
+  { id: "cut", tab: "Cut", title: "Cut it with real tracks", says: "Voice, effects and music on their own lanes. Fade, frame, title, mark, reshoot or fix part of a frame.", spent: "292 credits" },
+  { id: "render", tab: "Cut", title: "Render and take it with you", says: "One button makes the MP4. Or export to Final Cut and Resolve, or an ffmpeg script.", spent: "292 credits" },
 ] as const;
 
 const FRAMES = [0, 1, 2, 3, 4].map((i) => `/showcase/outfit-${i}.jpg`);
@@ -86,8 +86,8 @@ export function WorkflowDemo() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={f} alt="" />
                     <figcaption>{SHOTS[i]}</figcaption>
-                    <span className="wd-price a">$0.07</span>
-                    <span className="wd-price b">$0.52</span>
+                    <span className="wd-price a">7 credits</span>
+                    <span className="wd-price b">52 credits</span>
                   </figure>
                 ))}
                 <svg className="wd-wire" viewBox="0 0 500 4" preserveAspectRatio="none"><path d="M0 2 H500" /></svg>

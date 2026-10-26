@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { Run } from "../story/runs";
+import { creditsText } from "../story/price-text";
 
 /**
  * One finished run.
@@ -52,7 +53,7 @@ export function RunTile({
 
       {lost && <span className="cell-lost">This {run.kind === "video" ? "clip" : run.kind === "audio" ? "sound" : "picture"} has expired. The prompt is kept.</span>}
 
-      <span className="cell-cost">{run.usd === null ? "—" : `$${run.usd.toFixed(3)}`}</span>
+      <span className="cell-cost">{run.usd === null ? "—" : `${creditsText(run.usd)}`}</span>
 
       {onFavorite && (
         <button

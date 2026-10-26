@@ -41,10 +41,10 @@ export function Publish({ app }: { app: SavedApp }) {
       {!sb ? <p className="wf-small">Publishing needs an account, and this copy of haggs isn&rsquo;t connected to one.</p> : !session ? <p className="wf-small"><Link href="/signin">Sign in</Link> to publish.</p> : (
         <>
           <label className="wf-field">
-            <span>Fee per run · {cents === 0 ? "free" : `${cents}¢`}</span>
-            <input type="range" min={0} max={FEE_MAX_CENTS} value={cents} onChange={(e) => setCents(Number(e.target.value))} aria-valuetext={cents === 0 ? "free" : `${cents} cents`} />
+            <span>Fee per run · {cents === 0 ? "free" : `${cents} credit${cents === 1 ? "" : "s"}`}</span>
+            <input type="range" min={0} max={FEE_MAX_CENTS} value={cents} onChange={(e) => setCents(Number(e.target.value))} aria-valuetext={cents === 0 ? "free" : `${cents} credits`} />
           </label>
-          <p className="wf-small">{cents === 0 ? "Anyone can run it for just the cost on their own Comfy account." : `Runners pay ${cents}¢ on top of Comfy's price. You keep ${mine.creator}¢ a run; haggs keeps ${mine.platform}¢.`} Your own runs are free. Your name goes on it.</p>
+          <p className="wf-small">{cents === 0 ? "Anyone can run it for just what it costs to generate." : `Runners pay ${cents} credit${cents === 1 ? "" : "s"} on top of what it costs to generate. You earn ${mine.creator} credit${mine.creator === 1 ? "" : "s"} a run.`} Your own runs are free. Your name goes on it.</p>
           <button className="pill" disabled={busy} onClick={() => void go()}>{busy ? "Publishing…" : "Publish"}</button>
           {note && <p className="wf-note" role="status">{note} <Link href="/workflows/community">See the shelf</Link></p>}
           {error && <p className="library-error" role="alert">{error}</p>}

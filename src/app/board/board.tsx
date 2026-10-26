@@ -25,6 +25,7 @@ import { ProjectTabs } from "../project-tabs";
 import { animatePlan, picturePlan, readyToAnimate } from "../../story/animate-all";
 import { makeStill } from "../series-actions";
 import { AnimateAll } from "./animate-all";
+import { creditsText } from "../../story/price-text";
 
 export function Board({ id, boardId }: { id: string; boardId?: string | undefined }) {
   /** The whole project; the state below is one board's view of it. */
@@ -222,7 +223,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
           {stale.length > 0 && (
             <span className="board-stale">
               Moving a shot changed what {stale.length === 1 ? "one shot continues" : `${stale.length} shots continue`} from.
-              Re-running them costs ${staleCost.toFixed(3)}.
+              Re-running them costs {creditsText(staleCost)}.
             </span>
           )}
         </header>
@@ -268,7 +269,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
             plan={picPlan}
             onRun={pictureOne}
             onClose={() => setPicturing(false)}
-            words={{ title: "Make pictures", intro: "Each shot with a description and nothing to show gets a FLUX 3 picture made from it, in this board's frame shape. They land as the shot's first take; swap or re-roll any of them after.", verb: "Make", done: "made. Each is the shot's first take.", doing: "Making", note: "About 7¢ a picture at 1K, billed to your Comfy credits. An estimate, not an invoice.", meta: (s) => `$${s.usd.toFixed(3)}` }}
+            words={{ title: "Make pictures", intro: "Each shot with a description and nothing to show gets a FLUX 3 picture made from it, in this board's frame shape. They land as the shot's first take; swap or re-roll any of them after.", verb: "Make", done: "made. Each is the shot's first take.", doing: "Making", note: "About 7¢ a picture at 1K, billed to your Comfy credits. An estimate, not an invoice.", meta: (s) => `${creditsText(s.usd)}` }}
           />
         )}
 
@@ -401,7 +402,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
               >
                 {running.includes(shot.id) ? "Generating…" : shot.render ? "Run again" : "Generate"}
                 <span className="cost">
-                  {costOf(shot) === null ? "···" : `$${costOf(shot)!.toFixed(3)}`}
+                  {costOf(shot) === null ? "···" : `${creditsText(costOf(shot)!)}`}
                 </span>
               </button>
             </div>

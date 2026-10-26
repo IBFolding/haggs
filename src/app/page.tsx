@@ -87,7 +87,7 @@ export default function Landing() {
                   <summary>How it was made</summary>
                   <div>
                     <p className="lp-wall-prompt">{t.prompt.replace(/[\[\]]/g, "")}</p>
-                    <p className="lp-wall-meta">{t.surface === "Video" ? "Video" : "Photo"} · {t.aspect ?? "any shape"}{t.fromPicture ? " · starts from your picture" : ""} · {t.surface === "Video" ? "MiniMax H3, about $0.13 a second" : "FLUX 3, about 7¢ a picture"}</p>
+                    <p className="lp-wall-meta">{t.surface === "Video" ? "Video" : "Photo"} · {t.aspect ?? "any shape"}{t.fromPicture ? " · starts from your picture" : ""} · {t.surface === "Video" ? "MiniMax H3, about 13 credits a second" : "FLUX 3, about 7¢ a picture"}</p>
                     <Link className="plain" href={`${t.surface === "Video" ? "/video" : "/photos"}?template=${t.id}`}>Try it with your own words</Link>
                   </div>
                 </details>
@@ -110,9 +110,9 @@ export default function Landing() {
               <ol className="lp-case-steps">
                 <li><b>Pick the structure</b><span>The “Outfit check” starting point: five shots, a mirror reveal then the pieces. Free.</span></li>
                 <li><b>Choose who is in it</b><span>Ellis, a character with a saved sheet. “He wears a camel overcoat, a cream knit, wide dark trousers and white leather sneakers, on a rainy city street.”</span></li>
-                <li><b>Make the pictures</b><span>FLUX 3, five stills in the board’s frame shape. <em>$0.34</em></span></li>
-                <li><b>Animate them</b><span>MiniMax H3, each still becomes the first frame of a 4.5 second clip. <em>$2.58</em></span></li>
-                <li><b>Join the cut</b><span>22 seconds, vertical, ready to cut further in the editor. <em>$2.92 in all</em></span></li>
+                <li><b>Make the pictures</b><span>FLUX 3, five stills in the board’s frame shape. <em>34 credits</em></span></li>
+                <li><b>Animate them</b><span>MiniMax H3, each still becomes the first frame of a 4.5 second clip. <em>258 credits</em></span></li>
+                <li><b>Join the cut</b><span>22 seconds, vertical, ready to cut further in the editor. <em>292 credits in all</em></span></li>
               </ol>
               <p><Link className="fire" href="/recreate">Recreate an edit</Link></p>
               <p className="lp-case-note">Prices are Comfy’s published rates at the time, estimates not invoices.</p>

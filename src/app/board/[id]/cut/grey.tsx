@@ -8,6 +8,7 @@ import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, ti
 import type { Shot } from "../../../../story/model";
 import { editEstimate } from "../../../../providers/cloud-edits";
 import { runEdit } from "../../../actions";
+import { creditsText } from "../../../../story/price-text";
 
 /**
  * The grey room: work the shot out with a camera, stand-ins and a light, all
@@ -104,7 +105,7 @@ export function GreySequence({ shots, currentId, vertical, names, onSelect, onSe
 
 /** How far the plan view reaches, in metres each way: the room and the camera's usual places. */
 const PLAN = 8;
-const MONEY = (n: number) => `$${n.toFixed(2)}`;
+const MONEY = (n: number) => creditsText(n);
 const LENS_NAME = (mm: number) => (mm <= 24 ? "wide" : mm >= 85 ? "telephoto" : "natural");
 
 export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: { shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number) => void }) {

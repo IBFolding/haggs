@@ -10,9 +10,9 @@ import type { Project, Shot } from "../../../../../story/model";
 import { runEdit } from "../../../../actions";
 import { openKeys } from "../../../../nav";
 import { uploadFile } from "../../../../upload-client";
+import { creditsText } from "../../../../../story/price-text";
 
-const money = (n: number) => (n < 0.1 ? `$${n.toFixed(3)}` : `$${n.toFixed(2)}`);
-
+const money = (n: number) => creditsText(n);
 type Candidate = { kind: "draft" | "relit" | "real" | "blender"; url: string; usd: number; origin: string; from: string | null };
 
 /**

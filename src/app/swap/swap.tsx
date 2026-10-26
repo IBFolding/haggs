@@ -11,6 +11,7 @@ import { Nav, openKeys } from "../nav";
 import { SaveToProject } from "../save-to-project";
 import { quoteWorkflow, runWorkflow, type Quote, type WorkflowResult } from "../workflow-actions";
 import { SiteFooter } from "../site-footer";
+import { creditsText } from "../../story/price-text";
 
 /**
  * Swap a character into any video: drop the video, drop who should be in it,
@@ -152,7 +153,7 @@ export function Swap() {
               {tooShort && <p className="library-error" role="alert">This video is under 4 seconds; Genjutsu needs at least 4.</p>}
               <button className="fire wf-run" disabled={!video || !face || running || tooShort} onClick={() => void go()}>
                 {running ? "Swapping on Comfy Cloud…" : "Swap"}
-                <span className="cost">{total !== null ? `about $${total.toFixed(2)} for ${Math.round(billed!)}s` : quote ? quote.label : "···"}</span>
+                <span className="cost">{total !== null ? `about ${creditsText(total)} for ${Math.round(billed!)}s` : quote ? quote.label : "···"}</span>
               </button>
               <p className="wf-small">Only the first 30 seconds are used. Billed per second to your Comfy credits; an estimate, not an invoice.</p>
             </div>

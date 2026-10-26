@@ -3189,3 +3189,22 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 /* With examples under it, the empty state starts at the top and scrolls, so nothing overlaps or hides under the composer. */
 .canvas .blank:has(.examples) { justify-content: flex-start; height: auto; min-height: 100%; padding-top: 28px; }
 .blank .examples { width: min(1040px, 100%); }
+
+/* Draw to video */
+.dw-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 18px 0 10px; } .dw-pick b { font-size: 13px; margin-right: 4px; }
+.dw-chip { padding: 7px 14px !important; border: 1px solid var(--line-hot) !important; border-radius: 999px; }
+.dw-recent { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px; } .dw-recent button { flex: none; width: 72px; height: 48px; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: none; cursor: pointer; } .dw-recent button:hover { border-color: var(--volt); } .dw-recent img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dw-empty { color: var(--text-3); margin: 40px 0; }
+.dw-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; margin-top: 14px; }
+@media (max-width: 900px) { .dw-grid { grid-template-columns: 1fr; } }
+.dw-tools { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); } .dw-tools button { padding: 7px 14px; border: 0; border-radius: 999px; background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; } .dw-tools button.on { background: var(--volt); color: var(--volt-ink); }
+.dw-stage { position: relative; display: block; line-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--line-hot); cursor: crosshair; touch-action: none; user-select: none; } .dw-stage img { width: 100%; height: auto; display: block; pointer-events: none; } .dw-stage svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+.dw-arrow line { stroke-width: 4; stroke-linecap: round; } .dw-arrow polygon { stroke-width: 1; }
+.dw-arrow.subject line { stroke: #d4f83a; } .dw-arrow.subject polygon { fill: #d4f83a; stroke: #d4f83a; } .dw-arrow.subject circle { fill: #d4f83a; } .dw-arrow.subject text { fill: #0a0a0a; font-size: 12px; font-weight: 800; }
+.dw-arrow.camera line { stroke: #fff; stroke-dasharray: 9 7; } .dw-arrow.camera polygon { fill: #fff; stroke: #fff; } .dw-arrow.camera circle { fill: #fff; } .dw-arrow.camera text { fill: #0a0a0a; font-size: 12px; font-weight: 800; }
+.dw-arrow.ghost { opacity: .6; } .dw-arrow line, .dw-arrow polygon { filter: drop-shadow(0 1px 3px rgba(0,0,0,.7)); }
+.dw-side { display: grid; gap: 10px; } .dw-side h2 { margin: 6px 0 0; font-size: 15px; } .dw-hint { color: var(--text-3); font-size: 13px; margin: 0; }
+.dw-marks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; } .dw-marks li { display: flex; align-items: center; gap: 8px; }
+.dw-n { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #0a0a0a; background: #d4f83a; } .dw-n.camera { background: #fff; }
+.dw-marks input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line-hot); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; } .dw-cam { flex: 1; font-size: 13px; color: var(--text-2); }
+.dw-prompt { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-hot); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; line-height: 1.45; resize: vertical; }

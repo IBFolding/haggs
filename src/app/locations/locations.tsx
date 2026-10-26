@@ -19,6 +19,7 @@ import { makeStill } from "../series-actions";
 import { PLACE_SAMPLES } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
+import { creditsText } from "../../story/price-text";
 
 /**
  * Locations: describe a place or start from a picture of a real one, make an
@@ -187,7 +188,7 @@ export function Locations() {
               {error && <p className="library-error" role="alert">{error}</p>}
               {note && <p className="wf-note" role="status">{note}</p>}
               <div className="sheet-row">
-                <button className="fire" disabled={busy !== null} onClick={() => void makePlate()}>{plate ? "Roll it again" : "Make the plate"} <span className="cost">${PRICE.toFixed(2)}</span></button>
+                <button className="fire" disabled={busy !== null} onClick={() => void makePlate()}>{plate ? "Roll it again" : "Make the plate"} <span className="cost">{creditsText(PRICE)}</span></button>
                 {plate && <button className="pill on" onClick={() => void save()}>{current ? "Save changes" : "Save place"}</button>}
               </div>
 
@@ -197,7 +198,7 @@ export function Locations() {
                     <span>Change this picture</span>
                     <div className="chars-change">
                       <input value={change} placeholder="make it snow, add a neon sign, empty the shelves" onChange={(e) => setChange(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void changePlate()} />
-                      <button className="pill" disabled={busy !== null || !change.trim()} onClick={() => void changePlate()}>{busy === "change" ? "Changing…" : "Change · $0.04"}</button>
+                      <button className="pill" disabled={busy !== null || !change.trim()} onClick={() => void changePlate()}>{busy === "change" ? "Changing…" : "Change · 4 credits"}</button>
                     </div>
                   </label>
 

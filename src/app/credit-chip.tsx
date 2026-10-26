@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 
 import { authed, supabase, useSession } from "./session";
 
-/** Credits are kept in cents. */
-export const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+/** A balance is a plain count of credits. */
+const count = (n: number) => `${n.toLocaleString("en-US")} credit${n === 1 ? "" : "s"}`;
 
 /**
  * How much generation you have left, in the header. Credits are read as the signed-in person themselves;
@@ -42,7 +42,7 @@ export function CreditChip({ ownKey }: { ownKey: boolean }) {
   if (left <= 0 && (!canBuy || ownKey)) return null;
   return (
     <Link className={`credit-chip${left <= 0 ? " empty" : ""}`} href="/account#credits" title={left > 0 ? "Generation you have left. Open your account to add more." : "Add credits to run on haggs"}>
-      {left > 0 ? <><b>{dollars(left)}</b> left</> : "Add credits"}
+      {left > 0 ? <><b>{count(left)}</b> left</> : "Add credits"}
     </Link>
   );
 }

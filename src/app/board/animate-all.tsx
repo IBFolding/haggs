@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { AnimatePlan } from "../../story/animate-all";
+import { creditsText } from "../../story/price-text";
 
 /**
  * Animate stills: pick which of the board's stills become video, see the
@@ -14,7 +15,7 @@ export function AnimateAll({
   plan,
   onRun,
   onClose,
-  words = { title: "Animate stills", intro: "Each still becomes the first frame of a MiniMax H3 clip at the shot\u2019s own length (4s at least). The still stays as a take to flip back to. Untick title cards and anything that should stay still.", verb: "Animate", done: "animated", doing: "Animating", note: "Prices are Comfy\u2019s published MiniMax H3 rate, billed to your Comfy credits. An estimate, not an invoice.", meta: (s: AnimatePlan["shots"][number]) => `${s.seconds}s \u00b7 $${s.usd.toFixed(2)}` },
+  words = { title: "Animate stills", intro: "Each still becomes the first frame of a MiniMax H3 clip at the shot\u2019s own length (4s at least). The still stays as a take to flip back to. Untick title cards and anything that should stay still.", verb: "Animate", done: "animated", doing: "Animating", note: "Prices are Comfy\u2019s published MiniMax H3 rate, billed to your Comfy credits. An estimate, not an invoice.", meta: (s: AnimatePlan["shots"][number]) => `${s.seconds}s \u00b7 ${creditsText(s.usd)}` },
 }: {
   plan: AnimatePlan;
   words?: { title: string; intro: string; verb: string; done: string; doing: string; note: string; meta: (s: AnimatePlan["shots"][number]) => string };
@@ -99,7 +100,7 @@ export function AnimateAll({
           ) : (
             <>
               <button className="fire" disabled={!chosen.length} onClick={() => void start()}>
-                {words.verb} {chosen.length} shot{chosen.length === 1 ? "" : "s"} <span className="cost">about ${total.toFixed(2)}</span>
+                {words.verb} {chosen.length} shot{chosen.length === 1 ? "" : "s"} <span className="cost">about {creditsText(total)}</span>
               </button>
               <button className="plain" onClick={onClose}>Cancel</button>
             </>

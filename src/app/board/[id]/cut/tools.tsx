@@ -19,6 +19,7 @@ import { meaningful, regionPrompt, selBox, selFrom, type Box, type Sel } from ".
 import { pasteBack, sizeOf } from "./region-canvas";
 import { createProjectStore } from "../../../../story/store";
 import { STYLES, restylePrompt, styleById, styleSheetPrompt } from "../../../../styles/style";
+import { creditsText } from "../../../../story/price-text";
 
 /**
  * The edit tools on the selected clip. Each one shows its price before it
@@ -35,8 +36,7 @@ const TABS: { id: ToolId; label: string; says: string }[] = [
   { id: "voice", label: "Voice and lip-sync", says: "Speak the lines in ElevenLabs voices and sync the mouths to them." },
 ];
 
-const money = (usd: number) => `$${usd.toFixed(2)}`;
-
+const money = (n: number) => creditsText(n);
 /** How long a video really is: providers charge for the whole source, not the trimmed clip. */
 function useSeconds(url: string | undefined): number | null {
   const [seconds, setSeconds] = useState<number | null>(null);

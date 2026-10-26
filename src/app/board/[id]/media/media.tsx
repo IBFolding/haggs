@@ -14,6 +14,7 @@ import type { Media, Project, Shot } from "../../../../story/model";
 import { createProjectStore } from "../../../../story/store";
 import { Nav, openKeys } from "../../../nav";
 import { ProjectTabs } from "../../../project-tabs";
+import { creditsText } from "../../../../story/price-text";
 
 /**
  * Everything the project is made of, laid out in board order: each shot with
@@ -209,7 +210,7 @@ export function MediaTab({ id, boardId }: { id: string; boardId?: string | undef
                         <Thumb url={take.url} kind={take.kind} name={`Shot ${i + 1} take`} />
                         <figcaption>
                           <b>{onShot ? "On the shot" : "Take"}</b>
-                          <span>{take.origin ?? "Generated"}{take.usd !== null ? ` · $${take.usd.toFixed(2)}` : ""}</span>
+                          <span>{take.origin ?? "Generated"}{take.usd !== null ? ` · ${creditsText(take.usd)}` : ""}</span>
                           {!onShot && (
                             <span className="md-actions">
                               <button className="pill" onClick={() => edit((p) => { const seen = view(p, boardId); return commit(p, boardId, { ...seen, shots: seen.shots.map((s) => (s.id === shot.id ? chooseTake(s, take.id) : s)) }); })}>Use on shot</button>
@@ -222,7 +223,7 @@ export function MediaTab({ id, boardId }: { id: string; boardId?: string | undef
                   {shot.render && !renderIsMedia && !takesOf(shot).some((t) => t.url === shot.render!.url) && (
                     <figure className="md-item on-shot">
                       <Thumb url={shot.render.url} kind={shot.render.kind} name={`Shot ${i + 1} render`} />
-                      <figcaption><b>On the shot</b><span>Generated{shot.render.usd !== null ? ` · $${shot.render.usd.toFixed(3)}` : ""}</span></figcaption>
+                      <figcaption><b>On the shot</b><span>Generated{shot.render.usd !== null ? ` · ${creditsText(shot.render.usd)}` : ""}</span></figcaption>
                     </figure>
                   )}
                   {own.map((m) => {

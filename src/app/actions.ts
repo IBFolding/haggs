@@ -22,6 +22,7 @@ import type { Provider } from "../providers/types";
 import { CLAUDE_COOKIE, COMFY_COOKIE, KEY_COOKIE, LOCAL_COOKIE, keyIn, localIn } from "../server/keys";
 import { localBase } from "../providers/local";
 import { keptExtension, mayFetchForKeeping } from "../server/keep-url";
+import { creditsText } from "../story/price-text";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -145,13 +146,13 @@ export async function rates(): Promise<Rate[]> {
         // Comfy's published MiniMax H3 rate, for the model's default length.
         const seconds = Number(model.settings.duration && "default" in model.settings.duration ? model.settings.duration.default : 6);
         const usd = cloudEstimate({ seconds, resolution: "768P", references: 0 });
-        return { id: model.id, label: `about $${usd.toFixed(2)} for ${seconds}s`, usd, unit: null };
+        return { id: model.id, label: `about ${creditsText(usd)} for ${seconds}s`, usd, unit: null };
       }
       const cloud = model.provider === "comfy" ? cloudModel(model.id) : undefined;
       if (cloud) {
         const usd = cloudPrice(model.id, toWireSettings(model.settings, defaultSettings(model.settings))) ?? 0;
         const len = model.settings.duration && "default" in model.settings.duration ? ` for ${model.settings.duration.default}s` : "";
-        return { id: model.id, label: `about $${usd.toFixed(2)}${len}`, usd, unit: null };
+        return { id: model.id, label: `about ${creditsText(usd)}${len}`, usd, unit: null };
       }
       if (model.provider === "comfy") {
         return { id: model.id, label: "quoted at run", usd: null, unit: null };

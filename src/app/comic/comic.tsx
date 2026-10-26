@@ -20,6 +20,7 @@ import { ModeTabs } from "../mode-tabs";
 import { surfaceAvailable } from "../studio";
 import { galleryStill } from "../gallery-log";
 import { SiteFooter } from "../site-footer";
+import { creditsText } from "../../story/price-text";
 
 const PRICE = 0.07;
 const COMIC_FINISH = "Illustrated comic art, no text, no letters, no watermark.";
@@ -188,7 +189,7 @@ export function Comic() {
               {style.refs.length < MAX_STYLE_REFS && (
                 <div className="cm-refadd">
                   <button className="pill" onClick={() => sheetFile.current?.click()}>Add a picture to match</button>
-                  <button className="pill" disabled={busy !== null} onClick={() => void drawStyleSheet()}>Draw a style sheet from this look <span className="cost">about ${PRICE.toFixed(2)}</span></button>
+                  <button className="pill" disabled={busy !== null} onClick={() => void drawStyleSheet()}>Draw a style sheet from this look <span className="cost">about {creditsText(PRICE)}</span></button>
                   <input ref={sheetFile} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addRef(f); }} />
                 </div>
               )}
@@ -214,7 +215,7 @@ export function Comic() {
                       <input key={k} value={p.lines[k]?.text ?? ""} onChange={(e) => change(p.id, { lines: [0, 1].map((j) => (j === k ? { who: p.lines[j]?.who ?? "", text: e.target.value } : (p.lines[j] ?? { who: "", text: "" }))).filter((l, j, a) => l.text || a.slice(j + 1).some((x) => x.text)) })} placeholder={k === 0 ? "Speech bubble" : "A second bubble (optional)"} aria-label={`Panel ${i + 1}: speech ${k + 1}`} maxLength={90} />
                     ))}
                     <div className="cm-row">
-                      <button className="pill" disabled={busy !== null || p.action.trim().length < 6} onClick={() => void make([p])}>{pictures[p.id] ? "Draw again" : "Draw this panel"} <span className="cost">about ${PRICE.toFixed(2)}</span></button>
+                      <button className="pill" disabled={busy !== null || p.action.trim().length < 6} onClick={() => void make([p])}>{pictures[p.id] ? "Draw again" : "Draw this panel"} <span className="cost">about {creditsText(PRICE)}</span></button>
                       <button className="plain" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
                       <button className="plain" onClick={() => move(i, 1)} disabled={i === panels.length - 1} aria-label="Move down">↓</button>
                       <button className="plain danger" onClick={() => setPanels((all) => (all.length > 1 ? all.filter((x) => x.id !== p.id) : all))} aria-label="Remove panel">Remove</button>
@@ -227,7 +228,7 @@ export function Comic() {
           </section>
 
           <div className="cm-make">
-            <button className="fire" disabled={busy !== null || todo.length === 0} onClick={() => void make(todo)}>{busy ?? `Draw ${todo.length} panel${todo.length === 1 ? "" : "s"}`} <span className="cost">about ${(todo.length * PRICE).toFixed(2)}</span></button>
+            <button className="fire" disabled={busy !== null || todo.length === 0} onClick={() => void make(todo)}>{busy ?? `Draw ${todo.length} panel${todo.length === 1 ? "" : "s"}`} <span className="cost">about {creditsText((todo.length * PRICE))}</span></button>
             {busy && <button className="plain" onClick={() => { stop.current = true; }}>Stop after this one</button>}
             {refs.length > 0 && <small>{refs.length} character sheet{refs.length === 1 ? "" : "s"} sent with every panel, so they look the same.</small>}
           </div>

@@ -11,6 +11,7 @@ import { BLEND } from "../../../../story/cut";
 import type { Effect, Music, Project, Shot, Sound, VoiceLine } from "../../../../story/model";
 import { openKeys } from "../../../nav";
 import { makeEffect, quoteEffect, speakLine } from "../../../actions";
+import { creditsText } from "../../../../story/price-text";
 
 /**
  * The cut's sound: a soundtrack under the whole board, voice-over lines on
@@ -208,11 +209,11 @@ export function VoiceLines({ shot, project, onChange }: { shot: Shot; project: P
           {line.url ? (
             <>
               <button className="plain" onClick={() => void new Audio(line.url).play()}>Play</button>
-              <button className="plain" disabled={speaking === line.id} onClick={() => void speak(line)}>Speak again · ${price(line).toFixed(3)}</button>
+              <button className="plain" disabled={speaking === line.id} onClick={() => void speak(line)}>Speak again · {creditsText(price(line))}</button>
             </>
           ) : (
             <button className="pill on" disabled={!line.text.trim() || speaking === line.id} onClick={() => void speak(line)}>
-              {speaking === line.id ? "Speaking…" : `Speak · $${price(line).toFixed(3)}`}
+              {speaking === line.id ? "Speaking…" : `Speak · ${creditsText(price(line))}`}
             </button>
           )}
           <button className="take-x" aria-label="Remove line" onClick={() => onChange(lines.filter((l) => l.id !== line.id))}>×</button>
@@ -344,7 +345,7 @@ export function Tracks({ sound, onSound, effects, onEffects, music, onMusic, pla
         <div className="trk-add">
           <input value={text} onChange={(e) => setText(e.target.value)} maxLength={500} placeholder="A heavy wooden door slams in an empty hall" aria-label="Describe a sound effect" />
           <label>seconds <input type="number" min={0.5} max={30} step={0.5} value={seconds} onChange={(e) => setSeconds(Math.min(30, Math.max(0.5, Number(e.target.value) || 1)))} /></label>
-          <button className="pill" disabled={busy || text.trim().length < 4} onClick={() => void make()}>{busy ? "Making…" : `Make it · $${price.toFixed(3)}`}</button>
+          <button className="pill" disabled={busy || text.trim().length < 4} onClick={() => void make()}>{busy ? "Making…" : `Make it · ${creditsText(price)}`}</button>
           <button className="plain" onClick={() => file.current?.click()}>Add a file</button>
           <input ref={file} type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addFile(f); }} />
         </div>

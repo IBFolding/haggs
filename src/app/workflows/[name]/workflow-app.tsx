@@ -19,6 +19,7 @@ import { Nav, openKeys } from "../../nav";
 import { supabase } from "../../session";
 import { SaveToProject } from "../../save-to-project";
 import { openWorkflow, quoteWorkflow, runWorkflow, type Graph, type OpenedApp, type Quote, type Source, type WorkflowResult } from "../../workflow-actions";
+import { creditsText } from "../../../story/price-text";
 
 /**
  * One Comfy workflow as an app: drop your files where its examples are,
@@ -234,7 +235,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
       el.removeAttribute("src");
     };
   }, [videoUrl]);
-  const money = (n: number) => (n < 0.1 ? `$${n.toFixed(3)}` : `$${n.toFixed(2)}`);
+  const money = (n: number) => creditsText(n);
   const price = !quote ? null : quote.perSecond && seconds && quote.min > 0
     ? `about ${money(quote.min * seconds)} for ${Math.round(seconds)}s`
     : quote.label;

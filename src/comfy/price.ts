@@ -1,6 +1,7 @@
 import jsonata from "jsonata";
 
 import type { ApiPrompt, Catalog } from "./convert";
+import { rateText } from "../story/price-text";
 
 /**
  * What a workflow costs, worked out the way Comfy shows it on each paid node:
@@ -19,8 +20,7 @@ type Result =
 export type NodePrice = { node: string; name: string; min: number; max: number; perSecond: boolean; label: string };
 export type Price = { nodes: NodePrice[]; min: number; max: number; perSecond: boolean; label: string };
 
-const money = (n: number) => (n < 0.1 ? `$${n.toFixed(3)}` : `$${n.toFixed(2)}`);
-
+const money = (n: number) => rateText(n);
 export async function priceOf(prompt: ApiPrompt, catalog: Catalog): Promise<Price> {
   const nodes: NodePrice[] = [];
   for (const [id, node] of Object.entries(prompt)) {

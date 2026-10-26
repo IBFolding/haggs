@@ -23,6 +23,7 @@ import { createProjectStore } from "../../../../../story/store";
 import { applySet, type SavedSet } from "../../../../../story/set-bank";
 import { addTake } from "../../../../../story/takes";
 import { createSaveQueue } from "../../../../../story/use-autosave";
+import { creditsText } from "../../../../../story/price-text";
 
 /**
  * The Grey Room: take one shot of filmed footage and build a new set around
@@ -42,8 +43,7 @@ type StepId = (typeof STEPS)[number]["id"];
 
 const clean = <T extends { keys?: unknown }>(item: T): T => { if (item.keys === undefined) { const { keys: _k, ...rest } = item; return rest as T; } return item; };
 
-const money = (n: number) => (n < 0.1 ? `$${n.toFixed(3)}` : `$${n.toFixed(2)}`);
-
+const money = (n: number) => creditsText(n);
 export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string; boardId?: string | undefined }) {
   const kv = useMemo(() => defaultKv(), []);
   const store = useMemo(() => createProjectStore(kv), [kv]);

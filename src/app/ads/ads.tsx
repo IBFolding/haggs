@@ -16,6 +16,7 @@ import { makeStill } from "../series-actions";
 import { SiteFooter } from "../site-footer";
 import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
+import { creditsText } from "../../story/price-text";
 
 const PRICE = 0.07;
 
@@ -222,7 +223,7 @@ export function Ads() {
           <label className="wf-field"><span>Audiences, one per line (optional): the same ad for each</span>
             <textarea rows={2} value={audiences} onChange={(e) => setAudiences(e.target.value)} placeholder={"students on a budget\nnew parents"} />
           </label>
-          <p><button className="fire" disabled={busy !== null || jobs.length === 0} onClick={() => void run()}>{busy ?? `Make ${jobs.length} ad${jobs.length === 1 ? "" : "s"}`} {jobs.length > 0 && <span className="cost">about ${(jobs.length * PRICE).toFixed(2)}</span>}</button></p>
+          <p><button className="fire" disabled={busy !== null || jobs.length === 0} onClick={() => void run()}>{busy ?? `Make ${jobs.length} ad${jobs.length === 1 ? "" : "s"}`} {jobs.length > 0 && <span className="cost">about {creditsText((jobs.length * PRICE))}</span>}</button></p>
           {jobs.length === MAX_BATCH && <p className="muted">A batch is at most {MAX_BATCH}. Choose fewer products, formats or audiences to change what is in it.</p>}
           {problem && <p className="library-error" role="alert">{problem}</p>}
 
@@ -249,7 +250,7 @@ export function Ads() {
             <label className="wf-field"><span>Audiences, one per line (optional)</span><textarea rows={2} value={again.audiences} onChange={(e) => setAgain({ ...again, audiences: e.target.value })} placeholder={"new parents\nretired hikers"} /></label>
             <label className="wf-field"><span>Languages, one per line (optional)</span><textarea rows={2} value={again.languages} onChange={(e) => setAgain({ ...again, languages: e.target.value })} placeholder={"Spanish\nFrench"} /></label>
           </div>
-          <p><button className="fire" disabled={busy !== null || !source || remakes.length === 0} onClick={() => void remake()}>{busy ?? `Remake ${remakes.length} time${remakes.length === 1 ? "" : "s"}`} {remakes.length > 0 && <span className="cost">about ${(remakes.length * PRICE).toFixed(2)}</span>}</button></p>
+          <p><button className="fire" disabled={busy !== null || !source || remakes.length === 0} onClick={() => void remake()}>{busy ?? `Remake ${remakes.length} time${remakes.length === 1 ? "" : "s"}`} {remakes.length > 0 && <span className="cost">about {creditsText((remakes.length * PRICE))}</span>}</button></p>
           {remade.length > 0 && (
             <ul className="ads-grid" aria-label="Your remade ads">
               {remade.map((m) => (

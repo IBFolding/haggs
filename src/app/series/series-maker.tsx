@@ -25,6 +25,7 @@ import { draftSeries, makeStill } from "../series-actions";
 import { ModeTabs } from "../mode-tabs";
 import { galleryRun, galleryStill } from "../gallery-log";
 import { SiteFooter } from "../site-footer";
+import { creditsText } from "../../story/price-text";
 
 /**
  * Series: a topic becomes a run of short vertical videos, and you watch it
@@ -36,8 +37,7 @@ import { SiteFooter } from "../site-footer";
 const PRICE = editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" });
 /** MiniMax H3 at 768P: $0.1287 a second, from Comfy's published price. */
 const CLIP_RATE = 0.1287;
-const money = (n: number) => `$${n.toFixed(2)}`;
-
+const money = (n: number) => creditsText(n);
 type Sent = { id: string; summary: string; payload: { format: FormatId; series: Series } };
 
 export function SeriesMaker() {

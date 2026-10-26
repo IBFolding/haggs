@@ -11,6 +11,6 @@ test("Edit a photo is left out while no model can run it", () => {
   assert.deepEqual(modeLinks("Photos", false).map((l) => l.href), ["/photos", "/characters", "/locations", "/accessories", "/comic", "/ads"]);
 });
 
-test("every Video page offers the same tabs, Found footage the Sizzle doctor and the Sprite sheet included", () => {
-  assert.deepEqual(modeLinks("Video", true).map((l) => l.label), ["Make a clip", "Series", "Recreate an edit", "Found footage", "Sizzle doctor", "Sprite sheet"]);
+test("every Video page offers the same tabs, Draw to video, Found footage, the Sizzle doctor and the Sprite sheet included", () => {
+  assert.deepEqual(modeLinks("Video", true).map((l) => l.label), ["Make a clip", "Draw to video", "Series", "Recreate an edit", "Found footage", "Sizzle doctor", "Sprite sheet"]);
 });

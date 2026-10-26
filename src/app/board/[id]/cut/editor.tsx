@@ -37,6 +37,7 @@ import { createSaveQueue } from "../../../../story/use-autosave";
 import { Nav, openKeys } from "../../../nav";
 import { PROJECT_SAVED } from "../../../agent";
 import { ProjectTabs } from "../../../project-tabs";
+import { creditsText } from "../../../../story/price-text";
 
 function clock(seconds: number): string {
   const whole = Math.max(0, seconds);
@@ -731,8 +732,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                         <button className="pill" disabled={!(t >= selected.start + 0.2 && t < selected.start + selected.seconds - 0.05)} title="Cut off the end of this clip at the playhead (O)" onClick={() => apply((current) => trimTail(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim end to playhead</button>
                         <button className="pill" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>
                         <button className="pill" onClick={() => apply((current) => { const at = current.shots.findIndex((x) => x.id === shot.id); const shots = [...current.shots]; shots.splice(at + 1, 0, { ...newShot(), heading: shot.heading, threadIds: [...shot.threadIds] }); return { ...current, shots }; })}>Insert a shot after</button>
-                        <button className="pill" disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)} title="A shot between this one and the next: it starts on this shot's last frame and ends on the next one's first" onClick={() => void expand(shot.id, "bridge")}>{expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · $${expandPrice.toFixed(2)}`}</button>
-                        <button className="pill" disabled={expanding !== null} title="Carry this shot on from its last frame" onClick={() => void expand(shot.id, "extend")}>{expanding === `${shot.id}:extend` ? "Extending…" : `Extend · $${expandPrice.toFixed(2)}`}</button>
+                        <button className="pill" disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)} title="A shot between this one and the next: it starts on this shot's last frame and ends on the next one's first" onClick={() => void expand(shot.id, "bridge")}>{expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · ${creditsText(expandPrice)}`}</button>
+                        <button className="pill" disabled={expanding !== null} title="Carry this shot on from its last frame" onClick={() => void expand(shot.id, "extend")}>{expanding === `${shot.id}:extend` ? "Extending…" : `Extend · ${creditsText(expandPrice)}`}</button>
                       </div>
                       <div className="takes" role="group" aria-label="Takes">
                         {takesOf(shot).map((take, i) => {
@@ -743,7 +744,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                                 <MediaThumb url={take.url} kind={take.kind} at={0.3} />
                               </button>
                               <figcaption>
-                                <span>Take {i + 1}{take.origin ? ` · ${take.origin}` : ""}{take.usd !== null ? ` · $${take.usd.toFixed(2)}` : ""}</span>
+                                <span>Take {i + 1}{take.origin ? ` · ${take.origin}` : ""}{take.usd !== null ? ` · ${creditsText(take.usd)}` : ""}</span>
                                 <button className={`take-star${take.favorite ? " on" : ""}`} aria-label={take.favorite ? "Unstar" : "Star"} onClick={() => onShot(shot.id, (s2) => toggleFavorite(s2, take.id))}>★</button>
                                 {!on && <button className="take-x" aria-label="Remove take" onClick={() => onShot(shot.id, (s2) => removeTake(s2, take.id))}>×</button>}
                               </figcaption>

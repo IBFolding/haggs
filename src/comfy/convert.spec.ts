@@ -58,7 +58,7 @@ test("a workflow is priced the way Comfy prices each partner node", async () => 
   const price = await priceOf(prompt, catalog);
   assert.equal(price.min, 0.97383);
   assert.ok(price.perSecond);
-  assert.equal(price.label, "$0.97 per second");
+  assert.equal(price.label, "97 credits per second");
   prompt["9"]!.inputs["model.resolution"] = "480p";
   assert.equal((await priceOf(prompt, catalog)).min, 0.45474);
 });

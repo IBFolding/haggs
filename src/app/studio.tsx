@@ -37,6 +37,7 @@ import type { Layout } from "../story/workspace";
 import { RunTile } from "./run-tile";
 import { SaveToProject } from "./save-to-project";
 import { SettingsRail } from "./settings-rail";
+import { creditsText } from "../story/price-text";
 
 /** In-flight work only. Anything finished is a Run and lives in storage. */
 type Slot =
@@ -73,7 +74,7 @@ const SURFACE_CAPABILITIES: Record<Surface, readonly Capability[]> = {
 };
 
 const BLURB: Record<Surface, string> = {
-  Create: "Describe a scene, character, mood or style. The price is on the button before you press it — in dollars, not credits.",
+  Create: "Describe a scene, character, mood or style. The price is on the button before you press it, in credits.",
   Video: "Describe the shot — subject, camera move, light, pacing. Every setting below is one this model actually accepts.",
   Edit: "Attach an image and describe the change. The rest of the picture stays as it is.",
 };
@@ -150,10 +151,11 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(HANDOFF_KEY);
-      const gift = raw ? (JSON.parse(raw) as { url: string; to: Surface }) : null;
+      const gift = raw ? (JSON.parse(raw) as { url: string; to: Surface; prompt?: string }) : null;
       if (gift && gift.to === surface && typeof gift.url === "string") {
         sessionStorage.removeItem(HANDOFF_KEY);
         setImages([gift.url]);
+        if (typeof gift.prompt === "string" && gift.prompt.trim()) setPrompt(gift.prompt);
       }
     } catch {
       /* Private mode blocks sessionStorage; nothing was handed over. */
@@ -308,7 +310,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     setSettings((held) => coerceSettings(getModelCard(modelId).settings, held));
   }, [modelId]);
 
-  /** What the run will cost, in dollars, before it runs. */
+  /** What the run will cost, in dollars underneath, before it runs. It is shown to people in credits. */
   const cost = useMemo(() => {
     // A model that runs as a Comfy workflow is priced from its own settings: length, resolution, sound.
     const cloud = card.provider === "comfy" ? cloudPrice(card.id, toWireSettings(card.settings, settings), outputCount(card, settings)) : null;
@@ -318,7 +320,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     return rate.usd * (perOutput ? outputCount(card, settings) : 1);
   }, [rate, card, settings]);
 
-  const costLabel = cost === null ? (rate ? rate.label : "···") : `$${cost.toFixed(3)}`;
+  const costLabel = cost === null ? (rate ? rate.label : "···") : `${creditsText(cost)}`;
   const needsImage = card.inputImages > 0 && images.length === 0;
 
   const attach = useCallback((files: File[]) => {

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { makeMusic, quoteMusic } from "../../../actions";
 import { galleryAudio } from "../../../gallery-log";
 import { openKeys } from "../../../nav";
+import { creditsText } from "../../../../story/price-text";
 
 const LOW = 5;
 const HIGH = 180;
@@ -48,7 +49,7 @@ export function MusicMaker({ seconds, onMade }: { seconds: number; onMade: (musi
         <input type="number" min={LOW} max={HIGH} value={length} onChange={(e) => setLength(Math.min(HIGH, Math.max(LOW, Math.round(Number(e.target.value) || LOW))))} />
       </label>
       <button className="pill" disabled={busy || text.trim().length < 4} onClick={() => void make()}>
-        {busy ? "Making…" : price === null ? "Make music" : `Make music · $${price.toFixed(2)}`}
+        {busy ? "Making…" : price === null ? "Make music" : `Make music · ${creditsText(price)}`}
       </button>
       {error && <p className="library-error" role="alert">{error}</p>}
     </div>

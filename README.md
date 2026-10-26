@@ -3,7 +3,7 @@
 An open-source film studio on Comfy. Make a picture, a clip, a series or a
 whole film, swap a person into any video, and finish it in an editor with
 separate tracks for voice, effects and music. Every button shows what it
-costs, in dollars, before you press it.
+costs, in credits, before you press it.
 
 Built for Comfy's **#OpenSourceHiggsfield** challenge. MIT licensed.
 
@@ -33,6 +33,10 @@ creator).
 shots (traits or photos of someone who has said you may), and **locations** you
 can walk the camera around. Any finished picture can be animated or edited in
 one click, handed to the next page as the first frame.
+
+**Draw to video.** Pick a picture and sketch arrows on it: one kind for what moves, one for where the camera
+goes. haggs writes the motion in plain words, you can edit it, and it hands the picture and the motion to Video,
+where the price is on the Generate button as always. Nothing is spent on the drawing page.
 
 **Video and Series.** A clip from words or a picture. A **Series** turns a topic
 into a run of short vertical videos: pick a format (What if, POV, Story,

@@ -22,5 +22,5 @@ test("each paid run splits 80% to the creator and the rest to haggs, never losin
 
 test("the fee reads plainly on the Run button", () => {
   assert.equal(feeLabel(0), "free to use");
-  assert.equal(feeLabel(12), "+ 12¢ to the creator");
+  assert.equal(feeLabel(12), "+ 12 credits to the creator");
 });

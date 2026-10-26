@@ -6,6 +6,7 @@ export function modeLinks(group: ModeGroup, canEdit: boolean): ModeLink[] {
   if (group === "Video") {
     return [
       { href: "/video", label: "Make a clip" },
+      { href: "/draw", label: "Draw to video" },
       { href: "/series", label: "Series" },
       { href: "/recreate", label: "Recreate an edit" },
       { href: "/found", label: "Found footage" },
