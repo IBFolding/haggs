@@ -7,6 +7,8 @@ costs, in dollars, before you press it.
 
 Built for Comfy's **#OpenSourceHiggsfield** challenge. MIT licensed.
 
+![haggs: picture, voice and cut in one studio](public/brand/hero.gif)
+
 **Watch it:** `docs/demo/` has the demo video script and the voice-over; the
 rendered video is linked from the challenge entry.
 
