@@ -1,5 +1,7 @@
 "use client";
 
+import { sendStudioGeneration } from "../story/studio-request";
+import { UploadImage } from "./board/upload-image";
 import { track } from "../activity/activity";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -58,7 +60,7 @@ function AcademyNudge() {
   if (gone) return null;
   return (
     <div className="nudge" role="note">
-      <span><b>Don&rsquo;t know where to start?</b> The Academy&rsquo;s first lesson makes a video in one minute.</span>
+      <span><b>Don&rsquo;t know where to start?</b> Follow a guided workflow in the Academy.</span>
       <Link className="pill on" href="/academy">Learn now</Link>
       <button className="plain" aria-label="Hide this" onClick={() => { setGone(true); try { localStorage.setItem("haggs.academy.nudge", "off"); } catch { /* private window */ } }}>×</button>
     </div>
@@ -97,7 +99,7 @@ export function Studio(props: { surface?: Surface }) {
 
 function Waiting() {
   return (
-    <div className="app">
+    <div className="app studio-app">
       <Nav current="Photos" />
       <div className="canvas">
         <div className="swap">
@@ -240,7 +242,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
   const card = useMemo(() => getModelCard(modelId), [modelId]);
   const rate = rateMap[modelId];
-  const workItems = useMemo<WorkItem[]>(
+  const workItems = useMemo<(WorkItem & { kind: "image" | "video" })[]>(
     () => [
       ...images.map((src) => ({ id: `ref:${hashOf(src)}`, src, kind: "image" as const, tag: "Reference" })),
       ...shownRuns.map((r) => ({ id: r.id, src: r.url, kind: r.kind, title: r.prompt, usd: r.usd, at: r.at })),
@@ -352,7 +354,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     // References are drawn smaller first: two full-size sheets together can pass the host's request limit.
     const sendRefs = await shrinkAll(refs);
     const sendImages = await shrinkAll(images, 1536);
-    const result: RunResult = await track({ label: `Making a ${surface === "Edit" ? "picture edit" : "picture"}`, href: window.location.pathname + window.location.search, failure: (r) => (r.ok ? null : r.reason) }, () => (sendRefs.length ? run(modelId, sent, settings, sendRefs, false) : run(modelId, sent, settings, sendImages.length ? sendImages : undefined))).catch((e: unknown): RunResult => ({ ok: false, reason: looksTooBig(e) ? "Those pictures were too big to send together. Try one reference, or smaller pictures." : e instanceof Error ? e.message : "The picture didn't finish." }));
+    const result: RunResult = await track({ label: `Making a ${surface === "Edit" ? "picture edit" : "picture"}`, href: window.location.pathname + window.location.search, failure: (r) => (r.ok ? null : r.reason) }, () => sendStudioGeneration(run, {model:modelId, prompt:sent, settings, images:sendImages, references:sendRefs})).catch((e: unknown): RunResult => ({ ok: false, reason: looksTooBig(e) ? "Those pictures were too big to send together. Try one reference, or smaller pictures." : e instanceof Error ? e.message : "The picture didn't finish." }));
 
     setSlots((prior) => {
       const rest = prior.filter((slot) => slot.id !== id);
@@ -453,7 +455,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   }, [prompt, surface, catalog, images.length, modelId]);
 
   return (
-    <div className="app">
+    <div className="app studio-app">
       <Nav current={surface === "Video" ? "Video" : "Photos"} />
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
@@ -463,12 +465,10 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
         {surface !== "Video" && <ModeTabs group="Photos" current={surface === "Edit" ? "/edit" : "/photos"} canEdit={surfaceAvailable("Edit")} />}
         <AcademyNudge />
         {surface !== "Video" && <MakeBanner />}
-        {(images.length > 0 || shownRuns.length > 0 || view === "workspace") && (
-          <div className="view-toggle" role="tablist" aria-label="How to show your pictures">
+        <div className="view-toggle" role="tablist" aria-label="How to show your pictures">
             <button role="tab" aria-selected={view === "grid"} onClick={() => chooseView("grid")}>Grid</button>
             <button role="tab" aria-selected={view === "workspace"} onClick={() => chooseView("workspace")}>Workspace</button>
-          </div>
-        )}
+        </div>
         {view === "workspace" ? (
           <Workspace
             storeKey={`workspace/${surface}`}
@@ -479,13 +479,11 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
         ) : slots.length === 0 && shownRuns.length === 0 ? (
           <div className="blank">
             <h1>
-              {surface === "Edit" ? "Edit with " : "Start with "}
-              {card.name}
+              {surface === "Edit" ? "Edit your image" : surface === "Video" ? "Make your next shot" : "Make your next image"}
             </h1>
-            <p>{BLURB[surface]}</p>
+            <p>{needsImage ? (surface === "Video" ? "Upload a starting image, describe the motion, then Generate." : surface === "Edit" ? "Upload an image, describe your changes, then Generate." : "Upload a reference, describe your image, then Generate.") : BLURB[surface]}</p>
             <p className="blank-rate">
-              This model runs at <b>{rate?.label ?? "a rate loading now"}</b>. What you make
-              shows up here with what it cost. Earlier work is in the <Link href="/gallery">Gallery</Link>.
+              {card.name} · <b>{rate?.label ?? "Loading price…"}</b> · <Link href="/gallery">Earlier work in Gallery</Link>
             </p>
             <Examples surface={surface} onUse={setPrompt} />
           </div>
@@ -588,10 +586,11 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
           {images.length > 0 && (
             <div className="tray">
-              {images.map((src) => (
-                <span key={src.slice(0, 64)} className="tray-item">
-                  <img src={src} alt="" />
-                  <button onClick={() => setImages((held) => held.filter((x) => x !== src))} title="Remove">
+              {images.map((src, index) => (
+                <span key={`image-${index}`} className="tray-item">
+                  <img src={src} alt={`Uploaded ${surface === "Video" && index === 0 ? "starting frame" : "reference"} ${index + 1}`} />
+                  <UploadImage label="Replace image" onAttach={(url) => setImages(held => held.map((old, i) => i === index ? url : old))} />
+                  <button aria-label={`Remove image ${index + 1}`} onClick={() => setImages((held) => held.filter((x) => x !== src))} title="Remove">
                     ×
                   </button>
                 </span>
@@ -641,26 +640,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
           {showLook && surface !== "Edit" && <LookPanel value={look} onChange={changeLook} />}
           <div className="composer-top">
-            <button
-              className={`attach${needsImage ? " wanted" : ""}`}
-              title={card.inputImages > 0 ? "Attach an image" : "This model takes text only"}
-              disabled={card.inputImages === 0}
-              onClick={() => fileInput.current?.click()}
-            >
-              +
-            </button>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/*"
-              multiple={card.inputImages > 1}
-              hidden
-              onChange={(event) => {
-                const files = Array.from(event.target.files ?? []);
-                event.target.value = "";
-                if (files.length) attach(files);
-              }}
-            />
+            <UploadImage inputRef={fileInput} disabled={card.inputImages === 0} onAttach={(url) => setImages(held => [...held, url].slice(-Math.max(1,card.inputImages)))} />
+            {card.inputImages === 0 && <span className="takes-note">This model accepts text only. Choose an image-capable model to upload a reference.</span>}
             {surface !== "Edit" && (
               <button className={`tpl-open${lookPhrase(look) ? " set" : ""}`} aria-expanded={showLook} onClick={(e) => { e.stopPropagation(); setShowLook((v) => !v); setShowTemplates(false); }}>
                 Look{lookPhrase(look) ? " ·" : ""}

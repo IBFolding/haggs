@@ -25,13 +25,15 @@ import { ProjectTabs } from "../project-tabs";
 import { animatePlan, picturePlan, readyToAnimate } from "../../story/animate-all";
 import { makeStill } from "../series-actions";
 import { AnimateAll } from "./animate-all";
+import { UploadImage } from "./upload-image";
+import { attachUploadedStill } from "../../story/upload-still";
 import { creditsText } from "../../story/price-text";
 
 export function Board({ id, boardId }: { id: string; boardId?: string | undefined }) {
   /** The whole project; the state below is one board's view of it. */
   const full = useRef<Project | null>(null);
   const store = useMemo(() => createProjectStore(defaultKv()), []);
-  const saves = useMemo(() => createSaveQueue(store), [store]);
+  const saves = useMemo(() => createSaveQueue(store, 600, () => setError("Your changes could not be saved. Free device storage and retry uploading the image before leaving this page.")), [store]);
 
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
@@ -77,7 +79,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
         return next;
       });
     },
-    [saves],
+    [saves, boardId],
   );
 
   const stale = useMemo(() => (project ? staleShots(project) : []), [project]);
@@ -346,6 +348,10 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
             </div>
 
             <div className="composer-bottom">
+              <UploadImage key={shot.id} onAttach={(url, name) => {
+                setError(null);
+                edit((current) => attachUploadedStill(current, shot.id, url, name));
+              }} />
               <select
                 className="pill on"
                 value={shot.model.id}

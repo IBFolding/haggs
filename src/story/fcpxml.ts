@@ -24,6 +24,7 @@ const absolute = (url: string, origin: string | undefined) => (url.startsWith("/
 type Placed = { name: string; url: string; start: number; seconds: number; lane: number; role: string; kind: "audio" | "video"; gain?: number; fromSource?: number };
 
 export function fcpxml(cut: Cut, name: string, opts: { origin?: string; markers?: Marker[] } = {}): string {
+  if(cut.clips.some(c=>c.reframe))throw Error("Reframe paths are supported in Render MP4 and ffmpeg export. Render first for Final Cut/Resolve, or remove the path; XML cannot preserve it yet.");
   if (!cut.clips.length) throw new Error("There is nothing to export yet — shoot at least one shot first.");
   const w = cut.aspect === "9:16" ? 1080 : 1920;
   const h = cut.aspect === "9:16" ? 1920 : 1080;

@@ -8,6 +8,7 @@ import { angleName } from "../academy/labs";
 
 export type GreySubject = { id: string; label: string; x: number; z: number };
 export type GreyFrame = {
+  trajectory?: import("./trajectory").Trajectory;
   /** Where the camera is round the room (0 = in front, looking the way the subjects face) and how far, in metres. */
   cam: { angle: number; distance: number; height: number; lens: number };
   subjects: GreySubject[];
@@ -28,6 +29,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 /** The camera made safe: inside the room's reach, a real lens, a sane height. */
 export function tidy(g: GreyFrame): GreyFrame {
   return {
+    ...(g.trajectory?{trajectory:g.trajectory}:{}),
     cam: { angle: ((g.cam.angle % 360) + 360) % 360, distance: clamp(g.cam.distance, 1, 12), height: clamp(g.cam.height, 0.2, 6), lens: clamp(Math.round(g.cam.lens), 14, 135) },
     subjects: g.subjects.slice(0, 6).map((s) => ({ ...s, label: s.label.slice(0, 24), x: clamp(s.x, -ROOM, ROOM), z: clamp(s.z, -ROOM, ROOM) })),
     light: { az: ((g.light.az % 360) + 360) % 360, el: clamp(g.light.el, 5, 90) },

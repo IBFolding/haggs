@@ -27,8 +27,10 @@ export function createSaveQueue(
   store: ProjectStore,
   delayMs = DEFAULT_DELAY_MS,
   onError?: (error: unknown) => void,
+  onSaved?: () => void,
 ): SaveQueue {
   const pending = new Map<string, Project>();
+  const dropped = new Set<string>();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<void> = Promise.resolve();
 
@@ -37,13 +39,20 @@ export function createSaveQueue(
    * index, edits it and writes it back, so two overlapping saves would each
    * read the same index and the second would drop the first's entry.
    */
-  function writePending(): Promise<void> {
+  async function writePending(): Promise<void> {
     const batch = [...pending.values()];
     pending.clear();
-    return batch.reduce(
-      (chain, project) => chain.then(() => store.save(project)),
-      Promise.resolve(),
-    );
+    for (let i = 0; i < batch.length; i++) {
+      const project = batch[i]!;
+      if (dropped.has(project.id)) continue;
+      try { await store.save(project); }
+      catch (error) {
+        // Retry retains unsaved work, but never overwrites a newer queued edit
+        // or reintroduces a project the caller deliberately dropped.
+        for (const unsaved of batch.slice(i)) if (!pending.has(unsaved.id) && !dropped.has(unsaved.id)) pending.set(unsaved.id, unsaved);
+        throw error;
+      }
+    }
   }
 
   /**
@@ -54,7 +63,7 @@ export function createSaveQueue(
    * failure is reported rather than swallowed.
    */
   function advance(): void {
-    running = running.then(writePending).catch((error: unknown) => {
+    running = running.then(writePending).then(() => { if (pending.size === 0) onSaved?.(); }).catch((error: unknown) => {
       onError?.(error);
     });
   }
@@ -69,11 +78,13 @@ export function createSaveQueue(
 
   return {
     queue(project) {
+      dropped.delete(project.id);
       pending.set(project.id, project);
       schedule();
     },
 
     drop(id) {
+      dropped.add(id);
       pending.delete(id);
     },
 

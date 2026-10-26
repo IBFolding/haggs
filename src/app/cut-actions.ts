@@ -1,5 +1,6 @@
 "use server";
 
+import { extractTerminalFrame } from "../server/terminal-frame";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -143,4 +144,28 @@ export async function makeTitle(text: string, place: "center" | "lower" | "top",
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "The title couldn't be made." };
   }
+}
+
+/** Extract the actual final decoded frame of the selected, trimmed clip. No generation. */
+export async function terminalFrame(url:string, from:number, seconds:number):Promise<{ok:true;url:string}|{ok:false;reason:string}> {
+ if(!Number.isFinite(from)||from<0||from>7200||!Number.isFinite(seconds)||seconds<=0||seconds>120) return {ok:false,reason:"Choose a clip between 0 and 120 seconds with a valid trim."};
+ const dir=await mkdtemp(join(tmpdir(),"haggs-terminal-"));
+ try {
+   let src:string;
+   if(hosted()) {
+     if(!isBlobUrl(url))return {ok:false,reason:"This clip must be in the app’s media store before a frame can be extracted."};
+     src=join(dir,"source.mp4");await writeFile(src,(await readMedia(url)).bytes);
+   } else {
+     const root=process.env.HAGGS_LOCAL_MEDIA;
+     if(!root||process.env.NODE_ENV==="production"||!url.startsWith("/api/local/")) return {ok:false,reason:"Local extraction needs a video in the configured local media folder."};
+     const file=localFile(root,url.slice("/api/local/".length).split("/").map(decodeURIComponent),process.env.NODE_ENV);
+     if(!file)return {ok:false,reason:"That clip is not in the configured local media folder."};src=file.path;
+   }
+   const out=join(dir,"last.png");
+   // image2 update overwrites one output for each decoded frame: the final file
+   // is the actual last frame inside the selected range, not a midpoint proxy.
+   await extractTerminalFrame(ffmpegBin(),src,out,from,seconds);
+   const bytes=await readFile(out);return {ok:true,url:`data:image/png;base64,${bytes.toString("base64")}`};
+ }catch{return {ok:false,reason:"The selected clip’s final frame could not be decoded. Your existing media is unchanged."};}
+ finally{await rm(dir,{recursive:true,force:true});}
 }

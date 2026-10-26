@@ -1,3 +1,4 @@
+import { anthropicHeaders, anthropicErrorReason } from "./anthropic-config";
 /**
  * The writer: from a format and an idea to filled-in sheets.
  *
@@ -147,23 +148,27 @@ export type ClaudeResult<T = Draft> =
 /** One call to Claude. Your key, your account; nothing is retried behind your back. */
 export async function askClaude<T = Draft>({
   key,
+  workspaceId,
   request,
   fetch: fetchImpl = fetch,
   schema = DRAFT_SCHEMA,
   read = validateDraft as unknown as (value: unknown) => T,
 }: {
   key: string;
+  workspaceId?: string | undefined;
   request: DraftRequest;
   fetch?: typeof fetch;
   schema?: Record<string, unknown>;
   read?: (value: unknown) => T;
 }): Promise<ClaudeResult<T>> {
+  let workspaceHeaders: Record<string, string>;
+  try { workspaceHeaders = anthropicHeaders(workspaceId); } catch { return { ok: false, reason: "Enter an Anthropic workspace ID beginning wrkspc_, or leave it blank for a workspace-scoped key." }; }
   let response: Response;
   try {
     response = await fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
       redirect: "error",
-      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      headers: { ...workspaceHeaders, "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
       signal: AbortSignal.timeout(300_000),
       body: JSON.stringify({
         model: WRITER_MODEL,
@@ -178,7 +183,7 @@ export async function askClaude<T = Draft>({
   }
   if (response.status === 401) return { ok: false, reason: "Claude rejected the key. Replace it in Keys." };
   if (response.status === 429) return { ok: false, reason: "Your Claude account is rate-limited or out of credit. Nothing was retried." };
-  if (!response.ok) return { ok: false, reason: "Claude could not finish this draft. Nothing was retried." };
+  if (!response.ok) return { ok: false, reason: anthropicErrorReason(response.status, await response.text().catch(() => "")) };
   const data = (await response.json()) as { stop_reason?: string; content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
   if (data.stop_reason === "max_tokens") return { ok: false, reason: "The draft ran out of room before it finished. Try a shorter format or a tighter idea." };
   const text = (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("");

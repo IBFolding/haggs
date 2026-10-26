@@ -123,3 +123,20 @@ export function rankFound(list: Found[], words: string[]): Found[] {
     .sort((a, b) => b.s - a.s || a.i - b.i)
     .map((x) => x.f);
 }
+
+/** Add downloaded archive shots once to the explicitly chosen edit. */
+export function appendFound(project: Project, boardId: string, imported: Project): Project {
+  if (!project.boards?.some((b) => b.id === boardId)) throw new Error("That edit is no longer available.");
+  const sourcePage = (beat: string) => /https:\/\/archive\.org\/details\/[A-Za-z0-9._-]+/.exec(beat)?.[0]?.replace(/\.$/, "");
+  return { ...project, boards: project.boards.map((board) => {
+    if (board.id !== boardId) return board;
+    const seen = new Set(board.shots.map((s) => sourcePage(s.beat)).filter(Boolean));
+    const added = (imported.boards?.[0]?.shots ?? []).filter((shot) => {
+      const page = sourcePage(shot.beat);
+      if (page && seen.has(page)) return false;
+      if (page) seen.add(page);
+      return true;
+    });
+    return { ...board, shots: [...board.shots, ...added] };
+  }) };
+}

@@ -1,3 +1,4 @@
+import { continuityStale, acceptsStartFrame } from "../story/continuity";
 import { getModelCard } from "../catalog/models";
 import { coerceSettings } from "../catalog/settings";
 import { hashPrompt, promptFor } from "../story/assemble";
@@ -16,6 +17,8 @@ export async function shoot(project: Project, index: number): Promise<
 > {
   const shot = project.shots[index];
   if (!shot) return { ok: false, reason: "That shot is not on the board any more." };
+  if (shot.startsFrom && continuityStale(project, shot)) return {ok:false,reason:"The previous clip changed. Update or remove its starting-frame dependency before generating this shot."};
+  if (shot.startsFrom && !acceptsStartFrame(shot)) return {ok:false,reason:"This model does not accept a video starting frame. Choose a supported video model or remove the dependency."};
   const text = promptFor(project, index);
   if (!text.trim()) return { ok: false, reason: "Give the shot a beat before generating it." };
   const card = getModelCard(shot.model.id);

@@ -66,7 +66,7 @@ export async function drawComic(canvas: HTMLCanvasElement, panels: Panel[], pict
     ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
     const src = pictures[p.id];
     if (src) cover(ctx, await load(src), r);
-    else { ctx.fillStyle = "#d9d3c2"; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.fillStyle = "#8a8472"; ctx.font = "700 20px sans-serif"; ctx.textAlign = "center"; ctx.fillText(`Panel ${i + 1}`, r.x + r.w / 2, r.y + r.h / 2); }
+    else { ctx.fillStyle = "#d9d3c2"; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.fillStyle = "#8a8472"; ctx.font = "700 20px sans-serif"; ctx.textAlign = "center"; ctx.fillText(`Panel ${i + 1} · art not drawn`, r.x + r.w / 2, r.y + r.h * .65); ctx.font = "16px sans-serif"; wrapWords(p.action, Math.floor(r.w / 10)).slice(0, 3).forEach((line, j) => ctx.fillText(line, r.x + r.w / 2, r.y + r.h * .72 + j * 22, r.w - 24)); }
     ctx.restore();
     ctx.strokeStyle = "#111"; ctx.lineWidth = 6; ctx.strokeRect(r.x, r.y, r.w, r.h);
     if (p.caption.trim()) caption(ctx, p.caption, r);

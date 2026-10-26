@@ -1,3 +1,4 @@
+import { checkedReframe } from "../story/reframe";
 import { join } from "node:path";
 
 import { isBlobUrl } from "./blob";
@@ -134,6 +135,7 @@ export function checkCut(raw: unknown): Cut {
     start: num(x.start, 0, 7200),
     from: num(x.from ?? 0, 0, 600),
     seconds: num(x.seconds, 0.1, 600),
+    ...(x.reframe ? { reframe: checkedReframe(x.reframe) } : {}),
     ...(typeof x.caption === "string" && x.caption.trim() ? { caption: x.caption.trim().slice(0, 140) } : {}),
     ...(typeof x.caption === "string" && x.caption.trim() && Number.isFinite(x.captionAt) && Number(x.captionAt) > 0 ? { captionAt: Math.min(Number(x.captionAt), 7200) } : {}),
     ...(typeof x.caption === "string" && x.caption.trim() && Number.isFinite(x.captionFor) && Number(x.captionFor) > 0 ? { captionFor: Math.min(Number(x.captionFor), 7200) } : {}),

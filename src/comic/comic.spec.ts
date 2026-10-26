@@ -89,3 +89,20 @@ test("the starter story is original: a young hero and a lightning storm", () => 
   assert.ok(s.panels.some((p) => /lightning/i.test(p.action)));
   assert.ok(!s.panels.some((p) => /wheat|farmer|baseball glove|jar/i.test(p.action)));
 });
+
+test("motion comic preserves selected order, source art, timing and editable dialogue without generating", () => {
+  const a = newPanel({ action: "A opens the door", include: false });
+  const b = newPanel({ action: "B looks back", seconds: 7, motion: "Slow push", caption: "LATER", lines: [{ who: "B", text: "Wait." }] });
+  const c = newPanel({ action: "C leaves", seconds: 500 });
+  const project = comicProject("Custom story", [c, a, b], { [a.id]: "a.png", [b.id]: "b.png", [c.id]: "c.png" }, true);
+  const board = project.boards![0]!;
+  assert.equal(board.aspect, "9:16");
+  assert.deepEqual(board.shots.map((s) => s.seconds), [15, 7]);
+  assert.deepEqual(board.shots.map((s) => s.render?.url), ["c.png", "b.png"]);
+  assert.deepEqual(board.shots[1]!.refs, ["b.png"]);
+  assert.match(board.shots[1]!.beat, /Motion: Slow push/);
+  assert.equal(board.shots[1]!.voices![0]!.text, "Wait.");
+  assert.equal(board.shots[1]!.voices![0]!.url, undefined);
+  assert.ok(board.shots.every((s) => s.render?.kind === "image"));
+  assert.throws(() => comicProject("none", [a], { [a.id]: "a.png" }), /at least one/);
+});

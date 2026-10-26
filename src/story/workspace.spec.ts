@@ -1,3 +1,4 @@
+import { setFrameMembers, parse } from "./workspace";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -63,4 +64,17 @@ test("a frame around pictures near the top-left edge still starts on the table",
   const g = groupCards(place(empty(), ["a"]), ["a"], "Edge");
   assert.ok(g.frames[0]!.x >= 0 && g.frames[0]!.y >= 0);
   assert.deepEqual(membersOf(g, g.frames[0]!.id), ["a"]);
+});
+
+ test("explicit group membership excludes intervening cards and survives filters and reload", () => {
+  let l = place(empty(), ["a", "b", "c"]);
+  l = groupCards(l, ["a", "c"], "Chosen");
+  l = setFrameMembers(l, l.frames[0]!.id, ["a", "c"]);
+  const restored = parse(JSON.parse(JSON.stringify(place(l, ["b"]))));
+  assert.deepEqual(membersOf(restored, l.frames[0]!.id), ["a", "c"]);
+  const moved = moveFrame(restored, l.frames[0]!.id, 30, 20);
+  assert.deepEqual(moved.cards.b, restored.cards.b);
+  const removed = setFrameMembers(moved, l.frames[0]!.id, ["c"]);
+  assert.deepEqual(membersOf(removed, l.frames[0]!.id), ["c"]);
+  assert.deepEqual(removeFrame(removed, l.frames[0]!.id).cards, removed.cards);
 });

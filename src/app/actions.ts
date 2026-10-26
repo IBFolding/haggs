@@ -19,10 +19,12 @@ import { cloudModel, cloudPrice } from "../providers/cloud-models";
 import { createFalProvider } from "../providers/fal";
 import type { Provider } from "../providers/types";
 
-import { CLAUDE_COOKIE, COMFY_COOKIE, KEY_COOKIE, LOCAL_COOKIE, keyIn, localIn } from "../server/keys";
+import { CLAUDE_COOKIE, CLAUDE_WORKSPACE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, KEY_COOKIE, LOCAL_COOKIE, keyIn, localIn } from "../server/keys";
 import { localBase } from "../providers/local";
 import { keptExtension, mayFetchForKeeping } from "../server/keep-url";
 import { creditsText } from "../story/price-text";
+
+import { validateWorkspaceId } from "../writer/anthropic-config";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -63,6 +65,15 @@ export async function saveClaudeKey(key: string): Promise<void> {
   const jar = await cookies();
   jar.set(CLAUDE_COOKIE, trimmed, COOKIE_OPTIONS);
 }
+
+/** Save routing metadata independently; never replace or reveal the API key. */
+export async function saveClaudeWorkspace(value: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+  let id: string | undefined;
+  try { id = validateWorkspaceId(value); } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : "Invalid workspace ID." }; }
+  (await cookies()).set(CLAUDE_WORKSPACE_COOKIE, id ?? "", COOKIE_OPTIONS);
+  return { ok: true };
+}
+export async function claudeWorkspace(): Promise<string> { return claudeWorkspaceIn(await cookies()) ?? ""; }
 
 export async function clearClaudeKey(): Promise<void> {
   const jar = await cookies();
@@ -331,7 +342,7 @@ export async function writeDraft(formatId: string, idea: string, notes: string):
   const jar = await cookies();
   const key = keyIn(jar, CLAUDE_COOKIE);
   if (!key) return { ok: false, reason: "Add a Claude key in Keys to write with AI.", needsKey: true };
-  return askClaude({ key, request: draftRequest(format, idea.slice(0, 8000), notes.slice(0, 4000)) });
+  return askClaude({ key, workspaceId: claudeWorkspaceIn(jar), request: draftRequest(format, idea.slice(0, 8000), notes.slice(0, 4000)) });
 }
 
 /** Drafts looks and locks for an uploaded script's cast and places, on the writer's key. */
@@ -341,7 +352,7 @@ export async function fillLooks(request: DraftRequest): Promise<ClaudeResult<Fil
   if (!key) return { ok: false, reason: "Add a Claude key in Keys to fill the sheets with AI.", needsKey: true };
   if (request.user.length > 60_000 || request.system.length > 8_000) return { ok: false, reason: "That request is too large to send." };
   return askClaude<Fill>({
-    key,
+    key, workspaceId: claudeWorkspaceIn(jar),
     request: { ...request, maxTokens: Math.min(request.maxTokens, 12000) },
     schema: FILL_SCHEMA,
     read: (value) => {
@@ -529,4 +540,19 @@ async function musicWith(key: string, text: string, seconds: number): Promise<Ma
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The music wasn't made." };
   }
+}
+
+/** Non-billing generation estimate. Unsupported estimates remain unknown. */
+export async function estimateGeneration(modelId:string, prompt:string, settings:Record<string,unknown>, images:string[], firstFrame:boolean):Promise<{usd:number|null;basis:string}> {
+ const card=getModelCard(modelId);const wire=toWireSettings(card.settings,settings);
+ const cloud=cloudModel(modelId);
+ if(cloud)return {usd:cloudPrice(modelId,wire,outputCount(card,settings)),basis:"App’s published Comfy estimate table, 2026-10-25; estimate, not invoice"};
+ if(useCloud(modelId))return {usd:cloudEstimate({seconds:Number(settings.duration??6),resolution:String(settings.resolution??"768P"),references:firstFrame?0:images.length}),basis:"App’s published MiniMax H3 rate table, 2026-10-17; estimate, not invoice"};
+ const key=keyIn(await cookies(),card.provider==="comfy"?COMFY_COOKIE:KEY_COOKIE);
+ if(!key)return {usd:null,basis:"This model needs its connected provider’s pre-flight estimate."};
+ try {
+ const provider=card.provider==="comfy"?createComfyProvider({apiKey:key,endpoints:{[card.capability]:card.id},...(card.bodyStyle?{bodyStyle:card.bodyStyle}:{})}):createFalProvider({apiKey:key,endpoints:{[card.capability]:card.id}});
+ const q=await provider.quote({capability:card.capability,prompt,images,firstFrame,passthrough:wire,count:outputCount(card,settings)});
+ return {usd:q.usd,basis:q.basis};
+ }catch{return {usd:null,basis:"The provider could not quote this configuration. No job was submitted."};}
 }

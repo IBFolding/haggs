@@ -108,3 +108,9 @@ test("flush does not reject when a save fails", async () => {
   q.queue(createProject("A"));
   await q.flush();
 });
+
+test("retry after a storage failure retains the exact unsaved edit", async () => {
+ const store=createProjectStore(memoryKv());let fail=true;let saved=0;
+ const q=createSaveQueue({...store,async save(p){if(fail){fail=false;throw Error("quota");}await store.save(p);}},5,()=>{},()=>{saved++;});
+ const p=createProject("Keep this edit");q.queue(p);await q.flush();assert.equal(saved,0);await q.flush();assert.equal((await store.load(p.id))?.name,p.name);assert.equal(saved,1);
+});

@@ -17,7 +17,7 @@ import { catalogOf, checked, indexOf, openTemplate, opens, type Entry, type Open
 import { keepResult } from "../server/keep";
 import { partnerNodes } from "../comfy/partner";
 import { createLocalRunner, localBase } from "../providers/local";
-import { CLAUDE_COOKIE, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
+import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
 import { STEPS } from "../comfy/recipe";
 import { localFile, localUrl } from "../server/local-media";
 
@@ -274,7 +274,7 @@ export async function planCanvas(goal: string): Promise<Planned> {
   const str = { type: "string" };
   const schema = obj({ name: str, steps: { type: "array", items: obj({ kind: str, template: str, prompt: str }) } });
   const r = await askClaude<import("../comfy/canvas").Plan>({
-    key: claude,
+    key: claude, workspaceId: claudeWorkspaceIn(await cookies()),
     request: { system, user: goal.trim().slice(0, 1000), maxTokens: 1500 },
     schema,
     read: (v) => {

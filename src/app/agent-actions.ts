@@ -1,9 +1,10 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { anthropicOptions, anthropicErrorReason } from "../writer/anthropic-config";
 import { cookies } from "next/headers";
 
-import { CLAUDE_COOKIE, keyIn } from "../server/keys";
+import { CLAUDE_COOKIE, keyIn, claudeWorkspaceIn } from "../server/keys";
 
 /**
  * The in-app agent's brain: one turn of a conversation with Claude, with
@@ -96,8 +97,8 @@ export async function agentTurn(messages: Anthropic.Beta.BetaMessageParam[]): Pr
   const key = keyIn(await cookies(), CLAUDE_COOKIE);
   if (!key) return { ok: false, reason: "Add a Claude key to talk to Haggy.", needsKey: true };
   if (!Array.isArray(messages) || !messages.length || messages.length > 400) return { ok: false, reason: "That conversation can't be sent." };
-  const client = new Anthropic({ apiKey: key });
   try {
+    const client = new Anthropic(anthropicOptions(key, claudeWorkspaceIn(await cookies())));
     const response = await client.beta.messages.create({
       model: MODEL,
       max_tokens: 16000,
@@ -113,7 +114,7 @@ export async function agentTurn(messages: Anthropic.Beta.BetaMessageParam[]): Pr
   } catch (caught) {
     if (caught instanceof Anthropic.AuthenticationError) return { ok: false, reason: "Anthropic refused the Claude key.", needsKey: true };
     if (caught instanceof Anthropic.RateLimitError) return { ok: false, reason: "Claude is busy right now. Try again in a moment." };
-    if (caught instanceof Anthropic.APIError) return { ok: false, reason: `Claude answered ${caught.status}: ${caught.message.slice(0, 200)}` };
-    return { ok: false, reason: "Claude couldn't be reached." };
+    if (caught instanceof Anthropic.APIError) return { ok: false, reason: anthropicErrorReason(caught.status, caught.message) };
+    return { ok: false, reason: caught instanceof Error && caught.message.startsWith("Enter an Anthropic workspace ID") ? caught.message : "Claude couldn't be reached." };
   }
 }

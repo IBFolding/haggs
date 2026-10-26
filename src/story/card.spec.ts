@@ -25,3 +25,19 @@ test("a title is transparent text placed by where it sits", async () => {
   assert.doesNotMatch(lower, /<rect/, "no background, so the picture shows through");
   assert.match(titleSvg("A\nB", "center", { w: 1080, h: 1920 }), /text-anchor="middle"[\s\S]*B/);
 });
+
+
+test("rendered wide title and subtitle keep safe horizontal margins", async () => {
+  const sharp = (await import("sharp")).default;
+  for (const aspect of ["16:9", "9:16"] as const) {
+    const size = cardSize(aspect);
+    const { data, info } = await sharp(Buffer.from(cardSvg("W".repeat(80), "W".repeat(100), size))).removeAlpha().raw().toBuffer({resolveWithObject:true});
+    let left = info.width, right = -1;
+    for(let y=0;y<info.height;y++) for(let x=0;x<info.width;x++) {
+      const at=(y*info.width+x)*info.channels;
+      if(data[at]!>80) {left=Math.min(left,x);right=Math.max(right,x);}
+    }
+    assert.ok(right>left, "text is actually rendered");
+    assert.ok(left>=size.w*0.06 && right<=size.w*0.94, `${aspect}: text stays inside safe margins`);
+  }
+});

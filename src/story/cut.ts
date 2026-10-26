@@ -1,3 +1,4 @@
+import { reframeFilter, type ReframePath } from "./reframe";
 import { fxFilter, isFx, type FxId } from "./fx";
 import type { Effect, Music, Overlay, Project, Shot, Sound } from "./model";
 
@@ -13,6 +14,7 @@ export const DEFAULT_IMAGE_SECONDS = 3;
 export const DEFAULT_VIDEO_SECONDS = 5;
 
 export type Clip = {
+  reframe?: ReframePath;
   shotId: string;
   index: number;
   heading: string;
@@ -111,6 +113,7 @@ export function buildCut(project: Project): Cut {
       start: cursor,
       from: positive(shot.trimIn) ?? 0,
       seconds,
+      ...(shot.reframe ? { reframe: shot.reframe } : {}),
       ...(shot.caption?.trim() ? { caption: shot.caption.trim() } : {}),
       ...(shot.caption?.trim() && positive(shot.captionAt) ? { captionAt: shot.captionAt! } : {}),
       ...(shot.caption?.trim() && positive(shot.captionFor) ? { captionFor: shot.captionFor! } : {}),
@@ -159,6 +162,7 @@ export function cutList(cut: Cut, name: string): string {
         start: clip.start,
         seconds: clip.seconds,
         url: clip.url,
+        ...(clip.reframe ? { reframe: clip.reframe } : {}),
       })),
     },
     null,
@@ -353,7 +357,10 @@ export const normFilter = (aspect: Cut["aspect"], framing?: Pick<Clip, "fit" | "
 export function clipFilters(aspect: Cut["aspect"], clip: Clip): { v: string; a: string } {
   const fade = fadeFilters(clip);
   const look = fxFilter(clip.fx);
-  const norm = look ? `${normFilter(aspect, clip)},${look}` : normFilter(aspect, clip);
+  const framed = normFilter(aspect, clip.reframe ? {...clip, fit:"fill"} : clip);
+  const size = frameOf(aspect);
+  const moved = clip.reframe ? `${framed},${reframeFilter(clip.reframe,size.w,size.h)}` : framed;
+  const norm = look ? `${moved},${look}` : moved;
   return { v: fade.v ? `${norm},${fade.v}` : norm, a: fade.a };
 }
 

@@ -8,7 +8,7 @@ import { cookies } from "next/headers";
 import { createCloudRunner } from "../providers/cloud";
 import { editEstimate, flux3Workflow } from "../providers/cloud-edits";
 import { keepResult } from "../server/keep";
-import { CLAUDE_COOKIE, COMFY_COOKIE, keyIn } from "../server/keys";
+import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn } from "../server/keys";
 import { FORMATS, SERIES_SCHEMA, seriesRequest, validateSeries, type CustomRules, type FormatId, type Series } from "../series/series";
 import { askClaude } from "../writer/draft";
 
@@ -23,7 +23,7 @@ export async function draftSeries(format: FormatId | CustomRules, topic: string,
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "That can't be written." };
   }
-  const result = await askClaude<Series>({ key, request, schema: SERIES_SCHEMA, read: validateSeries });
+  const result = await askClaude<Series>({ key, workspaceId: claudeWorkspaceIn(await cookies()), request, schema: SERIES_SCHEMA, read: validateSeries });
   return result.ok ? { ok: true, series: result.draft } : { ok: false, reason: result.reason };
 }
 
