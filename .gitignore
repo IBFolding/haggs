@@ -14,3 +14,6 @@ tsconfig.tsbuildinfo
 .superpowers/
 .haggs/
 .next-build
+
+# Local MCP servers (copy .mcp.example.json to .mcp.json)
+.mcp.json

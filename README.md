@@ -124,6 +124,7 @@ Projects live in your browser (IndexedDB). Export and import them as files.
 
 ```bash
 npm install
+cp .env.example .env.local   # then add your keys
 npm run dev          # http://localhost:3111
 npm test             # the suite
 npm run typecheck
@@ -148,7 +149,7 @@ The switches for a live deployment (sign-in, file store, plans, credits) are in 
 Community needs the migration in `supabase/migrations/` applied to your
 Supabase project (paste it into the SQL editor).
 
-To use Claude with your projects, the repo's `.mcp.json` registers the haggs MCP
+To use Claude with your projects, copy `.mcp.example.json` to `.mcp.json` (that file is local and not committed); it registers the haggs MCP
 server for Claude Code; for any other client run `npx tsx scripts/mcp.ts`.
 
 ### Development only
@@ -182,3 +183,9 @@ docs/demo/    the demo script and voice-over
 ## Licence
 
 MIT. See `LICENSE`.
+
+## Contributing
+
+Fixes, workflows, Series formats and looks are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; report a security
+problem privately as described in [SECURITY.md](SECURITY.md). Everyone is expected to follow the
+[code of conduct](CODE_OF_CONDUCT.md). MIT licensed.

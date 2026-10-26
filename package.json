@@ -1,6 +1,25 @@
 {
   "name": "haggs",
   "private": true,
+  "description": "An open-source film studio on Comfy: pictures, video, series and an editor, with every price shown before you press the button.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IBFolding/haggs.git"
+  },
+  "homepage": "https://haggsfield.studio",
+  "bugs": {
+    "url": "https://github.com/IBFolding/haggs/issues"
+  },
+  "keywords": [
+    "comfyui",
+    "comfy",
+    "ai-video",
+    "film",
+    "storyboard",
+    "open-source",
+    "nextjs"
+  ],
   "type": "module",
   "scripts": {
     "dev": "next dev --port 3111",
