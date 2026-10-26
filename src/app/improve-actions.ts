@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 
-import { CLAUDE_COOKIE, keyIn } from "../server/keys";
+import { CLAUDE_COOKIE, claudeWorkspaceIn, keyIn } from "../server/keys";
 import { askClaude } from "../writer/draft";
 import { IMPROVE_SCHEMA, improveRequest, readImproved, type ImproveSurface } from "../writer/improve";
 
@@ -19,6 +19,6 @@ export async function improvePrompt(prompt: string, surface: ImproveSurface): Pr
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "That can't be improved." };
   }
-  const result = await askClaude<string>({ key, request, schema: IMPROVE_SCHEMA, read: readImproved });
+  const result = await askClaude<string>({ key, workspaceId: claudeWorkspaceIn(await cookies()), request, schema: IMPROVE_SCHEMA, read: readImproved });
   return result.ok ? { ok: true, prompt: result.draft } : { ok: false, reason: result.reason };
 }

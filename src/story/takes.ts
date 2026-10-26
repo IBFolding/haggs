@@ -1,3 +1,4 @@
+import { offsetReframe } from "./reframe";
 import type { Project, Shot, Take } from "./model";
 
 /**
@@ -61,7 +62,7 @@ export function splitShot(project: Project, shotId: string, at: number): Project
   if (!(at > 0 && at < length)) throw new Error("Split inside the shot, not at its start or end.");
   const first: Shot = { ...shot, seconds: Math.round(at * 30) / 30 };
   const { sheetShotId: _linked, ...rest } = shot;
-  const second: Shot = { ...rest, id: crypto.randomUUID(), seconds: Math.round((length - at) * 30) / 30, trimIn: (shot.trimIn ?? 0) + at };
+  const second: Shot = { ...rest, id: crypto.randomUUID(), seconds: Math.round((length - at) * 30) / 30, trimIn: (shot.trimIn ?? 0) + at, ...(shot.reframe ? {reframe:offsetReframe(shot.reframe,at)} : {}) };
   const shots = [...project.shots];
   shots.splice(index, 1, first, second);
   return { ...project, shots };
@@ -76,7 +77,7 @@ export function trimHead(project: Project, shotId: string, at: number): Project 
   const length = shot.seconds ?? 5;
   if (!(at > 0 && length - at >= MIN_SHOT)) throw new Error(`Leave at least ${MIN_SHOT}s of the shot.`);
   const round = (n: number) => Math.round(n * 30) / 30;
-  return { ...project, shots: project.shots.map((s) => (s.id === shotId ? { ...s, trimIn: round((s.trimIn ?? 0) + at), seconds: round(length - at) } : s)) };
+  return { ...project, shots: project.shots.map((s) => (s.id === shotId ? { ...s, trimIn: round((s.trimIn ?? 0) + at), seconds: round(length - at), ...(s.reframe ? {reframe:offsetReframe(s.reframe,at)} : {}) } : s)) };
 }
 
 /** Cuts the end of a shot off at `at` seconds into it. */

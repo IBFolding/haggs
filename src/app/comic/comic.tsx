@@ -3,14 +3,13 @@
 import { shrinkAll } from "../shrink";
 import { ExtrasRow } from "../bank-picker";
 import { allocateRefs, wordsOf, type BankItem } from "../../story/bank";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createCharacterStore, identityLock, type Character } from "../../characters/character";
 import { LAYOUTS, LOOKS, MAX_STYLE_REFS, STARTERS, comicProject, emptyStyle, imageRatio, newPanel, panelPrompt, styleSheetPrompt, type LayoutId, type LookId, type Panel, type Shape, type StyleSheet } from "../../comic/comic";
 import { readPick } from "../../story/handoff";
-import { defaultKv } from "../../story/kv";
+import { idbKv, defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { Nav, openKeys } from "../nav";
 import { BuildLink } from "../return-bar";
@@ -46,6 +45,34 @@ export function Comic() {
   const [problem, setProblem] = useState<string | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const stop = useRef(false);
+  const sending = useRef(false);
+  const handoff = useRef<ReturnType<typeof comicProject> | null>(null);
+  const [title, setTitle] = useState("My comic");
+  const [ready, setReady] = useState(false);
+  const [saved, setSaved] = useState("Loading draft…");
+  const [previewOpen, setPreviewOpen] = useState(true);
+  const writes = useRef(Promise.resolve());
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    void idbKv().get<{ panels: Panel[]; pictures: Record<string, string>; title: string; look: LookId; layout: LayoutId; style: StyleSheet; inIt: string[]; extras: BankItem[] }>("comic:draft:v1").then((d) => {
+      if (d?.panels?.length) { setPanels(d.panels); setPictures(d.pictures); setTitle(d.title); setLook(d.look); setLayout(d.layout); setStyle(d.style); setInIt(d.inIt); setExtras(d.extras); }
+      setReady(true);
+    }).catch(() => { setSaved("Draft storage unavailable. Keep this page open."); setReady(true); });
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    handoff.current = null;
+    setSaved("Saving…");
+    writes.current = writes.current.catch(() => undefined).then(() => idbKv().set("comic:draft:v1", { panels, pictures, title, look, layout, style, inIt, extras }));
+    const current = writes.current;
+    void current.then(() => { if (current === writes.current) setSaved("Saved on this device"); }).catch(() => setSaved("Could not save. Retry or keep this page open."));
+  }, [ready, panels, pictures, title, look, layout, style, inIt, extras, retry]);
+
+  function start(next: Panel[]) {
+    if (!window.confirm("Replace the current panels and pictures? Your character and style choices stay. Cancel to keep editing.")) return;
+    setPanels(next); setPictures({});
+  }
 
   useEffect(() => {
     void createCharacterStore(defaultKv()).list().then((all) => {
@@ -61,7 +88,14 @@ export function Comic() {
 
   useEffect(() => {
     const c = canvas.current;
-    if (c) void drawComic(c, panels, pictures, layout, 1).catch(() => undefined);
+    if (!c) return;
+    let cancelled = false;
+    const buffer = document.createElement("canvas");
+    void drawComic(buffer, panels, pictures, layout, 1).then(() => {
+      if (cancelled) return;
+      c.width = buffer.width; c.height = buffer.height; c.getContext("2d")?.drawImage(buffer, 0, 0);
+    }).catch(() => { if (!cancelled) setProblem("A panel could not be previewed. Replace its picture and try again."); });
+    return () => { cancelled = true; };
   }, [panels, pictures, layout]);
 
   const change = (id: string, patch: Partial<Panel>) => setPanels((all) => all.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -70,6 +104,7 @@ export function Comic() {
   async function make(list: Panel[]) {
     stop.current = false;
     setProblem(null);
+    try {
     for (const [i, p] of list.entries()) {
       if (stop.current) break;
       setBusy(`Drawing ${p.id === list[0]!.id && list.length === 1 ? "panel" : `panel ${i + 1} of ${list.length}`}…`);
@@ -79,11 +114,13 @@ export function Comic() {
       if (!r.ok) { if (r.needsKey) openKeys(); setProblem(r.reason); break; }
       setPictures((all) => ({ ...all, [p.id]: r.url }));
     }
-    setBusy(null);
+    } catch { setProblem("The panel request could not finish. Check your connection and try again; existing art is preserved."); }
+    finally { setBusy(null); }
   }
 
   /** A picture you bring as the look to match, shrunk so it travels well. */
   async function addRef(file: File) {
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 20 * 1024 * 1024) return setProblem("Choose a PNG, JPEG or WebP under 20 MB.");
     const bitmap = await createImageBitmap(file).catch(() => null);
     if (!bitmap) return setProblem("That picture couldn't be read.");
     const k = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
@@ -91,6 +128,7 @@ export function Comic() {
     c.width = Math.round(bitmap.width * k);
     c.height = Math.round(bitmap.height * k);
     c.getContext("2d")!.drawImage(bitmap, 0, 0, c.width, c.height);
+    bitmap.close();
     setStyle((st) => ({ ...st, refs: [...st.refs, c.toDataURL("image/jpeg", 0.9)].slice(-MAX_STYLE_REFS) }));
   }
 
@@ -112,11 +150,16 @@ export function Comic() {
   }
 
   async function toProject() {
+    if (sending.current) return;
+    sending.current = true;
+    setBusy("Saving motion comic…");
     try {
-      const project = comicProject("Comic", panels, pictures);
+      const project = handoff.current ?? comicProject(title.trim() || "Comic", panels, pictures, layout === "webtoon");
+      handoff.current = project;
       await createProjectStore(defaultKv()).save(project);
-      router.push(`/board/${project.id}?b=${encodeURIComponent(project.boards![0]!.id)}`);
+      router.push(`/board/${project.id}/cut?b=${encodeURIComponent(project.boards![0]!.id)}`);
     } catch (e) { setProblem(e instanceof Error ? e.message : "That didn't work."); }
+    finally { sending.current = false; setBusy(null); }
   }
 
   return (
@@ -127,26 +170,30 @@ export function Comic() {
           <ModeTabs group="Photos" current="/comic" canEdit={surfaceAvailable("Edit")} />
           <header className="swap-head">
             <h1>Comic strip</h1>
-            <p>Write the panels, pick who is in them and a look, and haggs draws every panel with captions and speech bubbles. The same characters in every panel. Then send it to a project to bring it to life.</p>
+            <p>Write your story beside a live page preview. Bring your own art or draw panels, then send selected scenes to the video editor.</p>
           </header>
 
+          <div className="cm-workbench">
+          <div className="cm-inputs" aria-busy={!ready}>
+          <fieldset disabled={!ready || busy !== null} className="cm-authoring">
+          <label className="cm-title">Comic title<input className="cm-notes" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} /></label>
           <section className="cm-block" aria-label="Start from a story">
             <div className="cm-chips">
               <b>Start from</b>
-              {STARTERS.map((s) => <button key={s.id} className="plain" title={s.says} onClick={() => { setPanels(s.panels.map((p) => newPanel({ action: p.action, caption: p.caption ?? "", lines: p.lines ?? [], shape: p.shape ?? "wide" }))); setPictures({}); }}>{s.name}</button>)}
-              <button className="plain" onClick={() => { setPanels([newPanel()]); setPictures({}); }}>A blank page</button>
+              {STARTERS.map((s) => <button key={s.id} className="plain" title={s.says} onClick={() => start(s.panels.map((p) => newPanel({ action: p.action, caption: p.caption ?? "", lines: p.lines ?? [], shape: p.shape ?? "wide" })))}>{s.name}</button>)}
+              <button className="plain" onClick={() => start([newPanel()])}>A blank page</button>
             </div>
           </section>
 
-          <section className="cm-block cm-sample" aria-label="A finished page">
+          <details className="cm-block cm-sample" aria-label="A finished page"><summary>A finished page · see the sample</summary>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/samples/comic-page.jpg" alt="A finished comic page: a girl on a rooftop at night, a storm, a lightning strike, her eyes glowing blue" loading="lazy" />
             <div>
               <h2>A finished page</h2>
               <p>Six panels, one look, the same girl in every one, with captions and a speech bubble. Six pictures at 7 credits each is 42 credits.</p>
-              <p>Pick a story above, press Draw, and yours will look like this.</p>
+              <p>Use a starter or write every panel yourself. This sample shows the format; generated results will vary.</p>
             </div>
-          </section>
+          </details>
 
           <section className="cm-block" aria-label="Who is in it">
             <h2>Who is in it</h2>
@@ -168,7 +215,7 @@ export function Comic() {
 
           <section className="cm-block" aria-label="Look and layout">
             <h2>The look</h2>
-            <div className="cm-looks">{LOOKS.map((l) => <button key={l.id} className={look === l.id ? "on" : ""} onClick={() => { setLook(l.id); setPictures({}); }}><b>{l.name}</b><small>{l.says}</small></button>)}</div>
+            <div className="cm-looks">{LOOKS.map((l) => <button key={l.id} className={look === l.id ? "on" : ""} onClick={() => setLook(l.id)}><b>{l.name}</b><small>{l.says}</small></button>)}</div>
             <h2>The page</h2>
             <div className="lab-chips">{LAYOUTS.map((l) => <button key={l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)} title={l.says}>{l.name}</button>)}</div>
           </section>
@@ -208,7 +255,7 @@ export function Comic() {
           </section>
 
           <section className="cm-block" aria-label="Panels">
-            <h2>The panels</h2>
+            <h2>The panels</h2><p className="wf-small">Write your own story, characters and setting in each panel. Changes update the layout and lettering immediately; drawing new art is a separate paid action. Existing art stays until you choose Draw again.</p>
             <ol className="cm-panels">
               {panels.map((p, i) => (
                 <li key={p.id}>
@@ -224,6 +271,10 @@ export function Comic() {
                     {[0, 1].map((k) => (
                       <input key={k} value={p.lines[k]?.text ?? ""} onChange={(e) => change(p.id, { lines: [0, 1].map((j) => (j === k ? { who: p.lines[j]?.who ?? "", text: e.target.value } : (p.lines[j] ?? { who: "", text: "" }))).filter((l, j, a) => l.text || a.slice(j + 1).some((x) => x.text)) })} placeholder={k === 0 ? "Speech bubble" : "A second bubble (optional)"} aria-label={`Panel ${i + 1}: speech ${k + 1}`} maxLength={90} />
                     ))}
+                    <label><input type="checkbox" checked={p.include !== false} onChange={(e) => change(p.id, { include: e.target.checked })} /> Include in motion comic</label>
+                    <div className="cm-row"><label>Scene seconds <input type="number" min={1} max={15} value={p.seconds ?? 3} onChange={(e) => change(p.id, { seconds: Math.max(1, Math.min(15, Number(e.target.value) || 3)) })} aria-label={`Panel ${i + 1}: seconds`} /></label></div>
+                    <input value={p.motion ?? ""} onChange={(e) => change(p.id, { motion: e.target.value })} maxLength={400} placeholder="Motion: slow push toward her face; rain drifts behind" aria-label={`Panel ${i + 1}: motion`} />
+                    <label className="plain">Upload panel art<input type="file" accept="image/png,image/jpeg,image/webp" aria-label={`Panel ${i + 1}: upload art`} onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; if (!["image/png", "image/jpeg", "image/webp"].includes(f.type) || f.size > 20 * 1024 * 1024) return setProblem("Choose a PNG, JPEG or WebP under 20 MB."); try { const decoded = await createImageBitmap(f); decoded.close(); const urls = await shrinkAll([await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(f); })]); setPictures((all) => ({ ...all, [p.id]: urls[0]! })); } catch { setProblem("Could not read that picture. Try another image."); } }} /></label>
                     <div className="cm-row">
                       <button className="pill" disabled={busy !== null || p.action.trim().length < 6} onClick={() => void make([p])}>{pictures[p.id] ? "Draw again" : "Draw this panel"} <span className="cost">about {creditsText(PRICE)}</span></button>
                       <button className="plain" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
@@ -237,22 +288,30 @@ export function Comic() {
             <button className="plain" onClick={() => setPanels((all) => [...all, newPanel()])} disabled={panels.length >= 12}>+ Add a panel</button>
           </section>
 
+          </fieldset>
+          {problem && <p className="library-error" role="alert">{problem}</p>}
+
+          </div>
+          <aside className="cm-preview" aria-label="Live comic preview">
+            <button className="pill cm-preview-toggle" aria-expanded={previewOpen} aria-controls="comic-preview" onClick={() => setPreviewOpen(!previewOpen)}>{previewOpen ? "Collapse preview" : "Show preview"}</button>
+          <section id="comic-preview" className="cm-block" aria-label="The page" hidden={!previewOpen}>
+            <h2>{title.trim() || "Your page"}</h2>
+            <p className="wf-small" role="status">{saved}</p>{saved.startsWith("Could") && <button className="plain" onClick={() => setRetry((n) => n + 1)}>Retry save</button>}
+            <p className="wf-small">Live layout preview · {panels.filter((p) => pictures[p.id]).length}/{panels.length} stills ready</p>
           <div className="cm-make">
             <button className="fire" disabled={busy !== null || todo.length === 0} onClick={() => void make(todo)}>{busy ?? `Draw ${todo.length} panel${todo.length === 1 ? "" : "s"}`} <span className="cost">about {creditsText((todo.length * PRICE))}</span></button>
             {busy && <button className="plain" onClick={() => { stop.current = true; }}>Stop after this one</button>}
             {refs.length > 0 && <small>{refs.length} character sheet{refs.length === 1 ? "" : "s"} sent with every panel, so they look the same.</small>}
           </div>
-          {problem && <p className="library-error" role="alert">{problem}</p>}
-
-          <section className="cm-block" aria-label="The page">
-            <h2>Your page</h2>
             <canvas ref={canvas} className="cm-page" aria-label="The comic page so far" />
             <div className="cm-row">
               <button className="fire" onClick={() => void download()} disabled={Object.keys(pictures).length === 0}>Download the page</button>
-              <button className="pill" onClick={() => void toProject()} disabled={Object.keys(pictures).length === 0}>Send to a project</button>
+              <button className="pill" onClick={() => void toProject()} disabled={!panels.some((p) => p.include !== false && pictures[p.id]) || busy !== null}>Send to a project</button>
             </div>
-            <small className="wf-small">In a project you can animate each panel, add voices and music, and cut it as a motion comic.</small>
+            <small className="wf-small">Send selected, illustrated scenes in the order shown. Scene timing and motion carry into the editor; captions remain editable and dialogue becomes voice text, not baked into the art. Nothing is animated yet. Choose a supported video model there, review its duration and price, then explicitly generate each scene. Speech bubbles remain on the still page; video dialogue is edited in Voice and Titles.</small>
           </section>
+          </aside>
+          </div>
         </div>
         <SiteFooter />
       </div>

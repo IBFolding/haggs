@@ -1,5 +1,12 @@
 "use client";
 
+import { ReframePanel } from "./reframe-panel";
+import { reframeStyle } from "../../../../story/reframe";
+import { EditorDialog } from "./editor-dialog";
+import { PassPanel } from "./pass-panel";
+import { ContinuityPanel } from "./continuity-panel";
+import { Section } from "./section";
+import { ReviewPanel } from "./review-panel";
 import { ExportTargets } from "./export-targets";
 import { presetById } from "../../../../story/export-presets";
 import { LookPicker } from "./fx-picker";
@@ -60,13 +67,47 @@ function download(name: string, text: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export function Editor({ id, boardId }: { id: string; boardId?: string | undefined }) {
+export function Editor({ id, boardId, classic = false }: { id: string; boardId?: string | undefined; classic?: boolean }) {
   /** The whole project; the state below is one board's view of it. */
   const full = useRef<Project | null>(null);
   const kv = useMemo(() => defaultKv(), []);
   const store = useMemo(() => createProjectStore(kv), [kv]);
-  const saves = useMemo(() => createSaveQueue(store), [store]);
+  const [saveState, setSaveState] = useState<"saved" | "saving" | "failed">("saved");
+  const saves = useMemo(() => createSaveQueue(store, 600, () => setSaveState("failed"), () => setSaveState("saved")), [store]);
+  useEffect(() => {
+    const flush = () => { void saves.flush(); };
+    window.addEventListener("pagehide", flush);
+    return () => { window.removeEventListener("pagehide", flush); void saves.flush(); };
+  }, [saves]);
+  useEffect(() => {
+    if (saveState === "saved") return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [saveState]);
 
+  const [mode, setMode] = useState<"simple" | "advanced">("advanced");
+  const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const [toolsCollapsed, setToolsCollapsed] = useState(false);
+  const timelineScroll = useRef(0);
+  const toolsScroll = useRef(0);
+  const [showAllLanes, setShowAllLanes] = useState(false);
+  const [laneRequest,setLaneRequest]=useState({name:"",count:0});
+  useEffect(()=>{if(!laneRequest.count)return;const frame=requestAnimationFrame(()=>{const selector=laneRequest.name==="music"?".music-maker input":laneRequest.name==="effects"?'[aria-label="Describe a sound effect"]':laneRequest.name==="titles"?'[aria-label="Title words"]':".voices-head button";document.querySelector<HTMLElement>(selector)?.focus()});return()=>cancelAnimationFrame(frame)},[laneRequest]);
+  const [revealedLanes, setRevealedLanes] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      setMode(localStorage.getItem("haggs.cut.view") === "simple" ? "simple" : "advanced");
+      setShowAllLanes(localStorage.getItem("haggs.cut.allLanes") === "true");
+      setTimelineCollapsed(localStorage.getItem("haggs.cut.timelineCollapsed") === "true");
+      setToolsCollapsed(localStorage.getItem("haggs.cut.toolsCollapsed") === "true");
+    } catch { /* Storage restrictions must not block editing. */ }
+  }, []);
+  const changeMode = (next: "simple" | "advanced") => {
+    setMode(next);
+    try { localStorage.setItem("haggs.cut.view", next); } catch { /* Session-only preference. */ }
+  };
+  const advanced = classic || mode === "advanced";
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
   const [t, setT] = useState(0);
@@ -76,7 +117,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const router = useRouter();
   // Back from building a character, place or accessory: it goes in as a reference, on the Edit tab.
   const [bankPick, setBankPick] = useState<BankItem | null>(null);
-  useReturnedPick(["character", "place", "accessory"], (item) => { setTab("tools"); setBankPick(item); });
+  useReturnedPick(["character", "place", "accessory"], (item) => { setMode("advanced"); setTab("tools"); setBankPick(item); });
   const [win, setWin] = useState<{ from: number; to: number | null; name: string; problem: string }>({ from: 0, to: null, name: "", problem: "" });
   const [markerEdit, setMarkerEdit] = useState<string | null>(null);
   const [fxDrag, setFxDrag] = useState<{ id: string; start: number } | null>(null);
@@ -197,6 +238,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       now.current = next;
       setProject(next);
       setHistoryTick((n) => n + 1);
+      setSaveState("saving");
       saves.queue((full.current = commit(full.current ?? next, boardId, next)));
     },
     [saves, boardId],
@@ -214,6 +256,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       now.current = target;
       setProject(target);
       setHistoryTick((n) => n + 1);
+      setSaveState("saving");
       saves.queue((full.current = commit(full.current ?? target, boardId, target)));
     },
     [saves, boardId],
@@ -331,10 +374,17 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
   // The timeline is drawn at a zoom (pixels per second), so every clip has a width you can see and grab.
   const [pps, setPps] = useState(36);
-  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "sound" | "titles">("shot");
+  const [cutdownOpen, setCutdownOpen] = useState(false);
+  const [cutdownBusy, setCutdownBusy] = useState(false);
+  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "sound" | "titles" | "review" | "passes">("shot");
   /** Reshoot has two ways in: from the footage you have, or blocked out in grey first. */
   const [reshootMode, setReshootMode] = useState<"footage" | "grey">("footage");
   const [title, setTitle] = useState({ text: "", place: "lower" as "lower" | "center" | "top", seconds: 3, busy: false, problem: "" });
+  const laneNames = ["voice", "effects", "music", "titles"];
+  const counts = [cut?.voices.length ?? 0, project?.effects?.length ?? 0, project?.music ? 1 : 0, project?.overlays?.length ?? 0];
+  const visibleLanes = laneNames.filter((name, i) => classic || showAllLanes || (counts[i] ?? 0) > 0 || revealedLanes.includes(name));
+  const laneTop = (name: string) => 128 + visibleLanes.indexOf(name) * 36;
+  const laneHeight = 128 + visibleLanes.length * 36;
   const scroller = useRef<HTMLDivElement>(null);
   const lane = useRef<HTMLDivElement>(null);
 
@@ -364,7 +414,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
+      if (e.defaultPrevented) return;
       if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+      if ((e.key === " " || e.key === "Enter") && el?.closest("button, summary, a[href]")) return;
       if (!cut) return;
       const mod = e.metaKey || e.ctrlKey;
       const at = () => atTime(cut, tRef.current);
@@ -390,6 +442,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
       } else if (e.key.toLowerCase() === "f") {
         e.preventDefault();
         toggleFullscreen();
+      } else if (e.key === "Escape" && document.fullscreenElement) {
+        void document.exitFullscreen().catch(() => undefined);
       } else if (e.key.toLowerCase() === "m") {
         e.preventDefault();
         const at = Math.round(tRef.current * 10) / 10;
@@ -447,6 +501,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
   const ticks = Array.from({ length: Math.floor(cut.total / tick) + 1 }, (_, i) => i * tick);
   const vertical = cut.aspect === "9:16";
 
+  const previewStyle = here && (here.clip.fit === "fill" || here.clip.reframe) ? { objectFit: "cover" as const, objectPosition: `${(here.clip.focus?.x ?? 0.5) * 100}% ${(here.clip.focus?.y ?? 0.5) * 100}%`, ...(here.clip.reframe ? reframeStyle(here.clip.reframe,here.offset) : {}) } : undefined;
+
   const exportsBar = (
     <>
       {process.env.NODE_ENV !== "production" && (
@@ -477,9 +533,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
           Burn captions in
         </label>
       )}
-      <details className="ed-more">
+      <details className="ed-more" hidden={!advanced} open={cutdownOpen} onToggle={e => setCutdownOpen(e.currentTarget.open)}>
         <summary>Cutdown</summary>
-        <div>
+        {cutdownOpen && <EditorDialog label="Cutdown" onClose={() => setCutdownOpen(false)}><div>
           <p>A shorter cut from part of this one, on its own board. This cut stays exactly as it is.</p>
           {(() => {
             const total = Math.round(cut.total * 10) / 10;
@@ -502,26 +558,35 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               </div>
             );
           })()}
-          <form className="cd-make" onSubmit={(e) => {
+          <form className="cd-make" onSubmit={async (e) => {
             e.preventDefault();
             const f = full.current; const cur = now.current;
-            if (!f || !cur) return;
+            if (!f || !cur || cutdownBusy) return;
+            setCutdownBusy(true);
             try {
               const made = addCutdown(f, boardId, cur, win.name.trim() || `Cutdown ${win.from}–${win.to ?? Math.round(cut.total * 10) / 10}s`, win.from, win.to ?? cut.total);
-              full.current = made.project;
               saves.queue(made.project);
+              setSaveState("saving");
+              await saves.flush();
+              const saved = await store.load(id);
+              if (!saved?.boards?.some((board) => board.id === made.board.id)) throw new Error("The new board could not be saved. Your original cut is unchanged. Try again.");
+              full.current = saved;
+              setCutdownOpen(false);
+              setPlaying(false);
+              seek(0);
               router.push(`/board/${id}/cut?b=${encodeURIComponent(made.board.id)}`);
             } catch (err) {
               setWin({ ...win, problem: err instanceof Error ? err.message : "That window didn't work." });
-            }
+            } finally { setCutdownBusy(false); }
           }}>
             <input value={win.name} onChange={(e) => setWin({ ...win, name: e.target.value })} placeholder="Name it, e.g. 15s teaser" aria-label="Cutdown name" />
-            <button className="fire" type="submit">Make a board</button>
+            <button className="fire" type="submit" disabled={cutdownBusy}>{cutdownBusy ? "Saving board…" : "Make a board"}</button>
           </form>
           {win.problem && <p className="library-error" role="alert">{win.problem}</p>}
-        </div>
+          <button className="plain" type="button" onClick={() => setCutdownOpen(false)}>Cancel</button>
+        </div></EditorDialog>}
       </details>
-      <details className="ed-more">
+      <details className="ed-more" hidden={!advanced}>
         <summary>Versions{versions.length ? ` · ${versions.length}` : ""}</summary>
         <div>
           <form className="ed-version-new" onSubmit={(e) => { e.preventDefault(); const cur = now.current; if (!cur) return; void saveVersion(kv, id, boardId, cur, versionName).then(setVersions); setVersionName(""); }}>
@@ -545,8 +610,9 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
         <div>
           <ExportTargets clips={cut.clips} target={target} onTarget={setTarget} apply={apply} onNeedKey={() => openKeys()} />
           <button className="plain" onClick={() => download(`${project.name}.cut.json`, cutList(cut, project.name), "application/json")}>Cut list (.json)</button>
-          <button className="plain" onClick={() => download(`${project.name}.fcpxml`, fcpxml(cut, project.name, { origin: window.location.origin, markers: project.markers ?? [] }), "application/xml")}>Final Cut / Resolve (.fcpxml)</button>
+          <button className="plain" disabled={cut.clips.some(c=>c.reframe)} title={cut.clips.some(c=>c.reframe)?"Render the reframe path to MP4 first; XML cannot preserve it yet.":undefined} onClick={() => download(`${project.name}.fcpxml`, fcpxml(cut, project.name, { origin: window.location.origin, markers: project.markers ?? [] }), "application/xml")}>Final Cut / Resolve (.fcpxml)</button>
           <button className="plain" onClick={() => download(`${project.name}.sh`, ffmpegScript(cut, project.name, window.location.origin), "text/x-shellscript")}>ffmpeg script (.sh)</button>
+          {cut.clips.some(c=>c.reframe)&&<p role="status">Reframe paths export through Render MP4 and ffmpeg. Render first for Final Cut/Resolve; XML is unavailable while a path is active.</p>}
           <p>Render MP4 makes the film here, voices and soundtrack mixed in, next to your media. The script does the same anywhere ffmpeg is installed.</p>
         </div>
       </details>
@@ -569,15 +635,15 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
           </div>
         </div>
       ) : (
-        <div className="ed">
+        <div className="ed" data-tools-collapsed={toolsCollapsed} data-view={classic ? "classic" : mode}>
           <section className="ed-stage-area" aria-label="Preview">
             <div className={`ed-view${fullscreen ? " full" : ""}`} ref={viewRef} onClick={() => fullscreen && setPlaying((p) => !p)}>
               <div className={`stage${vertical ? " vertical" : ""}`} data-fx={here?.clip.fx}>
                 {here &&
                   (here.clip.kind === "video" ? (
-                    <video key={here.clip.shotId} ref={video} style={here.clip.fit === "fill" ? { objectFit: "cover", objectPosition: `${(here.clip.focus?.x ?? 0.5) * 100}% ${(here.clip.focus?.y ?? 0.5) * 100}%` } : undefined} src={here.clip.url} playsInline preload="auto" muted={Boolean(project.sound?.clipMute)} onLoadedMetadata={(ev) => { ev.currentTarget.volume = Math.min(1, Math.pow(10, (project.sound?.clipGain ?? 0) / 20)); }} />
+                    <video key={here.clip.shotId} ref={video} style={previewStyle} src={here.clip.url} playsInline preload="auto" muted={Boolean(project.sound?.clipMute)} onLoadedMetadata={(ev) => { ev.currentTarget.volume = Math.min(1, Math.pow(10, (project.sound?.clipGain ?? 0) / 20)); }} />
                   ) : (
-                    <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} style={here.clip.fit === "fill" ? { objectFit: "cover", objectPosition: `${(here.clip.focus?.x ?? 0.5) * 100}% ${(here.clip.focus?.y ?? 0.5) * 100}%` } : undefined} />
+                    <img key={here.clip.shotId} src={here.clip.url} alt={here.clip.heading} style={previewStyle} />
                   ))}
                 {here && showText && here.clip.caption && t >= captionSpan(here.clip).start && t < captionSpan(here.clip).end && <span className="stage-caption">{here.clip.caption}</span>}
                 {(project.overlays ?? []).filter((o) => t >= o.start && t < o.start + o.seconds).map((o) => <img key={o.id} className="stage-overlay" src={o.url} alt="" />)}
@@ -597,8 +663,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                 {playing ? "Pause" : t >= cut.total ? "Replay" : "Play"}
               </button>
               <button className="pill" onClick={() => jump(idxHere + 1)} aria-label="Next shot" disabled={idxHere >= cut.clips.length - 1}>⏭</button>
-              <button className="pill" onClick={() => setShowText((v) => !v)} aria-pressed={showText} title="Show or hide the captions on the preview. The render keeps them.">{showText ? "Captions on" : "Captions off"}</button>
-              <button className="pill" onClick={toggleFullscreen} title="Fill the screen with the preview (F). Esc to leave.">Full screen</button>
+              <button className="pill" onClick={() => setShowText((v) => !v)} aria-label={showText ? "Captions on" : "Captions off"} aria-pressed={showText} title="Show or hide the captions on the preview. The render keeps them."><span aria-hidden="true">CC</span><span className="ed-control-label">{showText ? "Captions on" : "Captions off"}</span></button>
+              <button className="pill" onClick={toggleFullscreen} aria-label="Full screen" aria-pressed={fullscreen} title="Fill the screen with the preview (F). Esc to leave."><span aria-hidden="true">⛶</span><span className="ed-control-label">Full screen</span></button>
               <span className="transport-time">{clock(t)} <i>/</i> {clock(cut.total)}</span>
               {cut.skipped.length > 0 && <span className="transport-note">{cut.skipped.length} shot{cut.skipped.length === 1 ? "" : "s"} not shot yet</span>}
               <span className="ed-spacer" />
@@ -607,18 +673,34 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               ) : (
                 <span className="library-error" role="alert">{rendered.reason}</span>
               ))}
-              {exportsBar}
+              <span role={saveState === "failed" ? "alert" : "status"}>{saveState === "saved" ? "Saved locally" : saveState === "saving" ? "Saving…" : "Save failed. Retry before leaving."}</span><button className="plain" onClick={() => void saves.flush()}>Save now</button>
+              <div className="ed-finish" role="group" aria-label="Finish">{exportsBar}</div>
             </div>
           </section>
 
-          <aside className="ed-side" aria-label="Shot tools">
+          <aside className="ed-side" aria-label="Shot tools" data-collapsed={toolsCollapsed}>
+            <button className="plain ed-tools-toggle" aria-expanded={!toolsCollapsed} aria-controls="ed-tools-content" onClick={(e) => {
+              e.currentTarget.focus();
+              const body = document.querySelector<HTMLElement>(".ed-side-body");
+              if (!toolsCollapsed) toolsScroll.current = body?.scrollTop ?? 0;
+              setToolsCollapsed(!toolsCollapsed);
+              try { localStorage.setItem("haggs.cut.toolsCollapsed", String(!toolsCollapsed)); } catch {}
+              if (toolsCollapsed) requestAnimationFrame(() => { if (body) body.scrollTop = toolsScroll.current; });
+            }}>{toolsCollapsed ? "Expand Shot tools +" : "Collapse Shot tools −"}</button>
+            <div id="ed-tools-content" className="ed-tools-content" hidden={toolsCollapsed}>
+            {!classic && <div className="ed-view-switch" role="group" aria-label="Editor view">
+              <button className="pill" aria-pressed={mode === "simple"} onClick={() => changeMode("simple")}>Simple view</button>
+              <button className="pill" aria-pressed={mode === "advanced"} onClick={() => changeMode("advanced")}>All tools</button>
+              <small>View only. Your settings stay applied.</small>
+            </div>}
+            {!advanced && <p className="takes-note">Advanced settings remain active. All tools shows Reshoot, Edit, Grey Room, versions and markers.{(tab === "tools" || tab === "reshoot") ? " Your open advanced panel is kept until you choose another tab." : ""}</p>}
             <div className="ed-tabs" role="tablist">
-              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["sound", "Sound"], ["titles", "Titles"]] as const).map(([id2, label]) => (
+              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["sound", "Sound"], ["titles", "Titles"], ["review", "Review"], ["passes", "Passes"]] as const).filter(([key]) => advanced || !["reshoot", "tools"].includes(key) || key === tab).map(([id2, label]) => (
                 <button key={id2} role="tab" aria-selected={tab === id2} className={tab === id2 ? "on" : ""} onClick={(e) => { setTab(id2); e.currentTarget.scrollIntoView({ block: "nearest", inline: "center" }); }}>{label}</button>
               ))}
             </div>
             <div className="ed-side-body">
-              {tab === "titles" ? (
+              {tab === "passes" && shot ? <PassPanel key={shot.id} project={project} shot={shot} onShot={onShot} /> : tab === "review" ? <ReviewPanel shots={project.shots} selectedId={selected?.shotId ?? null} time={Math.max(0, Math.min(selected?.seconds ?? 0, t - (selected?.start ?? 0)))} onShot={onShot} onSelect={(shotId) => { setPicked(shotId); const clip = cut.clips.find(c => c.shotId === shotId); if(clip) seek(clip.start); }} /> : tab === "titles" ? (
                 <div className="tracks">
                   <p className="takes-note">Words laid over the picture for a few seconds, from the playhead. Several lines are fine.</p>
                   <textarea value={title.text} rows={3} maxLength={200} onChange={(e) => setTitle({ ...title, text: e.target.value })} placeholder={"ELLIS\nThe night shift"} aria-label="Title words" />
@@ -645,7 +727,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                 </div>
               ) : tab === "sound" ? (
                 <>
-                <Tracks
+                <Section name="Soundtrack and effects" initial classic={classic} reveal={laneRequest.count}><Tracks
                   filmSeconds={Math.round(cut.total)}
                   sound={project.sound}
                   onSound={(sound) => apply((current) => { const { sound: _old, ...rest } = current; return sound ? { ...rest, sound } : rest; })}
@@ -656,7 +738,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                   playhead={t}
                   voices={cut.voices.length}
                 />
-                <VoiceMix
+                </Section><Section name="Voice mix" classic={classic}><VoiceMix
                   sound={project.sound}
                   onChange={(sound) =>
                     apply((current) => {
@@ -665,7 +747,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     })
                   }
                 />
-                </>
+                </Section></>
               ) : !(selected && shot) ? (
                 <p className="takes-note">Click a clip on the timeline to work on that shot.</p>
               ) : (
@@ -675,6 +757,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
 
                   {tab === "shot" && (
                     <>
+                      <Section name="Timing" initial classic={classic}>
                       <div className="ed-row">
                         <label>
                           Holds for
@@ -696,6 +779,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                           </label>
                         ))}
                       </div>
+                      </Section><Section name="Picture" classic={classic}>
                       <div className="ed-row">
                         <label title="Fit keeps the whole picture and leaves bars. Fill crops it to the frame around the point you pick.">
                           Frame
@@ -712,6 +796,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                         ))}
                       </div>
                       <LookPicker shot={shot} onShot={onShot} onAll={(fx) => apply((current) => ({ ...current, shots: current.shots.map((s2) => { const { fx: _drop, ...rest } = s2; return fx ? { ...rest, fx } : rest; }) }))} />
+                      </Section><Section name="Reframe path" classic={classic}><ReframePanel key={shot.id} shot={shot} time={Math.max(0,t-selected.start)} onShot={onShot} onSeek={at=>seek(selected.start+at)} /></Section><Section name="Caption" classic={classic}>
                       <div className="ed-row ed-caption">
                         <label title="Words on screen for this shot. They stay a separate layer: fix them here any time, and burn them in only when you export.">
                           Caption
@@ -725,9 +810,8 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                           </label>
                         ))}
                       </div>
+                      </Section><Section name="Cut tools" initial classic={classic}>
                       <div className="clip-actions">
-                        <Link className="pill" href={`/board/${project.id}/grey/${shot.id}${boardId ? `?b=${boardId}` : ""}`} title="Cut out the actor, build a new set around them, place props and lights, then render a new take">Open in Grey Room</Link>
-                        <button className="pill on" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
                         <button className="pill" disabled={!(t > selected.start + 0.2 && t < selected.start + selected.seconds)} title="Cut off the start of this clip at the playhead (I)" onClick={() => apply((current) => trimHead(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim start to playhead</button>
                         <button className="pill" disabled={!(t >= selected.start + 0.2 && t < selected.start + selected.seconds - 0.05)} title="Cut off the end of this clip at the playhead (O)" onClick={() => apply((current) => trimTail(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim end to playhead</button>
                         <button className="pill" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>
@@ -735,6 +819,10 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                         <button className="pill" disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)} title="A shot between this one and the next: it starts on this shot's last frame and ends on the next one's first" onClick={() => void expand(shot.id, "bridge")}>{expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · ${creditsText(expandPrice)}`}</button>
                         <button className="pill" disabled={expanding !== null} title="Carry this shot on from its last frame" onClick={() => void expand(shot.id, "extend")}>{expanding === `${shot.id}:extend` ? "Extending…" : `Extend · ${creditsText(expandPrice)}`}</button>
                       </div>
+                      </Section><Section name="Continuity" classic={classic}><ContinuityPanel key={shot.id} project={project} shot={shot} onShot={onShot} /></Section><Section name="More" classic={classic}>
+                        <Link hidden={!advanced} className="pill" href={`/board/${project.id}/grey/${shot.id}${boardId ? `?b=${boardId}` : ""}`} title="Cut out the actor, build a new set around them, place props and lights, then render a new take">Open in Grey Room</Link>
+                        <button className="pill on" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
+                      </Section>
                       <div className="takes" role="group" aria-label="Takes">
                         {takesOf(shot).map((take, i) => {
                           const on = take.url === shot.render?.url && take.at === shot.render?.at;
@@ -763,13 +851,13 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                       <button className="pill" onClick={() => onShot(shot.id, (s2) => ({ ...s2, approved: true }))}>Approve to alter</button>
                     </div>
                   )}
-                  <fieldset className="gr-fence" disabled={(tab === "reshoot" || tab === "voice" || tab === "tools") && !(tab === "reshoot" && reshootMode === "grey") && needsApproval(shot)}>
                     {tab === "reshoot" && (
                       <div className="rs-modes" role="group" aria-label="How to reshoot">
                         <button className={`pill${reshootMode === "footage" ? " on" : ""}`} aria-pressed={reshootMode === "footage"} onClick={() => setReshootMode("footage")}>From the footage</button>
                         <button className={`pill${reshootMode === "grey" ? " on" : ""}`} aria-pressed={reshootMode === "grey"} onClick={() => setReshootMode("grey")} title="Work out the camera, stand-ins and light in grey, for free, then make it real">Block out in grey</button>
                       </div>
                     )}
+                  <fieldset className="gr-fence" disabled={(tab === "reshoot" || tab === "voice" || tab === "tools") && !(tab === "reshoot" && reshootMode === "grey") && needsApproval(shot)}>
                     {tab === "reshoot" && reshootMode === "footage" && (shot.render
                       ? <ReshootPanel key={shot.id} source={{ url: shot.render.url, kind: shot.render.kind, at: reshootFrameAt(shot), beat: shot.beat }} onKeep={(list) => list.forEach((made) => keepReshoot(shot.id, made))} />
                       : <p className="takes-note">This shot has nothing to reshoot yet.</p>)}
@@ -777,7 +865,7 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     {tab === "voice" && <VoiceLines shot={shot} project={project} onChange={(voices) => onShot(shot.id, (s2) => ({ ...s2, voices }))} />}
 
                     {tab === "tools" && (
-                      <EditTools project={project} shot={shot} stage={video} playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0} onTake={(shotId, render, origin) => onShot(shotId, (s2) => addTake(s2, render, origin))} incoming={bankPick} onIncoming={() => setBankPick(null)} />
+                      <Section name="Edit tools" initial classic={classic}><EditTools project={project} shot={shot} stage={video} playhead={here && here.clip.shotId === shot.id ? (here.clip.from ?? 0) + here.offset : 0} onTake={(shotId, render, origin) => onShot(shotId, (s2) => addTake(s2, render, origin))} incoming={bankPick} onIncoming={() => setBankPick(null)} /></Section>
                     )}
                   </fieldset>
 
@@ -805,14 +893,22 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                 </>
               )}
             </div>
+            </div>
           </aside>
 
-          <section className="ed-time" aria-label="Timeline">
+          <section className="ed-time" aria-label="Timeline" data-collapsed={timelineCollapsed}>
             <div className="ed-time-bar">
               <b>Timeline</b>
-              <span>{cut.clips.length} clips · {clock(cut.total)}</span>
+              <button className="plain ed-timeline-toggle" aria-expanded={!timelineCollapsed} aria-controls="ed-timeline-tracks" onClick={(e) => {
+                e.currentTarget.focus();
+                if (!timelineCollapsed) timelineScroll.current = scroller.current?.scrollLeft ?? 0;
+                setTimelineCollapsed(!timelineCollapsed);
+                try { localStorage.setItem("haggs.cut.timelineCollapsed", String(!timelineCollapsed)); } catch {}
+                if (timelineCollapsed) requestAnimationFrame(() => { if (scroller.current) scroller.current.scrollLeft = timelineScroll.current; });
+              }}>{timelineCollapsed ? "Expand timeline +" : "Collapse timeline −"}</button>
+              <span className="ed-time-summary">{cut.clips.length} clips · {clock(cut.total)}</span>
               <span className="ed-keys" title="Keyboard shortcuts">Space play · ←/→ step · S split · I/O trim · M marker · ⌘Z undo</span>
-              <button className="plain" onClick={() => apply((current) => { const at = Math.round(t * 10) / 10; const next = addMarker(current, at, "", cut!.total); const added = next.markers!.find((m) => m.at === at && !(current.markers ?? []).some((c) => c.id === m.id)); if (added) setMarkerEdit(added.id); return next; })} title="Leave a note at the playhead (M). , and . jump between notes">+ Marker</button>
+              <button hidden={!advanced} className="plain" onClick={() => apply((current) => { const at = Math.round(t * 10) / 10; const next = addMarker(current, at, "", cut!.total); const added = next.markers!.find((m) => m.at === at && !(current.markers ?? []).some((c) => c.id === m.id)); if (added) setMarkerEdit(added.id); return next; })} title="Leave a note at the playhead (M). , and . jump between notes">+ Marker</button>
               <button className="plain" onClick={() => setCard(card ? null : { text: "", sub: "", busy: false })} title="Words on black, placed after the clip under the playhead">+ Title card</button>
               <button className="plain" disabled={historyTick < 0 || past.current.length === 0} onClick={() => travel("undo")} title="Undo (⌘Z)">Undo</button>
               <button className="plain" disabled={future.current.length === 0} onClick={() => travel("redo")} title="Redo (⇧⌘Z)">Redo</button>
@@ -820,38 +916,38 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               <button className="plain" onClick={fit}>Fit all</button>
             </div>
             {card && (
-              <form className="ed-card" onSubmit={(e) => { e.preventDefault(); void addCard(); }}>
+              <EditorDialog label="Title card" onClose={() => setCard(null)}><form className="ed-card" onSubmit={(e) => { e.preventDefault(); void addCard(); }}>
                 <input autoFocus value={card.text} onChange={(e) => setCard({ ...card, text: e.target.value })} placeholder="Title" aria-label="Title card words" maxLength={80} />
                 <input value={card.sub} onChange={(e) => setCard({ ...card, sub: e.target.value })} placeholder="Smaller line (optional)" aria-label="Smaller line" maxLength={100} />
                 <button className="pill on" disabled={card.busy || !card.text.trim()}>{card.busy ? "Making…" : "Add the card"}</button>
                 <button type="button" className="plain" onClick={() => setCard(null)}>Cancel</button>
-              </form>
+              </form></EditorDialog>
             )}
             {markerEdit && (project.markers ?? []).some((m) => m.id === markerEdit) && (
-              <form className="ed-card" onSubmit={(e) => { e.preventDefault(); setMarkerEdit(null); }}>
+              <EditorDialog label="Marker note" onClose={() => setMarkerEdit(null)}><form className="ed-card" onSubmit={(e) => { e.preventDefault(); setMarkerEdit(null); }}>
                 <b className="ed-marker-at">{clock((project.markers ?? []).find((m) => m.id === markerEdit)!.at)}</b>
                 <input autoFocus value={(project.markers ?? []).find((m) => m.id === markerEdit)!.text} onChange={(e) => apply((c) => editMarker(c, markerEdit, e.target.value))} placeholder="What needs doing here?" aria-label="Marker note" maxLength={200} />
                 <button type="button" className="plain danger" onClick={() => { apply((c) => removeMarker(c, markerEdit)); setMarkerEdit(null); }}>Remove</button>
                 <button className="pill on">Done</button>
-              </form>
+              </form></EditorDialog>
             )}
-            <div className="ed-tracks">
-            <div className="ed-heads" aria-label="Tracks">
+            <div className="ed-tracks" id="ed-timeline-tracks" hidden={timelineCollapsed}>
+            <div className="ed-heads" aria-label="Tracks" style={{ height: laneHeight }}>
               <div className={`ed-head${project.sound?.clipMute ? " muted" : ""}`} style={{ top: 28, height: 94 }}><b>Video</b><small>{cut.clips.length} clips</small><button className={`trk-m${project.sound?.clipMute ? " on" : ""}`} aria-pressed={Boolean(project.sound?.clipMute)} title={project.sound?.clipMute ? "Unmute the clips' sound" : "Mute the clips' sound"} onClick={() => apply((c) => ({ ...c, sound: { ...(c.sound ?? {}), clipMute: !c.sound?.clipMute } }))}>M</button></div>
               {([["Voice", 128, "voiceMute", cut.voices.length], ["Effects", 164, "fxMute", (project.effects ?? []).length], ["Music", 200, "musicMute", project.music ? 1 : 0]] as const).map(([name, top, flag, n]) => (
-                <div key={name} className={`ed-head${project.sound?.[flag] ? " muted" : ""}`} style={{ top, height: 30 }}>
+                <div key={name} className={`ed-head${project.sound?.[flag] ? " muted" : ""}`} hidden={!visibleLanes.includes(name === "Voice" ? "voice" : name.toLowerCase())} style={{ top: laneTop(name === "Voice" ? "voice" : name.toLowerCase()), height: 30 }}>
                   <b>{name}</b>
                   <small>{n}</small>
                   <button className={`trk-m${project.sound?.[flag] ? " on" : ""}`} aria-pressed={Boolean(project.sound?.[flag])} title={project.sound?.[flag] ? `Unmute ${name}` : `Mute ${name}`} onClick={() => apply((c) => ({ ...c, sound: { ...(c.sound ?? {}), [flag]: !c.sound?.[flag] } }))}>M</button>
                 </div>
               ))}
-              <div className="ed-head" style={{ top: 236, height: 30 }}><b>Titles</b><small>{(project.overlays ?? []).length}</small></div>
+              <div className="ed-head" hidden={!visibleLanes.includes("titles")} style={{ top: laneTop("titles"), height: 30 }}><b>Titles</b><small>{(project.overlays ?? []).length}</small></div>
             </div>
             <div className="ed-scroll" ref={scroller}>
               <div
                 className="ed-lane"
                 ref={lane}
-                style={{ width: cut.total * pps + 24 }}
+                style={{ width: cut.total * pps + 24, height: laneHeight }}
                 onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); scrub(event); }}
                 onPointerMove={(event) => { if (event.buttons === 1) scrub(event); }}
                 role="slider"
@@ -893,11 +989,11 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     );
                   })}
                 </div>
-                <div className="ed-vlane" aria-label="Voice-over">
+                <div className="ed-vlane" hidden={!visibleLanes.includes("voice")} style={{ top: laneTop("voice") }} aria-label="Voice-over">
                   {cut.voices.length === 0 && <span className="ed-empty">Voice-over lines sit here. Add one from a shot&rsquo;s Voice tab.</span>}
                   {cut.voices.map((v) => <button key={v.id} className="ed-voice" style={{ left: v.start * pps, width: Math.max(48, 2.4 * pps) }} onPointerDown={(e) => e.stopPropagation()} onClick={() => { setPicked(v.shotId); setTab("voice"); }} title={v.text}>{v.text}</button>)}
                 </div>
-                <div className="ed-fxlane" aria-label="Sound effects">
+                <div className="ed-fxlane" hidden={!visibleLanes.includes("effects")} style={{ top: laneTop("effects") }} aria-label="Sound effects">
                   {(project.effects ?? []).length === 0 && <button className="ed-empty" onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>+ Add a sound effect at the playhead</button>}
                   {(project.effects ?? []).map((e) => {
                     const start = fxDrag?.id === e.id ? fxDrag.start : e.start;
@@ -922,10 +1018,10 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
                     );
                   })}
                 </div>
-                <div className="ed-mlane" aria-label="Soundtrack">
+                <div className="ed-mlane" hidden={!visibleLanes.includes("music")} style={{ top: laneTop("music") }} aria-label="Soundtrack">
                   {cut.music ? <button className="ed-music" style={{ width: cut.total * pps }} onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>♪ {cut.music.name}</button> : <button className="ed-empty" onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("sound")}>+ Add a soundtrack</button>}
                 </div>
-                <div className="ed-tlane" aria-label="Titles over the picture">
+                <div className="ed-tlane" hidden={!visibleLanes.includes("titles")} style={{ top: laneTop("titles") }} aria-label="Titles over the picture">
                   {(project.overlays ?? []).length === 0 && <button className="ed-empty" onPointerDown={(e) => e.stopPropagation()} onClick={() => setTab("titles")}>+ Put a title over the picture</button>}
                   {(project.overlays ?? []).map((o) => <button key={o.id} className="ed-title" style={{ left: o.start * pps, width: Math.max(40, o.seconds * pps) }} onPointerDown={(e) => e.stopPropagation()} onClick={() => { setTab("titles"); seek(o.start); }} title={`${o.name} · ${o.start}s for ${o.seconds}s`}>T {o.name.split("\n")[0]}</button>)}
                 </div>
@@ -933,6 +1029,13 @@ export function Editor({ id, boardId }: { id: string; boardId?: string | undefin
               </div>
             </div>
             </div>
+            {!classic && <details className="ed-add-lane" hidden={timelineCollapsed}>
+              <summary>+ Add lane</summary>
+              <div>
+                {([["voice", "voice", "Voice-over", "Voice-over lines sit here. Add one from a shot’s Voice tab."], ["effects", "sound", "Sound effect", "+ Add a sound effect at the playhead"], ["music", "sound", "Music", "+ Add a soundtrack"], ["titles", "titles", "Title", "+ Put a title over the picture"]] as const).map(([name, targetTab, label, description]) => <button key={name} className="plain" onClick={() => { setRevealedLanes((old) => old.includes(name) ? old : [...old, name]); setTab(targetTab); setLaneRequest(old=>({name,count:old.count+1})); }}><b>{label}</b><small>{description}</small></button>)}
+                <label><input type="checkbox" checked={showAllLanes} onChange={(e) => { setShowAllLanes(e.target.checked); try { localStorage.setItem("haggs.cut.allLanes", String(e.target.checked)); } catch {} }} />Show all lanes</label>
+              </div>
+            </details>}
           </section>
         </div>
       )}

@@ -4,7 +4,7 @@ import { FAL_ENABLED } from "../catalog/models";
 import { useEffect, useState } from "react";
 
 import { useSession } from "./session";
-import { clearClaudeKey, clearComfyKey, clearKey, clearLocalComfy, localComfy, saveClaudeKey, saveComfyKey, saveKey, saveLocalComfy } from "./actions";
+import { claudeWorkspace, saveClaudeWorkspace, clearClaudeKey, clearComfyKey, clearKey, clearLocalComfy, localComfy, saveClaudeKey, saveComfyKey, saveKey, saveLocalComfy } from "./actions";
 
 /**
  * Every key in one place. Comfy (Cloud, or Router where enabled) is the platform this app is
@@ -35,15 +35,19 @@ export function KeySheet({
   onChange: (next: { comfy: boolean; fal: boolean; claude: boolean }) => void;
   onClose: () => void;
 }) {
+  const [workspace, setWorkspace] = useState("");
+  const [workspaceStatus, setWorkspaceStatus] = useState("");
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [drafts, setDrafts] = useState({ comfy: "", fal: "", claude: "" });
   const [busy, setBusy] = useState<string | null>(null);
   const [gpu, setGpu] = useState<{ base: string; note: string } | null>(null);
   const [address, setAddress] = useState("127.0.0.1:8188");
   const [gpuError, setGpuError] = useState<string | null>(null);
-  const [view, setView] = useState<"choose" | "keys">(held.comfy ? "keys" : "choose");
+  const [view, setView] = useState<"choose" | "keys">(held.comfy || held.claude || held.fal ? "keys" : "choose");
   const { session } = useSession();
   const hosted = Boolean(process.env.NEXT_PUBLIC_HOSTED);
   useEffect(() => {
+    void claudeWorkspace().then(setWorkspace).catch(() => setWorkspaceStatus("Workspace setting could not be loaded."));
     void localComfy().then((base) => { if (base) { setGpu({ base, note: "" }); setView("keys"); } });
   }, []);
 
@@ -169,6 +173,16 @@ export function KeySheet({
                 </button>
               )}
             </div>
+            {row.id === "claude" && <div className="claude-workspace">
+              <label htmlFor="claude-workspace-id">Anthropic workspace ID (optional)</label>
+              <p className="key-blurb">Required for an unscoped personal or service-account key. Leave blank for a workspace-scoped key. <a href="https://platform.claude.com/settings/workspaces" target="_blank" rel="noreferrer">Find your workspace ID</a>. This is separate from the Haggs canvas.</p>
+              <div className="sheet-row"><input id="claude-workspace-id" value={workspace} onChange={(e) => { setWorkspace(e.target.value); setWorkspaceStatus(""); }} placeholder="wrkspc_…" autoComplete="off" maxLength={135} />
+              <button className="plain" disabled={workspaceBusy} onClick={async () => {
+                setWorkspaceBusy(true); setWorkspaceStatus("");
+                try { const result = await saveClaudeWorkspace(workspace); setWorkspaceStatus(result.ok ? "Workspace setting saved. Your key is unchanged." : result.reason); } catch { setWorkspaceStatus("Could not save the workspace setting. Try again."); } finally { setWorkspaceBusy(false); }
+              }}>{workspaceBusy ? "Saving…" : "Save workspace ID"}</button></div>
+              {workspaceStatus && <p role="status">{workspaceStatus}</p>}
+            </div>}
           </section>
         ))}
 

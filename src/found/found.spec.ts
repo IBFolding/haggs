@@ -81,3 +81,19 @@ test("a scene matching none of the words is dropped", () => {
 test("the title-only search looks only in titles", () => {
   assert.match(new URL(searchUrl(["car", "cars"], 10, "title")).searchParams.get("q")!, /^\(title:\(car OR cars\)\) AND collection/);
 });
+
+
+test("explicit destination import preserves other boards and avoids repeated archive clips", async () => {
+  const { appendFound, foundBoard } = await import("./found");
+  const { createProject } = await import("../story/model");
+  const item = { id: "sample", title: "Sample", year: "1950", about: "", tags: "", thumb: "", page: "https://archive.org/details/sample" };
+  const imported = foundBoard("Import", "", [{found:item, localUrl:"/api/local/fixture.mp4", seconds:4}]);
+  const base = { ...createProject("Existing"), boards: [{ ...imported.boards![0]!, id:"destination", shots:[] }, { ...imported.boards![0]!, id:"other" }] };
+  const once = appendFound(base, "destination", imported);
+  const twice = appendFound(once, "destination", imported);
+  assert.equal(twice.boards![0]!.shots.length, 1);
+  assert.equal(twice.boards![1], base.boards![1]);
+  assert.equal(twice.id, base.id);
+  assert.match(twice.boards![0]!.shots[0]!.beat, /archive.org\/details\/sample/);
+  assert.throws(() => appendFound(base, "missing", imported), /no longer/);
+});

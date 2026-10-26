@@ -36,9 +36,7 @@ export function RunTile({
   const [lost, setLost] = useState(false);
   const gone = () => setLost(true);
   return (
-    // tabIndex makes the tile focusable, which is how a tap reveals the
-    // caption on touch, and how a keyboard reaches Reuse and Delete.
-    <figure className="cell" tabIndex={0}>
+    <figure className="cell run-tile">
       {/* A run made on another computer whose file hasn't reached your account yet has nothing to play here. */}
       {run.kind === "audio" ? (
         <div className="cell-sound">
@@ -46,13 +44,15 @@ export function RunTile({
           <audio src={run.url} onError={gone} controls preload="none" />
         </div>
       ) : run.kind === "video" ? (
-        <video src={run.url} onError={gone} loop muted playsInline onMouseOver={(e) => void e.currentTarget.play()} onMouseOut={(e) => e.currentTarget.pause()} />
+        <video src={run.url} onError={gone} loop playsInline controls preload="metadata" />
       ) : (
         <img src={run.url} alt={run.prompt} loading="lazy" onError={gone} />
       )}
 
       {lost && <span className="cell-lost">This {run.kind === "video" ? "clip" : run.kind === "audio" ? "sound" : "picture"} has expired. The prompt is kept.</span>}
 
+      <figcaption className="cell-face">
+        <div className="run-tile-meta">
       <span className="cell-cost">{run.usd === null ? "—" : `${creditsText(run.usd)}`}</span>
 
       {onFavorite && (
@@ -66,7 +66,7 @@ export function RunTile({
         </button>
       )}
 
-      <figcaption className="cell-face">
+        </div>
         <span className="cell-prompt">{run.prompt}</span>
         <span className="cell-foot">
           <span className="cell-model">{run.modelName}</span>

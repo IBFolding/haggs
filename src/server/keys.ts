@@ -6,6 +6,7 @@ export const COMFY_COOKIE = "comfy_key";
 export const LOCAL_COOKIE = "comfy_local";
 /** The writer's key. Claude drafts scripts and fills sheets on your own Anthropic account. */
 export const CLAUDE_COOKIE = "claude_key";
+export const CLAUDE_WORKSPACE_COOKIE = "claude_workspace";
 
 /**
  * In local development a key can also come from .env.local, so a machine that
@@ -26,4 +27,12 @@ export function keyIn(jar: Awaited<ReturnType<typeof cookies>>, cookie: string):
   if (own) return own;
   if (process.env.NODE_ENV === "production") return undefined;
   return process.env[ENV_FOR[cookie] ?? ""]?.trim() || undefined;
+}
+
+/** A browser key never inherits a different local environment key's workspace. */
+export function claudeWorkspaceIn(jar: Awaited<ReturnType<typeof cookies>>): string | undefined {
+  const own = jar.get(CLAUDE_WORKSPACE_COOKIE);
+  if (own) return own.value.trim() || undefined;
+  if (process.env.NODE_ENV === "production" || jar.get(CLAUDE_COOKIE)?.value) return undefined;
+  return process.env.ANTHROPIC_WORKSPACE_ID?.trim() || undefined;
 }

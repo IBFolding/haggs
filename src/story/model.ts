@@ -29,7 +29,23 @@ export type Note = {
   y: number;
 };
 
+export type ShotReview = {
+  id: string;
+  shotId: string;
+  at: number;
+  text: string;
+  fix: string;
+  status: "open" | "approved" | "applied";
+};
+
 export type Shot = {
+  /** Local 2D reframe, applied in preview and rendered exports. */
+  reframe?: import("./reframe").ReframePath;
+  /** Review stays with this stable shot, independent of timeline reordering. */
+  review?: ShotReview[];
+  generationPasses?: { draft?: Shot["model"]; final?: Shot["model"]; sourceImage?: string };
+  /** Explicit first-frame dependency; selected media remains untouched until a new take is chosen. */
+  startsFrom?: { shotId: string; sourceUrl: string; sourceAt: number; from: number; seconds: number; frameUrl: string };
   id: string;
   /** "INT. ALLEY — NIGHT" */
   heading: string;

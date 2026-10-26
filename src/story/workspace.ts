@@ -16,7 +16,7 @@ const MIN_FRAME_W = 160;
 const MIN_FRAME_H = 120;
 
 export type Spot = { x: number; y: number };
-export type Frame = { id: string; name: string; x: number; y: number; w: number; h: number };
+export type Frame = { members?: string[]; id: string; name: string; x: number; y: number; w: number; h: number };
 export type Note = { id: string; text: string; x: number; y: number };
 export type Layout = { cards: Record<string, Spot>; frames: Frame[]; notes: Note[] };
 
@@ -54,6 +54,7 @@ const inside = (f: Frame, c: Spot) => {
 export function membersOf(layout: Layout, frameId: string): string[] {
   const f = layout.frames.find((x) => x.id === frameId);
   if (!f) return [];
+  if (f.members) return f.members.filter((id) => Boolean(layout.cards[id]));
   return Object.entries(layout.cards).filter(([, c]) => inside(f, c)).map(([id]) => id);
 }
 
@@ -114,4 +115,11 @@ export function parse(value: unknown): Layout {
     frames: (v.frames ?? []).filter((f) => f && typeof f.id === "string" && num(f.x) && num(f.y) && num(f.w) && num(f.h)).map((f) => ({ ...f, name: String(f.name ?? "Group") })),
     notes: (v.notes ?? []).filter((n) => n && typeof n.id === "string" && num(n.x) && num(n.y)).map((n) => ({ ...n, text: String(n.text ?? "") })),
   };
+}
+
+/** Explicit membership for organizers; legacy spatial frames remain compatible. */
+export function setFrameMembers(layout: Layout, frameId: string, ids: string[]): Layout {
+  const members = [...new Set(ids)].filter((id) => Boolean(layout.cards[id]));
+  const bounds = members.length ? groupCards({ ...layout, frames: [] }, members, "Group").frames[0] : undefined;
+  return { ...layout, frames: layout.frames.map((f) => f.id === frameId ? { ...f, ...(bounds ? { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h } : {}), members } : f) };
 }

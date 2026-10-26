@@ -10,7 +10,7 @@ import type { Shot } from "./model";
  * frame of the shot.
  */
 export function inputsFor(shot: Shot, maxImages: number): { images: string[]; firstFrame: boolean } {
-  const still = shot.render?.kind === "image" ? shot.render.url : null;
+  const still = shot.startsFrom?.frameUrl ?? (shot.render?.kind === "image" ? shot.render.url : null);
   const images = [...(still ? [still] : []), ...(shot.refs ?? []).filter((url) => url !== still)].slice(0, Math.max(0, maxImages));
   return { images, firstFrame: Boolean(still) && images[0] === still };
 }

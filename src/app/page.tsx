@@ -47,9 +47,8 @@ export default function Landing() {
           <div className="lp-hero-text">
             <h1>Script to screen. <b>Every shot, every price, in the open.</b></h1>
             <p>
-              An open-source film studio on Comfy. Break a script into a board, make the pictures, animate them, reshoot any shot
-              from a new angle, swap a character into any video, voice it, score it and render the cut. Each button shows what it
-              costs before you press it.
+              Turn your script into a board, create the shots, and finish the cut. Pictures, motion, voices and music in one open-source studio.
+              See the price before you generate.
             </p>
             <div className="lp-cta">
               <Link className="fire" href="/library">Start a project</Link>

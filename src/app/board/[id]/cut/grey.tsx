@@ -1,5 +1,6 @@
 "use client";
 
+import { TrajectoryPanel } from "./trajectory-panel";
 import { galleryEdit } from "../../../gallery-log";
 import { track as inHeader } from "../../../../activity/activity";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -166,6 +167,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
       <p className="gr-says">Work the shot out in grey. Nothing here costs anything until you make it real.</p>
 
       <GreyScene grey={grey} vertical={vertical} svgRef={svg} />
+      <TrajectoryPanel value={grey.trajectory} vertical={vertical} onChange={trajectory=>{const {trajectory:_,...rest}=grey;onGrey(trajectory?{...rest,trajectory}:rest)}} />
 
       <div className="gr-grid">
         <div>

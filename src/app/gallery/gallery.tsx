@@ -12,6 +12,7 @@ import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { soundsInProjects } from "../../story/sound-backfill";
 import { createRunStore, isPicture, type PictureRun, type Run } from "../../story/runs";
+import { Workspace } from "../workspace";
 import { Nav } from "../nav";
 import { useStartProject } from "../start-project";
 import { RecoverPanel } from "./recover-panel";
@@ -72,6 +73,8 @@ export function Gallery() {
   const [saving, setSaving] = useState<PictureRun | null>(null);
   const startProject = useStartProject();
   const [ready, setReady] = useState(false);
+  const [view, setView] = useState<"grid" | "workspace">("grid");
+  useEffect(() => { try { if (sessionStorage.getItem("haggs:gallery:view") === "workspace") setView("workspace"); } catch {} }, []);
   const [scope, setScope] = useState<Scope>("All");
   const [query, setQuery] = useState("");
   const [folder, setFolder] = useState<string>(ALL);
@@ -173,6 +176,29 @@ export function Gallery() {
     [runs],
   );
 
+  const renderRun = (run: Run) => (
+                <div key={run.id} className="gallery-item">
+                <RunTile
+                  key={run.id}
+                  run={run}
+                  onFavorite={() => void keep(run)}
+                  onReuse={() => reuse(run)}
+                  onDelete={() => void drop(run)}
+                  onSave={isPicture(run) ? () => setSaving(run) : undefined as never}
+                onStart={isPicture(run) ? () => void startProject(run) : undefined as never}
+                />
+                <select className="folder-pick" aria-label="Move to folder" value={run.folder ?? ""} onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "__new") { const name = window.prompt("Name the new folder"); if (name) void file(run, name); }
+                  else void file(run, v || null);
+                }}>
+                  <option value="">No folder</option>
+                  {folders.map((f) => <option key={f} value={f}>{f}</option>)}
+                  <option value="__new">New folder…</option>
+                </select>
+                </div>
+  );
+
   return (
     <div className="app">
       <Nav current="Gallery" />
@@ -232,7 +258,8 @@ export function Gallery() {
 
           {error && <p className="library-error" role="alert">{error}</p>}
 
-          {!ready ? null : shown.length === 0 ? (
+          <div className="view-toggle" role="tablist" aria-label="Gallery view">{(["grid", "workspace"] as const).map((mode) => <button key={mode} role="tab" aria-selected={view === mode} onClick={() => { setView(mode); try { sessionStorage.setItem("haggs:gallery:view", mode); } catch {} }}>{mode === "grid" ? "Grid" : "Workspace"}</button>)}</div>
+          {!ready ? null : view === "workspace" ? <Workspace storeKey="workspace/Gallery" items={all.map((run) => ({ id: run.id, src: run.url, kind: run.kind, title: run.prompt }))} visibleIds={shown.map((run) => run.id)} renderItem={(item) => { const run = all.find((r) => r.id === item.id); return run ? renderRun(run) : null; }} /> : shown.length === 0 ? (
             query.trim() && all.length > 0 ? (
               <div className="library-blank">
                 <p>Nothing matches “{query.trim()}”.</p>
@@ -247,26 +274,7 @@ export function Gallery() {
           ) : (
             <div className="grid">
               {shown.map((run) => (
-                <div key={run.id} className="gallery-item">
-                <RunTile
-                  key={run.id}
-                  run={run}
-                  onFavorite={() => void keep(run)}
-                  onReuse={() => reuse(run)}
-                  onDelete={() => void drop(run)}
-                  onSave={isPicture(run) ? () => setSaving(run) : undefined as never}
-                onStart={isPicture(run) ? () => void startProject(run) : undefined as never}
-                />
-                <select className="folder-pick" aria-label="Move to folder" value={run.folder ?? ""} onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "__new") { const name = window.prompt("Name the new folder"); if (name) void file(run, name); }
-                  else void file(run, v || null);
-                }}>
-                  <option value="">No folder</option>
-                  {folders.map((f) => <option key={f} value={f}>{f}</option>)}
-                  <option value="__new">New folder…</option>
-                </select>
-                </div>
+                renderRun(run)
               ))}
             </div>
           )}

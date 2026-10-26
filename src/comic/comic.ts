@@ -9,9 +9,10 @@ import { createProject, newShot, type Project } from "../story/model";
 
 export type Shape = "wide" | "square" | "tall";
 export type Line = { who: string; text: string };
-export type Panel = { id: string; action: string; caption: string; lines: Line[]; shape: Shape; who: string[] };
+export type Panel = { id: string; action: string; caption: string; lines: Line[]; shape: Shape; who: string[]; seconds?: number; motion?: string; include?: boolean };
 
 export const LOOKS = [
+  { id: "custom", name: "Your own style", says: "Use your art notes and references without a preset look.", words: "Comic illustration following the supplied art direction and references." },
   { id: "ink", name: "Inked comic", says: "Bold black lines, flat colour, halftone shadows.", words: "Comic book panel, bold black ink outlines, flat saturated colours, halftone dot shading, dynamic composition, hand-inked." },
   { id: "manga", name: "Manga", says: "Black and white screentone, sharp lines.", words: "Manga panel, black and white, screentone shading, sharp clean linework, expressive faces, dramatic speed lines." },
   { id: "vector", name: "Pop vector", says: "Flat shapes, big colour, clean edges.", words: "Flat vector comic illustration, clean shapes, bold saturated palette, thick outlines, no gradients." },
@@ -104,7 +105,7 @@ export function panelPrompt(panel: Panel, look: LookId, locks: string[], place?:
 /** The panels as a project: one shot per panel with its picture, ready to animate into a motion comic. */
 export function comicProject(name: string, panels: Panel[], pictures: Record<string, string>, vertical = false): Project {
   const base = createProject(name);
-  const made = panels.filter((p) => pictures[p.id]);
+  const made = panels.filter((p) => p.include !== false && pictures[p.id]);
   if (!made.length) throw new Error("Make at least one panel first.");
   const board = {
     id: crypto.randomUUID(),
@@ -114,9 +115,11 @@ export function comicProject(name: string, panels: Panel[], pictures: Record<str
     ...(vertical ? { aspect: "9:16" as const } : {}),
     shots: made.map((p) => ({
       ...newShot(),
-      heading: "",
-      beat: p.action,
-      seconds: 3,
+      heading: `Panel ${panels.indexOf(p) + 1}`,
+      beat: [p.action, p.motion?.trim() ? `Motion: ${p.motion.trim()}` : ""].filter(Boolean).join(". "),
+      seconds: Math.min(15, Math.max(1, Number.isFinite(p.seconds) ? p.seconds! : 3)),
+      refs: [pictures[p.id]!],
+      voices: p.lines.filter((l) => l.text.trim()).map((l) => ({ id: crypto.randomUUID(), text: l.text, speaker: l.who, voice: "", offset: 0 })),
       ...(p.caption.trim() ? { caption: p.caption.trim() } : {}),
       render: { url: pictures[p.id]!, kind: "image" as const, usd: 0.07, promptHash: "", at: Date.now() },
     })),

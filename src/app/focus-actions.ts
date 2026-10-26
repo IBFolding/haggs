@@ -1,10 +1,11 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { anthropicOptions, anthropicErrorReason } from "../writer/anthropic-config";
 import { cookies } from "next/headers";
 
 import { checkFrames, parseFocus, type Frame, type Point } from "../story/focus";
-import { CLAUDE_COOKIE, keyIn } from "../server/keys";
+import { CLAUDE_COOKIE, keyIn, claudeWorkspaceIn } from "../server/keys";
 
 /** Small and quick: it only has to say where in a picture the main subject is. */
 const MODEL = "claude-haiku-5-5";
@@ -20,8 +21,8 @@ export async function findSubjects(frames: Frame[]): Promise<Found> {
   if (!key) return { ok: false, reason: "Add a Claude key to find the faces.", needsKey: true };
   const bad = checkFrames(frames);
   if (bad) return { ok: false, reason: bad };
-  const client = new Anthropic({ apiKey: key });
   try {
+    const client = new Anthropic(anthropicOptions(key, claudeWorkspaceIn(await cookies())));
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 600,
@@ -43,7 +44,7 @@ export async function findSubjects(frames: Frame[]): Promise<Found> {
   } catch (caught) {
     if (caught instanceof Anthropic.AuthenticationError) return { ok: false, reason: "Anthropic refused the Claude key.", needsKey: true };
     if (caught instanceof Anthropic.RateLimitError) return { ok: false, reason: "Claude is busy right now. Try again in a moment." };
-    if (caught instanceof Anthropic.APIError) return { ok: false, reason: `Claude answered ${caught.status}.` };
-    return { ok: false, reason: "Claude couldn't be reached." };
+    if (caught instanceof Anthropic.APIError) return { ok: false, reason: anthropicErrorReason(caught.status, caught.message) };
+    return { ok: false, reason: caught instanceof Error && caught.message.startsWith("Enter an Anthropic workspace ID") ? caught.message : "Claude couldn't be reached." };
   }
 }
