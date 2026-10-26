@@ -3215,3 +3215,7 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .cm-sample img { width: 100%; border-radius: 10px; border: 1px solid var(--line); }
 .cm-sample p { color: var(--text-2); font-size: 14px; line-height: 1.6; margin: 0 0 8px; }
 @media (max-width: 640px) { .cm-sample { grid-template-columns: 1fr; } }
+
+.mw-link { position: absolute; inset: 0; z-index: 3; border-radius: inherit; }
+.mw-link:focus-visible { outline: 2px solid var(--volt); outline-offset: -4px; }
+.mw-text { pointer-events: none; }
