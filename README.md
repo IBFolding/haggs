@@ -26,8 +26,8 @@ workflows anywhere, draw a line from what one makes to what the next needs,
 and stack as many as you like. Swap any step for an open-weights or partner
 workflow that does the same job. When it runs the way you want, turn it into
 an app, run it, save it with its result as the cover, share it as a file or on
-the Community shelf (free, or a creator fee of up to 12¢ a run, 80% to the
-creator).
+the Community shelf (free, or a creator fee of up to 12 credits a run, paid
+to the creator).
 
 **Photos.** Make, edit, build **characters** that stay the same person across
 shots (traits or photos of someone who has said you may), and **locations** you
@@ -90,7 +90,7 @@ marketplace listing, social post, story ad) and audiences, and make a batch of u
 to 20 ads that look like they belong to that company. The **Ad Multiplier**
 remakes an ad that already works for new audiences and in other languages, keeping
 the product and layout. Three one-tap samples fill the page in; a picture costs
-about 7¢.
+about 7 credits.
 
 **Sizzle doctor.** Add a finished film and haggs reads the cut itself, on the
 server with ffmpeg and no model: length, how fast it opens, hard cuts against

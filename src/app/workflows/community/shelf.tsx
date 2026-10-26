@@ -47,7 +47,7 @@ export function Shelf() {
       <Nav current="Workflows" />
       <div className="canvas"><div className="wf">
         <h1>Community apps</h1>
-        <p className="wf-small">Made by people using haggs. Free, or a creator fee of up to 12¢ a run, on top of what the run costs on Comfy. Creators keep 80%.</p>
+        <p className="wf-small">Made by people using haggs. Free, or a creator fee of up to 12 credits a run, on top of what the run costs.</p>
         <p><Link className="plain" href="/workflows">← Workflows</Link></p>
         {!sb && <p className="wf-note">Community apps need an account. This copy of haggs isn&rsquo;t connected to one yet.</p>}
         {ready && sb && !session && <p className="wf-note"><Link href="/signin">Sign in</Link> to run community apps.</p>}

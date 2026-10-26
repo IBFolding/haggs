@@ -27,7 +27,7 @@ test("publishing sends the app with a checked fee and the creator's name", async
 
 test("a fee above 12 cents is refused before anything is sent", async () => {
   const { db, calls } = fake();
-  await assert.rejects(() => publishApp(db, app, 13, "Pat"), /up to 12¢/);
+  await assert.rejects(() => publishApp(db, app, 13, "Pat"), /up to 12 credits/);
   assert.equal(calls.length, 0);
 });
 

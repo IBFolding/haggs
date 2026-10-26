@@ -269,7 +269,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
             plan={picPlan}
             onRun={pictureOne}
             onClose={() => setPicturing(false)}
-            words={{ title: "Make pictures", intro: "Each shot with a description and nothing to show gets a FLUX 3 picture made from it, in this board's frame shape. They land as the shot's first take; swap or re-roll any of them after.", verb: "Make", done: "made. Each is the shot's first take.", doing: "Making", note: "About 7¢ a picture at 1K, billed to your Comfy credits. An estimate, not an invoice.", meta: (s) => `${creditsText(s.usd)}` }}
+            words={{ title: "Make pictures", intro: "Each shot with a description and nothing to show gets a FLUX 3 picture made from it, in this board's frame shape. They land as the shot's first take; swap or re-roll any of them after.", verb: "Make", done: "made. Each is the shot's first take.", doing: "Making", note: "About 7 credits a picture at 1K. An estimate, not an invoice.", meta: (s) => `${creditsText(s.usd)}` }}
           />
         )}
 

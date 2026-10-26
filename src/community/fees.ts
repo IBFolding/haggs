@@ -10,7 +10,7 @@ export const CREATOR_SHARE = 0.8;
 
 export function checkFee(cents: number): number {
   if (!Number.isInteger(cents)) throw new Error("A fee is in whole cents.");
-  if (cents < 0 || cents > FEE_MAX_CENTS) throw new Error(`A fee is free or up to ${FEE_MAX_CENTS}¢ a run.`);
+  if (cents < 0 || cents > FEE_MAX_CENTS) throw new Error(`A fee is free or up to ${FEE_MAX_CENTS} credits a run.`);
   return cents;
 }
 

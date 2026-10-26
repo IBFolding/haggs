@@ -7,8 +7,8 @@ test("a creator's fee is free or 1–12 cents a run, in whole cents", () => {
   assert.equal(FEE_MAX_CENTS, 12);
   assert.equal(checkFee(0), 0);
   assert.equal(checkFee(12), 12);
-  assert.throws(() => checkFee(13), /12¢/);
-  assert.throws(() => checkFee(-1), /12¢/);
+  assert.throws(() => checkFee(13), /12 credits/);
+  assert.throws(() => checkFee(-1), /12 credits/);
   assert.throws(() => checkFee(2.5), /whole cents/);
 });
 
