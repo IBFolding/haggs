@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { capacity, type Plan } from "../../server/billing";
+import { capacity, type Plan, type Topup } from "../../server/billing";
 import { Nav } from "../nav";
 import { authed, useSession } from "../session";
 import { SiteFooter } from "../site-footer";
@@ -12,7 +12,7 @@ import { SiteFooter } from "../site-footer";
 type Shown = Omit<Plan, "priceEnv">;
 
 /** v1's plans. Subscribe goes to Stripe Checkout; your plan is read back from Stripe. */
-export function Pricing({ plans, credits }: { plans: Shown[]; credits: boolean }) {
+export function Pricing({ plans, credits, packs=[] }: { plans: Shown[]; credits: boolean; packs?: Omit<Topup,"priceEnv">[] }) {
   const router = useRouter();
   const { session } = useSession();
   const [buyable, setBuyable] = useState<string[] | null>(null);
@@ -58,7 +58,7 @@ export function Pricing({ plans, credits }: { plans: Shown[]; credits: boolean }
                 <article key={p.id} className={`pr-plan${current === p.id ? " on" : ""}`}>
                   <h2>{p.name}</h2>
                   <p className="pr-price"><b>${p.monthly}</b> a month</p>
-                  <p className="pr-credits">{p.id === "byok" ? "Your own key or GPU, at Comfy's prices" : p.credits && credits ? `Room for about ${capacity(p.credits).clips} clips or ${capacity(p.credits).pictures} pictures a month` : "Generation included"}</p>
+                  <p className="pr-credits">{p.id === "byok" ? "Local storage · your own key or GPU" : p.credits && credits ? `${p.credits.toLocaleString("en-US")} credits · ${p.storageGB} GB storage` : "Generation included"}</p>
                   <p className="pr-blurb">{p.blurb}</p>
                   {current === p.id ? (
                     <span className="pr-current">Your plan</span>
@@ -71,10 +71,16 @@ export function Pricing({ plans, credits }: { plans: Shown[]; credits: boolean }
               );
             })}
           </div>
+          <section aria-label="Credit packs">
+            <h2>One-time credit packs</h2>
+            <p>Generation credits do not expire. These packs are separate from the $15 monthly Platform subscription.</p>
+            <div className="pr-grid">{packs.map(p=><article className="pr-plan" key={p.id}><h3>${p.usd} pack</h3><p className="pr-credits">{p.credits.toLocaleString("en-US")} credits</p><Link className="plain" href="/account#credits">Check availability</Link></article>)}</div>
+            <p className="sh-note">Purchase availability is shown in your account. Each generation shows its credit cost before you run.</p>
+          </section>
           {credits && (
             <section className="pr-credits-only" aria-label="Credits without a plan">
-              <h2>No key and no plan? Just buy credits.</h2>
-              <p>Sign in, add credits, and use the whole studio through haggs. You pay only for what you run, at the price shown on each button, and credits never expire. <Link href="/account#credits">Add credits</Link></p>
+              <h2>Need more generation?</h2>
+              <p>Add credits for a cloud-storage plan or your local Haggs installation. Credits never expire. <Link href="/account#credits">Add credits</Link></p>
             </section>
           )}
           {buyable !== null && buyable.length === 0 && (

@@ -180,9 +180,10 @@ export function FlowCanvas({ project, selected, stale, running, onSelect, onPlac
                   className={`flow-card${selected === s.id ? " picked" : ""}${stale.includes(s.id) ? " stale" : ""}${drag?.id === s.id && drag.moved ? " lifted" : ""}`}
                   style={{ left: p.x, top: p.y, width: CARD_W, height: CARD_H }}
                   onPointerDown={(e) => down(e, s.id)}
-                  onKeyDown={(e) => e.key === "Enter" && onSelect(s.id)}
+                  onKeyDown={(e) => { if(e.key === "Enter" || e.key === " "){e.preventDefault();onSelect(s.id);} }}
+                  role="button"
+                  aria-label={`Open shot ${i + 1}: ${s.heading || "Untitled shot"}`}
                   tabIndex={0}
-                  aria-label={`Shot ${i + 1}: ${s.heading || "untitled"}`}
                 >
                   <div className="flow-frame">
                     {running.includes(s.id) ? (

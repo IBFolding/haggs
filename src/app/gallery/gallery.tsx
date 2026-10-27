@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { RUNS_SYNCED } from "../run-sync";
 import { useRouter } from "next/navigation";
 import { ALL, UNFILED, cleanFolder, folderNames, inFolder } from "../../story/gallery-folders";
@@ -35,12 +36,12 @@ function inScope(run: Run, scope: Scope): boolean {
 /** What an empty scope should say. An empty screen is somewhere to start. */
 const EMPTY: Record<Scope, { head: string; body: string }> = {
   All: {
-    head: "No runs yet.",
-    body: "Finished runs land here with the prompt, the model and what each one cost.",
+    head: "No creations yet.",
+    body: "Your finished images, videos and audio appear here. Open one to reuse it or start an edit.",
   },
   Images: {
     head: "No images yet.",
-    body: "Make one in Create — the picker shows every model's rate before you pick it.",
+    body: "Make an image in Photos, then return here to organize or reuse it.",
   },
   Video: {
     head: "No video yet.",
@@ -155,11 +156,11 @@ export function Gallery() {
       try {
         sessionStorage.setItem(REUSE_KEY, run.id);
       } catch {
-        /* Private mode blocks it; the navigation below still gets you there. */
+        setError("This item could not be passed to the composer. Your media is unchanged; retry or download it."); return;
       }
-      let path = "/";
+      let path = run.kind === "video" ? "/video" : "/photos";
       try {
-        path = SURFACE_PATH[getModelCard(run.modelId).capability] ?? "/";
+        path = SURFACE_PATH[getModelCard(run.modelId).capability] ?? path;
       } catch {
         /* A run made with a model no longer in the catalog still opens Create. */
       }
@@ -182,11 +183,12 @@ export function Gallery() {
                   key={run.id}
                   run={run}
                   onFavorite={() => void keep(run)}
-                  onReuse={() => reuse(run)}
+                  {...(isPicture(run) ? {onReuse:() => reuse(run)} : {})}
                   onDelete={() => void drop(run)}
                   onSave={isPicture(run) ? () => setSaving(run) : undefined as never}
                 onStart={isPicture(run) ? () => void startProject(run) : undefined as never}
                 />
+                {run.kind === "audio" && <p className="wf-small">To use this sound in a project, download it, then <Link href="/editor">open the editor</Link> and add it under Sound.</p>}
                 <select className="folder-pick" aria-label="Move to folder" value={run.folder ?? ""} onChange={(e) => {
                   const v = e.target.value;
                   if (v === "__new") { const name = window.prompt("Name the new folder"); if (name) void file(run, name); }
@@ -259,16 +261,17 @@ export function Gallery() {
           {error && <p className="library-error" role="alert">{error}</p>}
 
           <div className="view-toggle" role="tablist" aria-label="Gallery view">{(["grid", "workspace"] as const).map((mode) => <button key={mode} role="tab" aria-selected={view === mode} onClick={() => { setView(mode); try { sessionStorage.setItem("haggs:gallery:view", mode); } catch {} }}>{mode === "grid" ? "Grid" : "Workspace"}</button>)}</div>
-          {!ready ? null : view === "workspace" ? <Workspace storeKey="workspace/Gallery" items={all.map((run) => ({ id: run.id, src: run.url, kind: run.kind, title: run.prompt }))} visibleIds={shown.map((run) => run.id)} renderItem={(item) => { const run = all.find((r) => r.id === item.id); return run ? renderRun(run) : null; }} /> : shown.length === 0 ? (
+          {!ready ? null : view === "workspace" ? <Workspace onBack={()=>{setView("grid");try{sessionStorage.setItem("haggs:gallery:view","grid");}catch{}}} storeKey="workspace/Gallery" items={all.map((run) => ({ id: run.id, src: run.url, kind: run.kind, title: run.prompt }))} visibleIds={shown.map((run) => run.id)} renderItem={(item) => { const run = all.find((r) => r.id === item.id); return run ? renderRun(run) : null; }} /> : shown.length === 0 ? (
             query.trim() && all.length > 0 ? (
               <div className="library-blank">
                 <p>Nothing matches “{query.trim()}”.</p>
-                <p className="library-blank-sub">Try fewer words, or search a model name such as FLUX or Veo.</p>
+                <p className="library-blank-sub">Try fewer words, or search a model name such as FLUX or Veo.</p><button className="pill" onClick={()=>setQuery("")}>Clear search</button>
               </div>
             ) : (
               <div className="library-blank">
                 <p>{EMPTY[scope].head}</p>
                 <p className="library-blank-sub">{EMPTY[scope].body}</p>
+                <div className="cm-row"><Link className="pill" href={scope==="Video"?"/video":scope==="Sounds"?"/editor":"/photos"}>{scope==="Video"?"Make a video":scope==="Sounds"?"Open editor for audio":"Make an image"}</Link>{scope==="Kept"&&<button className="pill" onClick={()=>setScope("All")}>Show all creations</button>}</div>
               </div>
             )
           ) : (

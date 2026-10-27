@@ -33,6 +33,7 @@ export function Comic() {
   const router = useRouter();
   const [panels, setPanels] = useState<Panel[]>(() => STARTERS[0]!.panels.map((p) => newPanel({ action: p.action, caption: p.caption ?? "", lines: p.lines ?? [], shape: p.shape ?? "wide" })));
   const [cast, setCast] = useState<Character[]>([]);
+  const [castReady, setCastReady] = useState(false);
   const [inIt, setInIt] = useState<string[]>([]);
   const [look, setLook] = useState<LookId>("ink");
   const [layout, setLayout] = useState<LayoutId>("page");
@@ -77,10 +78,18 @@ export function Comic() {
   useEffect(() => {
     void createCharacterStore(defaultKv()).list().then((all) => {
       setCast(all);
-      const pick = readPick(window.location.search);
-      if (pick?.kind === "character" && all.some((c) => c.id === pick.id)) setInIt((cur) => (cur.includes(pick.id) ? cur : [...cur, pick.id]));
+      setCastReady(true);
     }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!ready || !castReady) return;
+    const pick = readPick(window.location.search);
+    if (pick?.kind !== "character") return;
+    if (cast.some((c) => c.id === pick.id)) setInIt((cur) => cur.includes(pick.id) ? cur : [...cur, pick.id]);
+    else setProblem("That character was not saved or is no longer in your bank. Your comic draft is intact.");
+    const u = new URL(window.location.href); u.searchParams.delete("pick"); window.history.replaceState(null, "", u.pathname + u.search);
+  }, [ready, castReady, cast]);
 
   const locks = useMemo(() => cast.filter((c) => inIt.includes(c.id)).map((c) => identityLock(c.traits)), [cast, inIt]);
   const refs = useMemo(() => cast.filter((c) => inIt.includes(c.id)).map((c) => c.sheet).slice(0, 2), [cast, inIt]);
@@ -149,7 +158,7 @@ export function Comic() {
     c.toBlob((b) => { if (!b) return; const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "comic.png"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); });
   }
 
-  async function toProject() {
+  async function toProject(animate = false) {
     if (sending.current) return;
     sending.current = true;
     setBusy("Saving motion comic…");
@@ -157,7 +166,7 @@ export function Comic() {
       const project = handoff.current ?? comicProject(title.trim() || "Comic", panels, pictures, layout === "webtoon");
       handoff.current = project;
       await createProjectStore(defaultKv()).save(project);
-      router.push(`/board/${project.id}/cut?b=${encodeURIComponent(project.boards![0]!.id)}`);
+      router.push(`/board/${project.id}${animate ? "/cut" : ""}?b=${encodeURIComponent(project.boards![0]!.id)}`);
     } catch (e) { setProblem(e instanceof Error ? e.message : "That didn't work."); }
     finally { sending.current = false; setBusy(null); }
   }
@@ -185,7 +194,7 @@ export function Comic() {
             </div>
           </section>
 
-          <details className="cm-block cm-sample" aria-label="A finished page"><summary>A finished page · see the sample</summary>
+          <details open className="cm-block cm-sample" aria-label="A finished page"><summary>A finished page · see the sample</summary>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/samples/comic-page.jpg" alt="A finished comic page: a girl on a rooftop at night, a storm, a lightning strike, her eyes glowing blue" loading="lazy" />
             <div>
@@ -210,7 +219,7 @@ export function Comic() {
           </section>
 
           <section className="cm-block" aria-label="Places and accessories">
-            <ExtrasRow items={extras} onChange={setExtras} label="your comic" title="Where it happens and what they wear" />
+            {ready && <ExtrasRow items={extras} onChange={setExtras} label="your comic" title="Where it happens and what they wear" />}
           </section>
 
           <section className="cm-block" aria-label="Look and layout">
@@ -294,22 +303,23 @@ export function Comic() {
           </div>
           <aside className="cm-preview" aria-label="Live comic preview">
             <button className="pill cm-preview-toggle" aria-expanded={previewOpen} aria-controls="comic-preview" onClick={() => setPreviewOpen(!previewOpen)}>{previewOpen ? "Collapse preview" : "Show preview"}</button>
-          <section id="comic-preview" className="cm-block" aria-label="The page" hidden={!previewOpen}>
-            <h2>{title.trim() || "Your page"}</h2>
-            <p className="wf-small" role="status">{saved}</p>{saved.startsWith("Could") && <button className="plain" onClick={() => setRetry((n) => n + 1)}>Retry save</button>}
-            <p className="wf-small">Live layout preview · {panels.filter((p) => pictures[p.id]).length}/{panels.length} stills ready</p>
           <div className="cm-make">
             <button className="fire" disabled={busy !== null || todo.length === 0} onClick={() => void make(todo)}>{busy ?? `Draw ${todo.length} panel${todo.length === 1 ? "" : "s"}`} <span className="cost">about {creditsText((todo.length * PRICE))}</span></button>
             {busy && <button className="plain" onClick={() => { stop.current = true; }}>Stop after this one</button>}
             {refs.length > 0 && <small>{refs.length} character sheet{refs.length === 1 ? "" : "s"} sent with every panel, so they look the same.</small>}
           </div>
+          <section id="comic-preview" className="cm-block" aria-label="The page" hidden={!previewOpen}>
+            <h2>{title.trim() || "Your page"}</h2>
+            <p className="wf-small" role="status">{saved}</p>{saved.startsWith("Could") && <button className="plain" onClick={() => setRetry((n) => n + 1)}>Retry save</button>}
+            <p className="wf-small">Live layout preview · {panels.filter((p) => pictures[p.id]).length}/{panels.length} stills ready</p>
             <canvas ref={canvas} className="cm-page" aria-label="The comic page so far" />
+            <small className="wf-small">Send selected, illustrated scenes in the order shown. Scene timing and motion carry into the editor; captions remain editable and dialogue becomes voice text, not baked into the art. Nothing is animated yet. Choose a supported video model there, review its duration and price, then explicitly generate each scene. Speech bubbles remain on the still page; video dialogue is edited in Voice and Titles.</small>
+          </section>
             <div className="cm-row">
               <button className="fire" onClick={() => void download()} disabled={Object.keys(pictures).length === 0}>Download the page</button>
               <button className="pill" onClick={() => void toProject()} disabled={!panels.some((p) => p.include !== false && pictures[p.id]) || busy !== null}>Send to a project</button>
+              <button className="pill" onClick={() => void toProject(true)} disabled={!panels.some((p) => p.include !== false && pictures[p.id]) || busy !== null}>Animate selected scenes</button>
             </div>
-            <small className="wf-small">Send selected, illustrated scenes in the order shown. Scene timing and motion carry into the editor; captions remain editable and dialogue becomes voice text, not baked into the art. Nothing is animated yet. Choose a supported video model there, review its duration and price, then explicitly generate each scene. Speech bubbles remain on the still page; video dialogue is edited in Voice and Titles.</small>
-          </section>
           </aside>
           </div>
         </div>

@@ -1,4 +1,5 @@
 "use client";
+import {prepareCutMedia} from "../../../prepare-cut-media";
 
 import { ReframePanel } from "./reframe-panel";
 import { reframeStyle } from "../../../../story/reframe";
@@ -516,7 +517,9 @@ export function Editor({ id, boardId, classic = false }: { id: string; boardId?:
             const body = await inHeader(
               { label: `Rendering ${project.name}`, href: `/board/${project.id}/cut`, result: (b) => (b?.ok && b.url ? { url: b.url } : null), failure: (b) => (b?.ok && b.url ? null : (b?.reason ?? "The render didn't finish.")) },
               async () => {
-                const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut: target && presetById(target) ? { ...cut, loudness: presetById(target)!.loudness } : cut, burn }) }).catch(() => null);
+                let renderable;
+                try { renderable=await prepareCutMedia(cut); } catch(error) { return {ok:false,reason:error instanceof Error?error.message:"Images could not be prepared for export. Your edit is unchanged."}; }
+                const res = await fetch("/api/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: project.name, cut: target && presetById(target) ? { ...renderable, loudness: presetById(target)!.loudness } : renderable, burn }) }).catch(() => null);
                 return (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string; srt?: string } | null;
               },
             );

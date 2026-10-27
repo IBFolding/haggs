@@ -1,9 +1,11 @@
 "use client";
 
+import { uploadFile } from "../upload-client";
+
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 /** An uploaded still stays in the project's persisted take history, not a temporary blob URL. */
-export function UploadImage({ onAttach, label = "Upload image", disabled = false, inputRef }: { onAttach: (url: string, name: string) => void; label?: string; disabled?: boolean; inputRef?: RefObject<HTMLInputElement | null> }) {
+export function UploadImage({ onAttach, label = "Upload image", disabled = false, inputRef }: { onAttach: (url: string, name: string) => void | Promise<void>; label?: string; disabled?: boolean; inputRef?: RefObject<HTMLInputElement | null> }) {
   const ownInput = useRef<HTMLInputElement>(null);
   const input = inputRef ?? ownInput;
   const request = useRef(0);
@@ -30,8 +32,11 @@ export function UploadImage({ onAttach, label = "Upload image", disabled = false
       const context = canvas.getContext("2d");
       if (!context) throw new Error("Image processing is unavailable. Please try again.");
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      const url = canvas.toDataURL("image/png");
-      if (token === request.current) onAttach(url, file.name);
+      const blob = await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error("Image processing failed. Try another image.")),"image/png"));
+      if (token !== request.current) return;
+      const uploaded = await uploadFile(new File([blob],file.name.replace(/\.[^.]*$/,"")+".png",{type:"image/png"}));
+      if (!uploaded.ok) throw new Error(uploaded.reason);
+      if (token === request.current) await onAttach(uploaded.url, file.name);
     } catch (caught) {
       if (token === request.current) setError(caught instanceof Error ? caught.message : "This image could not be read. Please try another file.");
     } finally {

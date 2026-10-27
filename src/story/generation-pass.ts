@@ -22,3 +22,8 @@ export function saveGenerationPass(shot:Shot, request:PassRequest, result:PassRe
  const made=result.shots[0];
  return {...addTake(shot,{url:made.url,kind:made.kind,usd:result.usd,promptHash:hashPrompt(request.prompt),at},`${request.stage==="draft"?"Draft":"Final"} · ${request.modelName}`),generationPasses:{...shot.generationPasses,[request.stage]:request.model,...(request.source?{sourceImage:request.source}:{})}};
 }
+
+/** The selected still overrides the source retained from an earlier video pass. */
+export function generationSource(shot:Shot):string|undefined {
+ return shot.startsFrom?.frameUrl ?? (shot.render?.kind === "image" ? shot.render.url : shot.generationPasses?.sourceImage);
+}

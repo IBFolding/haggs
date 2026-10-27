@@ -3374,3 +3374,61 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 }
 
 .cm-workbench .cm-make { position:static; padding:0; background:none; backdrop-filter:none; }
+
+.ads-workbench { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr); gap:28px; align-items:start; }
+.ads-inputs { min-width:0; }
+.ads-preview { position:sticky; top:20px; padding:20px; border:1px solid var(--line); border-radius:16px; background:var(--surface); max-height:calc(100dvh - 40px); overflow:auto; }
+.ads-preview h2 { margin-top:0; }
+.ads-preview-product { display:block; max-width:100%; max-height:220px; object-fit:contain; }
+.ads-plan { padding-left:20px; font-size:13px; line-height:1.6; }
+.ads-remake { margin-top:24px; border-top:1px solid var(--line); padding-top:20px; }
+.ads-remake summary { cursor:pointer; font-weight:600; }
+.ads-studio .ac-form { max-width:none; }
+@media(max-width:980px) { .ads-workbench { grid-template-columns:minmax(0,1fr); } .ads-preview { position:static; max-height:none; } }
+
+.ads-workbench .ads-url { min-width:0; flex:1 1 220px; width:100%; border:1px solid var(--line); border-radius:10px; padding:11px 14px; background:var(--surface); color:inherit; font:inherit; }
+.project-assets { min-width:0; width:100%; }
+
+/* Keep provider setup reachable on short and narrow screens. */
+.provider-sheet { max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; }
+
+/* Workspace refinement: normal controls, explicit drag handles, no full-card tooltip. */
+.ws-canvas { touch-action: pan-x pan-y; }
+.ws-frame-head,.ws-note-head,.ws-size { touch-action:none; }
+.ws-bar { gap:6px; padding:8px 0 12px; }
+.ws-bar .plain { font-size:12px; padding:8px 10px; min-height:40px; }
+.ws-hint { flex-basis:100%; font-size:12px; }
+.ws-status { color:var(--text-3); font-size:12px; margin:0 0 8px; }
+.ws-detailed .ws-card { overflow:visible; }
+.ws-detailed .ws-card-content { height:auto; overflow:visible; }
+.ws-detailed .ws-card .run-tile { overflow:hidden; border-radius:0 0 10px 10px; }
+.ws-detailed .ws-card .run-tile > img,.ws-detailed .ws-card .run-tile > video { height:156px; max-height:156px; object-fit:contain; }
+.ws-detailed .ws-card .cell-foot { padding:10px; gap:6px; }
+.ws-detailed .ws-card .cell-foot .pill { padding:7px 9px; font-size:12px; }
+.ws-card-tools { border-radius:10px 10px 0 0; }
+@media(max-width:640px){.ws-bar select { max-width:145px; }.ws-bar .plain { min-height:44px; }}
+
+/* Matching landing rows: four desktop cards, without changing their actions. */
+.lp-tile-grid, .lp-wall-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.lp-tile-grid > *, .lp-wall-grid > * { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 1000px) { .lp-tile-grid, .lp-wall-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .lp-tile-grid, .lp-wall-grid { grid-template-columns: minmax(0, 1fr); } }
+.wf-favorite-card { min-width:0; display:flex; flex-direction:column; gap:6px; }
+.wf-favorite-card .wf-tile { flex:1; }
+.wf-favorite { align-self:flex-start; min-height:40px; }
+/* On a phone, keep the same chain editable as readable steps, not off-screen boxes. */
+@media (max-width:600px) {
+ .cv { height:auto; min-height:calc(100dvh - 100px); overflow:visible; padding:12px 12px 90px; touch-action:pan-y; }
+ .cv-bar,.cv-status,.cv-sent { position:relative; inset:auto; margin:0 0 16px; }
+ .cv-plane { position:relative; inset:auto; transform:none!important; display:grid; gap:16px; width:100%; }
+ .cv-node { position:relative; left:auto!important; top:auto!important; width:100%!important; }
+ .cv-links { display:none; }
+ .cv-head { cursor:default; touch-action:pan-y; }
+ .cv-port { min-width:32px; min-height:32px; }
+ .cv-body select,.cv-body input,.cv-body button { min-height:44px; max-width:100%; }
+ .cv-menu { position:relative; inset:auto; width:100%; max-height:60dvh; margin-bottom:16px; }
+ .cv-status { margin-top:16px; }
+}
+.ws-detailed .cell-sound { aspect-ratio:auto; min-height:120px; }
+.ws-detailed .run-tile { aspect-ratio:auto; }
+@media (max-width:600px) { .ws-detailed .ws-card { width:240px!important; } }

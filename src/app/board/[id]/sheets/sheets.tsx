@@ -1,14 +1,12 @@
 "use client";
 
-import { track as inHeader } from "../../../../activity/activity";
-import { galleryRun } from "../../../gallery-log";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { cameraMove, cameraMoves, MOVE_GROUPS } from "../../../../sheets/camera";
 import { parseScreenplay, type Screenplay } from "../../../../sheets/screenplay";
 import {
-  SHEETS, addBeat, addRow, addShot, alterRows, buildSheets, exportSheets, fixCell, importSheets,
+  SHEETS, addBeat, addShot, alterRows, buildSheets, exportSheets, fixCell, importSheets,
   moveRow, normalizeSheets, promptRows, putSheetsView, qaSheet, removeRow, runtime, sheetsView, syncBoard, type SheetId, type Sheets, type ShotRow,
 } from "../../../../sheets/sheets";
 import { defaultKv } from "../../../../story/kv";
@@ -16,7 +14,7 @@ import { boardOf, commit, view } from "../../../../story/boards";
 import type { Project } from "../../../../story/model";
 import type { Fill } from "../../../../writer/fill";
 import { createProjectStore } from "../../../../story/store";
-import { fillLooks, keepPicture, run } from "../../../actions";
+import { fillLooks } from "../../../actions";
 import { applyFill, fillRequest } from "../../../../writer/fill";
 import { applyDraft, validateDraft } from "../../../../writer/draft";
 import { applyBoardProposal, validateBoardProposal } from "../../../../story/proposed-board";
@@ -26,8 +24,10 @@ import { StartScreen } from "./start";
 import { Nav, openKeys } from "../../../nav";
 import { PROJECT_SAVED } from "../../../agent";
 import { ProjectTabs } from "../../../project-tabs";
-import { BankPicker } from "../../../bank-picker";
-import { saveToBank } from "../../../../story/bank-save";
+import { BankPicker, loadBank } from "../../../bank-picker";
+import { ProjectAssets } from "../../../project-assets";
+import { useSheetAsset } from "../../../../sheets/assets";
+import { readPick } from "../../../../story/handoff";
 import type { BankItem } from "../../../../story/bank";
 
 /**
@@ -41,8 +41,6 @@ import type { BankItem } from "../../../../story/bank";
  */
 
 const keyFor = (id: string) => `sheets/${id}`;
-/** Pictures of people and places come from FLUX 3 on Comfy unless the sheet says otherwise. */
-const REF_MODEL = "bfl/flux-3-image";
 const SIZES = ["Extreme wide", "Wide", "Full", "Medium wide", "Medium", "Medium close-up", "Close-up", "Extreme close-up", "Insert", "Two-shot", "Over-the-shoulder"];
 const ANGLES = ["Eye level", "Low", "High", "Overhead", "Ground level", "Dutch", "POV"];
 const LENSES = ["14mm", "24mm", "35mm", "50mm", "85mm", "135mm", "100mm macro", "Anamorphic"];
@@ -145,25 +143,10 @@ async function shrinkFile(file: File): Promise<string> {
  * The first picture is the one sent with every shot.
  */
 /** A sheet row and your bank, both ways: use one of yours here, or keep this one for everywhere else. */
-function BankLink({ kind, name, words, refs, onUse }: { kind: "character" | "place"; name: string; words: string; refs: string[]; onUse: (item: BankItem) => void }) {
+function BankLink({ kind, onUse, beforeBuild }: { kind: "character" | "place"; onUse: (item: BankItem) => void; beforeBuild:()=>Promise<void> }) {
   const [open, setOpen] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  async function keep() {
-    try {
-      const item = await saveToBank(defaultKv(), kind, name, { image: refs[0] ?? "", words });
-      setNote(`Saved ${item.name} to your bank. It's there from every page that asks who or where.`);
-    } catch (caught) {
-      setNote(caught instanceof Error ? caught.message : "That couldn't be saved.");
-    }
-  }
-  return (
-    <div className="sh-bank">
-      <button className="plain" onClick={() => setOpen(true)}>Use one from your bank</button>
-      <button className="plain" disabled={!refs[0]} title={refs[0] ? "Keep this as one of yours, to use in any project" : "Add a reference picture first: it becomes the picture in your bank"} onClick={() => void keep()}>Save to your bank</button>
-      {note && <span className="wf-small" role="status">{note}</span>}
-      {open && <BankPicker kinds={[kind]} label="the sheets" onClose={() => setOpen(false)} onPick={onUse} />}
-    </div>
-  );
+  return <div className="sh-bank"><button className="plain" onClick={() => setOpen(true)}>Use one from your bank</button>
+    {open && <BankPicker kinds={[kind]} label="the sheets" beforeBuild={beforeBuild} allowPhotoBuild={false} onClose={() => setOpen(false)} onPick={onUse} />}</div>;
 }
 
 function RefStrip({ refs, pool, describe, onChange }: { refs: string[]; pool: string[]; describe: string; onChange: (refs: string[]) => void }) {
@@ -173,29 +156,6 @@ function RefStrip({ refs, pool, describe, onChange }: { refs: string[]; pool: st
   const upload = useRef<HTMLInputElement>(null);
   const add = (url: string) => onChange([...refs.filter((r) => r !== url), url].slice(0, 8));
 
-  async function generate() {
-    if (!describe.trim()) {
-      setProblem("Write a look or an identity lock first; the picture is made from it.");
-      return;
-    }
-    setBusy(true);
-    setProblem(null);
-    const refPrompt = `Character and location reference sheet, neutral light, clear face and full costume, no text. ${describe}`;
-    const result = await inHeader({ label: "Making a reference picture", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryRun(refPrompt, REF_MODEL, "Reference sheet") }, () => run(REF_MODEL, refPrompt, {}));
-    if (!result.ok) {
-      setBusy(false);
-      if (result.needsKey) openKeys();
-      setProblem(result.reason);
-      return;
-    }
-    const kept = await keepPicture(result.shots[0]!.url);
-    setBusy(false);
-    if (!kept.ok) {
-      setProblem(kept.reason);
-      return;
-    }
-    add(kept.dataUri);
-  }
 
   return (
     <div className="refs">
@@ -214,9 +174,9 @@ function RefStrip({ refs, pool, describe, onChange }: { refs: string[]; pool: st
         <div className="refs-add">
           <button className="pill" disabled={!pool.length} onClick={() => setPicking((p) => !p)}>Pick from media</button>
           <button className="pill" onClick={() => upload.current?.click()}>Upload</button>
-          <button className="pill" disabled={busy} onClick={() => void generate()}>{busy ? "Making…" : "Generate"}</button>
+
         </div>
-        <input ref={upload} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) add(await shrinkFile(f)); }} />
+        <input ref={upload} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { try { add(await shrinkFile(f)); setProblem(null); } catch { setProblem("That image could not be opened. Try another image."); } } }} />
       </div>
       {problem && <p className="library-error" role="alert">{problem}</p>}
       {picking && (
@@ -292,24 +252,6 @@ function useInbox(projectId: string) {
 
 const KIND: Record<Proposal["kind"], string> = { draft: "A draft", fill: "Looks and locks", edits: "Sheet edits", board: "A new board", takes: "New takes", voices: "Voice-over lines" };
 
-function AddByName({ label, onAdd }: { label: string; onAdd: (name: string) => void }) {
-  const [name, setName] = useState("");
-  return (
-    <form
-      className="sh-tools"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!name.trim()) return;
-        onAdd(name);
-        setName("");
-      }}
-    >
-      <input className="sh-search" aria-label={label} placeholder={label} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-      <button className="pill" disabled={!name.trim()}>Add</button>
-    </form>
-  );
-}
-
 /** Carries every board's beats and shots, and the locks already written, onto freshly uploaded sheets. */
 function keepWork(next: Sheets, before: Sheets): Sheets {
   const kept = <T extends { id: string }>(rows: T[], old: T[], fields: (keyof T)[]) =>
@@ -324,8 +266,8 @@ function keepWork(next: Sheets, before: Sheets): Sheets {
     ...(before.reels ? { reels: before.reels } : {}),
     story: before.story,
     shots: before.shots,
-    characters: kept(next.characters, before.characters, ["look", "wardrobe", "voice", "lock", "never"]),
-    locations: kept(next.locations, before.locations, ["look", "light", "lock"]),
+    characters: kept(next.characters, before.characters, ["look", "wardrobe", "voice", "lock", "never", "refs", "bankId"]),
+    locations: kept(next.locations, before.locations, ["look", "light", "lock", "refs", "bankId"]),
   };
 }
 
@@ -346,6 +288,19 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
   const scripts = useRef<HTMLInputElement>(null);
   const saved = useRef<HTMLInputElement>(null);
   const claude = useInbox(id);
+  const sheetWrites = useRef(Promise.resolve());
+  const returned = useRef(false);
+  const [uiReady, setUiReady] = useState(false);
+  const uiKey = `sheets-ui:${id}:${boardId ?? 'main'}`;
+  useEffect(() => { void kv.get<{tab:SheetId;picked:string[];filter:string}>(uiKey).then(v => {
+    if(v) { if(SHEETS.some(s=>s.id===v.tab)) setTab(v.tab); setPicked(v.picked ?? []); setFilter(v.filter ?? ''); }
+    setUiReady(true);
+  }); }, [kv,uiKey]);
+  useEffect(() => { if(uiReady) void kv.set(uiKey,{tab,picked,filter}); },[kv,uiKey,uiReady,tab,picked,filter]);
+  async function beforeBuild() {
+    try { await sheetWrites.current; if(all) await kv.set(keyFor(id),exportSheets(all)); await kv.set(uiKey,{tab,picked,filter}); }
+    catch { setError('Your draft could not be saved. Stay here and try again.'); throw new Error('Draft save failed'); }
+  }
 
   // The producer changed this project from the chat: load it again, so this page's next save keeps the change.
   useEffect(() => {
@@ -371,7 +326,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
   }, [kv, store, id]);
 
   useEffect(() => {
-    if (ready && all) void kv.set(keyFor(id), exportSheets(all));
+    if (ready && all) sheetWrites.current = sheetWrites.current.catch(()=>{}).then(()=>kv.set(keyFor(id), exportSheets(all))).catch(()=>{setError("Your latest changes could not be saved. Keep this page open and retry.");});
   }, [kv, ready, all, id]);
 
   const board = project ? boardOf(project, boardId) : null;
@@ -396,6 +351,20 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
       }
     });
   }, [bid, board?.name, project?.boards]);
+
+  useEffect(() => {
+    if(!ready || !all || !project || returned.current) return;
+    const pick=readPick(window.location.search);
+    if(!pick || pick.kind==='accessory') return;
+    returned.current=true;
+    void loadBank().then(items=>{
+      const item=items.find(i=>i.kind===pick.kind&&i.id===pick.id);
+      if(!item?.image) { setError('That asset is missing or unfinished. Your project is unchanged.'); return; }
+      act(x=>useSheetAsset(x,item)); setTab(item.kind==='character'?'characters':'locations'); setNotice(`${item.name} added to this project.`);
+    }).catch(()=>setError('The saved asset could not be loaded. Your project is unchanged.')).finally(()=>{
+      const u=new URL(window.location.href);u.searchParams.delete('pick');window.history.replaceState(null,'',u.pathname+u.search);
+    });
+  },[ready,all,project,act]);
 
   /** Applies what Claude sent, to the board it was meant for, then clears it from the inbox. */
   function applyProposal(item: Proposal) {
@@ -777,7 +746,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
           {tab === "characters" && (
             <>
               <div className="sh-tools">
-                <AddByName label="Add a character" onAdd={(name) => act((x) => addRow(x, "characters", { name }))} />
+                <ProjectAssets kinds={["character"]} beforeBuild={beforeBuild} onPick={item=>act(x=>useSheetAsset(x,item))} />
                 <FillButton sheets={sheets} onFilled={(fill, msg) => { act((x) => applyFill(x, fill).sheets); setNotice(msg); }} onProblem={setError} />
               </div>
               {/* Leads first: the people with the most lines are the ones every shot depends on. */}
@@ -796,7 +765,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                   <Text label="Identity lock — written into every shot they are in" rows={3} value={c.lock} hint="age, face, hair, skin, build, wardrobe" onChange={(v) => act((x) => fixCell(x, "characters", c.id, "lock", v))} />
                   <Text label="Never show" value={c.never} onChange={(v) => act((x) => fixCell(x, "characters", c.id, "never", v))} />
                   <RefStrip refs={c.refs ?? []} pool={pool} describe={[c.lock, c.look, c.wardrobe].filter(Boolean).join(". ")} onChange={(refs) => act((x) => fixCell(x, "characters", c.id, "refs", refs))} />
-                  <BankLink kind="character" name={c.name} words={[c.lock, c.look, c.wardrobe].filter(Boolean).join(". ")} refs={c.refs ?? []} onUse={(item) => act((x) => fixCell(fixCell(x, "characters", c.id, "refs", item.image ? [item.image, ...(c.refs ?? []).filter((r) => r !== item.image)].slice(0, 8) : (c.refs ?? [])), "characters", c.id, "lock", item.words))} />
+                  <BankLink kind="character" beforeBuild={beforeBuild} onUse={item=>act(x=>useSheetAsset(x,item,c.id))} />
                 </article>
               ))}
             </>
@@ -805,7 +774,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
           {tab === "locations" && (
             <>
               <div className="sh-tools">
-                <AddByName label="Add a place" onAdd={(name) => act((x) => addRow(x, "locations", { name }))} />
+                <ProjectAssets kinds={["place"]} beforeBuild={beforeBuild} onPick={item=>act(x=>useSheetAsset(x,item))} />
                 <FillButton sheets={sheets} onFilled={(fill, msg) => { act((x) => applyFill(x, fill).sheets); setNotice(msg); }} onProblem={setError} />
               </div>
               {sheets.locations.map((l) => (
@@ -821,7 +790,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                   </div>
                   <Text label="Look lock — written into every shot here" rows={3} value={l.lock} onChange={(v) => act((x) => fixCell(x, "locations", l.id, "lock", v))} />
                   <RefStrip refs={l.refs ?? []} pool={pool} describe={[l.lock, l.look, l.light].filter(Boolean).join(". ")} onChange={(refs) => act((x) => fixCell(x, "locations", l.id, "refs", refs))} />
-                  <BankLink kind="place" name={l.name} words={[l.lock, l.look, l.light].filter(Boolean).join(". ")} refs={l.refs ?? []} onUse={(item) => act((x) => fixCell(fixCell(x, "locations", l.id, "refs", item.image ? [item.image, ...(l.refs ?? []).filter((r) => r !== item.image)].slice(0, 8) : (l.refs ?? [])), "locations", l.id, "lock", item.words))} />
+                  <BankLink kind="place" beforeBuild={beforeBuild} onUse={item=>act(x=>useSheetAsset(x,item,l.id))} />
                 </article>
               ))}
             </>

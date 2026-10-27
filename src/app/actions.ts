@@ -24,6 +24,7 @@ import { localBase } from "../providers/local";
 import { keptExtension, mayFetchForKeeping } from "../server/keep-url";
 import { creditsText } from "../story/price-text";
 
+import { discoverWorkspaces, type WorkspaceDiscovery } from "../writer/anthropic-workspaces";
 import { validateWorkspaceId } from "../writer/anthropic-config";
 
 const COOKIE_OPTIONS = {
@@ -555,4 +556,11 @@ export async function estimateGeneration(modelId:string, prompt:string, settings
  const q=await provider.quote({capability:card.capability,prompt,images,firstFrame,passthrough:wire,count:outputCount(card,settings)});
  return {usd:q.usd,basis:q.basis};
  }catch{return {usd:null,basis:"The provider could not quote this configuration. No job was submitted."};}
+}
+
+/** Explicit read-only settings lookup. No inference, key changes or workspace writes. */
+export async function findClaudeWorkspaces(): Promise<WorkspaceDiscovery> {
+  const key = keyIn(await cookies(), CLAUDE_COOKIE);
+  if (!key) return { ok: false, reason: "Save your Claude key first. It stays on the server." };
+  return discoverWorkspaces(key);
 }

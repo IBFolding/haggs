@@ -9,13 +9,15 @@ import { cookies } from "next/headers";
 
 import { fill, leaveOut, type App, type Values } from "../comfy/apps";
 import { validate } from "../comfy/convert";
-import { prepare, type UiWorkflow } from "../comfy/convert";
+import { prepare, type UiWorkflow, type Catalog } from "../comfy/convert";
+import { boundedWorkflowCost } from "../comfy/bounded-price";
 import { priceOf } from "../comfy/price";
 import { createCloudRunner, type Kept } from "../providers/cloud";
 import { appOf } from "../comfy/apps";
 import { catalogOf, checked, indexOf, openTemplate, opens, type Entry, type Opened } from "../server/comfy-library";
 import { keepResult } from "../server/keep";
 import { partnerNodes } from "../comfy/partner";
+import { workflowRuntime } from "../comfy/runtime";
 import { createLocalRunner, localBase } from "../providers/local";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
 import { STEPS } from "../comfy/recipe";
@@ -36,8 +38,8 @@ async function comfyKey() {
 /** A workflow by Comfy template name, or one you opened from a file (the editor's format, or the API format). */
 export type Source = { template: string } | { file: string };
 
-async function open(key: string, source: Source): Promise<Opened> {
-  if ("template" in source) return openTemplate(root(), key, source.template);
+async function open(key: string | undefined, source: Source): Promise<Opened> {
+  if ("template" in source) { if (!key) throw new Error("The cloud template library needs a Comfy key. Import your own workflow file to use your local ComfyUI without a cloud key."); return openTemplate(root(), key, source.template); }
   if (source.file.length > 5_000_000) throw new Error("Keep workflow files under 5 MB.");
   let raw: unknown;
   try {
@@ -45,7 +47,13 @@ async function open(key: string, source: Source): Promise<Opened> {
   } catch {
     throw new Error("That isn't a Comfy workflow file.");
   }
-  const catalog = await catalogOf(root(), key);
+  const address = localIn(await cookies());
+  let catalog: Catalog;
+  if (!key && address) {
+    const response = await fetch(`${localBase(address)}/object_info`, {redirect:"error",signal:AbortSignal.timeout(30000)});
+    if (!response.ok) throw new Error("Your local ComfyUI node catalog could not be loaded.");
+    catalog = await response.json() as Catalog;
+  } else { if (!key) throw new Error("Connect your local ComfyUI or add a Comfy key first."); catalog = await catalogOf(root(), key); }
   // An API-format file is already a prompt: wrap each node so the editor-format path can read it unchanged.
   const ui = (raw as { nodes?: unknown }).nodes ? (raw as UiWorkflow) : apiToUi(raw as Record<string, { class_type: string; inputs: Record<string, unknown> }>);
   const { prompt, problems } = prepare(ui, catalog);
@@ -112,7 +120,7 @@ export type OpenedApp = { ok: true; name: string; title: string; description: st
 
 export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const key = await comfyKey();
-  if (!key) return { ok: false, reason: "Add a Comfy key to open Comfy workflows.", needsKey: true };
+  if (!key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
   const name = "template" in source ? source.template : "your workflow";
   try {
     const opened = await open(key, source);
@@ -126,7 +134,7 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
       thumb: opened.entry?.thumb ?? null,
       app: opened.app,
       problems: opened.problems,
-      price: (await priceOf(prompt, opened.catalog)).label,
+      price: !partnerNodes(prompt, opened.catalog).length && localIn(await cookies()) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
       graph: graphOf(opened.ui, samples),
       workflow: JSON.stringify(opened.ui),
     };
@@ -162,10 +170,11 @@ export type Quote = { label: string; min: number; max: number; perSecond: boolea
 
 export async function quoteWorkflow(source: Source, values: Values): Promise<Quote> {
   const key = await comfyKey();
-  if (!key) return { label: "add a Comfy key", min: 0, max: 0, perSecond: false };
+  if (!key && !localIn(await cookies())) return { label: "connect Comfy", min: 0, max: 0, perSecond: false };
   try {
     const opened = await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
+    if (localIn(await cookies()) && !partnerNodes(prompt,opened.catalog).length) return {label:"Your GPU · no provider charge",min:0,max:0,perSecond:false};
     const media = Object.fromEntries(Object.entries(values).filter(([k]) => opened.app.fields.some((f) => f.kind === "media" && `${f.node}/${f.input}` === k)));
     const words = Object.fromEntries(Object.entries(values).filter(([k]) => !(k in media)));
     const p = await priceOf(fill(prompt, opened.app, words), opened.catalog);
@@ -180,7 +189,7 @@ export type WorkflowResult = { ok: true; url: string; kind: "image" | "video" | 
 /** Runs a Comfy workflow with your files and words. Never retried automatically. */
 export async function runWorkflow(source: Source, values: Values, files: Record<string, string>): Promise<WorkflowResult> {
   const key = await comfyKey();
-  if (!key) return { ok: false, reason: "Add a Comfy key to run Comfy workflows.", needsKey: true };
+  if (!key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to run workflows.", needsKey: true };
   try {
     const opened = await open(key, source);
     if (opened.problems.length) return { ok: false, reason: opened.problems[0]! };
@@ -189,7 +198,8 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     let { prompt } = prepare(opened.ui, opened.catalog);
     // Open weights only, and your own ComfyUI set: run there, free, on your own GPU.
     const address = localIn(await cookies());
-    const mine = address && !partnerNodes(prompt, opened.catalog).length ? localBase(address) : null;
+    const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key));
+    const mine = runtime.kind === "local" ? runtime.base : null;
     let catalog = opened.catalog;
     if (mine) {
       catalog = (await (await fetch(`${mine}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30_000) })).json()) as typeof opened.catalog;
@@ -197,7 +207,7 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
       if (local.problems.length) return { ok: false, reason: `Your ComfyUI can't run this yet: ${local.problems[0]}` };
       prompt = local.prompt;
     }
-    const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key, keep: keepResult, timeoutMs: 40 * 60_000 });
+    const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key!, keep: keepResult, timeoutMs: 40 * 60_000 });
     const uploaded: Values = {};
     // An empty choice leaves that input out of the run, with the wire it fed.
     const skipped = Object.entries(files).filter(([, v]) => v === "").map(([k]) => k);
@@ -215,10 +225,11 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
     const quoted = mine ? null : await priceOf(ready, opened.catalog);
     const price = quoted ? quoted.label : "Your GPU · free";
-    // On the platform's key a run is paid for in credits first: its highest quoted price, or a quarter dollar when Comfy won't say.
+    // Unknown or runtime-only prices cannot use the platform balance.
     if (!mine && !keyIn(await cookies(), COMFY_COOKIE)) {
-      const estimate = quoted ? (quoted.perSecond ? quoted.max * 8 : quoted.max) : 0;
-      const a = await comfyAccess(Math.max(0.25, estimate), "Workflow", "Add a Comfy key to run Comfy workflows.");
+      const estimate = quoted ? boundedWorkflowCost(ready, opened.catalog, quoted) : null;
+      if (estimate === null) return {ok:false, reason:"This workflow has no reliable maximum price yet. Use your own Comfy key or local GPU; no generation was started."};
+      const a = await comfyAccess(estimate, "Workflow", "Add a Comfy key to run Comfy workflows.");
       if (!a.ok) return { ok: false, reason: a.reason, ...(a.needsKey ? { needsKey: true as const } : {}) };
       return charged(a, async () => {
         try {

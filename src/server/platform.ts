@@ -1,3 +1,5 @@
+import {reserveStorage,finishStorage} from "./storage-quota";
+import {jobOutcome,type JobOutcome} from "../providers/job-outcome";
 import { createClient } from "@supabase/supabase-js";
 
 import { PLANS, creditsFor, status as planStatus, type User } from "./billing";
@@ -15,7 +17,7 @@ import { stripeFromEnv } from "./stripe";
 
 export const platformOn = () => process.env.HAGGS_PLATFORM_KEYS === "1" && Boolean(process.env.COMFY_PLATFORM_KEY?.trim());
 
-export type Access = { ok: true; key: string; platform: boolean; settle: (completed: boolean) => Promise<void> } | { ok: false; reason: string; needsKey?: boolean };
+export type Access = { ok: true; key: string; platform: boolean; storage?:NonNullable<JobOutcome["storage"]>; settle: (completed: boolean) => Promise<void> } | { ok: false; reason: string; needsKey?: boolean };
 
 export type Deps = {
   own: string | undefined;
@@ -30,6 +32,8 @@ export type Deps = {
   /** Whether the person holds any credits at all, bought alone or with a plan. */
   hasCredits?: () => Promise<boolean>;
   ref: () => string;
+  prepareStorage?: (user:User) => Promise<NonNullable<JobOutcome["storage"]>|undefined>;
+  releaseStorage?: (hold:NonNullable<JobOutcome["storage"]>)=>Promise<void>;
 };
 
 /** The decision, with everything it needs handed in so it can be tested without Stripe or Supabase. */
@@ -41,19 +45,23 @@ export async function decide(deps: Deps, usd: number, memo: string, needKeyMessa
   }
   if (!deps.platformKey) return { ok: false, reason: needKeyMessage, needsKey: true };
   if (!deps.user) return { ok: false, reason: "Sign in to run on credits, or add your own Comfy key.", needsKey: true };
+  const storage=await deps.prepareStorage?.(deps.user);
   const ref = deps.ref();
   const cents = creditsFor(usd);
-  if (!(await deps.spend(cents, memo, ref))) return { ok: false, reason: `Not enough credits for this run (it costs about ${cents}). Buy credits from your account, or add your own Comfy key.`, needsKey: true };
+  let funded:boolean;
+  try {funded=await deps.spend(cents,memo,ref);}catch(error){if(storage)await deps.releaseStorage?.(storage);throw error;}
+  if (!funded) { if(storage)await deps.releaseStorage?.(storage); return { ok: false, reason: `Not enough credits for this run (it costs about ${cents}). Buy credits from your account, or add your own Comfy key.`, needsKey: true }; }
   let settled = false;
   return {
     ok: true,
     key: deps.platformKey,
     platform: true,
+    ...(storage?{storage}:{}),
     // A run that didn't complete gets its credits back, once.
     settle: async (completed) => {
       if (settled) return;
+      if (!completed) { await deps.refund(ref); if(storage&&!storage.saved)await deps.releaseStorage?.(storage); }
       settled = true;
-      if (!completed) await deps.refund(ref).catch(() => undefined);
     },
   };
 }
@@ -77,6 +85,12 @@ async function liveDeps(): Promise<Deps> {
     return ok;
   };
   return {
+    prepareStorage: async user => {
+      if(!process.env.BLOB_READ_WRITE_TOKEN)return undefined;
+      const maxBytes=100*1024*1024; // Cloud runner rejects larger output before saving.
+      return {id:await reserveStorage(user,maxBytes),userId:user.id,maxBytes,saved:false};
+    },
+    releaseStorage: hold=>finishStorage(hold.userId,hold.id,null),
     own: keyIn(jar, COMFY_COOKIE),
     user: await userNow(),
     platformKey: platformOn() ? process.env.COMFY_PLATFORM_KEY!.trim() : undefined,
@@ -86,7 +100,7 @@ async function liveDeps(): Promise<Deps> {
       if (error) throw new Error("Credits couldn't be checked. Try again in a moment.");
       return data === true;
     },
-    refund: async (ref) => void (await db.rpc("credits_refund", { ref })),
+    refund: async (ref) => { const {error}=await db.rpc("credits_refund",{ref});if(error)throw new Error("Credit refund is pending. Check your account before retrying."); },
     // HAGGS_GATE=1 turns the studio into a paid seat: your own key or GPU needs the Platform plan. Emails in HAGGS_FREE_EMAILS skip it.
     gate: async (user) => {
       if (process.env.HAGGS_GATE !== "1") return null;
@@ -116,14 +130,16 @@ export async function comfyAccess(usd: number, memo: string, needKeyMessage = "A
 
 /** Runs something that costs credits and settles them by whether it completed. */
 export async function charged<T extends { ok: boolean }>(access: Extract<Access, { ok: true }>, run: (key: string) => Promise<T>): Promise<T> {
-  try {
-    const result = await run(access.key);
-    await access.settle(result.ok);
-    return result;
-  } catch (caught) {
-    await access.settle(false);
-    throw caught;
-  }
+  const outcome:JobOutcome={state:"not-submitted",...(access.storage?{storage:access.storage}:{})};
+  return jobOutcome.run(outcome,async()=>{
+    const keepReservation=()=>outcome.state==="uncertain"||outcome.state==="completed";
+    try {
+      const result=await run(access.key);
+      await access.settle(result.ok||keepReservation());
+      if(!result.ok&&access.platform&&keepReservation()&&"reason" in result && typeof result.reason==="string")result.reason+=` Credits remain reserved while the provider charge is checked.${outcome.jobId?` Comfy job: ${outcome.jobId}.`:""} Check Activity before running again.`;
+      return result;
+    }catch(error){await access.settle(keepReservation());throw error;}
+  });
 }
 
 /** A key for reading Comfy's catalog (listing and opening workflows): free to the platform, so any signed-in person on a plan may use it. */

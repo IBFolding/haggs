@@ -1,4 +1,5 @@
 import { addBoard, commit } from "./boards";
+import { offsetReframe } from "./reframe";
 import { buildCut } from "./cut";
 import type { Board, Project } from "./model";
 
@@ -29,6 +30,7 @@ export function cutdown(project: Project, from: number, to: number): Project {
       ...rest,
       id: crypto.randomUUID(),
       seconds: length,
+      ...(shot.reframe ? {reframe:offsetReframe(shot.reframe,head)} : {}),
       ...(clip.from + head > 0 ? { trimIn: round(clip.from + head) } : {}),
       // Fades belong to the clip's own ends: keep one only if its end survived.
       ...(head === 0 && fadeIn ? { fadeIn } : {}),

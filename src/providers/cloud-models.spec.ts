@@ -114,14 +114,16 @@ test("Veo 3.1 names its model, takes 4 to 8 seconds, and an optional reference p
   assert.equal(node(cloudWorkflow("google/veo-3-1-lite", { prompt: P, settings: { duration: 2, resolution: "720p", aspect_ratio: "16:9", generate_audio: false }, images: [] }), "Veo3VideoGenerationNode").inputs.duration_seconds, 4, "shorter than the model allows is lifted to 4");
 });
 
-test("Veo prices: the sound doubles it, and the Lite model is far cheaper", () => {
+test("Veo prices match published per-resolution audio rates", () => {
   const v = (id: string, resolution: string, generate_audio: boolean, duration = 8) => cloudPrice(id, { duration, resolution, generate_audio });
-  assert.equal(v("google/veo-3-1", "720p", true), usdFromCredits(675));
-  assert.equal(v("google/veo-3-1", "1080p", true), usdFromCredits(675));
-  assert.equal(v("google/veo-3-1", "720p", false), usdFromCredits(338));
-  assert.equal(v("google/veo-3-1-fast", "720p", true), usdFromCredits(169));
-  assert.equal(v("google/veo-3-1-lite", "720p", true), usdFromCredits(84));
-  assert.equal(v("google/veo-3-1-lite", "1080p", true), usdFromCredits(135));
+  assert.equal(v("google/veo-3-1", "720p", true), usdFromCredits(675.2));
+  assert.equal(v("google/veo-3-1", "1080p", true), usdFromCredits(675.2));
+  assert.equal(v("google/veo-3-1", "720p", false), usdFromCredits(337.6));
+  assert.equal(v("google/veo-3-1-fast", "720p", true), usdFromCredits(168.8));
+  assert.equal(v("google/veo-3-1-lite", "720p", true), usdFromCredits(84.4));
+  assert.equal(v("google/veo-3-1-lite", "1080p", true), usdFromCredits(135.04));
+  assert.equal(v("google/veo-3-1-lite", "720p", false, 4), usdFromCredits(25.32));
+  assert.equal(v("google/veo-3-1-fast", "1080p", false, 4), usdFromCredits(84.4));
 });
 
 /* ── Nano Banana 2 ─────────────────────────────────────── */

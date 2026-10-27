@@ -33,7 +33,10 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
   /** The whole project; the state below is one board's view of it. */
   const full = useRef<Project | null>(null);
   const store = useMemo(() => createProjectStore(defaultKv()), []);
-  const saves = useMemo(() => createSaveQueue(store, 600, () => setError("Your changes could not be saved. Free device storage and retry uploading the image before leaving this page.")), [store]);
+  const [saveStatus,setSaveStatus]=useState("Saved on this device");
+  const saves = useMemo(() => createSaveQueue(store, 600, () => {setSaveStatus("Changes not saved");setError("Your changes could not be saved. Free device storage and retry before leaving this page.");},()=>setSaveStatus("Saved on this device")), [store]);
+  useEffect(()=>()=>{void saves.flush();},[saves]);
+  useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(saveStatus!=="Saved on this device"){e.preventDefault();e.returnValue="";}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[saveStatus]);
 
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
@@ -75,6 +78,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
       setProject((current) => {
         if (!current) return current;
         const next = change(current);
+        setSaveStatus("Saving changes…");
         saves.queue((full.current = commit(full.current ?? next, boardId, next)));
         return next;
       });
@@ -230,6 +234,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
           )}
         </header>
 
+        <p className="wf-small" role="status">{saveStatus}</p>
         {error && <p className="library-error" role="alert">{error}</p>}
 
         <div className="board-tools">
@@ -348,9 +353,14 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
             </div>
 
             <div className="composer-bottom">
-              <UploadImage key={shot.id} onAttach={(url, name) => {
-                setError(null);
-                edit((current) => attachUploadedStill(current, shot.id, url, name));
+              <UploadImage key={shot.id} onAttach={async (url, name) => {
+                setError(null); setSaveStatus("Saving changes…");
+                const current=full.current ? view(full.current,boardId) : project;
+                const next=attachUploadedStill(current,shot.id,url,name);
+                full.current=commit(full.current??next,boardId,next);setProject(next);
+                saves.queue(full.current);await saves.flush();
+                const verified=await store.load(id);
+                if(!verified || view(verified,boardId).shots.find(s=>s.id===shot.id)?.render?.url!==url)throw new Error("This image could not be saved to its shot. Keep the page open and retry.");
               }} />
               <select
                 className="pill on"

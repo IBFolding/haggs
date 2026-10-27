@@ -12,6 +12,7 @@ import { libraryPrompts, listWorkflows, planCanvas } from "../workflow-actions";
 import { planToCanvas, type Plan } from "../../comfy/canvas";
 import { alternativesFor, isOpen } from "../../comfy/alternatives";
 import { quickById } from "../../comfy/quick";
+import { defaultKv } from "../../story/kv";
 import { WorkflowApp } from "./[name]/workflow-app";
 
 /**
@@ -45,6 +46,10 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   const [planning, setPlanning] = useState(false);
   const [sent, setSent] = useState<{ id: string; summary: string; plan: Plan }[]>([]);
   const surface = useRef<HTMLDivElement>(null);
+  const [draftReady,setDraftReady]=useState(false);
+  const draftKey=`workflow-builder/draft/${quick?.id??"custom"}`;
+  useEffect(()=>{let live=true;if(start){setDraftReady(true);return;}void defaultKv().get<Canvas>(draftKey).then(saved=>{if(live&&saved&&Array.isArray(saved.nodes)&&Array.isArray(saved.links))setCanvas(saved);}).catch(()=>setNote("Your saved draft could not be loaded.")).finally(()=>{if(live)setDraftReady(true);});return()=>{live=false;};},[draftKey,start]);
+  useEffect(()=>{if(draftReady&&!start)void defaultKv().set(draftKey,canvas).catch(()=>setNote("Draft could not be saved. Keep this page open and try again."));},[canvas,draftReady,draftKey,start]);
 
   // Library workflows already on a saved canvas need loading before it can compile.
   useEffect(() => {
@@ -90,11 +95,11 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   }, [canvas, library]);
 
   useEffect(() => {
-    if (quick && !start && compiled.json && !autoTried.current) {
+    if (draftReady && quick && !start && compiled.json && !autoTried.current) {
       autoTried.current = true;
       setTrying(true);
     }
-  }, [quick, start, compiled.json]);
+  }, [quick, start, compiled.json,draftReady]);
 
   const patch = (id: string, p: Partial<CNode>) => setCanvas((c) => ({ ...c, nodes: c.nodes.map((n) => (n.id === id ? { ...n, ...p } : n)) }));
   const remove = (id: string) => setCanvas((c) => ({ ...c, nodes: c.nodes.filter((n) => n.id !== id), links: c.links.filter((l) => l.from !== id && l.to !== id) }));
@@ -134,6 +139,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   const label = (n: CNode) => (n.kind === "library" ? titles[n.template ?? ""] ?? n.template ?? "Workflow" : info(n.kind).label);
 
   function drag(e: React.PointerEvent, id: string) {
+    if(window.matchMedia("(max-width: 600px)").matches)return;
     const n = canvas.nodes.find((x) => x.id === id)!;
     const sx = e.clientX, sy = e.clientY, ox = n.x, oy = n.y;
     const move = (ev: PointerEvent) => patch(id, { x: Math.round(ox + ev.clientX - sx), y: Math.round(oy + ev.clientY - sy) });
@@ -143,6 +149,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   }
 
   function panStart(e: React.PointerEvent) {
+    if(window.matchMedia("(max-width: 600px)").matches)return;
     if ((e.target as HTMLElement).closest(".cv-node, .cv-bar, .cv-menu, .cv-link-x")) return;
     setLinking(null);
     const sx = e.clientX, sy = e.clientY, ox = pan.x, oy = pan.y;
@@ -225,9 +232,9 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
             <button className="pill" disabled={planning || goal.trim().length < 6}>{planning ? "Planning…" : "Plan it"}</button>
           </form>
           <div className="cv-add">
-            <button className="pill on" onClick={() => setMenu((m) => !m)} aria-expanded={menu}>+ Add</button>
+            <button className="pill on" onClick={() => setMenu((m) => !m)} aria-expanded={menu}>+ Add a step</button>
           </div>
-          <span className="cv-hint">{linking ? "Now click the node it should feed." : "Drag a node to move it. Click a node's right dot, then another node, to link them."}</span>
+          <span className="cv-hint">{linking ? "Choose the step that should receive this result." : "Connect steps in the order you want. The result becomes a simple app with upload fields and a Run button."}</span>
           <button className="fire" disabled={!compiled.json} onClick={() => setTrying(true)}>Turn it into an app</button>
         </div>
 
@@ -329,6 +336,13 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
                       </label>
                     )}
                   </div>
+                  <label>Receives from
+                    <select aria-label={`Connect input for ${label(n)}`} value="" onChange={e=>{const from=e.target.value;if(from)setCanvas(c=>({...c,links:c.links.some(l=>l.from===from&&l.to===n.id)?c.links:[...c.links,{from,to:n.id}]}));}}>
+                      <option value="">Connect a compatible step…</option>
+                      {canvas.nodes.filter(other=>other.id!==n.id&&accepts(n,other)).map(other=><option key={other.id} value={other.id}>{label(other)}</option>)}
+                    </select>
+                  </label>
+                  {canvas.links.filter(l=>l.to===n.id).map(l=><button key={l.from} className="plain" onClick={()=>setCanvas(c=>({...c,links:c.links.filter(x=>!(x.from===l.from&&x.to===l.to))}))}>Disconnect {label(at(l.from))}</button>)}
                   <button className="plain danger" onClick={() => remove(n.id)}>Remove</button>
                 </div>
               </div>

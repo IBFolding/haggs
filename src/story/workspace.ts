@@ -123,3 +123,22 @@ export function setFrameMembers(layout: Layout, frameId: string, ids: string[]):
   const bounds = members.length ? groupCards({ ...layout, frames: [] }, members, "Group").frames[0] : undefined;
   return { ...layout, frames: layout.frames.map((f) => f.id === frameId ? { ...f, ...(bounds ? { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h } : {}), members } : f) };
 }
+
+export type CardSize={w:number;h:number};
+/** Explicit tidy only: pack connected groups together, preserving all IDs, notes and membership. */
+export function arrange(layout:Layout,sizes:Record<string,CardSize>,availableWidth:number):Layout{
+ const cards={...layout.cards},frames=layout.frames.map(f=>({...f,members:membersOf(layout,f.id)}));
+ const parent=new Map(Object.keys(cards).map(id=>[id,id]));const root=(id:string):string=>{const p=parent.get(id)!;return p===id?id:root(p);};
+ for(const f of frames)for(const id of f.members.slice(1))parent.set(root(id),root(f.members[0]!));
+ const clusters=new Map<string,string[]>();for(const id of Object.keys(cards)){const key=frames.some(f=>f.members.includes(id))?root(id):"__ungrouped__";clusters.set(key,[...(clusters.get(key)??[]),id]);}
+ const width=Math.max(260,availableWidth),gap=24,pad=24;let top=64;
+ const size=(id:string)=>sizes[id]??{w:CARD_W,h:CARD_H};
+ for(const ids of clusters.values()){
+  let x=pad,y=top,rowH=0;
+  for(const id of ids){const s=size(id);if(x>pad&&x+s.w>width-pad){x=pad;y+=rowH+gap;rowH=0;}cards[id]={x,y};x+=s.w+gap;rowH=Math.max(rowH,s.h);}
+  top=y+rowH+80;
+ }
+ const packed=frames.map(f=>{if(!f.members.length){const out={...f,x:pad,y:top,w:Math.min(f.w,width-pad*2),h:Math.max(120,f.h)};top+=out.h+gap;return out;}const x=Math.min(...f.members.map(id=>cards[id]!.x))-16,y=Math.min(...f.members.map(id=>cards[id]!.y))-44;return{...f,x,y,w:Math.max(...f.members.map(id=>cards[id]!.x+size(id).w))-x+16,h:Math.max(...f.members.map(id=>cards[id]!.y+size(id).h))-y+16};});
+ const notes=layout.notes.map((n,i)=>({...n,x:pad+(i%Math.max(1,Math.floor(width/224)))*224,y:top+Math.floor(i/Math.max(1,Math.floor(width/224)))*180}));
+ return {...layout,cards,frames:packed,notes};
+}

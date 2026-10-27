@@ -24,7 +24,7 @@ export async function uploadFile(file: File): Promise<Uploaded> {
     if (file.size > 300 * 1024 * 1024) return { ok: false, reason: "Keep added files under 300 MB." };
     try {
       const owner = await ownerFolder();
-      const made = await upload(`haggs/${owner}/uploads/${file.name.replace(/[^\w.-]+/g, "-").slice(-80)}`, file, { access: "public", handleUploadUrl: "/api/blob/upload" });
+      const made = await upload(`haggs/${owner}/uploads/${file.name.replace(/[^\w.-]+/g, "-").slice(-80)}`, file, { access: "public", handleUploadUrl: "/api/blob/upload", clientPayload: JSON.stringify({size:file.size}) });
       return { ok: true, url: made.url, kind, name: file.name };
     } catch (caught) {
       return { ok: false, reason: caught instanceof Error ? caught.message : "The file couldn't be added." };

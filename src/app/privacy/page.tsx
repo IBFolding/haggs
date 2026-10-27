@@ -16,7 +16,7 @@ export default function Privacy() {
           <p>Your projects, characters, places, runs and Academy progress are stored in your browser. Nothing is sent anywhere until you run something or sign in.</p>
           <h2>What we receive</h2>
           <ul>
-            <li><b>When you run something:</b> your prompt and any pictures, video or audio you attach go to our server and on to Comfy to be processed. The result is kept in our file store for 60 days.</li>
+            <li><b>When you run something:</b> your prompt and any pictures, video or audio you attach go to our server and on to Comfy to be processed. The result is kept in our file store when your plan includes cloud storage.</li>
             <li><b>When you add a key:</b> it is kept in a cookie in your browser and sent only with your own requests. We do not store it on our servers.</li>
             <li><b>When you sign in:</b> your email address, or your Google or GitHub identity, handled by Supabase. If you turn on cross-device projects, your project data is stored there too, readable only by you.</li>
             <li><b>When you pay:</b> Stripe handles your card. We receive your plan and its status, never the card number.</li>

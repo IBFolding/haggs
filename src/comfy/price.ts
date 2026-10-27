@@ -17,7 +17,7 @@ type Result =
   | { type: "list_usd"; usd: number[]; format?: { suffix?: string } }
   | { type: "text"; text: string };
 
-export type NodePrice = { node: string; name: string; min: number; max: number; perSecond: boolean; label: string };
+export type NodePrice = { node: string; name: string; min: number; max: number; perSecond: boolean; label: string; approximate?: boolean };
 export type Price = { nodes: NodePrice[]; min: number; max: number; perSecond: boolean; label: string };
 
 const money = (n: number) => rateText(n);
@@ -45,11 +45,12 @@ export async function priceOf(prompt: ApiPrompt, catalog: Catalog): Promise<Pric
     }
     if (!result) continue;
     const name = def?.display_name ?? node.class_type;
+    const approximate = "format" in result && Boolean((result.format as {approximate?:boolean} | undefined)?.approximate);
     const perSecond = "format" in result && /second/i.test(result.format?.suffix ?? "");
-    if (result.type === "usd") nodes.push({ node: id, name, min: result.usd, max: result.usd, perSecond, label: `${money(result.usd)}${perSecond ? "/s" : ""}` });
-    else if (result.type === "range_usd") nodes.push({ node: id, name, min: result.min_usd, max: result.max_usd, perSecond, label: `${money(result.min_usd)}–${money(result.max_usd)}${perSecond ? "/s" : ""}` });
-    else if (result.type === "list_usd" && result.usd.length) nodes.push({ node: id, name, min: Math.min(...result.usd), max: Math.max(...result.usd), perSecond, label: result.usd.map(money).join(" / ") });
-    else if (result.type === "text") nodes.push({ node: id, name, min: 0, max: 0, perSecond: false, label: result.text });
+    if (result.type === "usd") nodes.push({ node: id, name, approximate, min: result.usd, max: result.usd, perSecond, label: `${money(result.usd)}${perSecond ? "/s" : ""}` });
+    else if (result.type === "range_usd") nodes.push({ node: id, name, approximate, min: result.min_usd, max: result.max_usd, perSecond, label: `${money(result.min_usd)}–${money(result.max_usd)}${perSecond ? "/s" : ""}` });
+    else if (result.type === "list_usd" && result.usd.length) nodes.push({ node: id, name, approximate, min: Math.min(...result.usd), max: Math.max(...result.usd), perSecond, label: result.usd.map(money).join(" / ") });
+    else if (result.type === "text") nodes.push({ node: id, name, approximate, min: 0, max: 0, perSecond: false, label: result.text });
   }
   const min = nodes.reduce((n, p) => n + p.min, 0);
   const max = nodes.reduce((n, p) => n + p.max, 0);

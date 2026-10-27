@@ -31,14 +31,15 @@ export function ReturnBar({ kind, savedId, savedName }: { kind: PickKind; savedI
 }
 
 /** A link to a builder that remembers where you are. */
-export function BuildLink({ href, label, children, className }: { href: string; label: string; children: React.ReactNode; className?: string }) {
+export function BuildLink({ href, label, children, className, beforeNavigate }: { href: string; label: string; children: React.ReactNode; className?: string; beforeNavigate?: (() => Promise<void>) | undefined }) {
   const router = useRouter();
   return (
     <a
       href={href}
       className={className}
-      onClick={(e) => {
+      onClick={async (e) => {
         e.preventDefault();
+        try { await beforeNavigate?.(); } catch { return; }
         const u = new URL(href, window.location.origin);
         const here = window.location.pathname + window.location.search;
         if (safeReturn(here)) { u.searchParams.set("return", here); u.searchParams.set("label", label.slice(0, 40)); }

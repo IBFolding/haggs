@@ -9,13 +9,13 @@ import{continuityStale}from"../../../../story/continuity";
 import{takesOf}from"../../../../story/takes";
 import type{Project,Shot}from"../../../../story/model";
 import{estimateGeneration,run}from"../../../actions";
-import{passKey,runGenerationPass,saveGenerationPass,type PassRequest}from"../../../../story/generation-pass";
+import{generationSource,passKey,runGenerationPass,saveGenerationPass,type PassRequest}from"../../../../story/generation-pass";
 import{creditsText}from"../../../../story/price-text";
 export function PassPanel({project,shot,onShot}:{project:Project;shot:Shot;onShot:(id:string,f:(s:Shot)=>Shot)=>void}){
  const[stage,setStage]=useState<"draft"|"final">("draft");const[busy,setBusy]=useState(false);const[message,setMessage]=useState("");const[quote,setQuote]=useState<{key:string;usd:number|null;basis:string}|null>(null);
  const models=MODELS.filter(m=>m.capability==="text-to-video"||m.capability==="image-to-video");const fallback=models.find(m=>m.id===shot.model.id)??models[0]!;
  const config=shot.generationPasses?.[stage]??{id:fallback.id,settings:defaultSettings(fallback.settings)};const card=getModelCard(config.id);const settings=coerceSettings(card.settings,config.settings);
- const source=shot.startsFrom?.frameUrl??shot.generationPasses?.sourceImage??(shot.render?.kind==="image"?shot.render.url:undefined);
+ const source=generationSource(shot);
  const images=[...(source?[source]:[]),...(shot.refs??[])].slice(0,card.inputImages);const prompt=promptFor(project,project.shots.findIndex(s=>s.id===shot.id));const request:PassRequest={stage,model:{id:config.id,settings},prompt,images,...(source?{source}:{}),modelName:card.name,inputImages:card.inputImages};const fingerprint=passKey(request);
  const locked=needsApproval(shot);const stale=continuityStale(project,shot);const unsupported=!!source&&card.inputImages===0;
  const change=(id:string,next:Record<string,string|number|boolean>)=>onShot(shot.id,s=>({...s,generationPasses:{...s.generationPasses,[stage]:{id,settings:next}}}));

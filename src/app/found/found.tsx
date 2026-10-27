@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { appendFound, foundBoard, searchWords, type Found as Scene, type Pick } from "../../found/found";
 import type { Project } from "../../story/model";
-import { defaultKv } from "../../story/kv";
+import { defaultKv, idbKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { findFootage, keepFootage } from "../found-actions";
 import { Nav } from "../nav";
@@ -33,6 +33,10 @@ export function Found() {
   const [destination, setDestination] = useState("");
   const importing = useRef(false);
   const pending = useRef<Project | null>(null);
+  const [ready,setReady]=useState(false);
+  const writes=useRef(Promise.resolve());
+  useEffect(()=>{void idbKv().get<{brief:string;words:string;found:Scene[]|null;picked:string[];destination:string}>("found:draft:v1").then(d=>{if(d){setBrief(d.brief);setWords(d.words);setFound(d.found);setPicked(d.picked);setDestination(d.destination);}setReady(true);}).catch(()=>{setReady(true);setProblem("Could not restore the search draft. Keep this page open while working.");});},[]);
+  useEffect(()=>{if(!ready)return;writes.current=writes.current.catch(()=>{}).then(()=>idbKv().set("found:draft:v1",{brief,words,found,picked,destination}));void writes.current.catch(()=>setProblem("Search changes could not be saved. Keep this page open and retry."));},[ready,brief,words,found,picked,destination]);
   useEffect(() => { void store.list().then(async (list) => {
     const projects = await Promise.all(list.map((p) => store.load(p.id)));
     setDestinations(projects.flatMap((p) => p ? (p.boards ?? []).map((b) => ({id:p.id, board:b.id, label:`${p.name} / ${b.name}`})) : []));
@@ -42,7 +46,7 @@ export function Found() {
     pending.current = null;
     setBusy("Searching the archive…");
     setProblem(null);
-    const r = await findFootage(words.split(/[\s,]+/).filter(Boolean));
+    const r = await findFootage(words.split(/[\s,]+/).filter(Boolean)).catch(()=>({ok:false as const,reason:"The archive could not be reached. Your search and selections are kept; try again."}));
     setBusy(null);
     if (!r.ok) return setProblem(r.reason);
     setFound(r.found);
@@ -105,7 +109,7 @@ export function Found() {
           <label className="wf-field"><span>Search words (change them if the results are off)</span>
             <input value={words} onChange={(e) => setWords(e.target.value)} placeholder="city night diner" aria-label="Search words" />
           </label>
-          <p><button className="fire" disabled={busy !== null || words.trim().length < 3} onClick={() => void search()}>{busy ?? "Find footage"} <span className="cost">free</span></button></p>
+          <p><button className="fire" disabled={!ready || busy !== null || words.trim().length < 3} onClick={() => void search()}>{busy ?? "Find footage"} <span className="cost">free</span></button></p>
           {problem && <p className="library-error" role="alert">{problem}</p>}
 
           {found && found.length > 0 && (
