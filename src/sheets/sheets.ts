@@ -38,6 +38,7 @@ export type Beat = {
   note: string;
 };
 export type CharacterRow = {
+  bankId?: string;
   id: string;
   name: string;
   aliases: string[];
@@ -54,6 +55,7 @@ export type CharacterRow = {
   refs?: string[];
 };
 export type LocationRow = {
+  bankId?: string;
   id: string;
   name: string;
   setting: string;

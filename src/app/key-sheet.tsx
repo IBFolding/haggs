@@ -1,10 +1,10 @@
 "use client";
 
 import { FAL_ENABLED } from "../catalog/models";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useSession } from "./session";
-import { claudeWorkspace, saveClaudeWorkspace, clearClaudeKey, clearComfyKey, clearKey, clearLocalComfy, localComfy, saveClaudeKey, saveComfyKey, saveKey, saveLocalComfy } from "./actions";
+import { findClaudeWorkspaces, claudeWorkspace, saveClaudeWorkspace, clearClaudeKey, clearComfyKey, clearKey, clearLocalComfy, localComfy, saveClaudeKey, saveComfyKey, saveKey, saveLocalComfy } from "./actions";
 
 /**
  * Every key in one place. Comfy (Cloud, or Router where enabled) is the platform this app is
@@ -35,9 +35,20 @@ export function KeySheet({
   onChange: (next: { comfy: boolean; fal: boolean; claude: boolean }) => void;
   onClose: () => void;
 }) {
+  const dialog=useRef<HTMLDivElement>(null);
+  const close=useRef(onClose);close.current=onClose;
+  useEffect(()=>{
+    const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const controls=()=>Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')??[]).filter(e=>e.getClientRects().length>0);
+    controls()[0]?.focus();
+    const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.preventDefault();close.current();}else if(e.key==='Tab'){const list=controls(),first=list[0],last=list.at(-1);if(e.shiftKey&&(document.activeElement===first||!dialog.current?.contains(document.activeElement))){e.preventDefault();last?.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dialog.current?.contains(document.activeElement))){e.preventDefault();first?.focus();}}};
+    document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);previous?.focus();};
+  },[]);
+  const lookupEpoch=useRef(0);
   const [workspace, setWorkspace] = useState("");
   const [workspaceStatus, setWorkspaceStatus] = useState("");
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [workspaceChoices, setWorkspaceChoices] = useState<{id:string;name:string}[]>([]);
   const [drafts, setDrafts] = useState({ comfy: "", fal: "", claude: "" });
   const [busy, setBusy] = useState<string | null>(null);
   const [gpu, setGpu] = useState<{ base: string; note: string } | null>(null);
@@ -88,7 +99,7 @@ export function KeySheet({
     const credits = session ? "/account#credits" : "/signin?next=/account%23credits";
     return (
       <div className="veil" onClick={onClose}>
-        <div className="sheet wide" onClick={(event) => event.stopPropagation()}>
+        <div ref={dialog} className="sheet wide provider-sheet" role="dialog" aria-modal="true" aria-label="Provider setup" onClick={(event) => event.stopPropagation()}>
           <h3>How do you want to make things?</h3>
           <p>Browsing is free. To make something, choose where the work runs. You can change this any time.</p>
           <div className="path-grid">
@@ -119,7 +130,7 @@ export function KeySheet({
 
   return (
     <div className="veil" onClick={onClose}>
-      <div className="sheet wide" onClick={(event) => event.stopPropagation()}>
+      <div ref={dialog} className="sheet wide provider-sheet" role="dialog" aria-modal="true" aria-label="Provider setup" onClick={(event) => event.stopPropagation()}>
         <h3>Connect your keys</h3>
         <p>
           You pay the provider directly, at their rate.{hosted ? " The studio itself is the Platform plan, $15 a month." : ""}{" "}
@@ -144,7 +155,7 @@ export function KeySheet({
               <input
                 type="password"
                 value={drafts[row.id]}
-                onChange={(event) => setDrafts((d) => ({ ...d, [row.id]: event.target.value }))}
+                onChange={(event) => { setDrafts((d) => ({ ...d, [row.id]: event.target.value })); if(row.id === "claude"){lookupEpoch.current++;setWorkspaceChoices([]);} }}
                 placeholder={row.held ? "Replace the key" : row.place}
                 autoComplete="off"
               />
@@ -154,6 +165,7 @@ export function KeySheet({
                 onClick={async () => {
                   setBusy(row.id);
                   await row.save(drafts[row.id]);
+                  if(row.id === "claude"){ lookupEpoch.current++;setWorkspaceChoices([]); setWorkspaceStatus("Key saved. If it requires a workspace, choose Find workspaces below. No generation is used."); }
                   setDrafts((d) => ({ ...d, [row.id]: "" }));
                   onChange({ ...held, [row.id]: true });
                   setBusy(null);
@@ -174,13 +186,21 @@ export function KeySheet({
               )}
             </div>
             {row.id === "claude" && <div className="claude-workspace">
-              <label htmlFor="claude-workspace-id">Anthropic workspace ID (optional)</label>
-              <p className="key-blurb">Required for an unscoped personal or service-account key. Leave blank for a workspace-scoped key. <a href="https://platform.claude.com/settings/workspaces" target="_blank" rel="noreferrer">Find your workspace ID</a>. This is separate from the Haggs canvas.</p>
-              <div className="sheet-row"><input id="claude-workspace-id" value={workspace} onChange={(e) => { setWorkspace(e.target.value); setWorkspaceStatus(""); }} placeholder="wrkspc_…" autoComplete="off" maxLength={135} />
-              <button className="plain" disabled={workspaceBusy} onClick={async () => {
+              <h4>Choose your Claude workspace</h4>
+              <p className="key-blurb">Most workspace-scoped keys need no extra setup. If Claude asks for a workspace, find it below and select its name. <a href="https://platform.claude.com/settings/workspaces" target="_blank" rel="noreferrer">Find your workspace ID</a>. This is separate from the Haggs canvas.</p>
+              <button className="plain" disabled={!held.claude || workspaceBusy || !!drafts.claude.trim()} onClick={async () => {
+                const epoch=++lookupEpoch.current;setWorkspaceBusy(true); setWorkspaceStatus(""); setWorkspaceChoices([]);
+                try { const r = await findClaudeWorkspaces(); if(epoch!==lookupEpoch.current)return; if (r.ok) { setWorkspaceChoices(r.workspaces); setWorkspaceStatus(r.workspaces.length ? "Choose a workspace below, then save. Listing does not verify inference access or spend credits." : "No workspaces were returned. A scoped key needs no workspace setting; otherwise check Claude Console."); } else setWorkspaceStatus(r.reason); }
+                catch { setWorkspaceStatus("Workspace lookup could not finish. Your settings are unchanged."); }
+                finally { setWorkspaceBusy(false); }
+              }}>Find workspaces · no generation</button>
+              {workspaceChoices.length > 0 && <label>Choose an Anthropic workspace<select value={workspaceChoices.some((w) => w.id === workspace) ? workspace : ""} onChange={(e) => { setWorkspace(e.target.value); setWorkspaceStatus("Selection is not saved yet. Save workspace selection to apply it."); }}><option value="" disabled>Choose a workspace</option>{workspaceChoices.map((w) => <option key={w.id} value={w.id}>{w.name} · {w.id}</option>)}</select></label>}
+              <details><summary>Advanced: enter a workspace ID</summary><label htmlFor="claude-workspace-id">Anthropic workspace ID</label><input id="claude-workspace-id" value={workspace} onChange={(e) => { setWorkspace(e.target.value); setWorkspaceStatus(""); }} placeholder="wrkspc_…" autoComplete="off" maxLength={135} /></details>
+              {workspace && <p>Selected workspace: {workspaceChoices.find(w=>w.id===workspace)?.name ?? workspace}</p>}
+              <div className="sheet-row"><button className="plain" disabled={workspaceBusy || !!drafts.claude.trim()} onClick={async () => {
                 setWorkspaceBusy(true); setWorkspaceStatus("");
                 try { const result = await saveClaudeWorkspace(workspace); setWorkspaceStatus(result.ok ? "Workspace setting saved. Your key is unchanged." : result.reason); } catch { setWorkspaceStatus("Could not save the workspace setting. Try again."); } finally { setWorkspaceBusy(false); }
-              }}>{workspaceBusy ? "Saving…" : "Save workspace ID"}</button></div>
+              }}>{workspaceBusy ? "Saving…" : "Save workspace selection"}</button></div>
               {workspaceStatus && <p role="status">{workspaceStatus}</p>}
             </div>}
           </section>

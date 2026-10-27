@@ -106,9 +106,9 @@ function seedance(id: string): CloudModel {
 
 /* ── Veo 3.1 ──────────────────────────────────────────── */
 const VEO: Record<string, { name: string; perSecond: (res: string, audio: boolean) => number }> = {
-  "google/veo-3-1": { name: "veo-3.1-generate", perSecond: (_res, audio) => (audio ? 84.375 : 42.25) },
-  "google/veo-3-1-fast": { name: "veo-3.1-fast-generate", perSecond: (_res, audio) => (audio ? 21.125 : 10.56) },
-  "google/veo-3-1-lite": { name: "veo-3.1-lite", perSecond: (res, audio) => (res === "1080p" ? 16.875 : 10.5) * (audio ? 1 : 0.5) },
+  "google/veo-3-1": { name: "veo-3.1-generate", perSecond: (_res, audio) => (audio ? 84.4 : 42.2) },
+  "google/veo-3-1-fast": { name: "veo-3.1-fast-generate", perSecond: (res, audio) => res === "1080p" ? (audio ? 25.32 : 21.1) : (audio ? 21.1 : 16.88) },
+  "google/veo-3-1-lite": { name: "veo-3.1-lite", perSecond: (res, audio) => res === "1080p" ? (audio ? 16.88 : 10.55) : (audio ? 10.55 : 6.33) },
 };
 
 function veo(id: string): CloudModel {

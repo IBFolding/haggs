@@ -1,3 +1,5 @@
+import {jobOutcome} from "../providers/job-outcome";
+import {reserveStorage,finishStorage} from "./storage-quota";
 import { put } from "@vercel/blob";
 
 import { ownerOf, signInRequired, userNow } from "./auth";
@@ -18,13 +20,19 @@ const TYPES: Record<string, string> = { mp4: "video/mp4", webm: "video/webm", mo
 export async function putBlob(bytes: Uint8Array, extension: string, folder = "results"): Promise<string> {
   const user = await userNow();
   if (signInRequired() && !user) throw new Error("Sign in to save results here.");
+  if (!user) throw new Error("Sign in to use cloud storage.");
   // 300 saved files an hour each; guests share one allowance per server instance.
   if (!allow(`save:${user ? user.id : "guest"}`, user ? 300 : 600, 3_600_000)) throw new Error("That's a lot of results for now. Try again in a little while.");
   const ext = extension.toLowerCase().replace(/^\./, "");
   const type = TYPES[ext];
   if (!type) throw new Error("That kind of file can't be kept.");
   const day = new Date().toISOString().slice(0, 10);
+  const hold=jobOutcome.getStore()?.storage;
+  const reusable=hold&&hold.userId===user.id&&!hold.saved&&bytes.byteLength<=hold.maxBytes;
+  const reservation=reusable?hold.id:await reserveStorage(user,bytes.byteLength);
   const made = await put(`haggs/${ownerOf(user)}/${folder}/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: "public", contentType: type, addRandomSuffix: true });
+  await finishStorage(user.id,reservation,made.url,bytes.byteLength);
+  if(reusable)hold.saved=true;
   return made.url;
 }
 
@@ -49,6 +57,13 @@ export async function putLibrary(bytes: Uint8Array, extension: string, userId: s
   const type = TYPES[ext];
   if (!type) throw new Error("That kind of file can't be kept.");
   const day = new Date().toISOString().slice(0, 10);
+  const user = await userNow();
+  if (!user || user.id!==userId) throw new Error("Sign in to save to your own storage.");
+  const hold=jobOutcome.getStore()?.storage;
+  const reusable=hold&&hold.userId===user.id&&!hold.saved&&bytes.byteLength<=hold.maxBytes;
+  const reservation=reusable?hold.id:await reserveStorage(user,bytes.byteLength);
   const made = await put(`haggs/u-${userId}/library/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: "public", contentType: type, addRandomSuffix: true, token });
+  await finishStorage(userId,reservation,made.url,bytes.byteLength);
+  if(reusable)hold.saved=true;
   return made.url;
 }

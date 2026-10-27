@@ -20,20 +20,21 @@ import { SiteFooter } from "../site-footer";
 export function EditorHome() {
   const router = useRouter();
   const store = useMemo(() => createProjectStore(defaultKv()), []);
+  const [error,setError]=useState<string|null>(null);
   const [projects, setProjects] = useState<Project[] | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
         const last = JSON.parse(localStorage.getItem(LAST_BOARD) ?? "null") as { project: string; board: string } | null;
-        if (last && (await store.load(last.project))) return router.replace(`/board/${last.project}/cut?b=${encodeURIComponent(last.board)}`);
+        if (last) { const found=await store.load(last.project); if(found && normalize(found).boards?.some(b=>b.id===last.board)) return router.replace(`/board/${last.project}/cut?b=${encodeURIComponent(last.board)}`); }
       } catch {
         // Nothing remembered.
       }
       const list = await store.list();
       const loaded = (await Promise.all(list.map((p) => store.load(p.id)))).filter((p): p is Project => Boolean(p));
       setProjects(loaded.map(normalize));
-    })();
+    })().catch(()=>setError("Your projects could not be opened. Reload to retry, or return to Projects."));
   }, [store, router]);
 
   return (
@@ -41,8 +42,8 @@ export function EditorHome() {
       <Nav current="Editor" />
       <div className="canvas">
         <div className="wf">
-          <header className="wf-head"><div><h1>Editor</h1><p>Pick a board to cut. Every board&rsquo;s Cut has your takes, trims and splits, bridges and extensions, voice-over, soundtrack and Render MP4.</p></div></header>
-          {!projects ? (
+          <header className="wf-head"><div><h1>Editor</h1><p>Choose a project to arrange clips, add titles and sound, review the sequence, and export. Each board has its own edit (Cut).</p></div></header>
+          {error ? <p role="alert">{error} <button className="pill" onClick={()=>window.location.reload()}>Retry</button> <Link href="/library">Back to Projects</Link></p> : !projects ? (
             <p className="wf-note" role="status">Opening your last cut…</p>
           ) : !projects.length ? (
             <p className="wf-note">No projects yet. <Link href="/library">Start one in Projects</Link>, then its Cut opens here.</p>

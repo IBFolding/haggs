@@ -23,7 +23,12 @@ export async function POST(request: Request) {
     return new Response("Bad signature", { status: 400 });
   }
   const change = changeFor(event as never, process.env);
-  if (!change) return Response.json({ ok: true, ignored: true });
+  if (!change) {
+    const o=event.data.object as unknown as {metadata?:Record<string,string>;parent?:{subscription_details?:{metadata?:Record<string,string>}};subscription_details?:{metadata?:Record<string,string>}};
+    const meta=o.parent?.subscription_details?.metadata??o.subscription_details?.metadata??o.metadata;
+    if((event.type==="invoice.paid"||event.type==="checkout.session.completed") && (meta?.haggs_plan_version||meta?.haggs_pack_version))return new Response("Payment entitlement needs review; credits were not changed",{status:500});
+    return Response.json({ ok: true, ignored: true });
+  }
   const db = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error } = change.kind === "renewal"
     ? await db.rpc("credits_renew", { target: change.user, cents: change.cents, ref: change.ref, secret })

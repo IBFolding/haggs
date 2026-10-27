@@ -24,6 +24,7 @@ import { localBase } from "../providers/local";
 import { keptExtension, mayFetchForKeeping } from "../server/keep-url";
 import { creditsText } from "../story/price-text";
 
+import { discoverWorkspaces, type WorkspaceDiscovery } from "../writer/anthropic-workspaces";
 import { validateWorkspaceId } from "../writer/anthropic-config";
 
 const COOKIE_OPTIONS = {
@@ -257,10 +258,6 @@ export async function run(
     acc = a;
     key = a.key;
   }
-  const done = async <T extends { ok: boolean }>(r: T): Promise<T> => {
-    await acc?.settle(r.ok);
-    return r;
-  };
   if (!key) {
     return {
       ok: false,
@@ -272,46 +269,51 @@ export async function run(
     };
   }
 
-  const provider: Provider =
-    cloudDef
-      ? createCloudModelProvider({ apiKey: key, keep: keepRender, modelId: card.id, timeoutMs: 20 * 60_000 })
-      : useCloud(card.id)
-      ? createCloudProvider({ apiKey: key, keep: keepRender })
-      : card.provider === "comfy"
-      ? createComfyProvider({
-          apiKey: key,
-          endpoints: { [card.capability]: card.id },
-          ...(card.bodyStyle ? { bodyStyle: card.bodyStyle } : {}),
-        })
-      : createFalProvider({ apiKey: key, endpoints: { [card.capability]: card.id } });
+  // Credits and the storage hold settle inside charged(), so a saved result uses the hold and an unused one is released.
+  return acc ? charged(acc, (k) => generate(k)) : generate(key);
 
-  try {
-    const sendable = images?.length ? await inlineLocal(images, process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV) : [];
-    const result = await provider.run({
-      capability: card.capability,
-      prompt,
-      ...(sendable.length ? { images: sendable } : {}),
-      ...(firstFrame === false ? { firstFrame: false } : {}),
-      ...(lastFrame ? { lastFrame: (await inlineLocal([lastFrame], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV))[0]! } : {}),
-      count: outputCount(card, settings),
-      // Only the fields this endpoint declares, under the names it declares
-      // them. Nothing the model did not ask for reaches the request.
-      passthrough: toWireSettings(card.settings, settings),
-    });
-    if (result.assets.length === 0) {
-      return done({ ok: false as const, reason: "The model returned no media." });
+  async function generate(key: string): Promise<RunResult> {
+    const provider: Provider =
+      cloudDef
+        ? createCloudModelProvider({ apiKey: key, keep: keepRender, modelId: card.id, timeoutMs: 20 * 60_000 })
+        : useCloud(card.id)
+        ? createCloudProvider({ apiKey: key, keep: keepRender })
+        : card.provider === "comfy"
+        ? createComfyProvider({
+            apiKey: key,
+            endpoints: { [card.capability]: card.id },
+            ...(card.bodyStyle ? { bodyStyle: card.bodyStyle } : {}),
+          })
+        : createFalProvider({ apiKey: key, endpoints: { [card.capability]: card.id } });
+
+    try {
+      const sendable = images?.length ? await inlineLocal(images, process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV) : [];
+      const result = await provider.run({
+        capability: card.capability,
+        prompt,
+        ...(sendable.length ? { images: sendable } : {}),
+        ...(firstFrame === false ? { firstFrame: false } : {}),
+        ...(lastFrame ? { lastFrame: (await inlineLocal([lastFrame], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV))[0]! } : {}),
+        count: outputCount(card, settings),
+        // Only the fields this endpoint declares, under the names it declares
+        // them. Nothing the model did not ask for reaches the request.
+        passthrough: toWireSettings(card.settings, settings),
+      });
+      if (result.assets.length === 0) {
+        return { ok: false as const, reason: "The model returned no media." };
+      }
+      return { ok: true as const, shots: await keepShots(result.assets), usd: result.usd };
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      // A 401 here is almost always a bad key, and saying so beats a raw dump.
+      if (/401|unauthor|invalid cred/i.test(message)) {
+        return { ok: false as const, reason: `That key was rejected by ${card.provider}.`, needsKey: true };
+      }
+      if (/insufficient_credits|402/i.test(message)) {
+        return { ok: false as const, reason: "Your Comfy workspace is out of credits.", needsKey: true };
+      }
+      return { ok: false as const, reason: message };
     }
-    return done({ ok: true as const, shots: await keepShots(result.assets), usd: result.usd });
-  } catch (caught) {
-    const message = caught instanceof Error ? caught.message : String(caught);
-    // A 401 here is almost always a bad key, and saying so beats a raw dump.
-    if (/401|unauthor|invalid cred/i.test(message)) {
-      return done({ ok: false as const, reason: `That key was rejected by ${card.provider}.`, needsKey: true });
-    }
-    if (/insufficient_credits|402/i.test(message)) {
-      return done({ ok: false as const, reason: "Your Comfy workspace is out of credits.", needsKey: true });
-    }
-    return done({ ok: false as const, reason: message });
   }
 }
 
@@ -555,4 +557,11 @@ export async function estimateGeneration(modelId:string, prompt:string, settings
  const q=await provider.quote({capability:card.capability,prompt,images,firstFrame,passthrough:wire,count:outputCount(card,settings)});
  return {usd:q.usd,basis:q.basis};
  }catch{return {usd:null,basis:"The provider could not quote this configuration. No job was submitted."};}
+}
+
+/** Explicit read-only settings lookup. No inference, key changes or workspace writes. */
+export async function findClaudeWorkspaces(): Promise<WorkspaceDiscovery> {
+  const key = keyIn(await cookies(), CLAUDE_COOKIE);
+  if (!key) return { ok: false, reason: "Save your Claude key first. It stays on the server." };
+  return discoverWorkspaces(key);
 }

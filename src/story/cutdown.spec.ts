@@ -54,3 +54,12 @@ test("a cutdown lands on its own board and leaves the original alone", () => {
   assert.equal(buildCut(view(made.project, made.board.id)).total, 5);
   assert.equal(buildCut(view(made.project, made.project.boards![0]!.id)).total, 8);
 });
+
+test('a partial cutdown continues the original reframe instead of restarting its pan', async()=>{
+ const {reframeAt}=await import('./reframe');
+ const path={offset:1,points:[{id:'a',at:0,x:.25,y:.5,zoom:2,ease:'linear' as const},{id:'b',at:8,x:.75,y:.5,zoom:2,ease:'linear' as const}]};
+ const original=project([shot(6,{reframe:path})]);const cropped=cutdown(original,2,5).shots[0]!;
+ assert.deepEqual(reframeAt(cropped.reframe!,0),reframeAt(path,2));
+ assert.deepEqual(reframeAt(cropped.reframe!,1.5),reframeAt(path,3.5));
+ assert.equal(original.shots[0]!.reframe!.offset,1);
+});

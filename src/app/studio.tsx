@@ -18,14 +18,14 @@ import { OUTFIT_IDEAS, castReferences, castWords } from "../catalog/cast";
 import { createCharacterStore, identityLock, type Character } from "../characters/character";
 import { createPlaceStore, placeLock, type SavedPlace } from "../locations/location";
 import type { Capability } from "../providers/types";
-import { defaultKv } from "../story/kv";
+import { defaultKv, idbKv } from "../story/kv";
 import { currentWork, workSince } from "../story/current-work";
 import { looksTooBig, shrinkAll } from "./shrink";
 import { createRunStore, isPicture, type PictureRun, type Run } from "../story/runs";
 import { rates, run, type Rate, type RunResult } from "./actions";
 import { improvePrompt } from "./improve-actions";
 import { Nav, openKeys } from "./nav";
-import { BankPicker, useReturnedPick } from "./bank-picker";
+import { BankPicker, loadBank } from "./bank-picker";
 import { MakeBanner } from "./return-bar";
 import { readPick } from "../story/handoff";
 import { REUSE_KEY } from "./gallery/gallery";
@@ -94,7 +94,7 @@ const hashOf = (text: string) => {
 };
 
 export function Studio(props: { surface?: Surface }) {
-  return surfaceAvailable(props.surface ?? "Create") ? <StudioBody {...props} /> : <Waiting />;
+  return surfaceAvailable(props.surface ?? "Create") ? <StudioBody key={props.surface ?? "Create"} {...props} /> : <Waiting />;
 }
 
 function Waiting() {
@@ -138,19 +138,32 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const [tile, setTile] = useState<"character" | "location" | "wardrobe" | null>(null);
   const [custom, setCustom] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
+  const [draftReady,setDraftReady]=useState(false);
+  const [draftNotice,setDraftNotice]=useState("Restoring your draft…");
+  const draftWrites=useRef(Promise.resolve());
+  const draftKey=`studio-draft:${surface}`;
+  useEffect(()=>{ let live=true; void idbKv().get<{modelId:string;prompt:string;settings:Settings;images:string[];who:Character|null;where:SavedPlace|null;outfit:string[];outfitPics:Record<string,string>;custom:string}>(draftKey).then(d=>{
+    if(!live)return;
+    if(d){if(catalog.some(m=>m.id===d.modelId)){setModelId(d.modelId);setSettings(coerceSettings(getModelCard(d.modelId).settings,d.settings));}setPrompt(d.prompt??"");setImages(d.images??[]);setWho(d.who??null);setWhere(d.where??null);setOutfit(d.outfit??[]);setOutfitPics(d.outfitPics??{});setCustom(d.custom??"");}
+    setDraftReady(true);setDraftNotice("Draft saved on this device");
+  }).catch(()=>{if(live){setDraftReady(true);setDraftNotice("Draft storage is unavailable. Keep this page open while working.");}});return()=>{live=false;};},[draftKey,catalog]);
+  useEffect(()=>{if(!draftReady)return;draftWrites.current=draftWrites.current.catch(()=>{}).then(()=>idbKv().set(draftKey,{modelId,prompt,settings,images,who,where,outfit,outfitPics,custom}));void draftWrites.current.catch(()=>setDraftNotice("Your draft could not be saved. Keep this page open and retry."));},[draftReady,draftKey,modelId,prompt,settings,images,who,where,outfit,outfitPics,custom]);
   // Back from making an accessory: it is on the character now.
   const pickAccessory = (item: { words: string; image: string | null }) => {
     if (!item.words) return;
     if (item.image) setOutfitPics((all) => ({ ...all, [item.words]: item.image! }));
     setOutfit((all) => (all.includes(item.words) ? all : [...all, item.words]));
   };
-  useReturnedPick(["accessory"], pickAccessory);
+
   useEffect(() => {
+    if(!draftReady)return;
     const pick = readPick(window.location.search);
     void createCharacterStore(defaultKv()).list().then((all) => { setPeople(all); const c = pick?.kind === "character" ? all.find((x) => x.id === pick.id) : undefined; if (c) setWho(c); }).catch(() => undefined);
     void createPlaceStore(defaultKv()).list().then((all) => { setPlaces(all); const p = pick?.kind === "place" ? all.find((x) => x.id === pick.id) : undefined; if (p) setWhere(p); }).catch(() => undefined);
-  }, []);
+    if(pick)void loadBank().then(items=>{const found=items.find(i=>i.kind===pick.kind&&i.id===pick.id);if(found?.kind==='accessory')pickAccessory(found);if(!found?.image)setDraftNotice("That saved reference is missing or unfinished. Your draft is unchanged.");const u=new URL(window.location.href);u.searchParams.delete('pick');window.history.replaceState(null,'',u.pathname+u.search);});
+  }, [draftReady]);
   useEffect(() => {
+    if(!draftReady)return;
     try {
       const raw = sessionStorage.getItem(HANDOFF_KEY);
       const gift = raw ? (JSON.parse(raw) as { url: string; to: Surface; prompt?: string }) : null;
@@ -162,12 +175,13 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     } catch {
       /* Private mode blocks sessionStorage; nothing was handed over. */
     }
-  }, [surface]);
+  }, [surface,draftReady]);
   function handOff(item: Run, to: Surface) {
     try {
       sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ url: item.url, to }));
     } catch {
-      /* Without sessionStorage the page still opens, just empty. */
+      setDraftNotice("This image could not be passed to the next tool. Download it and use Upload image there, or retry.");
+      return;
     }
     router.push(to === "Video" ? "/video" : "/edit");
   }
@@ -267,12 +281,12 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
   /** Put a past run back in the composer — model, prompt and the settings it ran with. */
   const reuse = useCallback((item: Run) => {
-    setModelId(item.modelId);
-    setPrompt(item.prompt);
-    setSettings((held) =>
-      coerceSettings(getModelCard(item.modelId).settings, { ...held, ...item.settings }),
-    );
-  }, []);
+    const supported=catalog.find(m=>m.id===item.modelId);
+    const chosen=supported??catalog[0]!;
+    setModelId(chosen.id); setPrompt(item.prompt);
+    setSettings(coerceSettings(chosen.settings,supported?item.settings:{}));
+    if(!supported)setDraftNotice("The original model is unavailable here. Your prompt is restored; review the selected model before generating.");
+  }, [catalog]);
 
   useEffect(() => {
     try {
@@ -283,6 +297,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   }, []);
 
   useEffect(() => {
+    if(!draftReady)return;
     void rates().then((list) => setRateMap(Object.fromEntries(list.map((r) => [r.id, r]))));
     void runs
       .list()
@@ -304,7 +319,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
         if (found) { reuse(found); setReused(found.id); }
       })
       .catch(() => setHistory([]));
-  }, [runs, reuse]);
+  }, [runs, reuse,draftReady]);
 
   // Changing model means the settings you were holding belong to the model you
   // just left. Keep what the new one also declares, and default the rest.
@@ -341,7 +356,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   }, [card.inputImages]);
 
   const fire = useCallback(async () => {
-    if (!prompt.trim() || busy || needsImage) return;
+    if (!draftReady || !prompt.trim() || busy || needsImage) return;
     setBusy(true);
     const id = nextId.current++;
     setSlots((prior) => [{ state: "working", id }, ...prior]);
@@ -537,7 +552,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             <button className="mini-toggle" onClick={() => chooseMini(false)} title="Open the box" aria-label="Open the box">▴</button>
           </div>
         ) : (
-        <div className="composer">
+        <div className="composer" aria-busy={!draftReady}>
+          <span className="wf-small" role="status">{draftNotice}</span>
           <button className="mini-toggle" onClick={() => chooseMini(true)} title="Minimise the box" aria-label="Minimise the box">▾</button>
           {picking && (
             <div className="picker" onClick={(event) => event.stopPropagation()}>

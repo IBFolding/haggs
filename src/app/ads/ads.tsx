@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AD_FORMATS, adJobs, adPrompt, MAX_BATCH, type AdFormat } from "../../brand/ads";
 import { SAMPLES } from "../../brand/samples";
 import { createBrandStore, type BrandKit } from "../../brand/brand";
 import { multiplierJobs, multiplyPrompt, nearestRatio } from "../../brand/multiplier";
 import { createProductStore, type SavedProduct } from "../../brand/product";
-import { defaultKv } from "../../story/kv";
+import { idbKv, defaultKv } from "../../story/kv";
 import { readBrand } from "../brand-actions";
 import { galleryStill } from "../gallery-log";
 import { ModeTabs } from "../mode-tabs";
@@ -55,10 +55,30 @@ export function Ads() {
   const [again, setAgain] = useState({ audiences: "", languages: "" });
   const [remade, setRemade] = useState<{ key: string; label: string; url?: string; problem?: string }[]>([]);
 
+  const [ready, setReady] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("Loading draft…");
+  const [remakeOpen, setRemakeOpen] = useState(false);
+  const writes = useRef(Promise.resolve());
   useEffect(() => {
-    void brands.list().then((k) => { setKits(k); setKit((cur) => cur ?? k[0] ?? null); });
-    void products.list().then(setList);
-  }, [brands, products]);
+    void Promise.all([brands.list(), products.list(), idbKv().get<{kit:BrandKit|null;address:string;chosen:string[];formats:string[];audiences:string;draft:typeof draft;source:string|null;again:typeof again;made:Made[];remade:typeof remade}>("ads:draft:v1")]).then(([k,p,d]) => {
+      setKits(k); setList(p);
+      if (d) { setKit(d.kit); setAddress(d.address); setChosen(d.chosen); setFormats(d.formats); setAudiences(d.audiences); setDraft(d.draft); setSource(d.source); setAgain(d.again); setMade(d.made); setRemade(d.remade); }
+      else setKit(k[0] ?? null);
+      setReady(true);
+    }).catch(() => { setProblem("Could not restore the Ads draft. Keep this page open while editing."); setReady(true); });
+  }, [brands,products]);
+  useEffect(() => {
+    if (!ready) return;
+    setSaveStatus("Saving draft…");
+    writes.current = writes.current.catch(() => undefined).then(() => idbKv().set("ads:draft:v1",{kit,address,chosen,formats,audiences,draft,source,again,made,remade}));
+    const current=writes.current;
+    void current.then(()=>{if(current===writes.current)setSaveStatus("Draft saved on this device");}).catch(()=>setSaveStatus("Draft could not be saved. Keep this page open."));
+  }, [ready,kit,address,chosen,formats,audiences,draft,source,again,made,remade]);
+
+  async function ownBrand() {
+    const k = await brands.save({name:"My brand",url:"",logo:null,colors:[],fonts:[],about:"",tone:""});
+    setKit(k);setKits(await brands.list());
+  }
 
   const picked = list.filter((p) => chosen.includes(p.id));
   const jobs = adJobs(picked, AD_FORMATS.filter((f) => formats.includes(f.id)), audiences.split("\n"));
@@ -77,6 +97,7 @@ export function Ads() {
   async function useSample(id: string) {
     const sample = SAMPLES.find((x) => x.id === id);
     if (!sample) return;
+    if ((kit || draft.name || chosen.length || audiences) && !window.confirm("Use this sample’s brand, product, formats and audiences? Cancel to keep your current setup. Saved products and completed ads stay.")) return;
     setProblem(null);
     setKit(await brands.save(sample.brand));
     setKits(await brands.list());
@@ -162,24 +183,27 @@ export function Ads() {
     <div className="app">
       <Nav current="Photos" />
       <div className="canvas">
-        <div className="swap">
+        <div className="swap ads-studio">
           <ModeTabs group="Photos" current="/ads" canEdit={surfaceAvailable("Edit")} />
           <header className="swap-head">
             <h1>Ads</h1>
-            <p>Give haggs a company&apos;s website and it reads the brand: name, logo, colours, fonts. Add the products, pick the formats, and make a batch of ads that look like they belong to that company.</p>
+            <p>Choose a brand and product, then formats and audiences. Review the batch beside your inputs before generating. You can start from scratch or use a sample.</p>
           </header>
 
+          <div className="ads-workbench"><div className="ads-inputs"><fieldset disabled={!ready || busy !== null} className="cm-authoring">
           <div className="cm-row" aria-label="Samples">
             <span className="muted">Try a sample:</span>
             {SAMPLES.map((x) => <button key={x.id} className="pill" onClick={() => void useSample(x.id)}>{x.label}</button>)}
           </div>
 
           <h2 className="ads-h">1. The brand</h2>
+          <p className="wf-small">Read a website, select a saved brand, or write your own.</p>
+          <button className="pill" onClick={() => void ownBrand()}>Create a brand manually</button>
           <div className="cm-row">
             <input aria-label="Website address" className="ads-url" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="kiln.example" />
             <button className="pill" disabled={busy !== null || address.trim().length < 3} onClick={() => void read()}>Read the site <span className="cost">free</span></button>
           </div>
-          {kits.length > 1 && (
+          {kits.length > 0 && (
             <div className="cm-cast" aria-label="Your brands">
               {kits.map((k) => <button key={k.id} className={kit?.id === k.id ? "on" : ""} onClick={() => setKit(k)}><span>{k.name}</span></button>)}
             </div>
@@ -209,6 +233,7 @@ export function Ads() {
           <div className="ac-form">
             <label className="wf-field"><span>Product name</span><input value={draft.name} maxLength={60} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Ember mug" /></label>
             <label className="wf-field"><span>What it looks like</span><textarea rows={2} value={draft.words} maxLength={300} onChange={(e) => setDraft({ ...draft, words: e.target.value })} placeholder="a speckled terracotta stoneware mug with a thumb handle" /></label>
+            <label className="wf-field"><span>Price or offer (optional)</span><input value={draft.price} maxLength={80} onChange={(e) => setDraft({...draft,price:e.target.value})} /></label>
             <div className="cm-row">
               <label className="pill">{draft.picture ? "Change the photo" : "Add a photo"}<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addPicture(f); }} /></label>
               {draft.picture && /* eslint-disable-next-line @next/next/no-img-element */ <img className="ads-thumb" src={draft.picture} alt="The product" />}
@@ -223,9 +248,18 @@ export function Ads() {
           <label className="wf-field"><span>Audiences, one per line (optional): the same ad for each</span>
             <textarea rows={2} value={audiences} onChange={(e) => setAudiences(e.target.value)} placeholder={"students on a budget\nnew parents"} />
           </label>
+          </fieldset></div>
+          <aside className="ads-preview" aria-label="Ad batch preview">
+            <h2>Review your batch</h2><p className="wf-small" role="status">{saveStatus}</p>
+            <p><b>{kit?.name || "Your brand"}</b> · {picked.length} product{picked.length === 1 ? "" : "s"} · {formats.length} formats</p>
+            {picked[0]?.picture && <img className="ads-preview-product" src={picked[0].picture} alt={picked[0].name} />}
+            <p className="wf-small">Planning preview, not generated artwork. {jobs.length ? "Check these combinations before making the batch." : "Add and select a product, then choose at least one format."}</p>
+            <ol className="ads-plan">{jobs.map((j,i)=><li key={i}><b>{j.product.name}</b> · {j.format.name} · {j.format.ratio}{j.audience ? ` · ${j.audience}` : ""}</li>)}</ol>
           <p><button className="fire" disabled={busy !== null || jobs.length === 0} onClick={() => void run()}>{busy ?? `Make ${jobs.length} ad${jobs.length === 1 ? "" : "s"}`} {jobs.length > 0 && <span className="cost">about {creditsText((jobs.length * PRICE))}</span>}</button></p>
           {jobs.length === MAX_BATCH && <p className="muted">A batch is at most {MAX_BATCH}. Choose fewer products, formats or audiences to change what is in it.</p>}
           {problem && <p className="library-error" role="alert">{problem}</p>}
+
+          </aside></div>
 
           {made.length > 0 && (
             <ul className="ads-grid" aria-label="Your ads">
@@ -234,12 +268,13 @@ export function Ads() {
                   {m.url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={m.url} alt={`${m.product}, ${m.format.name}`} /> : <div className="ads-wait">{m.problem ?? "Waiting…"}</div>}
                   <small>{m.product} · {m.format.name}{m.audience ? ` · ${m.audience}` : ""}</small>
                   {m.url && <a href={m.url} download>Download</a>}
-                  {m.url && <button className="plain" onClick={() => { setSource(m.url!); setProblem(null); }}>Remake this</button>}
+                  {m.url && <button className="plain" onClick={() => { setSource(m.url!); setRemakeOpen(true); setProblem(null); }}>Remake this</button>}
                 </li>
               ))}
             </ul>
           )}
 
+          <details className="ads-remake" open={remakeOpen} onToggle={(e) => setRemakeOpen(e.currentTarget.open)}><summary>Remake an existing ad · optional</summary>
           <h2 className="ads-h">4. Remake an ad</h2>
           <p className="muted">Have an ad that works? Add it (or press Remake this on one above) and get it back for other audiences and in other languages, with the same product and layout.</p>
           <div className="cm-row">
@@ -262,6 +297,7 @@ export function Ads() {
               ))}
             </ul>
           )}
+          </details>
         </div>
         <SiteFooter />
       </div>

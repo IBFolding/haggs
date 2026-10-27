@@ -1,3 +1,4 @@
+import { shareDefinition } from "./share-definition";
 import type { SavedApp } from "../story/apps";
 import { checkFee } from "./fees";
 
@@ -24,15 +25,15 @@ const fail = (e: { message: string } | null, fallback: string) => {
 
 export async function publishApp(db: Db, app: SavedApp, feeCents: number, creatorName: string): Promise<string> {
   const fee = checkFee(feeCents);
-  const cover = app.cover && /^https:\/\//.test(app.cover.url) ? app.cover : undefined;
+
   const { data, error } = await db.insert("community_apps", {
     name: app.name.slice(0, 80),
     description: app.description.slice(0, 400),
-    workflow: app.workflow,
-    recipe: app.recipe ?? null,
+    workflow: shareDefinition(app.workflow),
+    recipe: null,
     creator_name: creatorName.slice(0, 60),
     fee_cents: fee,
-    ...(cover ? { cover_url: cover.url, cover_kind: cover.kind } : {}),
+
   });
   fail(error, "The app couldn't be published.");
   return String(data?.id ?? "");

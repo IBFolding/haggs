@@ -43,7 +43,7 @@ export function useReturnedPick(accept: PickKind[], onPick: (item: BankItem) => 
  * and accessories as pictures, and a way to make a new one that brings you
  * straight back here with it chosen.
  */
-export function BankPicker({ kinds, label, onPick, onClose, picked = [] }: { kinds: PickKind[]; label: string; onPick: (item: BankItem) => void; onClose: () => void; picked?: string[] }) {
+export function BankPicker({ kinds, label, onPick, onClose, picked = [], beforeBuild, allowPhotoBuild = true }: { kinds: PickKind[]; label: string; onPick: (item: BankItem) => void; onClose: () => void; picked?: string[]; beforeBuild?: (() => Promise<void>) | undefined; allowPhotoBuild?: boolean }) {
   const [items, setItems] = useState<BankItem[] | null>(null);
   const [tab, setTab] = useState<PickKind>(kinds[0]!);
   useEffect(() => { void loadBank().then(setItems); }, []);
@@ -73,8 +73,8 @@ export function BankPicker({ kinds, label, onPick, onClose, picked = [] }: { kin
                 <b>{i.name}</b>
               </button>
             ))}
-            <BuildLink href={KIND_NAME[tab].builder} label={label} className="bank-new">+ Build a new {KIND_NAME[tab].one}</BuildLink>
-            <BuildLink href={`/photos?make=${tab}`} label={label} className="bank-new">+ Make a picture of one</BuildLink>
+            <BuildLink beforeNavigate={beforeBuild} href={KIND_NAME[tab].builder} label={label} className="bank-new">+ Build a new {KIND_NAME[tab].one}</BuildLink>
+            {allowPhotoBuild && <BuildLink beforeNavigate={beforeBuild} href={`/photos?make=${tab}`} label={label} className="bank-new">+ Make a picture of one</BuildLink>}
           </div>
         )}
         {items !== null && shown.length === 0 && <p className="wf-small">No {KIND_NAME[tab].many.toLowerCase()} yet. Make one and you come straight back here with it chosen.</p>}

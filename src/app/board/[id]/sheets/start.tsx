@@ -1,13 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { FORMATS, formatById, layoutFormat, type Format } from "../../../../sheets/formats";
 import type { Sheets } from "../../../../sheets/sheets";
 import { applyDraft } from "../../../../writer/draft";
 import { writeDraft } from "../../../actions";
 import { openKeys } from "../../../nav";
+
+import {defaultKv} from "../../../../story/kv";
+import {readPick} from "../../../../story/handoff";
+import {loadBank} from "../../../bank-picker";
+import {ProjectAssets} from "../../../project-assets";
+import type {BankItem} from "../../../../story/bank";
+import {useSheetAssets} from "../../../../sheets/assets";
 
 /**
  * How a board starts. Four ways in, all ending on the same sheets:
@@ -50,6 +57,24 @@ export function StartScreen({
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [assets,setAssets]=useState<BankItem[]>([]);
+  const [ready,setReady]=useState(false);
+  const writes=useRef(Promise.resolve());
+  const draftKey=`project-start:${boardHref}`;
+  useEffect(()=>{void defaultKv().get<{formatId:string;idea:string;notes:string;title:string;assets:BankItem[]}>(draftKey).then(async(d)=>{
+    if(d){setFormatId(formatById(d.formatId)?d.formatId:"comedy-30");setIdea(d.idea);setNotes(d.notes);setTitle(d.title);setAssets(d.assets??[]);}
+    const pick=readPick(window.location.search);
+    if(pick&&(pick.kind==='character'||pick.kind==='place')) {
+      const item=(await loadBank()).find(i=>i.kind===pick.kind&&i.id===pick.id);
+      if(item?.image)setAssets(cur=>cur.some(i=>i.id===item.id&&i.kind===item.kind)?cur:[...cur,item]);
+      else setProblem("The returned asset is unfinished or missing. Your project draft is still here.");
+      const u=new URL(window.location.href);u.searchParams.delete('pick');window.history.replaceState(null,'',u.pathname+u.search);
+    }
+    setReady(true);
+  }).catch(()=>{setProblem("The draft could not be restored. Keep this page open.");setReady(true);});},[draftKey]);
+  const draft={formatId,idea,notes,title,assets};
+  useEffect(()=>{if(!ready)return;writes.current=writes.current.catch(()=>undefined).then(()=>defaultKv().set(draftKey,{formatId,idea,notes,title,assets}));void writes.current.catch(()=>setProblem("Your draft could not be saved. Retry before leaving."));},[ready,draftKey,formatId,idea,notes,title,assets]);
+  async function beforeBuild(){try{await writes.current;await defaultKv().set(draftKey,draft);}catch{setProblem("Could not save your project draft. Stay here and retry before leaving.");throw new Error('Save failed');}}
   const format = formatById(formatId)!;
 
   async function write() {
@@ -65,7 +90,7 @@ export function StartScreen({
     try {
       const { sheets, problems } = applyDraft(result.draft, format);
       onSheets(
-        sheets,
+        useSheetAssets(sheets,assets),
         [
           `Written: ${sheets.script.length} scenes, ${sheets.characters.length} characters, ${sheets.story.length} beats, ${sheets.shots.length} shots. Claude used ${result.usage.input.toLocaleString()} + ${result.usage.output.toLocaleString()} tokens on your account.`,
           problems.length ? `Fixed on the way in: ${problems.join(" ")}` : "",
@@ -77,7 +102,7 @@ export function StartScreen({
   }
 
   return (
-    <div className="sh-start st">
+    <div className="sh-start st"><fieldset className="cm-authoring" disabled={!ready || busy}>
       <h1>How do you want to start <b>{projectName}</b>?</h1>
       <p>Pick the kind of show first. Its beats are already where a hit in that format puts them; you fill them in, or let the writer draft it all and then change anything.</p>
 
@@ -117,6 +142,9 @@ export function StartScreen({
         </div>
       </div>
 
+      <section aria-label="Project characters and locations"><h2>Characters and locations</h2>
+      <ProjectAssets beforeBuild={beforeBuild} onPick={item=>setAssets(cur=>cur.some(i=>i.id===item.id&&i.kind===item.kind)?cur:[...cur,item])}/>
+      <div className="lab-chips">{assets.map(a=><button key={`${a.kind}:${a.id}`} onClick={()=>setAssets(cur=>cur.filter(i=>i!==a))} title="Remove from this project only">{a.name} ×</button>)}</div></section>
       <div className="st-ways">
         <article>
           <h2>Write it with AI</h2>
@@ -130,7 +158,7 @@ export function StartScreen({
           <p>Every beat of the format on the sheets, each saying what it's for, with shots timed to length. Fill them in, move them, add your own.</p>
           <button
             className="plain"
-            onClick={() => onSheets(layoutFormat(format, idea, title || projectName), `Laid out ${format.beats.length} beats for a ${format.label.toLowerCase()}. Write each one, or add your own anywhere.`)}
+            onClick={() => onSheets(useSheetAssets(layoutFormat(format, idea, title || projectName),assets), `Laid out ${format.beats.length} beats for a ${format.label.toLowerCase()}. Write each one, or add your own anywhere.`)}
           >
             Lay out the beats
           </button>
@@ -149,6 +177,7 @@ export function StartScreen({
           <Link className="plain" href={boardHref}>Go to the board</Link>
         </article>
       </div>
+      </fieldset>
       {problem && <p className="library-error" role="alert">{problem}</p>}
     </div>
   );

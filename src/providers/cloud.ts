@@ -1,3 +1,4 @@
+import {markJob} from "./job-outcome";
 import { ProviderError, type GenerationRequest, type GenerationResult, type Provider, type Quote } from "./types";
 
 /**
@@ -161,13 +162,17 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
 
   /** Submits a workflow and waits for the finished job. */
   async function submitAndWait(workflow: Workflow): Promise<{ id: string; job: Record<string, unknown> }> {
-    const submitted = await call("/api/prompt", { prompt: workflow, extra_data: { api_key_comfy_org: apiKey } });
+    markJob("uncertain");
+    let submitted:Record<string,unknown>;
+    try { submitted = await call("/api/prompt", { prompt: workflow, extra_data: { api_key_comfy_org: apiKey } }); }
+    catch(error){if(error instanceof ProviderError && [400,401,402,403,422].includes(error.status??0))markJob("rejected");throw error;}
     const id = submitted.prompt_id;
-    if (typeof id !== "string" || !id || Object.keys((submitted.node_errors as object) ?? {}).length) throw fail("Comfy Cloud didn't accept the workflow. Nothing was generated.");
+    if (typeof id !== "string" || !id || Object.keys((submitted.node_errors as object) ?? {}).length) {if(Object.keys((submitted.node_errors as object) ?? {}).length)markJob("rejected");throw fail("Comfy Cloud did not confirm an accepted workflow. Check your jobs before retrying.");}
+    markJob("uncertain",id);
     const started = Date.now();
     for (;;) {
       const job = await call(`/api/jobs/${encodeURIComponent(id)}`);
-      if (job.status === "completed") return { id, job };
+      if (job.status === "completed") {markJob("completed",id);return { id, job };}
       if (job.status === "failed" || job.status === "cancelled") {
         const reason = (job.execution_error as { exception_message?: string } | undefined)?.exception_message ?? "";
         throw fail(/unauthori|login/i.test(reason) ? "The job failed: Comfy's API nodes didn't accept the key." : `The job failed and nothing was made${reason ? ` (${reason.slice(0, 160)})` : ""}. Check your Comfy usage before trying again.`);

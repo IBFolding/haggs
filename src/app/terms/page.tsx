@@ -19,7 +19,7 @@ export default function Terms() {
           <h2>What you make</h2>
           <p>You own what you make. You are responsible for having the right to anything you upload, including photos of people. Do not use haggs to make content that is illegal, that sexualises minors, or that imitates a real person to deceive. Do not build a character from someone&rsquo;s photos without their permission.</p>
           <h2>Files we keep</h2>
-          <p>Pictures, clips and renders you make here are stored in our file store so you can play and download them. Files are kept for 60 days and then removed. Download anything you want to keep. Projects live in your browser, and in your account if you sign in.</p>
+          <p>Pictures, clips and renders you make here are stored in our file store so you can play and download them. Automatic expiry is paused to protect saved projects. Download a backup of anything you want to keep. Projects live in your browser, and in your account if you sign in.</p>
           <h2>Plans and credits</h2>
           <p>Paid plans, where offered, unlock the studio and may include credits for generation. Credits are used at the price shown before each run and do not roll over unless a plan says so. You can cancel any time from your account; cancelling stops the next charge.</p>
           <h2>Third parties</h2>

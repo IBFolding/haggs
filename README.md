@@ -9,8 +9,7 @@ Built for Comfy's **#OpenSourceHiggsfield** challenge. MIT licensed.
 
 ![haggs: picture, voice and cut in one studio](public/brand/hero.gif)
 
-**Watch it:** `docs/demo/` has the demo video script and the voice-over; the
-rendered video is linked from the challenge entry.
+**Contest demo:** see [the reusable workflow and replay instructions](workflows/contest-demo/README.md). `docs/demo/` contains a draft recording script; no contest submission or published demo is implied.
 
 ## What you can do
 
@@ -18,8 +17,7 @@ rendered video is linked from the challenge entry.
 opening as a simple form: swap a person in a video, replace or cut out a
 video's background, relight or upscale a photo, try an outfit on a person,
 make a product ad, lip-sync a video to any voice, make a portrait speak.
-Every one is a real Comfy workflow, checked against Comfy Cloud's node
-catalog. The four that run on open weights alone say so.
+These use Comfy workflows. Node and model availability depends on the current provider catalog, your account and installed local models. Open-weights workflows are labelled.
 
 **Build your own on an open canvas.** Drop steps and whole Comfy library
 workflows anywhere, draw a line from what one makes to what the next needs,
@@ -103,8 +101,7 @@ masters to -14 LUFS. A pack of one-click looks (VHS, CRT, glitch, thermal, night
 vision) made from ffmpeg filters. Music from words, made in the editor.
 
 **More models, one route.** Kling 3, Seedance 2 and 2.5, Veo 3.1, Nano Banana 2
-and FLUX Kontext run as Comfy Cloud workflows, so they work on every account and
-Comfy prices them before they run.
+and FLUX Kontext run as Comfy Cloud workflows, subject to account access and current node availability. Displayed prices are estimates; check the provider before running.
 
 ## Open weights and your own GPU
 
@@ -113,7 +110,7 @@ anywhere, with no partner API in the loop. haggs marks which workflows are
 open (a node flagged `api_node` in Comfy's catalog calls a partner's paid API).
 Under **Keys → Your own GPU**, point haggs at a ComfyUI on your computer or
 network (for example an RTX 5090 on `127.0.0.1:8188`). Open-weights workflows
-then run there, free, instead of on Comfy Cloud. Only loopback and private
+then run there without a provider generation charge instead of on Comfy Cloud (your hardware/electricity still cost money). Import a workflow file to use this path without a cloud key; browsing cloud templates still requires a Comfy key. Only loopback and private
 network addresses are accepted, and no key is ever sent.
 
 ## What runs where
@@ -123,16 +120,17 @@ Cloud workflows built from Comfy's own nodes (MiniMax H3, FLUX 3, FLUX Kontext,
 Kling Omni, Runway Aleph, Higgsfield Genjutsu, ElevenLabs, Sync, and the open
 Qwen, Wan, LTX and Z-Image workflows), or your own ComfyUI. You use your own
 keys; each run's price comes from Comfy's published node prices. Estimates, not
-invoices. Editing, mixing and rendering run locally with ffmpeg.
+invoices. Browser editing works in the hosted app. The built-in ffmpeg MP4 render runs only in local development; the hosted app does not provide that render service.
 
 Projects live in your browser (IndexedDB). Export and import them as files.
 
 ## Run it
 
 ```bash
-npm install
+npm ci
 cp .env.example .env.local   # then add your keys
-npm run dev          # http://localhost:3111
+mkdir -p .haggs/media
+HAGGS_LOCAL_MEDIA="$PWD/.haggs/media" npm run dev  # http://localhost:3111
 npm test             # the suite
 npm run typecheck
 ```

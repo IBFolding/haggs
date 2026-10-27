@@ -1,12 +1,13 @@
 "use server";
 
+import {storageAllowance,removedStorage} from "../server/storage-quota";
 import { del, list } from "@vercel/blob";
 
 import { ownerOf, userNow } from "../server/auth";
 import { hosted } from "../server/blob";
 import { deletable, mine, type Item } from "../server/library";
 
-export type Files = { ok: true; items: Item[]; hosted: boolean } | { ok: false; reason: string };
+export type Files = { ok: true; items: Item[]; hosted: boolean; allowanceBytes?:number } | { ok: false; reason: string };
 
 async function everything(owner: string): Promise<Item[]> {
   const out: Item[] = [];
@@ -25,7 +26,7 @@ export async function myFiles(): Promise<Files> {
   const user = await userNow();
   if (!user) return { ok: false, reason: "Sign in to see your files." };
   try {
-    return { ok: true, items: mine(ownerOf(user), await everything(ownerOf(user))), hosted: true };
+    return { ok: true, items: mine(ownerOf(user), await everything(ownerOf(user))), hosted: true, allowanceBytes:await storageAllowance(user) };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "Your files couldn't be listed." };
   }
@@ -37,7 +38,7 @@ export async function deleteFiles(urls: string[]): Promise<{ ok: true; deleted: 
   if (!hosted() || !user) return { ok: false, reason: "Sign in to delete files." };
   try {
     const ok = deletable(ownerOf(user), urls.slice(0, 200), await everything(ownerOf(user)));
-    if (ok.length) await del(ok);
+    if (ok.length) { await del(ok); for(const url of ok) await removedStorage(user.id,url); }
     return { ok: true, deleted: ok.length };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "The files couldn't be deleted." };

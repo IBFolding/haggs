@@ -3,13 +3,14 @@ import { test } from "node:test";
 
 import { PLANS, checkout, configured, portal, status, type StripeLike } from "./billing";
 
-const env = { STRIPE_API_KEY: "sk_test_x", STRIPE_PRICE_BYOK: "price_b", STRIPE_PRICE_STARTER: "price_s", STRIPE_PRICE_MID: "price_m", STRIPE_PRICE_PRO: "price_p", STRIPE_PORTAL_CONFIG_ID: "bpc_1" };
+const env = { STRIPE_API_KEY: "sk_test_x", STRIPE_PRICE_BYOK: "price_b", STRIPE_PRICE_STARTER: "price_s", STRIPE_PRICE_MID: "price_m", STRIPE_PRICE_PRO: "price_p", STRIPE_PRICE_STARTER_FIXED_2026: "price_s", STRIPE_PRICE_MID_FIXED_2026: "price_m", STRIPE_PRICE_PRO_FIXED_2026: "price_p", STRIPE_PORTAL_CONFIG_ID: "bpc_1" };
 const user = { id: "u1", email: "a@b.test" };
 
 function fakeStripe(subs: { price: string; status: string; end: number }[] = []) {
   const calls: Record<string, unknown[]> = {};
   const log = (name: string, arg: unknown) => ((calls[name] ??= []).push(arg), arg);
   const stripe: StripeLike = {
+    prices: { retrieve: async (id) => ({ active: true, currency: "usd", unit_amount: ({price_b:1500,price_s:3900,price_m:6900,price_p:9900} as Record<string,number>)[id] ?? 0, recurring: {interval:"month",interval_count:1} }) },
     customers: {
       search: async (q) => (log("search", q), { data: subs.length ? [{ id: "cus_1" }] : [] }),
       create: async (a) => (log("create", a), { id: "cus_new" }),
@@ -22,10 +23,10 @@ function fakeStripe(subs: { price: string; status: string; end: number }[] = [])
 }
 
 test("the four v1 plans are offered, and only the ones with a price are configured", () => {
-  assert.deepEqual(PLANS.map((p) => [p.id, p.monthly, p.credits]), [["byok", 15, 0], ["starter", 39, 2925], ["mid", 69, 5175], ["pro", 99, 7425]]);
+  assert.deepEqual(PLANS.map((p) => [p.id, p.monthly, p.credits]), [["byok", 15, 0], ["starter", 39, 2400], ["mid", 69, 4400], ["pro", 99, 6400]]);
   assert.deepEqual(configured(env).map((p) => p.id), ["byok", "starter", "mid", "pro"]);
   assert.deepEqual(configured({ ...env, STRIPE_API_KEY: "" }), [], "no Stripe key, no checkout");
-  assert.deepEqual(configured({ ...env, STRIPE_PRICE_MID: "" }).map((p) => p.id), ["byok", "starter", "pro"]);
+  assert.deepEqual(configured({ ...env, STRIPE_PRICE_MID_FIXED_2026: "" }).map((p) => p.id), ["byok", "starter", "pro"]);
 });
 
 test("checkout makes a subscription session for the signed-in person, tied to their account", async () => {
@@ -61,8 +62,8 @@ import { TOPUPS, capacity, changeFor, creditsFor } from "./billing";
 process.env.HAGGS_PLATFORM_CUT = "25"; // a test value, not the real cut
 
 test("the share we keep comes from the environment; the rest of every paid plan and pack is the customer's, and the platform plan includes nothing", () => {
-  for (const p of PLANS.filter((x) => x.credits)) assert.equal(p.credits, Math.floor(p.monthly * 100 * 0.75), p.id);
-  for (const t of TOPUPS) assert.equal(t.credits, Math.floor(t.usd * 100 * 0.75), t.id);
+  assert.deepEqual(PLANS.map(p=>p.credits),[0,2400,4400,6400]);
+  assert.deepEqual(TOPUPS.map(t=>[t.usd,t.credits]), [[15,1200],[30,2400],[50,4200],[75,6500],[100,8500]]);
   assert.equal(PLANS.find((p) => p.id === "byok")!.credits, 0);
 });
 
@@ -90,11 +91,53 @@ test("a paid invoice resets the person's monthly credits; a paid top-up adds a p
   assert.equal(changeFor({ id: "e5", type: "invoice.paid", data: { object: { id: "in_2", subscription_details: { metadata: {} } } } }, env), null);
 });
 
-test("with no cut configured, paid plans include no credits rather than guessing", () => {
+test("fixed subscription allowances are independent of the legacy cut", () => {
   const was = process.env.HAGGS_PLATFORM_CUT;
   delete process.env.HAGGS_PLATFORM_CUT;
-  assert.deepEqual(PLANS.map((p) => p.credits), [0, 0, 0, 0]);
+  assert.deepEqual(PLANS.map((p) => p.credits), [0, 2400, 4400, 6400]);
   process.env.HAGGS_PLATFORM_CUT = "150";
-  assert.equal(PLANS[1]!.credits, 0, "a nonsense cut is ignored");
+  assert.equal(PLANS[1]!.credits, 2400, "legacy cut cannot change fixed allowance");
   process.env.HAGGS_PLATFORM_CUT = was ?? "25";
 });
+
+import { TOPUP_VERSION, topupCheckout, topupsConfigured } from './billing';
+import { readFileSync } from 'node:fs';
+test('fixed packs grant exact allowances independent of the subscription percentage',()=>{
+ assert.deepEqual(TOPUPS.map(p=>[p.usd,p.credits,p.retainedUsd]),[[15,1200,3],[30,2400,6],[50,4200,8],[75,6500,10],[100,8500,15]]);
+ assert.deepEqual(topupsConfigured({...env,STRIPE_PRICE_TOPUP_50:'legacy'}),[]);
+});
+test('new pack checkout validates USD one-time price and snapshots server-owned entitlement',async()=>{
+ const {stripe,calls}=fakeStripe();stripe.prices={retrieve:async()=>({active:true,currency:'usd',unit_amount:1500,recurring:null})};
+ const e={...env,STRIPE_PRICE_TOPUP_FIXED_15:'price_fixed15'};
+ await topupCheckout(stripe,e,'fixed15',user,'http://localhost:3112');
+ const s=calls.checkout![0] as {metadata:Record<string,string>;allow_promotion_codes:boolean;line_items:unknown};
+ assert.equal(s.metadata.haggs_credit_grant,'1200');assert.equal(s.metadata.haggs_pack_version,TOPUP_VERSION);assert.equal(s.allow_promotion_codes,false);
+ assert.deepEqual(s.line_items,[{price:'price_fixed15',quantity:1}]);
+ stripe.prices={retrieve:async()=>({active:true,currency:'usd',unit_amount:1000})};
+ await assert.rejects(topupCheckout(stripe,e,'fixed15',user,'http://localhost:3112'),/not configured correctly/);
+ assert.equal(calls.checkout!.length,1);
+ await assert.rejects(topupCheckout(stripe,e,'t10',user,'http://localhost:3112'),/can't be bought/);
+});
+test('fixed fulfillment rejects discounts, wrong currency, forged grants and unknown versions',()=>{
+ for(const pack of TOPUPS){
+  const o={id:'cs_fixed',payment_status:'paid',amount_total:pack.usd*100,currency:'usd',client_reference_id:'u1',metadata:{haggs_user:'u1',haggs_topup:pack.id,haggs_pack_version:TOPUP_VERSION,haggs_credit_grant:String(pack.credits),haggs_price_id:'price_fixed'}};
+  const event=(object:Record<string,unknown>,id='evt1')=>({id,type:'checkout.session.completed',data:{object}});
+  const expected={user:'u1',bucket:'topup',cents:pack.credits,ref:'cs_fixed',kind:'topup'};
+  assert.deepEqual(changeFor(event(o),{}),expected);
+  assert.deepEqual(changeFor(event(o,'evt_retry'),{}),expected,'same session uses same ledger idempotency ref');
+  for(const patch of [{amount_total:pack.usd*100-1},{currency:'eur'},{payment_status:'unpaid'},{client_reference_id:'other'},{metadata:{...o.metadata,haggs_credit_grant:'999999'}},{metadata:{...o.metadata,haggs_pack_version:'unknown'}},{metadata:{...o.metadata,haggs_pack_version:undefined}}])assert.equal(changeFor(event({...o,...patch}),{}),null);
+ }
+});
+test('fulfillment ledger enforces one grant per user/kind/bucket/session',()=>{
+ const sql=readFileSync(new URL('../../supabase/migrations/20261023000100_credits.sql',import.meta.url),'utf8');
+ assert.match(sql,/unique index[^;]+\(user_id, kind, bucket, ref\)/);
+ assert.match(sql,/values \(target, 'topup', cents, 'topup', ref\) on conflict do nothing/);
+});
+
+ test("subscription checkout rejects wrong amount, currency, period and inactive prices before creating a customer", async()=>{
+  for (const patch of [{unit_amount:390},{currency:'eur'},{active:false},{recurring:null},{recurring:{interval:'year',interval_count:1}},{recurring:{interval:'month',interval_count:2}}]) {
+   const {stripe,calls}=fakeStripe(); stripe.prices={retrieve:async()=>({active:true,currency:'usd',unit_amount:3900,recurring:{interval:'month',interval_count:1},...patch})};
+   await assert.rejects(checkout(stripe,env,'starter',user,'http://localhost:3112'),/not configured correctly/);
+   assert.equal(calls.create,undefined); assert.equal(calls.checkout,undefined);
+  }
+ });
