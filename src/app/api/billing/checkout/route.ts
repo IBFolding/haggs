@@ -1,4 +1,4 @@
-import { checkout } from "../../../../server/billing";
+import { checkout, customerMessage } from "../../../../server/billing";
 import { verifyUser } from "../../../../server/auth";
 import { origin, stripeFromEnv } from "../../../../server/stripe";
 
@@ -11,6 +11,6 @@ export async function POST(request: Request) {
   try {
     return Response.json({ ok: true, url: await checkout(stripe, process.env, plan ?? "", user, origin(request)) });
   } catch (caught) {
-    return Response.json({ ok: false, reason: caught instanceof Error ? caught.message : "Checkout couldn't start." }, { status: 400 });
+    return Response.json({ ok: false, reason: customerMessage(caught, "Checkout couldn't start. Please try again in a moment.") }, { status: 400 });
   }
 }
