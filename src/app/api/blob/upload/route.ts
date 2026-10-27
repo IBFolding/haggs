@@ -1,7 +1,7 @@
-import {reserveStorage,finishStorage} from "../../../../server/storage-quota";
+import {reserveStorage,finishStorage,reconcileStorage,uploadFolder} from "../../../../server/storage-quota";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
-import { ownerOf, signInRequired, verifyUser } from "../../../../server/auth";
+import { ownerOf, requestToken, verifyUser } from "../../../../server/auth";
 import { hosted } from "../../../../server/blob";
 import { allow, caller } from "../../../../server/limit";
 
@@ -28,9 +28,13 @@ export async function POST(request: Request) {
         // A person uploads into their own folder; guests into the shared one, unless sign-in is required.
         if (!user) throw new Error("Sign in to add files here.");
         if (!pathname.startsWith(`haggs/${ownerOf(user)}/uploads/`)) throw new Error("That isn't your folder.");
+        // The hold's id names the upload's folder, so an upload whose completion never arrives can still be found and counted.
+        const reservation=/^[^/]+\/[^/]+\/uploads\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/[^/]+$/.exec(pathname)?.[1];
+        if (!reservation || !pathname.startsWith(uploadFolder(user.id,reservation))) throw new Error("Reload the page and add the file again.");
         const size=Number(JSON.parse(clientPayload ?? "{}").size);
         if(!Number.isSafeInteger(size)||size<=0||size>300*1024*1024)throw new Error("Keep added files under 300 MB.");
-        const reservation=await reserveStorage(user,size);
+        await reconcileStorage(user,requestToken(request));
+        await reserveStorage(user,size,reservation);
         return {
         tokenPayload: JSON.stringify({userId:user.id,reservation}),
         validUntil: Date.now()+15*60*1000,

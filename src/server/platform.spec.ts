@@ -83,3 +83,14 @@ test('storage preflight happens before credits or submission, and failed funding
  const poor=deps({prepareStorage:async()=>({id:'hold',userId:'u1',maxBytes:100,saved:false}),releaseStorage:async hold=>{released.push(hold.id);},spend:async()=>false});
  assert.equal((await decide(poor.d,.12,'clip',NEED)).ok,false);assert.deepEqual(released,['hold']);
 });
+
+test('a successful run releases a storage hold its output did not use, and keeps one it did',async()=>{
+ const released:string[]=[];
+ const hold=()=>({id:'hold',userId:'u1',maxBytes:100,saved:false});
+ const unused=deps({prepareStorage:async()=>hold(),releaseStorage:async h=>{released.push(h.id);}});
+ const a=await decide(unused.d,.12,'clip',NEED);assert.ok(a.ok);await a.settle(true);await a.settle(true);
+ assert.deepEqual(released,['hold']);
+ const used=deps({prepareStorage:async()=>hold(),releaseStorage:async h=>{released.push('again:'+h.id);}});
+ const b=await decide(used.d,.12,'clip',NEED);assert.ok(b.ok);b.storage!.saved=true;await b.settle(true);
+ assert.deepEqual(released,['hold']);
+});

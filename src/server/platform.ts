@@ -1,4 +1,4 @@
-import {reserveStorage,finishStorage} from "./storage-quota";
+import {reserveStorage,finishStorage,reconcileStorage} from "./storage-quota";
 import {jobOutcome,type JobOutcome} from "../providers/job-outcome";
 import { createClient } from "@supabase/supabase-js";
 
@@ -57,10 +57,11 @@ export async function decide(deps: Deps, usd: number, memo: string, needKeyMessa
     key: deps.platformKey,
     platform: true,
     ...(storage?{storage}:{}),
-    // A run that didn't complete gets its credits back, once.
+    // A run that didn't complete gets its credits back, once. A storage hold no output used is released either way.
     settle: async (completed) => {
       if (settled) return;
-      if (!completed) { await deps.refund(ref); if(storage&&!storage.saved)await deps.releaseStorage?.(storage); }
+      if (!completed) await deps.refund(ref);
+      if(storage&&!storage.saved)await deps.releaseStorage?.(storage);
       settled = true;
     },
   };
@@ -88,6 +89,7 @@ async function liveDeps(): Promise<Deps> {
     prepareStorage: async user => {
       if(!process.env.BLOB_READ_WRITE_TOKEN)return undefined;
       const maxBytes=100*1024*1024; // Cloud runner rejects larger output before saving.
+      await reconcileStorage(user,token);
       return {id:await reserveStorage(user,maxBytes),userId:user.id,maxBytes,saved:false};
     },
     releaseStorage: hold=>finishStorage(hold.userId,hold.id,null),

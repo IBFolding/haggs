@@ -33,8 +33,11 @@ const cookieToken = (header: string | null) => header?.split(/;\s*/).map((c) => 
 
 /** The person behind an API request: by bearer token, or by the cookie the app keeps. */
 export async function verifyUser(request: Request): Promise<User | null> {
-  return verifyToken(bearer(request) ?? cookieToken(request.headers.get("cookie")));
+  return verifyToken(requestToken(request));
 }
+
+/** The sign-in token an API request carries, by bearer or cookie. */
+export const requestToken = (request: Request) => bearer(request) ?? cookieToken(request.headers.get("cookie"));
 
 /** The person behind a server action. Null outside a request, or when nobody is signed in. */
 export async function userNow(): Promise<User | null> {
