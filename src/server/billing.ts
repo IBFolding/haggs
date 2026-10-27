@@ -64,7 +64,7 @@ export type StripeLike = {
     search(query: { query: string; limit?: number }): Promise<{ data: { id: string }[] }>;
     create(args: { email: string; metadata: Record<string, string> }): Promise<{ id: string }>;
   };
-  checkout: { sessions: { create(args: Record<string, unknown>): Promise<{ url: string | null }> } };
+  checkout: { sessions: { create(args: Record<string, unknown>): Promise<{ id?: string; url: string | null; amount_total?: number | null; currency?: string | null }>; expire?(id: string): Promise<unknown> } };
   billingPortal: { sessions: { create(args: Record<string, unknown>): Promise<{ url: string }> } };
   subscriptions: {
     list(args: Record<string, unknown>): Promise<{ data: { status: string; items: { data: { price: { id: string }; current_period_end?: number }[] } }[] }>;
@@ -76,12 +76,37 @@ async function customerOf(stripe: StripeLike, user: User): Promise<string | null
   return found.data[0]?.id ?? null;
 }
 
+
+/** A refusal written for the customer. Anything else that goes wrong (a Stripe error, say) is logged, never shown. */
+export class BillingError extends Error {}
+export const customerMessage = (caught: unknown, fallback: string) => {
+  if (caught instanceof BillingError) return caught.message;
+  console.error("billing:", caught instanceof Error ? caught.message : caught);
+  return fallback;
+};
+
+type PriceLike = { active: boolean; currency: string; unit_amount: number | null; recurring?: unknown };
+/**
+ * The price's own record, when the Stripe key may read prices: null when it may not.
+ * A key without that permission still checks out: the session's total is verified instead, see confirmTotal.
+ */
+async function readPrice(stripe: StripeLike, id: string): Promise<PriceLike | null> {
+  if (!stripe.prices) return null;
+  try { return await stripe.prices.retrieve(id); } catch (caught) { console.error("billing: price could not be read, verifying the session total instead:", caught instanceof Error ? caught.message : caught); return null; }
+}
+/** With no price read, the session Stripe built must charge exactly what the plan costs, in dollars; otherwise it is cancelled and no link is given. */
+async function confirmTotal(stripe: StripeLike, session: { id?: string; url: string | null; amount_total?: number | null; currency?: string | null }, usd: number, what: string): Promise<void> {
+  if (session.amount_total === usd * 100 && session.currency === "usd") return;
+  if (session.id) await stripe.checkout.sessions.expire?.(session.id).catch(() => undefined);
+  throw new BillingError(`This ${what} is not configured correctly. No checkout was created.`);
+}
+
 export async function checkout(stripe: StripeLike, env: Env, planId: string, user: User, origin: string): Promise<string> {
   const plan = configured(env).find((p) => p.id === planId);
-  if (!plan) throw new Error("That plan can't be bought right now.");
-  const price = await stripe.prices?.retrieve(plan.price);
+  if (!plan) throw new BillingError("That plan can't be bought right now.");
+  const price = await readPrice(stripe, plan.price);
   const recurring = price?.recurring as { interval?: string; interval_count?: number } | null | undefined;
-  if (!price || !price.active || price.currency !== "usd" || price.unit_amount !== plan.monthly * 100 || recurring?.interval !== "month" || recurring.interval_count !== 1) throw new Error("This subscription is not configured correctly. No checkout was created.");
+  if (price && (!price.active || price.currency !== "usd" || price.unit_amount !== plan.monthly * 100 || recurring?.interval !== "month" || recurring.interval_count !== 1)) throw new BillingError("This subscription is not configured correctly. No checkout was created.");
   const customer = (await customerOf(stripe, user)) ?? (await stripe.customers.create({ email: user.email, metadata: { haggs_user: user.id } })).id;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -93,7 +118,8 @@ export async function checkout(stripe: StripeLike, env: Env, planId: string, use
     cancel_url: `${origin}/pricing`,
     subscription_data: { metadata: { haggs_user: user.id, haggs_plan: plan.id, haggs_plan_version: PLAN_VERSION, haggs_credit_grant: String(plan.credits) } },
   });
-  if (!session.url) throw new Error("Stripe didn't return a checkout page.");
+  if (!price) await confirmTotal(stripe, session, plan.monthly, "subscription");
+  if (!session.url) throw new BillingError("Stripe didn't return a checkout page.");
   return session.url;
 }
 
@@ -114,7 +140,7 @@ export async function status(stripe: StripeLike, env: Env, user: User): Promise<
 
 export async function portal(stripe: StripeLike, env: Env, user: User, origin: string): Promise<string> {
   const customer = await customerOf(stripe, user);
-  if (!customer) throw new Error("There's no subscription to manage yet.");
+  if (!customer) throw new BillingError("There's no subscription to manage yet.");
   const session = await stripe.billingPortal.sessions.create({
     customer,
     return_url: `${origin}/account`,
@@ -131,9 +157,9 @@ export function topupsConfigured(env: Env): (Topup & { price: string })[] {
 
 export async function topupCheckout(stripe: StripeLike, env: Env, packId: string, user: User, origin: string): Promise<string> {
   const pack = topupsConfigured(env).find((t) => t.id === packId);
-  if (!pack) throw new Error("That pack can't be bought right now.");
-  const price = await stripe.prices?.retrieve(pack.price);
-  if (!price || !price.active || price.currency !== "usd" || price.unit_amount !== pack.usd * 100 || price.recurring) throw new Error("This credit pack is not configured correctly. No checkout was created.");
+  if (!pack) throw new BillingError("That pack can't be bought right now.");
+  const price = await readPrice(stripe, pack.price);
+  if (price && (!price.active || price.currency !== "usd" || price.unit_amount !== pack.usd * 100 || price.recurring)) throw new BillingError("This credit pack is not configured correctly. No checkout was created.");
   const customer = (await customerOf(stripe, user)) ?? (await stripe.customers.create({ email: user.email, metadata: { haggs_user: user.id } })).id;
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -145,7 +171,8 @@ export async function topupCheckout(stripe: StripeLike, env: Env, packId: string
     allow_promotion_codes: false,
     metadata: { haggs_user: user.id, haggs_topup: pack.id, haggs_pack_version: TOPUP_VERSION, haggs_credit_grant: String(pack.credits), haggs_price_id: pack.price },
   } as never);
-  if (!session.url) throw new Error("Stripe didn't return a checkout page.");
+  if (!price) await confirmTotal(stripe, session, pack.usd, "credit pack");
+  if (!session.url) throw new BillingError("Stripe didn't return a checkout page.");
   return session.url;
 }
 

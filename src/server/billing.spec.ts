@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { PLANS, checkout, configured, portal, status, type StripeLike } from "./billing";
+import { PLANS, checkout, configured, customerMessage, portal, status, type StripeLike } from "./billing";
 
 const env = { STRIPE_API_KEY: "sk_test_x", STRIPE_PRICE_BYOK: "price_b", STRIPE_PRICE_STARTER: "price_s", STRIPE_PRICE_MID: "price_m", STRIPE_PRICE_PRO: "price_p", STRIPE_PRICE_STARTER_FIXED_2026: "price_s", STRIPE_PRICE_MID_FIXED_2026: "price_m", STRIPE_PRICE_PRO_FIXED_2026: "price_p", STRIPE_PORTAL_CONFIG_ID: "bpc_1" };
 const user = { id: "u1", email: "a@b.test" };
@@ -141,3 +141,19 @@ test('fulfillment ledger enforces one grant per user/kind/bucket/session',()=>{
    assert.equal(calls.create,undefined); assert.equal(calls.checkout,undefined);
   }
  });
+
+test("a key that cannot read prices still checks out when the session's own total is right, and is cancelled when it is not", async () => {
+  const denied = async () => { throw new Error("Permission denied. The provided key 'rk_live_secret' does not have the required permissions"); };
+  const expired: string[] = [];
+  const build = (total: number | null, currency = "usd") => { const f = fakeStripe(); f.stripe.prices = { retrieve: denied }; f.stripe.checkout.sessions = { create: async () => ({ id: "cs_1", url: "https://checkout.stripe.test/s", amount_total: total, currency }), expire: async (id: string) => { expired.push(id); } }; return f; };
+  assert.equal(await checkout(build(3900).stripe, env, "starter", user, "http://x"), "https://checkout.stripe.test/s");
+  const topupEnv = { ...env, STRIPE_PRICE_TOPUP_FIXED_30: "price_t30" };
+  assert.equal(await topupCheckout(build(3000).stripe, topupEnv, "fixed30", user, "http://x"), "https://checkout.stripe.test/s");
+  for (const [total, currency] of [[3800, "usd"], [3900, "eur"], [null, "usd"]] as const) {
+    await assert.rejects(checkout(build(total, currency).stripe, env, "starter", user, "http://x"), /not configured correctly/);
+  }
+  assert.deepEqual(expired, ["cs_1", "cs_1", "cs_1"]);
+});
+test("customers never see a Stripe error, only our own refusals", () => {
+  assert.equal(customerMessage(new Error("Permission denied. The provided key 'rk_live_secret'"), "Try again."), "Try again.");
+});
