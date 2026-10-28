@@ -8,4 +8,4 @@ export function useWorkflowFavorites(){
  function toggle(id:string){if(!ready)return;setFavorites(old=>{const next=old.includes(id)?old.filter(x=>x!==id):[...old,id];void defaultKv().set(key,next).then(()=>setError('')).catch(()=>setError('Favorites could not be saved. Please try again.'));return next;});}
  return {favorites,ready,error,toggle};
 }
-export function Favorite({active,disabled,onClick,name}:{active:boolean;disabled:boolean;onClick:()=>void;name:string}){return <button className="wf-favorite plain" aria-label={`Favorite ${name}`} aria-pressed={active} disabled={disabled} onClick={onClick}>{active?'★ Saved':'☆ Favorite'}</button>;}
+export function Favorite({active,disabled,onClick,name}:{active:boolean;disabled:boolean;onClick:()=>void;name:string}){return <button className="wf-favorite plain" aria-label={`Favorite ${name}`} aria-pressed={active} disabled={disabled} onClick={onClick} title={active?'Saved to Favorites':'Save to Favorites'}>{active?'★':'☆'}</button>;}

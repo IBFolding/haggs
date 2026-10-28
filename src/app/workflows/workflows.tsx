@@ -73,6 +73,7 @@ export function Workflows() {
         <div className="wf">
           <header className="wf-head">
             <div>
+              <span className="eyebrow">Workflows</span>
               <h1>Comfy workflows, ready to run</h1>
               <p>Pick one, drop in your files, press Run. The price is on the button.</p>
             </div>
@@ -109,7 +110,7 @@ export function Workflows() {
                     <span className="qc-pic" style={{ backgroundImage: `url(/quick/${a.id}.webp)` }} role="img" aria-label={`A sample of ${a.name}`} />
                     <b>{a.name}</b>
                     <span>{a.says}</span>
-                    <small>{isOpenApp(a) ? "Open weights" : a.makes === "video" ? "Video" : "Picture"}</small>
+                    <small className={isOpenApp(a) ? "qc-open" : undefined}>{isOpenApp(a) ? "Open weights" : a.makes === "video" ? "Video" : "Picture"}</small>
                   </Link><Favorite name={a.name} active={favorites.includes(`quick:${a.id}`)} disabled={!favoriteReady} onClick={()=>toggleFavorite(`quick:${a.id}`)}/></div>
                 ))}
                 {!openOnly && !onlyFavorites && group === "Swap and faces" && (
