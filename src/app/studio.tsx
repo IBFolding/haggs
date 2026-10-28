@@ -12,8 +12,8 @@ import { coerceSettings, defaultSettings, toWireSettings, type Settings } from "
 import { cloudPrice } from "../providers/cloud-models";
 import { slotIn, templatesFor, type Template } from "../catalog/templates";
 import { recommend } from "../catalog/recommend";
-import { lookPhrase, withLook, type LookChoice } from "../catalog/look";
-import { LookPanel } from "./look-panel";
+import { withLook, type LookChoice } from "../catalog/look";
+import { LookBar } from "./look-picker";
 import { OUTFIT_IDEAS, castReferences, castWords } from "../catalog/cast";
 import { createCharacterStore, identityLock, type Character } from "../characters/character";
 import { createPlaceStore, placeLock, type SavedPlace } from "../locations/location";
@@ -200,7 +200,6 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const [saving, setSaving] = useState<PictureRun | null>(null);
   const startProject = useStartProject();
   const [showTemplates, setShowTemplates] = useState(false);
-  const [showLook, setShowLook] = useState(false);
   const [look, setLook] = useState<LookChoice>({});
   const lookKey = `haggs.look.${surface}`;
   useEffect(() => {
@@ -366,7 +365,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
     // The look's words go after the prompt, and the run keeps the prompt as it was sent.
     const cast = surface === "Edit" ? null : { characterLock: who ? identityLock(who.traits) : undefined, placeLock: where ? placeLock(where.traits) : undefined, outfit };
-    const sent = surface === "Edit" ? prompt : withLook(cast ? castWords(prompt, cast) : prompt, look);
+    const sent = surface === "Edit" ? prompt : withLook(cast ? castWords(prompt, cast) : prompt, look, surface === "Video");
     // A picture you attached is the opening frame; with none, your character's and place's sheets go in as references.
     const refs = surface === "Edit" ? [] : castReferences({ attached: images, character: who?.sheet ?? null, place: where?.plate ?? null, accessories: outfit.map((w) => outfitPics[w]).filter((x): x is string => Boolean(x)), max: card.inputImages });
     // References are drawn smaller first: two full-size sheets together can pass the host's request limit.
@@ -660,15 +659,10 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </div>
           )}
 
-          {showLook && surface !== "Edit" && <LookPanel value={look} onChange={changeLook} />}
+          {surface !== "Edit" && <LookBar value={look} onChange={changeLook} video={surface === "Video"} />}
           <div className="composer-top">
             <UploadImage inputRef={fileInput} disabled={card.inputImages === 0} onAttach={(url) => setImages(held => [...held, url].slice(-Math.max(1,card.inputImages)))} />
             {card.inputImages === 0 && <span className="takes-note">This model accepts text only. Choose an image-capable model to upload a reference.</span>}
-            {surface !== "Edit" && (
-              <button className={`tpl-open${lookPhrase(look) ? " set" : ""}`} aria-expanded={showLook} onClick={(e) => { e.stopPropagation(); setShowLook((v) => !v); setShowTemplates(false); }}>
-                Look{lookPhrase(look) ? " ·" : ""}
-              </button>
-            )}
             {templates.length > 0 && (
               <div className="tpl-wrap" onClick={(e) => e.stopPropagation()}>
                 <button className="tpl-open" aria-expanded={showTemplates} onClick={() => setShowTemplates((v) => !v)}>
