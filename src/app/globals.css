@@ -4106,3 +4106,4 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ad-brand .ads-swatches { display: flex; gap: 4px; }
 .ad-brand-edit summary { font: 700 13px var(--ui); color: var(--text-2); cursor: pointer; margin: 4px 0 8px; }
 @media (prefers-reduced-motion: reduce) { .ad-strip-row { animation: none; } }
+.cx-lede { margin: 0 0 6px; color: var(--text-2); font-size: 13.5px; line-height: 1.5; } .ac-stage img { object-fit: contain; max-height: 480px; } .cx-upload input { display: none; }

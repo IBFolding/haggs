@@ -18,6 +18,7 @@ import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
 import { PLACE_SAMPLES } from "../../samples/starters";
 import { ChipRow } from "../chip-row";
+import { SWATCHES, SwatchRow } from "../characters/swatches";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 import { creditsText } from "../../story/price-text";
@@ -50,6 +51,13 @@ async function shrink(file: File): Promise<string> {
   c.height = Math.round(img.height * k);
   c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL("image/jpeg", 0.9);
+}
+
+/** Every choice picked at random from its usual options, keeping the name, the picture and the words you wrote. */
+function shuffledPlace(t: Place): Place {
+  const next = { ...t };
+  for (const row of PLACE_ROWS) (next as Record<string, unknown>)[row.id] = row.options[Math.floor(Math.random() * row.options.length)];
+  return next;
 }
 
 export function Locations() {
@@ -127,64 +135,59 @@ export function Locations() {
           <ModeTabs group="Photos" current="/locations" canEdit={surfaceAvailable("Edit")} />
           <h1 className="sr-only">Locations</h1>
           <ReturnBar kind="place" savedId={current?.id} savedName={current?.traits.name} />
-          <div className="cm-row" aria-label="Samples">
-            <span className="muted">Try a sample:</span>
-            {PLACE_SAMPLES.map((p) => <button key={p.name} className="pill" onClick={() => { setCurrent(null); setTraits(p); setReference(null); setPlate(null); setViews([]); setNote(null); setError(null); }}>{p.name}</button>)}
-          </div>
+          <div className="cx">
+            <aside className="cx-builder" aria-label="Build a location">
+              <div className="cx-scroll">
+                <span className="eyebrow">Locations</span>
+                <h1 className="cx-title">Build a place you can shoot from any side.</h1>
+                <label className="wf-field"><span>Name</span><input value={traits.name} maxLength={60} onChange={(e) => set("name", e.target.value)} /></label>
 
-          {saved.length > 0 && (
-            <div className="chars-shelf" aria-label="Your locations">
-              <button className={`chars-new${!current ? " on" : ""}`} onClick={() => open(null)}>+ New</button>
-              {saved.map((c) => (
-                <button key={c.id} className={`chars-pick${current?.id === c.id ? " on" : ""}`} onClick={() => open(c)} title={c.traits.name}>
-                  <img src={c.plate} alt="" />
-                  <span>{c.traits.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="chars-body">
-            <div className="chars-form">
-              <label className="wf-field"><span>Name</span><input value={traits.name} maxLength={60} onChange={(e) => set("name", e.target.value)} /></label>
-
-              <div className="chars-likeness">
-                <b>Start from a picture</b>
-                <p>Add a photo of a real place and the plate keeps its layout; the choices below change the time, weather and mood.</p>
-                <div className="chars-photos">
-                  {reference && <span><img src={reference} alt="" /><button aria-label="Remove picture" onClick={() => setReference(null)}>×</button></span>}
-                  {!reference && <button className="chars-add" onClick={() => file.current?.click()}>+ Picture</button>}
+                <div className="cx-likeness">
+                  {!reference ? (
+                    <button className="cx-upload" onClick={() => file.current?.click()}><span aria-hidden>＋</span><b>Start from a picture</b><small>optional · keeps its layout</small></button>
+                  ) : (
+                    <div className="chars-photos"><span><img src={reference} alt="" /><button aria-label="Remove picture" onClick={() => setReference(null)}>×</button></span></div>
+                  )}
+                  <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    try {
+                      setReference(await shrink(f));
+                    } catch (caught) {
+                      setError(caught instanceof Error ? caught.message : "That picture couldn't be added.");
+                    }
+                  }} />
                 </div>
-                <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = "";
-                  if (!f) return;
-                  try {
-                    setReference(await shrink(f));
-                  } catch (caught) {
-                    setError(caught instanceof Error ? caught.message : "That picture couldn't be added.");
-                  }
-                }} />
+
+                {PLACE_ROWS.map((row, i) => (
+                  <details key={row.id} className="cx-sec" open={i < 2 || row.id in SWATCHES}>
+                    <summary><b>{row.label}</b><i>· {row.options.length}</i><small>{traits[row.id]}</small></summary>
+                    {row.id in SWATCHES
+                      ? <SwatchRow id={row.id} label={row.label} options={row.options} value={traits[row.id]} onChange={(v) => set(row.id, v as never)} />
+                      : <ChipRow label={row.label} options={row.options} value={traits[row.id]} onChange={(v) => set(row.id, v as never)} />}
+                  </details>
+                ))}
+                <details className="cx-sec">
+                  <summary><b>Style and details</b><small>{[traits.style, traits.details].filter(Boolean).join(" · ") || "none yet"}</small></summary>
+                  <label className="wf-field"><span>Style and materials</span><input value={traits.style} maxLength={200} placeholder="weathered wood and brass, art deco, brutalist concrete" onChange={(e) => set("style", e.target.value)} /></label>
+                  <label className="wf-field"><span>Details that matter</span><input value={traits.details} maxLength={300} placeholder="a jukebox in the corner, rain on the windows" onChange={(e) => set("details", e.target.value)} /></label>
+                </details>
               </div>
+              <div className="cx-foot">
+                <button className="cx-shuffle" title="Shuffle every choice (keeps the name and picture)" aria-label="Shuffle every choice" onClick={() => setTraits((t) => shuffledPlace(t))}>Shuffle</button>
+                <button className="fire" disabled={busy !== null} onClick={() => void makePlate()}>{busy === "plate" ? "Building…" : plate ? "Roll it again" : "Make the plate"} <span className="cost">{creditsText(PRICE)}</span></button>
+              </div>
+            </aside>
 
-              <details className="chars-group">
-                <summary><b>The place</b><small>{[...PLACE_ROWS.map((r) => traits[r.id]), traits.style].filter(Boolean).join(" · ")}</small></summary>
-                {PLACE_ROWS.map((row) => <ChipRow key={row.id} label={row.label} options={row.options} value={traits[row.id]} onChange={(v) => set(row.id, v as never)} />)}
-                <label className="wf-field"><span>Style and materials</span><input value={traits.style} maxLength={200} placeholder="weathered wood and brass, art deco, brutalist concrete" onChange={(e) => set("style", e.target.value)} /></label>
-                <label className="wf-field"><span>Details that matter</span><input value={traits.details} maxLength={300} placeholder="a jukebox in the corner, rain on the windows" onChange={(e) => set("details", e.target.value)} /></label>
-              </details>
-            </div>
-
+            <div className="cx-main">
             <div className="chars-stage">
               <div className="chars-sheet" aria-live="polite">
                 {busy === "plate" ? <div className="wf-result-wait">Building the place…</div> : plate ? <img src={plate} alt={traits.name} /> : <div className="wf-result-wait">Choose the place, then make the plate. An empty establishing shot appears here.</div>}
               </div>
               {error && <p className="library-error" role="alert">{error}</p>}
               {note && <p className="wf-note" role="status">{note}</p>}
-              <div className="sheet-row">
-                <button className="fire" disabled={busy !== null} onClick={() => void makePlate()}>{plate ? "Roll it again" : "Make the plate"} <span className="cost">{creditsText(PRICE)}</span></button>
-                {plate && <button className="pill on" onClick={() => void save()}>{current ? "Save changes" : "Save place"}</button>}
-              </div>
+              {plate && <div className="sheet-row"><button className="pill on" onClick={() => void save()}>{current ? "Save changes" : "Save place"}</button></div>}
 
               {plate && (
                 <>
@@ -218,6 +221,33 @@ export function Locations() {
                   <p className="wf-small">In a project, it becomes a place&rsquo;s look: every shot set there sends this picture, so it stays the same place.</p>
                 </>
               )}
+            </div>
+
+            <section className="cx-gallery" aria-label="Places to start from">
+              {saved.length > 0 && (
+                <>
+                  <span className="eyebrow muted">Your locations</span>
+                  <div className="cx-cards">
+                    <button className={`cx-card cx-new${!current ? " on" : ""}`} onClick={() => open(null)}><b>+ New location</b></button>
+                    {saved.map((c) => (
+                      <button key={c.id} className={`cx-card${current?.id === c.id ? " on" : ""}`} onClick={() => open(c)} title={c.traits.name}>
+                        <img src={c.plate} alt="" />
+                        <span><b>{c.traits.name}</b><small>Open</small></span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <span className="eyebrow muted">Start from a sample</span>
+              <div className="cx-cards">
+                {PLACE_SAMPLES.map((p) => (
+                  <button key={p.name} className="cx-card cx-sample" onClick={() => { setCurrent(null); setTraits(p); setReference(null); setPlate(null); setViews([]); setNote(null); setError(null); }}>
+                    <span className="cx-mono" aria-hidden style={{ background: SWATCHES.timeOfDay?.[p.timeOfDay] }} />
+                    <span><b>{p.name}</b><small>{p.setting} · {p.timeOfDay} · {p.weather}</small><em>Use this →</em></span>
+                  </button>
+                ))}
+              </div>
+            </section>
             </div>
           </div>
         </div>
