@@ -17,6 +17,7 @@ import { appOf } from "../comfy/apps";
 import { catalogOf, checked, indexOf, openTemplate, opens, type Entry, type Opened } from "../server/comfy-library";
 import { keepResult } from "../server/keep";
 import { partnerNodes } from "../comfy/partner";
+import { openOnlyIn, workflowRefusal } from "../comfy/open-only";
 import { workflowRuntime } from "../comfy/runtime";
 import { createLocalRunner, localBase } from "../providers/local";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
@@ -196,6 +197,8 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     if (!opened.app.output) return { ok: false, reason: "This workflow doesn't save a result haggs can show." };
     if (opened.app.produces === "3d" || opened.app.produces === "text") return { ok: false, reason: `This workflow makes ${opened.app.produces === "3d" ? "a 3D model" : "text"}; open it in ComfyUI. haggs shows pictures, video and sound.` };
     let { prompt } = prepare(opened.ui, opened.catalog);
+    const refused = workflowRefusal(openOnlyIn(await cookies()), partnerNodes(prompt, opened.catalog));
+    if (refused) return { ok: false, reason: refused };
     // Open weights only, and your own ComfyUI set: run there, free, on your own GPU.
     const address = localIn(await cookies());
     const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key));

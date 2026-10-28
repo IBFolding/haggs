@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { cameraMove, cameraMoves, MOVE_GROUPS } from "../../../../sheets/camera";
+import { CropPreview, Drawing, FRAMES, MovePreview, PickerShell, Wedge, type PickerTab } from "../../../look-picker";
 import { parseScreenplay, type Screenplay } from "../../../../sheets/screenplay";
 import {
   SHEETS, addBeat, addShot, alterRows, buildSheets, exportSheets, fixCell, importSheets,
@@ -78,50 +79,64 @@ function Pick({ label, value, options, onChange }: { label: string; value: strin
   );
 }
 
-/** The move picker: every named move, grouped, one click to put it in the shot. */
-function CameraPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const current = cameraMove(value);
+/** Shot sizes as crops of the sample portrait, or a drawing where a crop cannot show it. */
+const SIZE_LOOK: Record<string, ReactNode> = {
+  "Extreme wide": <Drawing wide>{FRAMES["extreme-wide"]}</Drawing>,
+  Wide: <CropPreview at="50% 50%" zoom={1} />,
+  Full: <CropPreview at="66% 58%" zoom={1.35} />,
+  "Medium wide": <CropPreview at="65% 50%" zoom={1.7} />,
+  Medium: <CropPreview at="64% 42%" zoom={2.1} />,
+  "Medium close-up": <CropPreview at="62% 32%" zoom={2.8} />,
+  "Close-up": <CropPreview at="61% 25%" zoom={3.6} />,
+  "Extreme close-up": <CropPreview at="59% 23%" zoom={8} />,
+  Insert: <CropPreview at="58% 74%" zoom={4.5} />,
+  "Two-shot": <Drawing wide><circle cx="34" cy="24" r="8" /><path d="M20 64 C22 42 46 42 48 64" /><circle cx="62" cy="24" r="8" /><path d="M48 64 C50 42 74 42 76 64" /></Drawing>,
+  "Over-the-shoulder": <Drawing wide>{FRAMES["over-shoulder"]}</Drawing>,
+};
+const ANGLE_LOOK: Record<string, ReactNode> = {
+  "Eye level": <Drawing wide><circle cx="60" cy="24" r="8" /><path d="M46 64 C48 42 72 42 74 64" /><path d="M6 26 H40" strokeDasharray="4 4" /><circle cx="10" cy="26" r="3" /></Drawing>,
+  Low: <Drawing wide>{FRAMES["low-angle"]}</Drawing>,
+  High: <Drawing wide><circle cx="48" cy="40" r="7" /><path d="M36 64 C38 50 58 50 60 64" /><path d="M10 6 L40 34 M86 6 L56 34" /></Drawing>,
+  Overhead: <Drawing wide>{FRAMES["top-down"]}</Drawing>,
+  "Ground level": <Drawing wide><path d="M0 52 H96" /><circle cx="64" cy="30" r="6" /><path d="M58 52 L64 36 L70 52" /><circle cx="10" cy="50" r="3" /><path d="M14 50 H40" strokeDasharray="4 4" /></Drawing>,
+  Dutch: <Drawing wide><g transform="rotate(-14 48 32)"><rect x="16" y="8" width="64" height="48" rx="3" /><circle cx="48" cy="26" r="7" /><path d="M36 56 C38 40 58 40 60 56" /></g></Drawing>,
+  POV: <Drawing wide><path d="M8 12 Q48 -4 88 12 V52 Q48 68 8 52 Z" /><path d="M30 64 L40 44 M66 64 L56 44" /><circle cx="48" cy="28" r="5" /></Drawing>,
+};
+const LENS_LOOK = (lens: string): ReactNode => {
+  if (lens === "Anamorphic") return <Drawing><ellipse cx="32" cy="32" rx="24" ry="13" /><ellipse cx="32" cy="32" rx="11" ry="6" /><path d="M2 32 H62" className="vk-flare" /></Drawing>;
+  const mm = parseInt(lens, 10);
+  return <span className="vk-draw wide"><Wedge focal={mm || 50} /></span>;
+};
+
+/** The shot's camera as four cards (move, size, angle, lens), each opening a picker of visual samples. */
+function ShotLook({ shot, set }: { shot: ShotRow; set: (key: keyof ShotRow, value: unknown) => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const move = cameraMove(shot.move);
+  const options = (list: readonly string[], value: string) => (value && !list.includes(value) ? [value, ...list] : list);
+  const tabs: PickerTab[] = [
+    { id: "move", label: "Move", says: "What the camera does during the shot", value: shot.move, onPick: (v) => set("move", v),
+      groups: MOVE_GROUPS.map((g) => ({ name: g, options: cameraMoves.filter((m) => m.group === g).map((m) => ({ id: m.id, label: m.label, visual: <MovePreview id={m.id} /> })) })) },
+    { id: "size", label: "Size", says: "How much of the person the frame holds", value: shot.size, onPick: (v) => set("size", v),
+      groups: [{ options: options(SIZES, shot.size).map((o) => ({ id: o, label: o, visual: SIZE_LOOK[o] ?? <CropPreview at="50% 50%" zoom={1} /> })) }] },
+    { id: "angle", label: "Angle", says: "Where the camera looks from", value: shot.angle, onPick: (v) => set("angle", v),
+      groups: [{ options: options(ANGLES, shot.angle).map((o) => ({ id: o, label: o, visual: ANGLE_LOOK[o] ?? <CropPreview at="50% 50%" zoom={1} /> })) }] },
+    { id: "lens", label: "Lens", says: "How wide the lens sees, on a full-frame camera", value: shot.lens, onPick: (v) => set("lens", v),
+      groups: [{ options: options(LENSES, shot.lens).map((o) => ({ id: o, label: o, visual: LENS_LOOK(o) })) }] },
+  ];
+  const shown: Record<string, string> = { move: move?.label ?? "", size: shot.size, angle: shot.angle, lens: shot.lens };
+  const thumb: Record<string, ReactNode> = { move: shot.move ? <MovePreview id={shot.move} /> : <MovePreview id="static" />, size: SIZE_LOOK[shot.size] ?? <CropPreview at="50% 50%" zoom={1} />, angle: ANGLE_LOOK[shot.angle] ?? ANGLE_LOOK["Eye level"], lens: LENS_LOOK(shot.lens || "35mm") };
   return (
-    <div className="sh-camera">
-      <button type="button" className="sh-camera-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <span>Camera move</span>
-        <b>{current?.label ?? "Choose a move"}</b>
-      </button>
-      {current && <p className="sh-camera-desc">{current.prompt}</p>}
-      {open && (
-        <div className="sh-camera-pop" role="dialog" aria-label="Camera moves">
-          {MOVE_GROUPS.map((group) => (
-            <section key={group}>
-              <h4>{group}</h4>
-              <div>
-                {cameraMoves
-                  .filter((m) => m.group === group)
-                  .map((m) => (
-                    <button
-                      type="button"
-                      key={m.id}
-                      title={m.prompt}
-                      aria-pressed={m.id === value}
-                      onClick={() => {
-                        onChange(m.id);
-                        setOpen(false);
-                      }}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-              </div>
-            </section>
-          ))}
-          <p className="sh-note">Moves are written into the prompt as direction. The model decides the motion.</p>
-          {value && (
-            <button type="button" className="plain" onClick={() => { onChange(""); setOpen(false); }}>
-              Clear move
-            </button>
-          )}
-        </div>
-      )}
+    <div className="sh-look">
+      <div className="vk-bar">
+        {tabs.map((t) => (
+          <button key={t.id} type="button" className={`vk-card${shown[t.id] ? " set" : ""}`} onClick={() => setOpen(t.id)}>
+            <span className="vk-thumb">{thumb[t.id]}</span>
+            <span><small>{t.label}</small><b>{shown[t.id] || "Any"}</b></span>
+          </button>
+        ))}
+      </div>
+      {move && <p className="sh-camera-desc">{move.prompt}</p>}
+      {open && <PickerShell title="Camera" tabs={tabs} start={open} onClose={() => setOpen(null)} note="Moves, sizes, angles and lenses are written into the prompt as direction; the model decides the motion. The samples show the idea on a still." />}
     </div>
   );
 }
@@ -920,12 +935,7 @@ function ShotCard({ sheets, shot, index, picked, onPick, set, remove }: {
       <p className="sh-meta">{scene?.heading} · {beat?.source}</p>
       <div className="sh-shot">
         <div>
-          <CameraPicker value={shot.move} onChange={(v) => set("move", v)} />
-          <div className="sh-3">
-            <Pick label="Size" value={shot.size} options={SIZES} onChange={(v) => set("size", v)} />
-            <Pick label="Angle" value={shot.angle} options={ANGLES} onChange={(v) => set("angle", v)} />
-            <Pick label="Lens" value={shot.lens} options={LENSES} onChange={(v) => set("lens", v)} />
-          </div>
+          <ShotLook shot={shot} set={set} />
           <Text label="Blocking" value={shot.blocking} hint="Who is where, who moves" onChange={(v) => set("blocking", v)} />
           <Text label="Notes — not sent to the model" value={shot.note} onChange={(v) => set("note", v)} />
         </div>

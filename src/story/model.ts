@@ -56,6 +56,8 @@ export type Shot = {
   /** The endpoint and the settings it declared, as this shot will run. */
   model: { id: string; settings: Record<string, string | number | boolean> };
   direction?: Partial<Direction>;
+  /** Camera, framing, move, light, film, era, look and grade picked by sight; its plain words go into the prompt. */
+  look?: import("../catalog/look").LookChoice;
   render?: {
     url: string;
     kind: "image" | "video";
@@ -317,4 +319,10 @@ export function moveShot(shots: readonly Shot[], from: number, to: number): Shot
   if (!moved) return [...shots];
   next.splice(to, 0, moved);
   return next;
+}
+
+/** The shot with this look, or with none when nothing is picked, so an empty look never changes its prompt or file. */
+export function setLook(shot: Shot, look: import("../catalog/look").LookChoice): Shot {
+  const { look: _was, ...rest } = shot;
+  return Object.keys(look).length ? { ...rest, look } : rest;
 }

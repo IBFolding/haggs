@@ -10,7 +10,7 @@ import { ReturnBar } from "../return-bar";
 import { makeStill } from "../series-actions";
 import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
-import { ACCESSORY_SAMPLES } from "../../samples/starters";
+import { ACCESSORY_SAMPLES, SAMPLE_PICTURES, SAMPLE_PICTURES_BY } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { galleryStill } from "../gallery-log";
 import { SiteFooter } from "../site-footer";
@@ -76,42 +76,61 @@ export function Accessories() {
         <div className="swap">
           <ModeTabs group="Photos" current="/accessories" canEdit={surfaceAvailable("Edit")} />
           <ReturnBar kind="accessory" savedId={saved?.id} savedName={saved?.name} />
-          <header className="swap-head">
-            <h1>Accessories</h1>
-            <p>A scarf, glasses, a jacket, a camera. Describe it once, add a picture, and put it on anyone, in any shot, from anywhere in haggs.</p>
-          </header>
-          <div className="cm-row" aria-label="Samples">
-            <span className="muted">Try a sample:</span>
-            {ACCESSORY_SAMPLES.map((a) => <button key={a.name} className="pill" onClick={() => { setSaved(null); setName(a.name); setWords(a.words); setPicture(null); setProblem(null); }}>{a.name}</button>)}
-          </div>
-
-          {list.length > 0 && (
-            <div className="cm-cast" aria-label="Your accessories">
-              {list.map((a) => (
-                <button key={a.id} className={saved?.id === a.id ? "on" : ""} onClick={() => open(a)}>
-                  {a.picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={a.picture} alt="" /> : <span className="cm-noimg">{a.name.slice(0, 1)}</span>}
-                  <span>{a.name}</span>
-                </button>
-              ))}
-              <button className="cm-add" onClick={() => { setSaved(null); setName(""); setWords(""); setPicture(null); }}>+ New</button>
-            </div>
-          )}
-
-          <div className="ac-form">
-            <label className="wf-field"><span>Name</span><input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Red scarf" /></label>
-            <label className="wf-field"><span>What it looks like</span><textarea rows={2} value={words} maxLength={300} onChange={(e) => setWords(e.target.value)} placeholder="a long bright red wool scarf with tassels" /></label>
-            <div className="ac-pic">
-              {picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={picture} alt="The accessory" /> : <span>No picture yet</span>}
-              <div className="cm-row">
-                <button className="pill" disabled={busy !== null || (name.trim().length + words.trim().length) < 3} onClick={() => void makePicture()}>{busy ?? (picture ? "Draw again" : "Draw a picture")} <span className="cost">about {creditsText(PRICE)}</span></button>
-                <label className="pill">Add a picture<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addPicture(f); }} /></label>
+          <div className="cx">
+            <aside className="cx-builder" aria-label="Build an accessory">
+              <div className="cx-scroll">
+                <span className="eyebrow">Accessories</span>
+                <h1 className="cx-title">Make a prop once. Use it in every shot.</h1>
+                <p className="cx-lede">A scarf, glasses, a jacket, a camera. Describe it, add or draw a picture, and put it on anyone, anywhere in haggs.</p>
+                <label className="wf-field"><span>Name</span><input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Red scarf" /></label>
+                <label className="wf-field"><span>What it looks like</span><textarea rows={3} value={words} maxLength={300} onChange={(e) => setWords(e.target.value)} placeholder="a long bright red wool scarf with tassels" /></label>
+                <label className="cx-upload"><span aria-hidden>＋</span><b>{picture ? "Change the picture" : "Add a picture"}</b><small>optional · or draw one below</small><input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addPicture(f); }} /></label>
+                {problem && <p className="library-error" role="alert">{problem}</p>}
               </div>
+              <div className="cx-foot">
+                <button className="cx-shuffle" disabled={!name.trim()} onClick={() => void save()}>{saved ? "Save changes" : "Save"}</button>
+                <button className="fire" disabled={busy !== null || (name.trim().length + words.trim().length) < 3} onClick={() => void makePicture()}>{busy ?? (picture ? "Draw again" : "Draw a picture")} <span className="cost">about {creditsText(PRICE)}</span></button>
+              </div>
+            </aside>
+
+            <div className="cx-main">
+              <div className="chars-stage">
+                <div className="chars-sheet ac-stage" aria-live="polite">
+                  {picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={picture} alt={name || "The accessory"} /> : <div className="wf-result-wait">Describe it, then draw a picture or add your own. It appears here.</div>}
+                </div>
+                {saved && (
+                  <div className="sheet-row">
+                    <button className="plain danger" onClick={() => void store.remove(saved.id).then(async () => { setSaved(null); setName(""); setWords(""); setPicture(null); setList(await store.list()); })}>Delete {saved.name}</button>
+                  </div>
+                )}
+              </div>
+
+              <section className="cx-gallery" aria-label="Accessories to start from">
+                {list.length > 0 && (
+                  <>
+                    <span className="eyebrow muted">Your accessories</span>
+                    <div className="cx-cards">
+                      <button className={`cx-card cx-new${!saved ? " on" : ""}`} onClick={() => { setSaved(null); setName(""); setWords(""); setPicture(null); }}><b>+ New accessory</b></button>
+                      {list.map((a) => (
+                        <button key={a.id} className={`cx-card${saved?.id === a.id ? " on" : ""}`} onClick={() => open(a)}>
+                          {a.picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={a.picture} alt="" /> : <span className="cx-mono" aria-hidden>{a.name.slice(0, 1)}</span>}
+                          <span><b>{a.name}</b><small>Open</small></span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <span className="eyebrow muted">Start from a sample</span>
+                <div className="cx-cards">
+                  {ACCESSORY_SAMPLES.map((a) => (
+                    <button key={a.name} className="cx-card cx-sample" onClick={() => { setSaved(null); setName(a.name); setWords(a.words); setPicture(null); setProblem(null); }}>
+                      {SAMPLE_PICTURES[a.name] ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="cx-sample-pic" src={SAMPLE_PICTURES[a.name]} alt="" title={SAMPLE_PICTURES_BY} /> : <span className="cx-mono" aria-hidden>{a.name.slice(0, 1)}</span>}
+                      <span><b>{a.name}</b><small>{a.words}</small><em>Use this →</em></span>
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
-            <div className="cm-row">
-              <button className="fire" disabled={!name.trim()} onClick={() => void save()}>{saved ? "Save changes" : "Save accessory"}</button>
-              {saved && <button className="plain danger" onClick={() => void store.remove(saved.id).then(async () => { setSaved(null); setName(""); setWords(""); setPicture(null); setList(await store.list()); })}>Delete</button>}
-            </div>
-            {problem && <p className="library-error" role="alert">{problem}</p>}
           </div>
         </div>
         <SiteFooter />

@@ -14,8 +14,9 @@ import { surfaceAvailable } from "../studio";
 import { ReturnBar } from "../return-bar";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
-import { CHARACTER_SAMPLES } from "../../samples/starters";
+import { CHARACTER_SAMPLES, SAMPLE_PICTURES, SAMPLE_PICTURES_BY } from "../../samples/starters";
 import { ChipRow } from "../chip-row";
+import { SWATCHES, SwatchRow } from "./swatches";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 import { creditsText } from "../../story/price-text";
@@ -30,6 +31,15 @@ import { creditsText } from "../../story/price-text";
 const GROUPS = [["who", "Who"], ["body", "Body"], ["face", "Face and hair"], ["style", "Style"]] as const;
 const SHEET_PRICE = 0.0686;
 const CHANGE_PRICE = 0.04;
+
+/** Every trait picked at random from its usual choices, keeping the name, age range sensible and words you wrote. */
+function shuffled(t: Traits): Traits {
+  const next = { ...t, age: 18 + Math.floor(Math.random() * 52) };
+  for (const row of TRAIT_ROWS) (next as Record<string, unknown>)[row.id] = row.options[Math.floor(Math.random() * row.options.length)];
+  // A girl or a boy gets a child's age, and no beard.
+  if (next.gender === "girl" || next.gender === "boy") { next.age = 7 + Math.floor(Math.random() * 9); next.facialHair = "none"; }
+  return next;
+}
 
 const asData = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -136,77 +146,70 @@ export function Characters() {
           <ModeTabs group="Photos" current="/characters" canEdit={surfaceAvailable("Edit")} />
           <h1 className="sr-only">Characters</h1>
           <ReturnBar kind="character" savedId={current?.id} savedName={current?.traits.name} />
-          <div className="cm-row" aria-label="Samples">
-            <span className="muted">Try a sample:</span>
-            {CHARACTER_SAMPLES.map((t) => <button key={t.name} className="pill" onClick={() => { setCurrent(null); setTraits(t); setLikeness([]); setSheet(null); setMade(null); setNote(null); setError(null); }}>{t.name}</button>)}
-          </div>
-
-          {saved.length > 0 && (
-            <div className="chars-shelf" aria-label="Your characters">
-              <button className={`chars-new${!current ? " on" : ""}`} onClick={() => { setCurrent(null); setTraits(blank()); setLikeness([]); setSheet(null); setMade(null); setNote(null); }}>+ New</button>
-              {saved.map((c) => (
-                <button key={c.id} className={`chars-pick${current?.id === c.id ? " on" : ""}`} onClick={() => open(c)} title={c.traits.name}>
-                  <img src={c.sheet} alt="" />
-                  <span>{c.traits.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="chars-body">
-            <div className="chars-form">
-              <label className="wf-field"><span>Name</span><input value={traits.name} maxLength={60} onChange={(e) => set("name", e.target.value)} /></label>
-              <label className="wf-field chars-age"><span>Age · {traits.age}</span><input type="range" min={6} max={90} value={traits.age} onChange={(e) => set("age", Number(e.target.value))} aria-label="Age" /></label>
-
-              <div className="chars-likeness">
-                <b>Look like someone</b>
-                <p>Add photos of a person and the sheet keeps their face; the traits below change everything else.</p>
-                <div className="chars-photos">
-                  {likeness.map((u, i) => (
-                    <span key={i}><img src={u} alt="" /><button aria-label="Remove photo" onClick={() => setLikeness((l) => l.filter((_, k) => k !== i))}>×</button></span>
-                  ))}
-                  {likeness.length < 4 && <button className="chars-add" onClick={() => photo.current?.click()}>+ Photo</button>}
+          <div className="cx">
+            <aside className="cx-builder" aria-label="Build a character">
+              <div className="cx-scroll">
+                <span className="eyebrow">Characters</span>
+                <h1 className="cx-title">Build a person who stays the same.</h1>
+                <div className="cx-name">
+                  <label className="wf-field"><span>Name</span><input value={traits.name} maxLength={60} onChange={(e) => set("name", e.target.value)} /></label>
+                  <label className="wf-field chars-age"><span>Age · {traits.age}</span><input type="range" min={6} max={90} value={traits.age} onChange={(e) => set("age", Number(e.target.value))} aria-label="Age" /></label>
                 </div>
-                <input ref={photo} type="file" accept="image/*" multiple hidden onChange={async (e) => {
-                  const files = [...(e.target.files ?? [])].slice(0, 4 - likeness.length);
-                  e.target.value = "";
-                  try {
-                    setLikeness((l) => l);
-                    const urls = await Promise.all(files.map(shrink));
-                    setLikeness((l) => [...l, ...urls].slice(0, 4));
-                  } catch (caught) {
-                    setError(caught instanceof Error ? caught.message : "That photo couldn't be added.");
-                  }
-                }} />
-                {likeness.length > 0 && <small>Use photos of someone who has said you may. Their face is sent to Comfy to make the sheet.</small>}
-              </div>
 
-              {GROUPS.map(([id, label]) => (
-                <details key={id} className="chars-group" open={id === "who"}>
-                  <summary><b>{label}</b><small>{[...TRAIT_ROWS.filter((r) => r.group === id).map((r) => String(traits[r.id])), ...(id === "style" ? [traits.wardrobe, traits.marks] : [])].filter(Boolean).join(" · ")}</small></summary>
-                  {TRAIT_ROWS.filter((r) => r.group === id).map((row) => <ChipRow key={row.id} label={row.label} options={row.options} value={String(traits[row.id])} onChange={(v) => set(row.id, v as never)} />)}
-                  {id === "style" && (
-                    <>
-                      <label className="wf-field"><span>Wardrobe</span><input value={traits.wardrobe} maxLength={200} onChange={(e) => set("wardrobe", e.target.value)} /></label>
-                      <label className="wf-field"><span>Marks and details</span><input value={traits.marks} maxLength={200} placeholder="a small scar through the left eyebrow, freckles" onChange={(e) => set("marks", e.target.value)} /></label>
-                    </>
+                <div className="cx-likeness">
+                  {likeness.length === 0 ? (
+                    <button className="cx-upload" onClick={() => photo.current?.click()}><span aria-hidden>＋</span><b>Upload a photo</b><small>optional · keeps their face</small></button>
+                  ) : (
+                    <div className="chars-photos">
+                      {likeness.map((u, i) => (
+                        <span key={i}><img src={u} alt="" /><button aria-label="Remove photo" onClick={() => setLikeness((l) => l.filter((_, k) => k !== i))}>×</button></span>
+                      ))}
+                      {likeness.length < 4 && <button className="chars-add" onClick={() => photo.current?.click()}>+ Photo</button>}
+                    </div>
                   )}
-                </details>
-              ))}
-            </div>
+                  <input ref={photo} type="file" accept="image/*" multiple hidden onChange={async (e) => {
+                    const files = [...(e.target.files ?? [])].slice(0, 4 - likeness.length);
+                    e.target.value = "";
+                    try {
+                      const urls = await Promise.all(files.map(shrink));
+                      setLikeness((l) => [...l, ...urls].slice(0, 4));
+                    } catch (caught) {
+                      setError(caught instanceof Error ? caught.message : "That photo couldn't be added.");
+                    }
+                  }} />
+                  {likeness.length > 0 && <small>Use photos of someone who has said you may. Their face is sent to Comfy to make the sheet.</small>}
+                </div>
 
+                {TRAIT_ROWS.map((row, i) => (
+                  <details key={row.id} className="cx-sec" open={i === 0 || row.id in SWATCHES}>
+                    <summary><b>{row.label}</b><i>· {row.options.length}</i><small>{String(traits[row.id])}</small></summary>
+                    {row.id in SWATCHES
+                      ? <SwatchRow id={row.id} label={row.label} options={row.options} value={String(traits[row.id])} onChange={(v) => set(row.id, v as never)} />
+                      : <ChipRow label={row.label} options={row.options} value={String(traits[row.id])} onChange={(v) => set(row.id, v as never)} />}
+                  </details>
+                ))}
+                <details className="cx-sec">
+                  <summary><b>Wardrobe and marks</b><small>{[traits.wardrobe, traits.marks].filter(Boolean).join(" · ") || "none yet"}</small></summary>
+                  <label className="wf-field"><span>Wardrobe</span><input value={traits.wardrobe} maxLength={200} onChange={(e) => set("wardrobe", e.target.value)} /></label>
+                  <label className="wf-field"><span>Marks and details</span><input value={traits.marks} maxLength={200} placeholder="a small scar through the left eyebrow, freckles" onChange={(e) => set("marks", e.target.value)} /></label>
+                </details>
+              </div>
+              <div className="cx-foot">
+                <button className="cx-shuffle" title="Shuffle every trait (keeps the name and photos)" aria-label="Shuffle every trait" onClick={() => setTraits((t) => shuffled(t))}>Shuffle</button>
+                <button className="fire" disabled={busy !== null} onClick={() => void makeSheet()}>
+                  {busy === "sheet" ? "Making…" : sheet ? (stale ? "Remake with these changes" : "Roll the sheet again") : "Make the sheet"} <span className="cost">{creditsText(SHEET_PRICE)}</span>
+                </button>
+              </div>
+            </aside>
+
+            <div className="cx-main">
             <div className="chars-stage">
               <div className="chars-sheet" aria-live="polite">
                 {busy === "sheet" ? <div className="wf-result-wait">Making the sheet…</div> : sheet ? <img src={sheet} alt={`${traits.name}: front, three-quarter and profile`} /> : <div className="wf-result-wait">Set who they are, then make the sheet. Three views of the same person appear here.</div>}
               </div>
               {error && <p className="library-error" role="alert">{error}</p>}
               {note && <p className="wf-note" role="status">{note}</p>}
-              <div className="sheet-row">
-                <button className="fire" disabled={busy !== null} onClick={() => void makeSheet()}>
-                  {sheet ? (stale ? "Remake with these changes" : "Roll the sheet again") : "Make the sheet"} <span className="cost">{creditsText(SHEET_PRICE)}</span>
-                </button>
-                {sheet && <button className="pill on" onClick={() => void save()}>{current ? "Save changes" : "Save character"}</button>}
-              </div>
+              {sheet && <div className="sheet-row"><button className="pill on" onClick={() => void save()}>{current ? "Save changes" : "Save character"}</button></div>}
               {stale && <p className="wf-small">Changed since this sheet: {stale}. Remake the sheet to see it.</p>}
 
               {sheet && (
@@ -227,6 +230,33 @@ export function Characters() {
                   <p className="wf-small">In a project, they become a character&rsquo;s face: every shot they&rsquo;re in sends this sheet, so they stay the same person.</p>
                 </>
               )}
+            </div>
+
+            <section className="cx-gallery" aria-label="Characters to start from">
+              {saved.length > 0 && (
+                <>
+                  <span className="eyebrow muted">Your characters</span>
+                  <div className="cx-cards">
+                    <button className={`cx-card cx-new${!current ? " on" : ""}`} onClick={() => { setCurrent(null); setTraits(blank()); setLikeness([]); setSheet(null); setMade(null); setNote(null); }}><b>+ New character</b></button>
+                    {saved.map((c) => (
+                      <button key={c.id} className={`cx-card${current?.id === c.id ? " on" : ""}`} onClick={() => open(c)} title={c.traits.name}>
+                        <img src={c.sheet} alt="" />
+                        <span><b>{c.traits.name}</b><small>Open</small></span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <span className="eyebrow muted">Start from a sample</span>
+              <div className="cx-cards">
+                {CHARACTER_SAMPLES.map((t) => (
+                  <button key={t.name} className="cx-card cx-sample" onClick={() => { setCurrent(null); setTraits(t); setLikeness([]); setSheet(null); setMade(null); setNote(null); setError(null); }}>
+                    {SAMPLE_PICTURES[t.name] ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="cx-sample-pic" src={SAMPLE_PICTURES[t.name]} alt="" title={SAMPLE_PICTURES_BY} /> : <span className="cx-mono" aria-hidden>{t.name.replace(/^(Professor|Dr\.?)\s+/, "").slice(0, 1)}</span>}
+                    <span><b>{t.name}</b><small>{t.age} · {t.hairColor} {t.hairStyle} hair · {t.wardrobe || t.build}</small><em>Use this →</em></span>
+                  </button>
+                ))}
+              </div>
+            </section>
             </div>
           </div>
         </div>

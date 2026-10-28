@@ -3,9 +3,8 @@ import { join } from "node:path";
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LearnShell } from "../learn-shell";
 
-import { Nav } from "../nav";
-import { SiteFooter } from "../site-footer";
 
 export const metadata: Metadata = { title: "How haggs works — haggs", description: "A walk through the whole studio: photos, video, series, the editor, workflows, the gallery, plans and your files." };
 
@@ -36,9 +35,7 @@ const CONTENTS: [string, string][] = [
 
 export default function Docs() {
   return (
-    <div className="app">
-      <Nav current="Academy" />
-      <div className="canvas">
+    <LearnShell current="/docs">
         <div className="docs">
           <header className="dc-head">
             <h1>How haggs works</h1>
@@ -147,8 +144,6 @@ export default function Docs() {
             </dl>
           </section>
         </div>
-        <SiteFooter />
-      </div>
-    </div>
+    </LearnShell>
   );
 }

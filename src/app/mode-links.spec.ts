@@ -4,11 +4,11 @@ import { test } from "node:test";
 import { modeLinks } from "./mode-links";
 
 test("every Photos page offers the same tabs, in the same order", () => {
-  assert.deepEqual(modeLinks("Photos", true).map((l) => l.href), ["/photos", "/edit", "/characters", "/locations", "/accessories", "/comic", "/ads"]);
+  assert.deepEqual(modeLinks("Photos", true).map((l) => l.href), ["/photos", "/edit", "/characters", "/locations", "/accessories", "/comic", "/marketing", "/ads"]);
 });
 
 test("Edit a photo is left out while no model can run it", () => {
-  assert.deepEqual(modeLinks("Photos", false).map((l) => l.href), ["/photos", "/characters", "/locations", "/accessories", "/comic", "/ads"]);
+  assert.deepEqual(modeLinks("Photos", false).map((l) => l.href), ["/photos", "/characters", "/locations", "/accessories", "/comic", "/marketing", "/ads"]);
 });
 
 test("every Video page offers the same tabs, Draw to video, Found footage, the Sizzle doctor and the Sprite sheet included", () => {

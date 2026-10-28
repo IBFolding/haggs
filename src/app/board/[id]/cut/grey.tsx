@@ -5,6 +5,7 @@ import { galleryEdit } from "../../../gallery-log";
 import { track as inHeader } from "../../../../activity/activity";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
+import { CAM_SECONDS, PRESETS, camAt, dropKey, drawnKeys, presetKeys, setKey, wordsToKeys } from "../../../../story/grey-camera";
 import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, tidy, type GreyFrame } from "../../../../story/grey";
 import type { Shot } from "../../../../story/model";
 import { editEstimate } from "../../../../providers/cloud-edits";
@@ -89,12 +90,12 @@ export function GreySequence({ shots, currentId, vertical, names, onSelect, onSe
         <button className="plain" disabled={here < 0 || !shots[here]?.grey || here >= shots.length - 1} onClick={() => { const g = shots[here]!.grey!; onSet(Object.fromEntries(shots.slice(here + 1).map((s) => [s.id, { ...(s.grey ?? defaultGrey(names(s.id).length ? names(s.id) : ["Subject"])), cam: { ...g.cam }, light: { ...g.light } }]))); }} title="Use this shot's camera and light on every shot after it">Camera to the shots after</button>
         <button className="pill" onClick={() => { setAt(0); setPlaying((p) => !p); }} disabled={shots.every((s) => !s.grey)}>{playing ? "Stop" : "Play in grey"}</button>
       </div>
-      {shown?.grey && <div className="gr-seq-play"><GreyScene grey={shown.grey} vertical={vertical} className="gr-view" /><small>{shown.heading || `Shot ${at + 1}`} · {shown.seconds}s</small></div>}
+      {shown?.grey && <div className="gr-seq-play"><GreyScene grey={{ ...shown.grey, cam: camAt(shown.grey.cam, shown.grey.camKeys, 0) }} vertical={vertical} className="gr-view" /><small>{shown.heading || `Shot ${at + 1}`} · {shown.seconds}s</small></div>}
       <ol className="gr-strip">
         {shots.map((s, i) => (
           <li key={s.id} className={s.id === currentId ? "on" : ""}>
             <button onClick={() => onSelect(s.id)} aria-label={`Shot ${i + 1}${s.grey ? "" : ", no grey frame yet"}`}>
-              {s.grey ? <GreyScene grey={s.grey} vertical={vertical} className="gr-mini" /> : <span className="gr-none">{i + 1}</span>}
+              {s.grey ? <GreyScene grey={{ ...s.grey, cam: camAt(s.grey.cam, s.grey.camKeys, 0) }} vertical={vertical} className="gr-mini" /> : <span className="gr-none">{i + 1}</span>}
               <small>{i + 1}</small>
             </button>
           </li>
@@ -110,15 +111,45 @@ const MONEY = (n: number) => creditsText(n);
 const LENS_NAME = (mm: number) => (mm <= 24 ? "wide" : mm >= 85 ? "telephoto" : "natural");
 
 export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: { shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number) => void }) {
-  const grey = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
+  const saved = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
+  const [t, setT] = useState(0);
+  const [rec, setRec] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [words, setWords] = useState("");
+  const [drawing, setDrawing] = useState<{ x: number; z: number }[] | null>(null);
+  const [moved, setMoved] = useState<string | null>(null);
+  // The camera as it is at the playhead; with no keys that is just the camera.
+  const grey = { ...saved, cam: camAt(saved.cam, saved.camKeys, t) };
   const svg = useRef<SVGSVGElement>(null);
   const plan = useRef<SVGSVGElement>(null);
-  const [drag, setDrag] = useState<null | { kind: "cam" } | { kind: "sub"; id: string }>(null);
+  const [drag, setDrag] = useState<null | { kind: "cam" } | { kind: "sub"; id: string } | { kind: "draw" }>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const locked = needsApproval(shot);
   const set = (next: GreyFrame) => onGrey(tidy(next));
+  /** A camera change: a key at the playhead when recording or already keyed, otherwise the still camera. */
+  const setCam = (patch: Partial<GreyFrame["cam"]>) => {
+    const n = { ...grey.cam, ...patch };
+    set({ ...saved, subjects: grey.subjects, light: grey.light, ...(rec || saved.camKeys?.length ? { camKeys: setKey(saved.camKeys, t, n) } : { cam: n }) });
+  };
+  const keyed = (saved.camKeys ?? []).some((k) => Math.abs(k.t - t) <= 0.04);
+  const withKeys = (camKeys: NonNullable<GreyFrame["camKeys"]>, note: string) => { set({ ...saved, camKeys, subjects: grey.subjects, light: grey.light }); setT(0); setMoved(note); };
+
+  useEffect(() => {
+    if (!playing) return;
+    const start = performance.now() - t * 1000;
+    let raf = 0;
+    const tickFrame = () => {
+      const now = (performance.now() - start) / 1000;
+      if (now >= CAM_SECONDS) { setT(CAM_SECONDS); setPlaying(false); return; }
+      setT(now);
+      raf = requestAnimationFrame(tickFrame);
+    };
+    raf = requestAnimationFrame(tickFrame);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
 
   /** Plan view: the room from above, camera and stand-ins you can drag. */
   const planAt = (e: { clientX: number; clientY: number }) => {
@@ -128,11 +159,21 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
   const onMove = (e: React.PointerEvent) => {
     if (!drag) return;
     const p = planAt(e);
+    if (drag.kind === "draw") { setDrawing((pts) => [...(pts ?? []), p]); return; }
     if (drag.kind === "cam") {
       // Plan up is +z; camera position = (sin a, −cos a) × distance.
       const angle = (Math.atan2(p.x, -p.z) * 180) / Math.PI;
-      set({ ...grey, cam: { ...grey.cam, angle, distance: Math.hypot(p.x, p.z) } });
+      setCam({ angle, distance: Math.hypot(p.x, p.z) });
     } else set({ ...grey, subjects: grey.subjects.map((s) => (s.id === drag.id ? { ...s, x: p.x, z: p.z } : s)) });
+  };
+  const endDrag = () => {
+    if (drag?.kind === "draw" && drawing) {
+      const keys = drawnKeys(drawing, grey.cam);
+      if (keys.length) withKeys(keys, "Camera path drawn. Press play to watch it.");
+      else setMoved("Draw a longer line to make a path.");
+      setDrawing(null);
+    }
+    setDrag(null);
   };
   const a = (grey.cam.angle * Math.PI) / 180;
   const R = PLAN;
@@ -171,25 +212,51 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
 
       <div className="gr-grid">
         <div>
-          <svg ref={plan} className="gr-plan" viewBox="0 0 300 300" onPointerMove={onMove} onPointerUp={() => setDrag(null)} onPointerLeave={() => setDrag(null)} aria-label="The room from above. Drag the camera and the figures.">
+          <svg ref={plan} className="gr-plan" viewBox="0 0 300 300" onPointerMove={onMove} onPointerDown={(e) => { if (drawing) { e.currentTarget.setPointerCapture(e.pointerId); setDrawing([planAt(e)]); setDrag({ kind: "draw" }); } }} onPointerUp={endDrag} onPointerLeave={endDrag} aria-label="The room from above. Drag the camera and the figures." style={drawing ? { cursor: "crosshair", touchAction: "none" } : undefined}>
             <rect x="0" y="0" width="300" height="300" rx="14" fill="#161618" />
             <rect x={toPlan(-ROOM, ROOM).x} y={toPlan(-ROOM, ROOM).y} width={toPlan(ROOM, 0).x - toPlan(-ROOM, 0).x} height={toPlan(0, -ROOM).y - toPlan(0, ROOM).y} fill="none" stroke="#ffffff22" strokeDasharray="4 4" />
-            <path d={`M ${camP.x} ${camP.y} L ${toPlan(0, 0).x - 40 * Math.cos(a)} ${toPlan(0, 0).y - 40 * Math.sin(a)} L ${toPlan(0, 0).x + 40 * Math.cos(a)} ${toPlan(0, 0).y + 40 * Math.sin(a)} Z`} fill="#d4f83a" opacity=".12" />
+            <path d={`M ${camP.x} ${camP.y} L ${toPlan(0, 0).x - 40 * Math.cos(a)} ${toPlan(0, 0).y - 40 * Math.sin(a)} L ${toPlan(0, 0).x + 40 * Math.cos(a)} ${toPlan(0, 0).y + 40 * Math.sin(a)} Z`} fill="#35e48a" opacity=".12" />
             {grey.subjects.map((s) => {
               const p = toPlan(s.x, s.z);
               return <g key={s.id} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setDrag({ kind: "sub", id: s.id }); }} style={{ cursor: "grab" }}><circle cx={p.x} cy={p.y} r="11" fill="#c8c8cc" /><text x={p.x} y={p.y + 24} fontSize="11" textAnchor="middle" fill="#aaa">{s.label}</text></g>;
             })}
-            <g onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setDrag({ kind: "cam" }); }} style={{ cursor: "grab" }} transform={`translate(${camP.x} ${camP.y}) rotate(${grey.cam.angle})`}>
-              <path d="M0 -13 L11 11 L-11 11 Z" fill="#d4f83a" />
+            {(saved.camKeys?.length ?? 0) > 1 && <polyline points={saved.camKeys!.map((k) => { const r = (k.angle * Math.PI) / 180; const q = toPlan(Math.sin(r) * k.distance, -Math.cos(r) * k.distance); return `${q.x},${q.y}`; }).join(" ")} fill="none" stroke="#35e48a" strokeWidth="1.5" strokeDasharray="3 3" opacity=".7" />}
+            {drawing && drawing.length > 1 && <polyline points={drawing.map((q) => { const v = toPlan(q.x, q.z); return `${v.x},${v.y}`; }).join(" ")} fill="none" stroke="#f5c451" strokeWidth="2" />}
+            <g onPointerDown={(e) => { if (drawing) return; e.currentTarget.setPointerCapture(e.pointerId); setDrag({ kind: "cam" }); }} style={{ cursor: "grab" }} transform={`translate(${camP.x} ${camP.y}) rotate(${grey.cam.angle})`}>
+              <path d="M0 -13 L11 11 L-11 11 Z" fill="#35e48a" />
             </g>
           </svg>
           <p className="gr-hint">{describeGrey(grey)}</p>
+
+          <div className="gr-path" aria-label="Camera path">
+            <div className="gr-path-bar">
+              <button className="pill" onClick={() => { if (t >= CAM_SECONDS) setT(0); setPlaying((p) => !p); }} disabled={!saved.camKeys?.length}>{playing ? "Pause" : "Play"}</button>
+              <label className={`pill${rec ? " on" : ""}`}><input type="checkbox" checked={rec} onChange={(e) => setRec(e.target.checked)} /> Record</label>
+              <button className="plain" disabled={!rec && !saved.camKeys?.length} onClick={() => set({ ...saved, subjects: grey.subjects, light: grey.light, camKeys: setKey(saved.camKeys, t, grey.cam) })}>{keyed ? "Key set" : "Set key here"}</button>
+              <button className="plain" disabled={!keyed} onClick={() => { const rest = dropKey(saved.camKeys, t); const { camKeys: _, ...bare } = saved; set(rest ? { ...saved, camKeys: rest } : { ...bare, cam: grey.cam }); }}>Remove key</button>
+              <button className="plain danger" disabled={!saved.camKeys?.length} onClick={() => { const { camKeys: _, ...bare } = saved; set({ ...bare, cam: grey.cam }); setT(0); setMoved("Camera path cleared."); }}>Clear path</button>
+            </div>
+            <div className="gs-track">
+              <input type="range" min={0} max={CAM_SECONDS} step={0.05} value={t} onChange={(e) => { setPlaying(false); setT(Number(e.target.value)); }} aria-label="Time in the shot" />
+              <div className="gr-dots" aria-hidden>{(saved.camKeys ?? []).map((k) => <i key={k.t} style={{ left: `${(k.t / CAM_SECONDS) * 100}%` }} />)}</div>
+            </div>
+            <small className="gr-time">{t.toFixed(1)} s of {CAM_SECONDS}{rec ? " · recording: moving the camera sets a key" : saved.camKeys?.length ? " · keyed: moving the camera sets a key here" : ""}</small>
+            <div className="gr-path-bar">
+              {PRESETS.map((name) => <button key={name} className="pill" onClick={() => withKeys(presetKeys(name, grey.cam), `${name}: path laid.`)}>{name}</button>)}
+              <button className={`pill${drawing ? " on" : ""}`} onClick={() => setDrawing(drawing ? null : [])}>{drawing ? "Draw a line on the plan…" : "Draw a path"}</button>
+            </div>
+            <form className="gr-add" onSubmit={(e) => { e.preventDefault(); if (!words.trim()) return; const r = wordsToKeys(words, grey.cam); if (r.keys.length > 1) withKeys(r.keys, `Camera path made from your words: ${r.keys.length - 1} move${r.keys.length === 2 ? "" : "s"}.${r.unknown ? ` Skipped “${r.unknown}”.` : ""}`); else setMoved(`Didn’t understand “${r.unknown ?? words}”. Try push in, pull back, orbit left or right, crane up or down, zoom in or out, hold.`); }}>
+              <input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Say it: push in, then orbit left and rise" aria-label="Describe the camera move" />
+              <button className="plain" type="submit">Make path</button>
+            </form>
+            {moved && <small className="gr-time" role="status">{moved}</small>}
+          </div>
         </div>
 
         <div className="gr-controls">
-          <label>Camera height <input type="range" min={0.3} max={5} step={0.1} value={grey.cam.height} onChange={(e) => set({ ...grey, cam: { ...grey.cam, height: Number(e.target.value) } })} /><b>{grey.cam.height.toFixed(1)} m</b></label>
-          <label>Lens <input type="range" min={14} max={135} step={1} value={grey.cam.lens} onChange={(e) => set({ ...grey, cam: { ...grey.cam, lens: Number(e.target.value) } })} /><b>{grey.cam.lens} mm · {LENS_NAME(grey.cam.lens)}</b></label>
-          <label>Camera distance <input type="range" min={1} max={12} step={0.1} value={grey.cam.distance} onChange={(e) => set({ ...grey, cam: { ...grey.cam, distance: Number(e.target.value) } })} /><b>{grey.cam.distance.toFixed(1)} m</b></label>
+          <label>Camera height <input type="range" min={0.3} max={5} step={0.1} value={grey.cam.height} onChange={(e) => setCam({ height: Number(e.target.value) })} /><b>{grey.cam.height.toFixed(1)} m</b></label>
+          <label>Lens <input type="range" min={14} max={135} step={1} value={grey.cam.lens} onChange={(e) => setCam({ lens: Number(e.target.value) })} /><b>{grey.cam.lens} mm · {LENS_NAME(grey.cam.lens)}</b></label>
+          <label>Camera distance <input type="range" min={1} max={12} step={0.1} value={grey.cam.distance} onChange={(e) => setCam({ distance: Number(e.target.value) })} /><b>{grey.cam.distance.toFixed(1)} m</b></label>
           <label>Light from <input type="range" min={0} max={359} step={1} value={grey.light.az} onChange={(e) => set({ ...grey, light: { ...grey.light, az: Number(e.target.value) } })} /><b>{Math.round(grey.light.az)}°</b></label>
           <label>Light height <input type="range" min={5} max={90} step={1} value={grey.light.el} onChange={(e) => set({ ...grey, light: { ...grey.light, el: Number(e.target.value) } })} /><b>{Math.round(grey.light.el)}°</b></label>
           <form className="gr-add" onSubmit={(e) => { e.preventDefault(); const v = label.trim(); if (v && grey.subjects.length < 6) set({ ...grey, subjects: [...grey.subjects, { id: `s${Date.now().toString(36)}`, label: v, x: 0, z: 0 }] }); setLabel(""); }}>

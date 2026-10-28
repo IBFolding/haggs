@@ -5,6 +5,7 @@ import { RUNS_SYNCED } from "../run-sync";
 import { useRouter } from "next/navigation";
 import { ALL, UNFILED, cleanFolder, folderNames, inFolder } from "../../story/gallery-folders";
 import { searchRuns } from "../../story/gallery-search";
+import { GROUP_BY, autoFolder, groupRuns, type GroupBy } from "../../story/gallery-groups";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getModelCard } from "../../catalog/models";
@@ -82,6 +83,9 @@ export function Gallery() {
   const [error, setError] = useState<string | null>(null);
 
   const [finding, setFinding] = useState<string | null>(null);
+  const [groupBy, setGroupBy] = useState<GroupBy>("Folder");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [recoverOpen, setRecoverOpen] = useState(false);
 
   /** Sounds the projects already hold (voice lines, effects, music) that the Gallery hasn't listed. */
   const findSounds = useCallback(async (quiet = false) => {
@@ -119,11 +123,13 @@ export function Gallery() {
   }, [runs]);
 
   const folders = useMemo(() => folderNames(all), [all]);
+  const unfiled = useMemo(() => all.filter((r) => inFolder(r, UNFILED)), [all]);
   const shown = useMemo(() => searchRuns(all.filter((run) => inScope(run, scope) && inFolder(run, folder)), query), [all, scope, query, folder]);
 
   /* The total is the point of the view. A studio that bills in credits cannot
      show you this number, because credits are not worth the same to two people. */
   const spendText = useMemo(() => totalText(shown.map((run) => run.usd ?? 0)), [shown]);
+  const sections = useMemo(() => groupRuns(shown, groupBy), [shown, groupBy]);
   const unpriced = shown.filter((run) => run.usd === null).length;
 
   /** Files a run in a folder (a new name makes one), or takes it out with null. */
@@ -148,6 +154,13 @@ export function Gallery() {
     },
     [runs],
   );
+
+  /** Files every unfiled run in a folder named for what it is and what made it. Asks first; filed runs are left alone. */
+  const organise = useCallback(async () => {
+    if (!unfiled.length) return;
+    if (!window.confirm(`File ${unfiled.length} run${unfiled.length === 1 ? "" : "s"} into folders by kind and model, like “Video · Kling 3”? Runs already in a folder stay where they are.`)) return;
+    for (const run of unfiled) await file(run, autoFolder(run));
+  }, [unfiled, file]);
 
   /* Handing the run id through sessionStorage rather than the URL keeps the
      composer's address clean and survives the client-side navigation. */
@@ -207,49 +220,32 @@ export function Gallery() {
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
       <div className="canvas">
-        <div className="gallery">
-          <header className="gallery-head">
-            <h1>Gallery</h1>
-            <div className="scopes" role="tablist">
-              {SCOPES.map((option) => (
-                <button
-                  key={option}
-                  role="tab"
-                  className="scope"
-                  aria-selected={option === scope}
-                  onClick={() => setScope(option)}
-                >
-                  {option}
-                </button>
-              ))}
+        <div className="gallery gl">
+          <header className="gl-head">
+            <div>
+              <h1>Gallery <small>{shown.length} run{shown.length === 1 ? "" : "s"} · {spendText} spent</small></h1>
+              <p>Everything you&rsquo;ve made, with what it cost. Star a run and it stays for good.</p>
             </div>
-            <input type="search" className="gallery-search" aria-label="Search your work" placeholder="Search prompts, models, settings" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <dl className="tally">
-              <dt>Runs</dt>
-              <dd>{shown.length}</dd>
-              <dt>Spent</dt>
-              <dd className="tally-spend">{spendText}</dd>
-            </dl>
+            <div className="view-toggle" role="tablist" aria-label="Gallery view">{(["grid", "workspace"] as const).map((mode) => <button key={mode} role="tab" aria-selected={view === mode} onClick={() => { setView(mode); try { sessionStorage.setItem("haggs:gallery:view", mode); } catch {} }}>{mode === "grid" ? "Grid" : "Workspace"}</button>)}</div>
           </header>
 
-          {(folders.length > 0 || folder !== ALL) && (
-            <div className="scopes folder-row" role="tablist" aria-label="Folders">
-              {[ALL, ...folders, UNFILED].map((name) => (
-                <button key={name} role="tab" className="scope" aria-selected={name === folder} onClick={() => setFolder(name)}>{name}</button>
+          <div className="gl-bar">
+            <div className="scopes" role="tablist">
+              {SCOPES.map((option) => (
+                <button key={option} role="tab" className="scope" aria-selected={option === scope} onClick={() => setScope(option)}>{option}</button>
               ))}
             </div>
-          )}
+            <input type="search" className="gallery-search" aria-label="Search your work" placeholder="Search prompts and models" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <button className="gl-ghost" onClick={() => void findSounds()}>Find sounds in my projects</button>
+          </div>
+          {finding && <p className="gallery-note" role="status">{finding}</p>}
 
-          {scope === "Sounds" && (
-            <p className="gallery-note">
-              <button className="plain" onClick={() => void findSounds()}>Find sounds in my projects</button> {finding ?? "Voice lines, effects and soundtracks from every project."}
-            </p>
+          {unfiled.length > 1 && (
+            <div className="gl-banner">
+              <span><b>{unfiled.length} runs</b> aren&rsquo;t in any folder. Want them sorted by kind and model?</span>
+              <button className="gl-go" onClick={() => void organise()}>Auto-organise</button>
+            </div>
           )}
-
-          <details className="rc-details">
-            <summary>Bring back earlier renders from Comfy</summary>
-            <RecoverPanel runs={runs} added={new Set(all.map((r) => r.comfyJob).filter((x): x is string => Boolean(x)))} onAdded={() => void runs.list().then(setAll)} />
-          </details>
 
           {unpriced > 0 && (
             <p className="gallery-note">
@@ -260,27 +256,63 @@ export function Gallery() {
 
           {error && <p className="library-error" role="alert">{error}</p>}
 
-          <div className="view-toggle" role="tablist" aria-label="Gallery view">{(["grid", "workspace"] as const).map((mode) => <button key={mode} role="tab" aria-selected={view === mode} onClick={() => { setView(mode); try { sessionStorage.setItem("haggs:gallery:view", mode); } catch {} }}>{mode === "grid" ? "Grid" : "Workspace"}</button>)}</div>
+          <div className="gl-tools">
+            <span className="eyebrow muted">Group by</span>
+            <span className="nav-seg" role="group" aria-label="Group by">
+              {GROUP_BY.map((g) => <button key={g} aria-pressed={groupBy === g} onClick={() => setGroupBy(g)}>{g}</button>)}
+            </span>
+            {sections.length > 1 && <button className="ph-link" onClick={() => setCollapsed(collapsed.size ? new Set() : new Set(sections.map((x) => x.name)))}>{collapsed.size ? "Open all" : "Collapse all"}</button>}
+          </div>
+
+          <div className="gl-body">
+            <aside className="gl-rail" aria-label="Folders">
+              <span className="eyebrow muted">Folders</span>
+              {[ALL, UNFILED, ...folders].map((name) => {
+                const n = name === ALL ? all.length : all.filter((r) => inFolder(r, name)).length;
+                return <button key={name} className="gl-folder" aria-pressed={name === folder} onClick={() => setFolder(name)}><span>{name}</span><i>{n}</i></button>;
+              })}
+              <p className="gl-rail-note">A folder appears when you file a run in it, from the menu under each run.</p>
+              <button className="gl-ghost" onClick={() => setRecoverOpen((v) => !v)}>Recover lost runs</button>
+            </aside>
+
+            <div className="gl-main">
+              {recoverOpen && (
+                <div className="gl-recover">
+                  <RecoverPanel runs={runs} added={new Set(all.map((r) => r.comfyJob).filter((x): x is string => Boolean(x)))} onAdded={() => void runs.list().then(setAll)} />
+                </div>
+              )}
           {!ready ? null : view === "workspace" ? <Workspace onBack={()=>{setView("grid");try{sessionStorage.setItem("haggs:gallery:view","grid");}catch{}}} storeKey="workspace/Gallery" items={all.map((run) => ({ id: run.id, src: run.url, kind: run.kind, title: run.prompt }))} visibleIds={shown.map((run) => run.id)} renderItem={(item) => { const run = all.find((r) => r.id === item.id); return run ? renderRun(run) : null; }} /> : shown.length === 0 ? (
-            query.trim() && all.length > 0 ? (
-              <div className="library-blank">
-                <p>Nothing matches “{query.trim()}”.</p>
-                <p className="library-blank-sub">Try fewer words, or search a model name such as FLUX or Veo.</p><button className="pill" onClick={()=>setQuery("")}>Clear search</button>
-              </div>
-            ) : (
-              <div className="library-blank">
-                <p>{EMPTY[scope].head}</p>
-                <p className="library-blank-sub">{EMPTY[scope].body}</p>
-                <div className="cm-row"><Link className="pill" href={scope==="Video"?"/video":scope==="Sounds"?"/editor":"/photos"}>{scope==="Video"?"Make a video":scope==="Sounds"?"Open editor for audio":"Make an image"}</Link>{scope==="Kept"&&<button className="pill" onClick={()=>setScope("All")}>Show all creations</button>}</div>
-              </div>
-            )
-          ) : (
-            <div className="grid">
-              {shown.map((run) => (
-                renderRun(run)
-              ))}
+                query.trim() && all.length > 0 ? (
+                  <div className="library-blank">
+                    <p>Nothing matches “{query.trim()}”.</p>
+                    <p className="library-blank-sub">Try fewer words, or search a model name such as FLUX or Veo.</p><button className="pill" onClick={()=>setQuery("")}>Clear search</button>
+                  </div>
+                ) : (
+                  <div className="library-blank">
+                    <p>{EMPTY[scope].head}</p>
+                    <p className="library-blank-sub">{EMPTY[scope].body}</p>
+                    <div className="cm-row"><Link className="pill" href={scope==="Video"?"/video":scope==="Sounds"?"/editor":"/photos"}>{scope==="Video"?"Make a video":scope==="Sounds"?"Open editor for audio":"Make an image"}</Link>{scope==="Kept"&&<button className="pill" onClick={()=>setScope("All")}>Show all creations</button>}</div>
+                  </div>
+                )
+              ) : (
+                <>
+                  {sections.map((section) => {
+                    const closed = collapsed.has(section.name);
+                    return (
+                      <section key={section.name} className="gl-section">
+                        <button className="gl-section-head" aria-expanded={!closed} onClick={() => setCollapsed((c) => { const n = new Set(c); if (n.has(section.name)) n.delete(section.name); else n.add(section.name); return n; })}>
+                          <span>{closed ? "▸" : "▾"}</span>
+                          <b>{section.name}</b>
+                          <small>{section.runs.length} item{section.runs.length === 1 ? "" : "s"} · {totalText(section.runs.map((r) => r.usd ?? 0))}</small>
+                        </button>
+                        {!closed && <div className="grid">{section.runs.map((run) => renderRun(run))}</div>}
+                      </section>
+                    );
+                  })}
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
         <SiteFooter />
       </div>

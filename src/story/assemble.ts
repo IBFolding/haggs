@@ -1,3 +1,4 @@
+import { lookPhrase } from "../catalog/look";
 import type { Direction, Project, Shot } from "./model";
 
 /**
@@ -33,6 +34,7 @@ export function assemble(
     craft.camera ? `Camera: ${craft.camera}` : undefined,
     craft.light ? `Light: ${craft.light}` : undefined,
     craft.staging ? `Staging: ${craft.staging}` : undefined,
+    shot.look ? lookPhrase(shot.look) : undefined,
     craft.constants ? `Consistency: ${craft.constants}` : undefined,
   ]);
 }

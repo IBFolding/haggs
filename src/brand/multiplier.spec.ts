@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { multiplierJobs, multiplyPrompt, nearestRatio } from "./multiplier";
+import { multiplierJobs, multiplyPrompt, nearestRatio, swaps } from "./multiplier";
 import { MAX_BATCH } from "./ads";
 
 test("the nearest supported shape to a picture's size", () => {
@@ -43,4 +43,29 @@ test("nothing chosen means nothing to make; one list alone is enough", () => {
   assert.equal(multiplierJobs([], []).length, 0);
   assert.deepEqual(multiplierJobs([], ["German"]).map((j) => j.language), ["German"]);
   assert.deepEqual(multiplierJobs(["x"], []).map((j) => j.audience), ["x"]);
+});
+
+test("your product in place of theirs, shown as in image 2 when it has a picture", () => {
+  const p = multiplyPrompt("", "", { product: { name: "Ember mug", words: "a speckled terracotta mug", picture: true } });
+  assert.match(p, /Replace the product with Ember mug \(a speckled terracotta mug\), exactly as it looks in image 2/);
+  assert.doesNotMatch(p, /same product exactly/);
+  const q = multiplyPrompt("", "", { product: { name: "Ember mug", words: "", picture: false } });
+  assert.doesNotMatch(q, /image 2/);
+});
+
+test("a new headline and call to action replace the old ones, then get translated", () => {
+  const p = multiplyPrompt("", "Spanish", { hook: "Hot coffee, slow mornings", cta: "Shop the mug" });
+  assert.match(p, /headline to "Hot coffee, slow mornings"/);
+  assert.match(p, /call to action to "Shop the mug"/);
+  assert.ok(p.indexOf("headline") < p.indexOf("Translate"));
+  assert.doesNotMatch(multiplyPrompt("", "", { hook: "New" }), /Keep the text as it is/);
+});
+
+test("a swap alone is worth one version; an empty swap is not", () => {
+  assert.equal(swaps({}), false);
+  assert.equal(swaps({ hook: "  " }), false);
+  assert.equal(swaps({ notes: "make it night" }), true);
+  assert.equal(multiplierJobs([], [], true).length, 1);
+  assert.equal(multiplierJobs([], [], false).length, 0);
+  assert.equal(multiplierJobs(["a", "b"], [], true).length, 2);
 });

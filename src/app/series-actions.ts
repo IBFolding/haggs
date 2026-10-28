@@ -1,5 +1,6 @@
 "use server";
 
+import { partnerRefusal } from "../server/open-only";
 import { isBlobUrl } from "../server/blob";
 import { charged, comfyAccess } from "../server/platform";
 import { readMedia } from "../server/media";
@@ -36,6 +37,7 @@ export type MadeStill = { ok: true; url: string } | { ok: false; reason: string;
 
 /** One picture for a shot, from its beat, at the board's frame shape. Never retried automatically. */
 export async function makeStill(prompt: string, ratio: StillRatio, references: string[] = [], finish = "Cinematic, natural, no text, no watermark."): Promise<MadeStill> {
+  { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
   if (prompt.trim().length < 4) return { ok: false, reason: "Give the shot a description first." };
   const own = keyIn(await cookies(), COMFY_COOKIE);
   if (own) return stillWith(own, prompt, ratio, references, finish);

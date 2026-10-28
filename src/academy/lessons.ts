@@ -6,7 +6,10 @@ import type { Kv } from "../story/kv";
  * do it, and a small homework task. Finish all seven for a certificate.
  */
 
-export type Lesson = { id: string; title: string; minutes: number; goal: string; steps: string[]; doIt: { label: string; href: string }; homework: string; tip: string };
+export type Lesson = { id: string; title: string; minutes: number; goal: string; steps: string[]; doIt: { label: string; href: string }; homework: string; tip: string; why?: string; techs?: Technique[] };
+
+/** One technique: what to do, what to avoid, and why it works. */
+export type Technique = { do: string; avoid: string; why: string };
 
 export const LESSONS: Lesson[] = [
   {
@@ -52,6 +55,19 @@ export const LESSONS: Lesson[] = [
     homework: "Render a 30-second film with music and one spoken line, and send it to someone.", tip: "A dry, quiet voice over steady music beats any effect.",
   },
 ];
+
+/** The longer explanation of each lesson: why it matters and the do and avoid habits behind it. */
+const DEPTH: Record<string, { why: string; techs: Technique[] }> = {
+  "first-video": { why: "A still is a promise; motion is the payoff. One clear movement is enough, and a first clip teaches you the whole loop: input, words, price, result.", techs: [{"do":"\"Slow push-in, the light shifts gently.\"","avoid":"\"Cinematic epic amazing motion.\"","why":"A named move and a named change give the model something to draw. Adjectives give it nothing."},{"do":"A photo with air around the subject.","avoid":"A photo cropped tight to the edges.","why":"Motion needs room. A tight crop leaves nowhere for the camera to go."},{"do":"Five seconds.","avoid":"Fifteen seconds on your first try.","why":"Short clips cost less and drift less. Extend a good one later."}] },
+  "prompting": { why: "The model cannot see your head. It only has your words, so the words have to carry four things: who is in it, where it is, what the light does, and what the camera does. Miss one and the model invents it for you.", techs: [{"do":"\"Rowan, in a green parka, reads a manual in a hardware store aisle. Cold fluorescent light. Slow push-in.\"","avoid":"\"A cool epic shot of a woman, beautiful and cinematic.\"","why":"Things the camera could see beat words about how it should feel."},{"do":"Change only the light, then compare takes.","avoid":"Rewrite the whole prompt every time.","why":"If you change five things you cannot tell which one helped."},{"do":"Change the words when a take is wrong.","avoid":"Roll again and hope.","why":"The same prompt tends to give the same kind of mistake. Rolling rarely helps."}] },
+  "camera": { why: "Film is coverage: a wide to place us, a medium for the talk, a close-up for the feeling, a reverse for the other person. One angle is a clip; four angles are a scene.", techs: [{"do":"Start wide, then go in.","avoid":"Close-ups only.","why":"The wide tells us where we are, so every close-up after it means more."},{"do":"Cross the line once, on purpose.","avoid":"Flip sides between every shot.","why":"Staying on one side keeps left and right steady, so the viewer does not get lost."},{"do":"Reshoot from your best take.","avoid":"Remake from words.","why":"A reshoot keeps the face, the clothes and the set. A remake rolls the dice again."}] },
+  "characters": { why: "The usual way AI film breaks is the face drifting from shot to shot. A saved character fixes that: one sheet of three views plus a short line of marks that you reuse everywhere.", techs: [{"do":"One mark you can see: a scar, a silver chain, round glasses.","avoid":"\"A nice-looking man.\"","why":"A single odd detail is what the model holds onto when everything else drifts."},{"do":"Same clothes in the same sequence.","avoid":"A new outfit per shot.","why":"Clothes are the second thing viewers use to recognise someone."},{"do":"Only photos you have permission to use.","avoid":"A photo of someone you do not know.","why":"It is the rule here, and it is also the law in many places."}] },
+  "locations": { why: "A place is the other half of consistency. If the shelf is on the left in one shot and the right in the next, nobody believes the room. A location sheet fixes the room, the light and the props once.", techs: [{"do":"Say the time of day and the light source.","avoid":"\"A store.\"","why":"Light is what makes two shots look like the same place."},{"do":"Put two or three props in fixed spots.","avoid":"Fill the room with detail.","why":"Fewer things are easier to keep the same across ten shots."},{"do":"Work it out in the Grey room first.","avoid":"Spend credits finding the angle.","why":"Stand-in figures and a camera cost nothing and settle the framing."}] },
+  "series": { why: "Short series live or die on the first second. The format gives you the beats; you give it a hook, a face and a look. Make all the pictures first, check them as a row, then animate.", techs: [{"do":"A hook under ten words.","avoid":"A long setup before the point.","why":"The first second decides whether anyone stays."},{"do":"Pictures first, as a row.","avoid":"Animate as you go.","why":"Bad pictures animate into bad clips. Catching them early saves most of the cost."},{"do":"One look for the whole series, saved as a style sheet.","avoid":"A new look every episode.","why":"A look is a brand. Switching it makes the channel feel like several."}] },
+  "finish": { why: "Sound is half of the film and most of the polish. A dry, quiet voice over steady music beats any effect, and a master level of −16 LUFS means it plays right everywhere.", techs: [{"do":"Voice 6 to 18 dB above the music.","avoid":"Music at the same level as the voice.","why":"Words must never be fought for, but the music should still be felt."},{"do":"Cut on movement.","avoid":"Cut on a still frame.","why":"The eye follows motion across the cut, so the join disappears."},{"do":"Save a named version before a big change.","avoid":"Overwrite the only cut.","why":"Versions are free and let you go back."}] },
+};
+
+for (const lesson of LESSONS) Object.assign(lesson, DEPTH[lesson.id]);
 
 export function createProgress(kv: Kv) {
   const KEY = "academy/done";

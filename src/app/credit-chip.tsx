@@ -41,8 +41,8 @@ export function CreditChip({ ownKey }: { ownKey: boolean }) {
   if (!userId || left === null) return null;
   if (left <= 0 && (!canBuy || ownKey)) return null;
   return (
-    <Link className={`credit-chip${left <= 0 ? " empty" : ""}`} href="/account#credits" title={left > 0 ? "Generation you have left. Open your account to add more." : "Add credits to run on haggs"}>
-      {left > 0 ? <><b>{count(left)}</b> left</> : "Add credits"}
+    <Link className={`credit-chip${left <= 0 ? " empty" : ""}`} href="/account#credits" aria-label={left > 0 ? `${count(left)} left` : "Add credits"} title={left > 0 ? `${count(left)} left. Open your account to add more.` : "Add credits to run on haggs"}>
+      {left > 0 ? <><b>{left.toLocaleString("en-US")}</b> cr</> : "Add credits"}
     </Link>
   );
 }

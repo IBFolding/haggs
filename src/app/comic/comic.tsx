@@ -51,7 +51,6 @@ export function Comic() {
   const [title, setTitle] = useState("My comic");
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState("Loading draft…");
-  const [previewOpen, setPreviewOpen] = useState(true);
   const writes = useRef(Promise.resolve());
   const [retry, setRetry] = useState(0);
 
@@ -177,150 +176,154 @@ export function Comic() {
       <div className="canvas">
         <div className="swap comic">
           <ModeTabs group="Photos" current="/comic" canEdit={surfaceAvailable("Edit")} />
-          <header className="swap-head">
-            <h1>Comic strip</h1>
-            <p>Write your story beside a live page preview. Bring your own art or draw panels, then send selected scenes to the video editor.</p>
-          </header>
+          <div className="cx cm-cx">
+            <aside className="cx-builder" aria-label="Set up the comic">
+              <fieldset disabled={!ready || busy !== null} className="cx-scroll cm-authoring" aria-busy={!ready}>
+                <span className="eyebrow">Comic strip</span>
+                <h1 className="cx-title">Write it. Draw it. Animate it.</h1>
+                <p className="cx-lede">Write the panels, choose who is in them and the look. Every panel is drawn in one hand, lettered for you, and can go straight to the video editor.</p>
+                <label className="wf-field"><span>Comic title</span><input className="cm-notes" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} /></label>
 
-          <div className="cm-workbench">
-          <div className="cm-inputs" aria-busy={!ready}>
-          <fieldset disabled={!ready || busy !== null} className="cm-authoring">
-          <label className="cm-title">Comic title<input className="cm-notes" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} /></label>
-          <section className="cm-block" aria-label="Start from a story">
-            <div className="cm-chips">
-              <b>Start from</b>
-              {STARTERS.map((s) => <button key={s.id} className="plain" title={s.says} onClick={() => start(s.panels.map((p) => newPanel({ action: p.action, caption: p.caption ?? "", lines: p.lines ?? [], shape: p.shape ?? "wide" })))}>{s.name}</button>)}
-              <button className="plain" onClick={() => start([newPanel()])}>A blank page</button>
-            </div>
-          </section>
-
-          <details open className="cm-block cm-sample" aria-label="A finished page"><summary>A finished page · see the sample</summary>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/samples/comic-page.jpg" alt="A finished comic page: a girl on a rooftop at night, a storm, a lightning strike, her eyes glowing blue" loading="lazy" />
-            <div>
-              <h2>A finished page</h2>
-              <p>Six panels, one look, the same girl in every one, with captions and a speech bubble. Six pictures at 7 credits each is 42 credits.</p>
-              <p>Use a starter or write every panel yourself. This sample shows the format; generated results will vary.</p>
-            </div>
-          </details>
-
-          <section className="cm-block" aria-label="Who is in it">
-            <h2>Who is in it</h2>
-            <div className="cm-cast">
-              {cast.map((c) => (
-                <button key={c.id} className={inIt.includes(c.id) ? "on" : ""} aria-pressed={inIt.includes(c.id)} onClick={() => setInIt((all) => (all.includes(c.id) ? all.filter((x) => x !== c.id) : [...all, c.id]))}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={c.sheet} alt="" /><span>{c.traits.name}</span>
-                </button>
-              ))}
-              <BuildLink href="/characters" label="your comic" className="cm-add">+ Make a character</BuildLink>
-            </div>
-            {cast.length === 0 && <p className="wf-small">No characters yet. Make one and you come straight back here with them chosen. Without one, every panel invents its own faces.</p>}
-          </section>
-
-          <section className="cm-block" aria-label="Places and accessories">
-            {ready && <ExtrasRow items={extras} onChange={setExtras} label="your comic" title="Where it happens and what they wear" />}
-          </section>
-
-          <section className="cm-block" aria-label="Look and layout">
-            <h2>The look</h2>
-            <div className="cm-looks">{LOOKS.map((l) => <button key={l.id} className={look === l.id ? "on" : ""} onClick={() => setLook(l.id)}><b>{l.name}</b><small>{l.says}</small></button>)}</div>
-            <h2>The page</h2>
-            <div className="lab-chips">{LAYOUTS.map((l) => <button key={l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)} title={l.says}>{l.name}</button>)}</div>
-          </section>
-
-          <section className="cm-block" aria-label="Style sheet">
-            <h2>Style sheet <small>how the art should look</small></h2>
-            <textarea className="cm-notes" rows={2} value={style.notes} onChange={(e) => setStyle({ ...style, notes: e.target.value })} placeholder="In your words: heavy shadows, a rain-soaked city at night, big expressive eyes, lettering like old pulp comics…" aria-label="Art notes" maxLength={400} />
-            <div className="cm-row">
-              <span className="cm-lbl">Line</span>
-              <div className="lab-chips small">{(["fine", "medium", "bold"] as const).map((l) => <button key={l} className={style.line === l ? "on" : ""} onClick={() => setStyle({ ...style, line: style.line === l ? "" : l })}>{l[0]!.toUpperCase() + l.slice(1)}</button>)}</div>
-            </div>
-            <div className="cm-row">
-              <span className="cm-lbl">Palette</span>
-              <div className="lab-chips small">
-                {[["Electric storm", ["electric blue", "deep violet", "white", "black"]], ["Warm retro", ["mustard", "brick red", "cream", "teal"]], ["Noir", ["black", "white", "one red accent"]], ["Pastel", ["peach", "mint", "lavender", "sky blue"]]].map(([name, colours]) => (
-                  <button key={name as string} className={style.palette.join() === (colours as string[]).join() ? "on" : ""} onClick={() => setStyle({ ...style, palette: style.palette.join() === (colours as string[]).join() ? [] : (colours as string[]) })}>{name as string}</button>
-                ))}
-              </div>
-              <form className="cm-swatch" onSubmit={(e) => { e.preventDefault(); const v = swatch.trim(); if (v && style.palette.length < 8) setStyle({ ...style, palette: [...style.palette, v.slice(0, 24)] }); setSwatch(""); }}>
-                <input value={swatch} onChange={(e) => setSwatch(e.target.value)} placeholder="Add a colour: teal, #ff3366" aria-label="Add a colour" maxLength={24} />
-              </form>
-            </div>
-            {style.palette.length > 0 && <div className="lab-chips small">{style.palette.map((c) => <button key={c} onClick={() => setStyle({ ...style, palette: style.palette.filter((x) => x !== c) })} title="Remove">{c} ×</button>)}</div>}
-            <div className="cm-refs">
-              {style.refs.map((r, i) => (
-                <figure key={i}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={r} alt={`Style reference ${i + 1}`} /><button className="plain" onClick={() => setStyle({ ...style, refs: style.refs.filter((_, k) => k !== i) })}>Remove</button></figure>
-              ))}
-              {style.refs.length < MAX_STYLE_REFS && (
-                <div className="cm-refadd">
-                  <button className="pill" onClick={() => sheetFile.current?.click()}>Add a picture to match</button>
-                  <button className="pill" disabled={busy !== null} onClick={() => void drawStyleSheet()}>Draw a style sheet from this look <span className="cost">about {creditsText(PRICE)}</span></button>
-                  <input ref={sheetFile} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addRef(f); }} />
-                </div>
-              )}
-            </div>
-            <small className="wf-small">The notes, palette and line go into every panel. Pictures here are sent with every panel too, so the whole comic is drawn in one hand.</small>
-          </section>
-
-          <section className="cm-block" aria-label="Panels">
-            <h2>The panels</h2><p className="wf-small">Write your own story, characters and setting in each panel. Changes update the layout and lettering immediately; drawing new art is a separate paid action. Existing art stays until you choose Draw again.</p>
-            <ol className="cm-panels">
-              {panels.map((p, i) => (
-                <li key={p.id}>
-                  <div className="cm-pic">
-                    {pictures[p.id] ? <img src={pictures[p.id]} alt={`Panel ${i + 1}`} /> : <span>{i + 1}</span>}
+                <details className="cx-sec" open>
+                  <summary><b>Start from</b><i>{STARTERS.length + 1}</i></summary>
+                  <div className="cm-starts">
+                    {STARTERS.map((s) => <button key={s.id} className="cx-card" title={s.says} onClick={() => start(s.panels.map((p) => newPanel({ action: p.action, caption: p.caption ?? "", lines: p.lines ?? [], shape: p.shape ?? "wide" })))}><span><b>{s.name}</b><small>{s.panels.length} panels · {s.says}</small></span></button>)}
+                    <button className="cx-card cx-new" onClick={() => start([newPanel()])}><b>+ A blank page</b></button>
                   </div>
-                  <div className="cm-fields">
-                    <textarea rows={2} value={p.action} onChange={(e) => change(p.id, { action: e.target.value })} placeholder="What the panel shows: who, where, what is happening, the angle." aria-label={`Panel ${i + 1}: what it shows`} />
-                    <div className="cm-row">
-                      <input value={p.caption} onChange={(e) => change(p.id, { caption: e.target.value })} placeholder="Caption (optional): KANSAS. 6:42 PM." aria-label={`Panel ${i + 1}: caption`} maxLength={80} />
-                      <select value={p.shape} onChange={(e) => change(p.id, { shape: e.target.value as Shape })} aria-label={`Panel ${i + 1}: shape`}><option value="wide">Wide</option><option value="square">Square</option><option value="tall">Tall</option></select>
-                    </div>
-                    {[0, 1].map((k) => (
-                      <input key={k} value={p.lines[k]?.text ?? ""} onChange={(e) => change(p.id, { lines: [0, 1].map((j) => (j === k ? { who: p.lines[j]?.who ?? "", text: e.target.value } : (p.lines[j] ?? { who: "", text: "" }))).filter((l, j, a) => l.text || a.slice(j + 1).some((x) => x.text)) })} placeholder={k === 0 ? "Speech bubble" : "A second bubble (optional)"} aria-label={`Panel ${i + 1}: speech ${k + 1}`} maxLength={90} />
+                </details>
+
+                <details className="cx-sec">
+                  <summary><b>Who is in it</b><i>{cast.length}</i><small>{inIt.length ? cast.filter((c) => inIt.includes(c.id)).map((c) => c.traits.name).join(", ") : "nobody yet"}</small></summary>
+                  <div className="cm-cast">
+                    {cast.map((c) => (
+                      <button key={c.id} className={inIt.includes(c.id) ? "on" : ""} aria-pressed={inIt.includes(c.id)} onClick={() => setInIt((all) => (all.includes(c.id) ? all.filter((x) => x !== c.id) : [...all, c.id]))}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={c.sheet} alt="" /><span>{c.traits.name}</span>
+                      </button>
                     ))}
-                    <label><input type="checkbox" checked={p.include !== false} onChange={(e) => change(p.id, { include: e.target.checked })} /> Include in motion comic</label>
-                    <div className="cm-row"><label>Scene seconds <input type="number" min={1} max={15} value={p.seconds ?? 3} onChange={(e) => change(p.id, { seconds: Math.max(1, Math.min(15, Number(e.target.value) || 3)) })} aria-label={`Panel ${i + 1}: seconds`} /></label></div>
-                    <input value={p.motion ?? ""} onChange={(e) => change(p.id, { motion: e.target.value })} maxLength={400} placeholder="Motion: slow push toward her face; rain drifts behind" aria-label={`Panel ${i + 1}: motion`} />
-                    <label className="plain">Upload panel art<input type="file" accept="image/png,image/jpeg,image/webp" aria-label={`Panel ${i + 1}: upload art`} onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; if (!["image/png", "image/jpeg", "image/webp"].includes(f.type) || f.size > 20 * 1024 * 1024) return setProblem("Choose a PNG, JPEG or WebP under 20 MB."); try { const decoded = await createImageBitmap(f); decoded.close(); const urls = await shrinkAll([await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(f); })]); setPictures((all) => ({ ...all, [p.id]: urls[0]! })); } catch { setProblem("Could not read that picture. Try another image."); } }} /></label>
-                    <div className="cm-row">
-                      <button className="pill" disabled={busy !== null || p.action.trim().length < 6} onClick={() => void make([p])}>{pictures[p.id] ? "Draw again" : "Draw this panel"} <span className="cost">about {creditsText(PRICE)}</span></button>
-                      <button className="plain" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-                      <button className="plain" onClick={() => move(i, 1)} disabled={i === panels.length - 1} aria-label="Move down">↓</button>
-                      <button className="plain danger" onClick={() => setPanels((all) => (all.length > 1 ? all.filter((x) => x.id !== p.id) : all))} aria-label="Remove panel">Remove</button>
-                    </div>
+                    <BuildLink href="/characters" label="your comic" className="cm-add">+ Make a character</BuildLink>
                   </div>
-                </li>
-              ))}
-            </ol>
-            <button className="plain" onClick={() => setPanels((all) => [...all, newPanel()])} disabled={panels.length >= 12}>+ Add a panel</button>
-          </section>
+                  {cast.length === 0 && <p className="wf-small">No characters yet. Make one and you come straight back here with them chosen. Without one, every panel invents its own faces.</p>}
+                </details>
 
-          </fieldset>
-          {problem && <p className="library-error" role="alert">{problem}</p>}
+                <details className="cx-sec">
+                  <summary><b>Where and what they wear</b><small>{extras.length ? `${extras.length} chosen` : "optional"}</small></summary>
+                  {ready && <ExtrasRow items={extras} onChange={setExtras} label="your comic" title="Where it happens and what they wear" />}
+                </details>
 
-          </div>
-          <aside className="cm-preview" aria-label="Live comic preview">
-            <button className="pill cm-preview-toggle" aria-expanded={previewOpen} aria-controls="comic-preview" onClick={() => setPreviewOpen(!previewOpen)}>{previewOpen ? "Collapse preview" : "Show preview"}</button>
-          <div className="cm-make">
-            <button className="fire" disabled={busy !== null || todo.length === 0} onClick={() => void make(todo)}>{busy ?? `Draw ${todo.length} panel${todo.length === 1 ? "" : "s"}`} <span className="cost">about {creditsText((todo.length * PRICE))}</span></button>
-            {busy && <button className="plain" onClick={() => { stop.current = true; }}>Stop after this one</button>}
-            {refs.length > 0 && <small>{refs.length} character sheet{refs.length === 1 ? "" : "s"} sent with every panel, so they look the same.</small>}
-          </div>
-          <section id="comic-preview" className="cm-block" aria-label="The page" hidden={!previewOpen}>
-            <h2>{title.trim() || "Your page"}</h2>
-            <p className="wf-small" role="status">{saved}</p>{saved.startsWith("Could") && <button className="plain" onClick={() => setRetry((n) => n + 1)}>Retry save</button>}
-            <p className="wf-small">Live layout preview · {panels.filter((p) => pictures[p.id]).length}/{panels.length} stills ready</p>
-            <canvas ref={canvas} className="cm-page" aria-label="The comic page so far" />
-            <small className="wf-small">Send selected, illustrated scenes in the order shown. Scene timing and motion carry into the editor; captions remain editable and dialogue becomes voice text, not baked into the art. Nothing is animated yet. Choose a supported video model there, review its duration and price, then explicitly generate each scene. Speech bubbles remain on the still page; video dialogue is edited in Voice and Titles.</small>
-          </section>
-            <div className="cm-row">
-              <button className="fire" onClick={() => void download()} disabled={Object.keys(pictures).length === 0}>Download the page</button>
-              <button className="pill" onClick={() => void toProject()} disabled={!panels.some((p) => p.include !== false && pictures[p.id]) || busy !== null}>Send to a project</button>
-              <button className="pill" onClick={() => void toProject(true)} disabled={!panels.some((p) => p.include !== false && pictures[p.id]) || busy !== null}>Animate selected scenes</button>
+                <details className="cx-sec" open>
+                  <summary><b>The look</b><i>{LOOKS.length}</i><small>{LOOKS.find((l) => l.id === look)?.name}</small></summary>
+                  <div className="cm-looks">{LOOKS.map((l) => <button key={l.id} className={look === l.id ? "on" : ""} onClick={() => setLook(l.id)}><b>{l.name}</b><small>{l.says}</small></button>)}</div>
+                </details>
+
+                <details className="cx-sec">
+                  <summary><b>The page</b><i>{LAYOUTS.length}</i><small>{LAYOUTS.find((l) => l.id === layout)?.name}</small></summary>
+                  <div className="lab-chips">{LAYOUTS.map((l) => <button key={l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)} title={l.says}>{l.name}</button>)}</div>
+                </details>
+
+                <details className="cx-sec">
+                  <summary><b>Style sheet</b><small>{style.refs.length ? `${style.refs.length} picture${style.refs.length === 1 ? "" : "s"} to match` : style.notes.trim() || style.palette.length || style.line ? "set" : "optional"}</small></summary>
+                <textarea className="cm-notes" rows={2} value={style.notes} onChange={(e) => setStyle({ ...style, notes: e.target.value })} placeholder="In your words: heavy shadows, a rain-soaked city at night, big expressive eyes, lettering like old pulp comics…" aria-label="Art notes" maxLength={400} />
+                <div className="cm-row">
+                  <span className="cm-lbl">Line</span>
+                  <div className="lab-chips small">{(["fine", "medium", "bold"] as const).map((l) => <button key={l} className={style.line === l ? "on" : ""} onClick={() => setStyle({ ...style, line: style.line === l ? "" : l })}>{l[0]!.toUpperCase() + l.slice(1)}</button>)}</div>
+                </div>
+                <div className="cm-row">
+                  <span className="cm-lbl">Palette</span>
+                  <div className="lab-chips small">
+                    {[["Electric storm", ["electric blue", "deep violet", "white", "black"]], ["Warm retro", ["mustard", "brick red", "cream", "teal"]], ["Noir", ["black", "white", "one red accent"]], ["Pastel", ["peach", "mint", "lavender", "sky blue"]]].map(([name, colours]) => (
+                      <button key={name as string} className={style.palette.join() === (colours as string[]).join() ? "on" : ""} onClick={() => setStyle({ ...style, palette: style.palette.join() === (colours as string[]).join() ? [] : (colours as string[]) })}>{name as string}</button>
+                    ))}
+                  </div>
+                  <form className="cm-swatch" onSubmit={(e) => { e.preventDefault(); const v = swatch.trim(); if (v && style.palette.length < 8) setStyle({ ...style, palette: [...style.palette, v.slice(0, 24)] }); setSwatch(""); }}>
+                    <input value={swatch} onChange={(e) => setSwatch(e.target.value)} placeholder="Add a colour: teal, #ff3366" aria-label="Add a colour" maxLength={24} />
+                  </form>
+                </div>
+                {style.palette.length > 0 && <div className="lab-chips small">{style.palette.map((c) => <button key={c} onClick={() => setStyle({ ...style, palette: style.palette.filter((x) => x !== c) })} title="Remove">{c} ×</button>)}</div>}
+                <div className="cm-refs">
+                  {style.refs.map((r, i) => (
+                    <figure key={i}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={r} alt={`Style reference ${i + 1}`} /><button className="plain" onClick={() => setStyle({ ...style, refs: style.refs.filter((_, k) => k !== i) })}>Remove</button></figure>
+                  ))}
+                  {style.refs.length < MAX_STYLE_REFS && (
+                    <div className="cm-refadd">
+                      <button className="pill" onClick={() => sheetFile.current?.click()}>Add a picture to match</button>
+                      <button className="pill" disabled={busy !== null} onClick={() => void drawStyleSheet()}>Draw a style sheet from this look <span className="cost">about {creditsText(PRICE)}</span></button>
+                      <input ref={sheetFile} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addRef(f); }} />
+                    </div>
+                  )}
+                </div>
+                <small className="wf-small">The notes, palette and line go into every panel. Pictures here are sent with every panel too, so the whole comic is drawn in one hand.</small>
+                </details>
+
+                <details className="cx-sec">
+                  <summary><b>A finished page</b><small>see the sample</small></summary>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img className="cm-sample-img" src="/samples/comic-page.jpg" alt="A finished comic page: a girl on a rooftop at night, a storm, a lightning strike, her eyes glowing blue" loading="lazy" />
+                  <p className="wf-small">Six panels, one look, the same girl in every one, with captions and a speech bubble. Six pictures at 7 credits each is 42 credits. Generated results will vary.</p>
+                </details>
+                {problem && <p className="library-error" role="alert">{problem}</p>}
+              </fieldset>
+              <div className="cx-foot">
+                {busy ? <button className="cx-shuffle" onClick={() => { stop.current = true; }}>Stop</button> : <button className="cx-shuffle" disabled={panels.length >= 12 || !ready} onClick={() => setPanels((all) => [...all, newPanel()])} aria-label="Add a panel" title="Add a panel">+</button>}
+                <button className="fire" disabled={busy !== null || todo.length === 0} onClick={() => void make(todo)}>{busy ?? (todo.length ? `Draw ${todo.length} panel${todo.length === 1 ? "" : "s"}` : "Every panel is drawn")} <span className="cost">about {creditsText((todo.length * PRICE))}</span></button>
+              </div>
+            </aside>
+
+            <div className="cx-main cm-main">
+              <section className="cm-script" aria-label="Panels">
+                <div className="cm-script-head">
+                  <span className="eyebrow muted">The panels · {panels.length}</span>
+                  {refs.length > 0 && <small className="wf-small">{refs.length} character sheet{refs.length === 1 ? "" : "s"} sent with every panel, so they look the same.</small>}
+                </div>
+                <fieldset disabled={!ready || busy !== null} className="cm-authoring">
+                <ol className="cm-panels">
+                  {panels.map((p, i) => (
+                    <li key={p.id}>
+                      <div className="cm-pic">
+                        {pictures[p.id] ? <img src={pictures[p.id]} alt={`Panel ${i + 1}`} /> : <span>{i + 1}</span>}
+                      </div>
+                      <div className="cm-fields">
+                        <textarea rows={2} value={p.action} onChange={(e) => change(p.id, { action: e.target.value })} placeholder="What the panel shows: who, where, what is happening, the angle." aria-label={`Panel ${i + 1}: what it shows`} />
+                        <div className="cm-row">
+                          <input value={p.caption} onChange={(e) => change(p.id, { caption: e.target.value })} placeholder="Caption (optional): KANSAS. 6:42 PM." aria-label={`Panel ${i + 1}: caption`} maxLength={80} />
+                          <select value={p.shape} onChange={(e) => change(p.id, { shape: e.target.value as Shape })} aria-label={`Panel ${i + 1}: shape`}><option value="wide">Wide</option><option value="square">Square</option><option value="tall">Tall</option></select>
+                        </div>
+                        {[0, 1].map((k) => (
+                          <input key={k} value={p.lines[k]?.text ?? ""} onChange={(e) => change(p.id, { lines: [0, 1].map((j) => (j === k ? { who: p.lines[j]?.who ?? "", text: e.target.value } : (p.lines[j] ?? { who: "", text: "" }))).filter((l, j, a) => l.text || a.slice(j + 1).some((x) => x.text)) })} placeholder={k === 0 ? "Speech bubble" : "A second bubble (optional)"} aria-label={`Panel ${i + 1}: speech ${k + 1}`} maxLength={90} />
+                        ))}
+                        <label><input type="checkbox" checked={p.include !== false} onChange={(e) => change(p.id, { include: e.target.checked })} /> Include in motion comic</label>
+                        <div className="cm-row"><label>Scene seconds <input type="number" min={1} max={15} value={p.seconds ?? 3} onChange={(e) => change(p.id, { seconds: Math.max(1, Math.min(15, Number(e.target.value) || 3)) })} aria-label={`Panel ${i + 1}: seconds`} /></label></div>
+                        <input value={p.motion ?? ""} onChange={(e) => change(p.id, { motion: e.target.value })} maxLength={400} placeholder="Motion: slow push toward her face; rain drifts behind" aria-label={`Panel ${i + 1}: motion`} />
+                        <label className="plain">Upload panel art<input type="file" accept="image/png,image/jpeg,image/webp" aria-label={`Panel ${i + 1}: upload art`} onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; if (!["image/png", "image/jpeg", "image/webp"].includes(f.type) || f.size > 20 * 1024 * 1024) return setProblem("Choose a PNG, JPEG or WebP under 20 MB."); try { const decoded = await createImageBitmap(f); decoded.close(); const urls = await shrinkAll([await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(f); })]); setPictures((all) => ({ ...all, [p.id]: urls[0]! })); } catch { setProblem("Could not read that picture. Try another image."); } }} /></label>
+                        <div className="cm-row">
+                          <button className="pill" disabled={busy !== null || p.action.trim().length < 6} onClick={() => void make([p])}>{pictures[p.id] ? "Draw again" : "Draw this panel"} <span className="cost">about {creditsText(PRICE)}</span></button>
+                          <button className="plain" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+                          <button className="plain" onClick={() => move(i, 1)} disabled={i === panels.length - 1} aria-label="Move down">↓</button>
+                          <button className="plain danger" onClick={() => setPanels((all) => (all.length > 1 ? all.filter((x) => x.id !== p.id) : all))} aria-label="Remove panel">Remove</button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <button className="plain" onClick={() => setPanels((all) => [...all, newPanel()])} disabled={panels.length >= 12}>+ Add a panel</button>
+                </fieldset>
+              </section>
+
+              <aside className="cm-preview" aria-label="Live comic preview">
+                <div className="cm-preview-head">
+                  <b>{title.trim() || "Your page"}</b>
+                  <small role="status">{saved}{saved.startsWith("Could") && <button className="plain" onClick={() => setRetry((n) => n + 1)}>Retry save</button>}</small>
+                </div>
+                <canvas ref={canvas} className="cm-page" aria-label="The comic page so far" />
+                <small className="wf-small">Live layout · {panels.filter((p) => pictures[p.id]).length}/{panels.length} panels drawn</small>
+                <div className="cm-actions">
+                  <button className="fire" onClick={() => void download()} disabled={Object.keys(pictures).length === 0}>Download the page</button>
+                  <button className="pill" onClick={() => void toProject(true)} disabled={!panels.some((p) => p.include !== false && pictures[p.id]) || busy !== null}>Animate selected scenes</button>
+                  <button className="pill" onClick={() => void toProject()} disabled={!panels.some((p) => p.include !== false && pictures[p.id]) || busy !== null}>Send to a project</button>
+                </div>
+                <small className="wf-small">Animating opens the video editor with each drawn panel as a scene, its seconds and motion carried over. Nothing is animated until you pick a video model there, see its price and press Generate. Speech bubbles stay on the still page; dialogue becomes voice text.</small>
+              </aside>
             </div>
-          </aside>
           </div>
         </div>
         <SiteFooter />
