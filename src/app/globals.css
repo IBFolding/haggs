@@ -3484,3 +3484,17 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 @media (max-width: 760px) { .composer { border-radius: 16px; padding: 10px; } }
 .blank h1 { font-size: clamp(36px, 5vw, 72px); line-height: .95; letter-spacing: -.045em; }
 .blank p { font-size: 17px; max-width: 54ch; }
+
+/* ─── UI overhaul phase 4: Workflows and Gallery ───────────────────────── */
+.gallery-head { border-bottom-color: var(--line); gap: 14px 24px; }
+.gallery-head h1, .wf-head h1 { font-size: clamp(36px, 4.5vw, 64px); line-height: .95; font-weight: 800; letter-spacing: -.045em; }
+.wf-head p { font-size: 16px; color: var(--text-2); }
+.scopes { padding: 3px; border: 1px solid var(--line); border-radius: 999px; gap: 0; }
+.scope { border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 13px; }
+.scope[aria-selected="true"] { background: var(--text); color: var(--bg); }
+.scopes.folder-row { border: 0; padding: 0; gap: 6px; }
+.scopes.folder-row .scope { border: 1px solid var(--line); color: var(--text-2); }
+.scopes.folder-row .scope[aria-selected="true"] { border-color: var(--volt); background: none; color: var(--volt); }
+.cell, .wf-tile, .quick-card, .wf-favorite-card { border-radius: 14px; border: 1px solid var(--line); background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.45); transition: transform .2s, border-color .2s; }
+.cell:hover, .wf-tile:hover, .quick-card:hover, .wf-favorite-card:hover { transform: translateY(-3px); border-color: var(--line-hot); }
+.cell-tag, .square-tag { font: 500 10px var(--mono); letter-spacing: .08em; }
