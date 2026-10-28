@@ -44,7 +44,7 @@ export function WorkflowDemo() {
   const current = STEPS[step]!;
   return (
     <section className="wd" id="how" ref={root} aria-label="A whole film, start to finish">
-      <h2>One sentence in, a finished film out</h2>
+      <h2 data-kicker="Workflows">One sentence in, a finished film out.</h2>
       <div className="wd-body">
         <ol className="wd-steps">
           {STEPS.map((s, i) => (

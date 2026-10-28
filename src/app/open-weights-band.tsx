@@ -14,7 +14,7 @@ export function OpenWeightsBand() {
         <h2>One switch. Zero partner calls.</h2>
       </div>
       <div>
-        <p>Turn it on in the header and nothing runs on a partner model. Connect a ComfyUI on your own machine and the open-weights apps (Wan, Qwen, Z-Image, LivePortrait) run there, with no provider charge and no key sent. Without one, they run on Comfy Cloud.</p>
+        <p>Nothing runs on a partner model. Open-weights apps (Wan, Qwen, Z-Image, LivePortrait) run free on your own ComfyUI, or on Comfy Cloud.</p>
         <button onClick={() => { setOpenOnly(true); router.push("/workflows"); }}>Try it open-weights only →</button>
       </div>
     </div>

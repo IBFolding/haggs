@@ -19,13 +19,14 @@ const DONE = "haggs.tour.done";
 
 const STEPS: Step[] = [
   { target: null, scene: "welcome", title: "Welcome to haggs", body: "An open-source film studio on Comfy. Make pictures, animate them, edit them, and cut the film. Every button shows its price before you press it. This takes about a minute." },
-  { target: "Photos", scene: "photos", title: "Start with a picture", body: "Make a photo, edit one, or build a character and a place that stay the same in every shot.", cta: { label: "Make a photo", href: "/photos" } },
-  { target: "Video", scene: "video", title: "Then make it move", body: "A clip from words or a picture, a whole series, an edit recreated around your character, or found footage from the archive.", cta: { label: "Make a clip", href: "/video" } },
-  { target: "Projects", scene: "projects", title: "Your projects live here", body: "Each project has its sheets, a board of every shot with its price, a cut with real tracks, and all its media. Everything saves in your browser.", cta: { label: "Open projects", href: "/library" } },
-  { target: "Workflows", scene: "workflows", title: "Ready-made Comfy apps", body: "Swap a person, relight, try on an outfit, upscale. Pick one, drop in your files, press Run. Or build your own on the canvas.", cta: { label: "See workflows", href: "/workflows" } },
-  { target: "Academy", scene: "academy", title: "Learn by doing", body: "Seven short lessons with free practice labs. You make your first video in lesson one.", cta: { label: "Start lesson one", href: "/academy/learn/first-video" } },
-  { target: "keys", scene: "keys", title: "Add your Comfy key", body: "Runs bill to your own Comfy account. Add a key here and everything with a price becomes live. Prices are estimates, never surprises." },
-  { target: "ask", scene: "ask", title: "Or just ask Haggy", body: "Describe what you want and Haggy sets it up for you: a draft, a board, a series, an app. Over MCP, Claude can do the same." },
+  { target: "Photos", scene: "photos", title: "Start with a picture", body: "Make a photo, edit one, or build a character, a place and a prop that stay the same in every shot.", cta: { label: "Open Photos", href: "/photos" } },
+  { target: "Video", scene: "video", title: "Then make it move", body: "A clip from words or a picture, a series, an edit recreated around your character, or found footage.", cta: { label: "Open Video", href: "/video" } },
+  { target: "Projects", scene: "projects", title: "Your projects live here", body: "Sheets for the script, a board of every shot with its price, a cut with real tracks, and all the media. The Grey room is one button away." },
+  { target: "Workflows", scene: "workflows", title: "Ready-made Comfy apps", body: "Swap a person, relight, try on an outfit, upscale. Pick one, drop in your files, press Run.", cta: { label: "See workflows", href: "/workflows" } },
+  { target: "Gallery", scene: "workflows", title: "Everything you made", body: "Pictures, video and sounds, in folders, with what each one cost. Star what you keep, delete the rest.", cta: { label: "Open Gallery", href: "/gallery" } },
+  { target: "Academy", scene: "academy", title: "Learn by doing", body: "Seven lessons with free practice labs, the docs, the model guide and prices. You make your first video in lesson one.", cta: { label: "Open the Academy", href: "/academy" } },
+  { target: "keys", scene: "keys", title: "Choose how you pay", body: "Buy credits, add your own Comfy key, or connect your own GPU. Every price on a button is shown before you press it, and you can change this any time." },
+  { target: "ask", scene: "ask", title: "Or just ask Haggy", body: "Describe what you want and Haggy sets it up: a draft, a board, a series, an app. Nothing is made until you press Apply." },
 ];
 
 export function Tour() {
@@ -82,27 +83,24 @@ export function Tour() {
   if (at === null) return null;
   const step = STEPS[at]!;
   const last = at === STEPS.length - 1;
-  const below = rect ? rect.bottom + 14 : undefined;
-  const mobile = typeof window !== "undefined" && window.innerWidth < 760;
-  const style: React.CSSProperties | undefined = rect && !mobile ? { top: Math.min(below ?? 80, window.innerHeight - 330), left: Math.min(Math.max(16, rect.left + rect.width / 2 - 190), window.innerWidth - 396) } : undefined;
 
   return (
     <div className="tour" role="dialog" aria-modal="false" aria-label="Tour of haggs">
-      <div className="tour-dim" onClick={() => close(false)} />
       {rect && <span className="tour-ring" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }} />}
-      <div className={`tour-card${rect ? "" : " centre"}`} style={style} key={at}>
-        <div className={`tour-scene s-${step.scene}`} aria-hidden="true"><i /><i /><i /></div>
-        <small>{at + 1} of {STEPS.length}</small>
+      <div className="tour-card" key={at}>
+        <div className="tour-top">
+          <small>Step {at + 1} of {STEPS.length}</small>
+          <button className="tour-skip" onClick={() => close(false)}>Skip the tour</button>
+        </div>
         <h2>{step.title}</h2>
         <p>{step.body}</p>
-        <div className="tour-actions">
-          {step.cta && <Link className="plain" href={step.cta.href} onClick={() => close(true)}>{step.cta.label}</Link>}
-          <span className="tour-spacer" />
-          {at > 0 && <button className="plain" onClick={() => setAt(at - 1)}>Back</button>}
-          <button className="fire" onClick={() => (last ? close(true) : setAt(at + 1))} autoFocus>{last ? "Start making" : at === 0 ? "Show me" : "Next"}</button>
-        </div>
         <ol className="tour-dots" aria-hidden="true">{STEPS.map((s, i) => <li key={s.title} className={i === at ? "on" : i < at ? "done" : ""} />)}</ol>
-        <button className="tour-skip" onClick={() => close(false)}>Skip the tour</button>
+        <div className="tour-actions">
+          {at > 0 && <button className="tour-back" onClick={() => setAt(at - 1)}>Back</button>}
+          {step.cta && <Link className="tour-try" href={step.cta.href} onClick={() => close(true)}>{step.cta.label}</Link>}
+          <span className="tour-spacer" />
+          <button className="tour-next" onClick={() => (last ? close(true) : setAt(at + 1))} autoFocus>{last ? "Start making" : "Next"}</button>
+        </div>
       </div>
     </div>
   );
