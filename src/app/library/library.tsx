@@ -12,6 +12,26 @@ import { TransferError, exportProject, importBundle } from "../../story/transfer
 import { backupsToOffer, toRestore, type OnDisk } from "../../story/restore";
 import { Nav } from "../nav";
 import { SiteFooter } from "../site-footer";
+import { useStartProject } from "../start-project";
+import { uploadFile } from "../upload-client";
+
+/** The kinds of show the idea card can start, each a real format on the Sheets start screen. */
+const STARTS = [
+  { label: "Trailer", format: "sizzle-120" },
+  { label: "Vertical", format: "vertical-drama" },
+  { label: "Short comedy", format: "vertical-comedy" },
+  { label: "Sitcom", format: "comedy-30" },
+  { label: "Drama", format: "drama-60" },
+] as const;
+
+/** Pictures you can start from without making one first. */
+const SAMPLE_PHOTOS = [
+  { src: "/samples/portrait.jpg", says: "A portrait by a window" },
+  { src: "/showcase/outfit-1.jpg", says: "An outfit on the street" },
+  { src: "/samples/street.jpg", says: "A city street at night" },
+];
+
+const HIDE_SAMPLE = "haggs.home.hide-sample";
 
 function ago(at: number): string {
   const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
@@ -93,6 +113,43 @@ export function Library() {
     },
     [store, kv, refresh],
   );
+
+  const startFrom = useStartProject();
+  const [idea, setIdea] = useState("");
+  const [format, setFormat] = useState<string>(STARTS[0].format);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [sampleHidden, setSampleHidden] = useState(false);
+  useEffect(() => {
+    try { setSampleHidden(localStorage.getItem(HIDE_SAMPLE) === "1"); } catch { /* a convenience only */ }
+  }, []);
+  const hideSample = (hide: boolean) => {
+    setSampleHidden(hide);
+    try { if (hide) localStorage.setItem(HIDE_SAMPLE, "1"); else localStorage.removeItem(HIDE_SAMPLE); } catch { /* a convenience only */ }
+  };
+
+  /** A new project whose Sheets open on the start screen with this idea and format already filled in. */
+  const startIdea = useCallback(async () => {
+    const label = STARTS.find((s) => s.format === format)?.label ?? "Project";
+    const project = createProject((idea.trim() || label).replace(/\s+/g, " ").slice(0, 40));
+    await store.save(project);
+    await kv.set(`project-start:/board/${project.id}?b=main`, { formatId: format, idea: idea.trim(), notes: "", title: "", assets: [] });
+    router.push(`/board/${project.id}/sheets`);
+  }, [idea, format, store, kv, router]);
+
+  /** A project whose first shot is this picture. */
+  const startPhoto = useCallback(async (url: string, says: string) => {
+    await startFrom({ id: crypto.randomUUID(), modelId: "upload", modelName: "Your photo", prompt: says, settings: {}, url, kind: "image", usd: null, at: Date.now() });
+  }, [startFrom]);
+
+  const uploadPhoto = useCallback(async (file: File) => {
+    setBusy("photo");
+    setError(null);
+    const r = await uploadFile(file);
+    setBusy(null);
+    if (!r.ok) return setError(r.reason);
+    if (r.kind !== "image") return setError("Pick a picture to start from.");
+    await startPhoto(r.url, file.name.replace(/\.[^.]+$/, ""));
+  }, [startPhoto]);
 
   const create = useCallback(async () => {
     const project = createProject("Untitled");
@@ -194,51 +251,75 @@ export function Library() {
 
       <div className="canvas">
         <div className="library">
-          <div className="library-head">
+          <div className="ph-head">
             <span className="eyebrow">Your projects</span>
             <h1>Start anywhere.</h1>
             <p>Whatever you begin with ends up in a project, and the project walks you to a finished film.</p>
           </div>
 
-          <div className="start-grid">
-            <button className="start-card" onClick={() => void create()}>
-              <span className="eyebrow">From an idea or script</span>
-              <b>New project</b>
-              <small>Open a blank board and write or paste it in Sheets.</small>
-            </button>
-            <Link className="start-card" href="/photos">
+          <div className="ph-grid">
+            <section className="ph-card">
+              <span className="eyebrow">From an idea</span>
+              <textarea value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="A noir trailer about a night-shift nurse…" rows={3} aria-label="Your idea" />
+              <div className="ph-chips" role="group" aria-label="Kind of show">
+                {STARTS.map((s) => <button key={s.format} className="ph-chip" aria-pressed={format === s.format} onClick={() => setFormat(s.format)}>{s.label}</button>)}
+              </div>
+              <button className="ph-go" onClick={() => void startIdea()}>Write my script →</button>
+            </section>
+
+            <section className="ph-card">
               <span className="eyebrow">From a photo</span>
-              <b>Make a photo first</b>
-              <small>It becomes the first frame of a shot.</small>
-            </Link>
-            <Link className="start-card" href="/video">
+              <p>Pick one, or make one in Photos. It becomes the first frame.</p>
+              <div className="ph-photos">
+                {SAMPLE_PHOTOS.map((p) => <button key={p.src} className="ph-photo" style={{ backgroundImage: `url(${p.src})` }} title={`Start from ${p.says.toLowerCase()}`} aria-label={`Start from ${p.says.toLowerCase()}`} onClick={() => void startPhoto(`${window.location.origin}${p.src}`, p.says)} />)}
+              </div>
+              <Link className="ph-ghost" href="/photos">Make a photo first →</Link>
+              <label className="ph-drop">{busy === "photo" ? "Adding…" : "Upload your own"}<input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void uploadPhoto(f); }} /></label>
+            </section>
+
+            <section className="ph-card">
               <span className="eyebrow">From a video</span>
-              <b>Start with a clip</b>
-              <small>Generate or recreate one in Video.</small>
-            </Link>
-            <Link className="start-card" href="/workflows">
+              <p>Drop a trailer, an ad or a viral cut. haggs lists every shot and rebuilds the edit around your character.</p>
+              {sampleHidden ? (
+                <p className="ph-small">Sample removed. <button className="ph-link" onClick={() => hideSample(false)}>Bring the sample back</button>.</p>
+              ) : (
+                <div className="ph-ref">
+                  <Link href="/recreate" className="ph-ref-pic" style={{ backgroundImage: "url(/tiles/recreate.jpg)" }}><span>Use a sample reference</span></Link>
+                  <button className="ph-x" title="Remove the sample" aria-label="Remove the sample" onClick={() => hideSample(true)}>✕</button>
+                </div>
+              )}
+              <Link className="ph-ghost" href="/recreate">Drop your own video →</Link>
+            </section>
+
+            <section className="ph-card">
               <span className="eyebrow">From a workflow</span>
-              <b>Pick a ready-made app</b>
-              <small>Quick start apps and the full workflow library.</small>
-            </Link>
-            <button className="start-card" onClick={() => fileInput.current?.click()}>
-              <span className="eyebrow">From a file</span>
-              <b>Import a project</b>
-              <small>A .haggs.json someone shared or you exported.</small>
-            </button>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                // Reset first, so picking the same file twice still fires.
-                event.target.value = "";
-                if (file) void upload(file);
-              }}
-            />
+              <p>Ready-made apps: swap a person, relight, try on, make an ad. Each result can go into your project.</p>
+              <Link className="ph-ghost" href="/workflows">Browse apps →</Link>
+            </section>
+
+            <section className="ph-card ph-hot">
+              <span className="eyebrow">From a script</span>
+              <p>Start with the words. Pick the kind of show, upload a script, or let the writer draft one. Then load it into a project.</p>
+              <button className="ph-go" onClick={() => void create()}>Pick a format →</button>
+              <div className="ph-pair">
+                <button className="ph-ghost" onClick={() => void create()}>Write with Claude</button>
+                <button className="ph-ghost" onClick={() => void create()}>Upload a file</button>
+              </div>
+            </section>
           </div>
+
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              // Reset first, so picking the same file twice still fires.
+              event.target.value = "";
+              if (file) void upload(file);
+            }}
+          />
 
           {backups.length > 0 && (
             <div className="inbox" role="region" aria-label="Saved on disk">
@@ -258,73 +339,49 @@ export function Library() {
             </p>
           )}
 
-          {ready && projects.length > 0 && <span className="eyebrow continue">Continue</span>}
+          <div className="ph-continue">
+            <span className="eyebrow muted">Continue</span>
+            <button className="ph-link" onClick={() => fileInput.current?.click()}>Import a project file</button>
+          </div>
           {!ready ? null : projects.length === 0 ? (
-            <div className="library-blank">
-              <p>Nothing to continue yet.</p>
-              <p className="library-blank-sub">
-                A project holds a storyboard — its shots, their order, and the threads
-                running through them. Make one, or import a file someone shared.
-              </p>
-            </div>
+            <p className="ph-small">Nothing to continue yet. A project holds a storyboard: its shots, their order, and the threads running through them.</p>
           ) : (
-            <ul className="library-list">
-              {projects.map((summary) => (
-                <li key={summary.id} className="library-row">
-                  <Link className="library-thumb" href={`/board/${summary.id}`} tabIndex={-1} aria-hidden>
-                    {(() => {
-                      const found = summary.cover ?? covers[summary.id];
-                      // On the live site a file that still lives only on your computer can't play yet; show the letter until it has been copied.
-                      const cover = found && !(process.env.NEXT_PUBLIC_HOSTED && found.url.startsWith("/api/local/")) ? found : undefined;
-                      if (!cover) return <span>{summary.name.slice(0, 1).toUpperCase() || "·"}</span>;
-                      return cover.kind === "video"
-                        ? <video src={`${cover.url}#t=0.5`} muted playsInline preload="metadata" />
-                        : <img src={cover.url} alt="" loading="lazy" />;
-                    })()}
-                  </Link>
-                  {editing === summary.id ? (
-                    <input
-                      className="library-rename"
-                      autoFocus
-                      value={draft}
-                      onChange={(event) => setDraft(event.target.value)}
-                      onBlur={() => void commitRename()}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") void commitRename();
-                        if (event.key === "Escape") setEditing(null);
-                      }}
-                    />
-                  ) : (
-                    <Link className="library-name" href={`/board/${summary.id}`}>
-                      {summary.name}
+            <ul className="ph-projects">
+              {projects.map((summary) => {
+                const found = summary.cover ?? covers[summary.id];
+                // On the live site a file that still lives only on your computer can't play yet; show the letter until it has been copied.
+                const cover = found && !(process.env.NEXT_PUBLIC_HOSTED && found.url.startsWith("/api/local/")) ? found : undefined;
+                return (
+                  <li key={summary.id} className="ph-project">
+                    <Link className="ph-cover" href={`/board/${summary.id}`} tabIndex={-1} aria-hidden>
+                      {!cover ? <span>{summary.name.slice(0, 1).toUpperCase() || "·"}</span> : cover.kind === "video" ? <video src={`${cover.url}#t=0.5`} muted playsInline preload="metadata" /> : <img src={cover.url} alt="" loading="lazy" />}
                     </Link>
-                  )}
-
-                  <span className="library-meta">
-                    {summary.shotCount} {summary.shotCount === 1 ? "shot" : "shots"}
-                    <i>·</i>
-                    {ago(summary.updatedAt)}
-                  </span>
-
-                  <span className="library-actions">
-                    <button
-                      className="plain"
-                      onClick={() => {
-                        setEditing(summary.id);
-                        setDraft(summary.name);
-                      }}
-                    >
-                      Rename
-                    </button>
-                    <button className="plain" onClick={() => void download(summary)}>
-                      Export
-                    </button>
-                    <button className="plain danger" onClick={() => void destroy(summary)}>
-                      Delete
-                    </button>
-                  </span>
-                </li>
-              ))}
+                    <button className="ph-x" title={`Delete ${summary.name}`} aria-label={`Delete ${summary.name}`} onClick={() => void destroy(summary)}>✕</button>
+                    <div className="ph-project-body">
+                      {editing === summary.id ? (
+                        <input
+                          className="library-rename"
+                          autoFocus
+                          value={draft}
+                          onChange={(event) => setDraft(event.target.value)}
+                          onBlur={() => void commitRename()}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void commitRename();
+                            if (event.key === "Escape") setEditing(null);
+                          }}
+                        />
+                      ) : (
+                        <Link className="ph-name" href={`/board/${summary.id}`}>{summary.name}</Link>
+                      )}
+                      <span className="ph-meta">{summary.shotCount} {summary.shotCount === 1 ? "shot" : "shots"} · {ago(summary.updatedAt)}</span>
+                      <span className="ph-acts">
+                        <button className="ph-link" onClick={() => { setEditing(summary.id); setDraft(summary.name); }}>Rename</button>
+                        <button className="ph-link" onClick={() => void download(summary)}>Export</button>
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
