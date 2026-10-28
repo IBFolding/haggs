@@ -34,6 +34,15 @@ const ITEMS = [
   { label: "Academy", href: "/academy" },
 ] as const;
 
+const TIPS = [
+  "Draft on Fast, finish on Best.",
+  "Change one thing per take.",
+  "A still is cheaper than a clip: fix the picture first.",
+  "Lock the light and every shot there matches.",
+  "Hooks under ten words.",
+  "Reshoot keeps the face. A remake rolls the dice.",
+];
+
 export type Place = (typeof ITEMS)[number]["label"] | "Home" | "Account";
 
 const OPEN_KEYS = "haggs:open-keys";
@@ -47,6 +56,7 @@ export function Nav({ current }: { current: Place }) {
   const [held, setHeld] = useState({ comfy: false, fal: false, claude: false });
   const { session } = useSession();
   const [open, setOpen] = useState(false);
+  const [tip, setTip] = useState(0);
 
   useEffect(() => {
     void keysHeld().then(setHeld);
@@ -54,9 +64,10 @@ export function Nav({ current }: { current: Place }) {
     const here = document.querySelector<HTMLElement>(".modes [aria-current='page']");
     const row = here?.closest<HTMLElement>(".modes");
     if (here && row) row.scrollLeft = here.offsetLeft - (row.clientWidth - here.offsetWidth) / 2;
+    const rotate = setInterval(() => setTip((n) => n + 1), 6000);
     const show = () => setOpen(true);
     window.addEventListener(OPEN_KEYS, show);
-    return () => window.removeEventListener(OPEN_KEYS, show);
+    return () => { clearInterval(rotate); window.removeEventListener(OPEN_KEYS, show); };
   }, []);
 
   const names = [held.comfy && "Comfy", held.fal && "fal", held.claude && "Claude"].filter(Boolean);
@@ -76,6 +87,7 @@ export function Nav({ current }: { current: Place }) {
           ))}
         </div>
         <span className="nav-right">
+          <span className="nav-tip" aria-hidden><i>●</i><span key={tip}>{TIPS[tip % TIPS.length]}</span></span>
           <ActivityMenu />
           <CreditChip ownKey={held.comfy} />
           <button className="nav-ask" onClick={() => openProducer()} data-tour="ask">Ask Haggy</button>

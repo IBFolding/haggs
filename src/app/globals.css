@@ -3431,3 +3431,38 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ws-detailed .cell-sound { aspect-ratio:auto; min-height:120px; }
 .ws-detailed .run-tile { aspect-ratio:auto; }
 @media (max-width:600px) { .ws-detailed .ws-card { width:240px!important; } }
+
+/* ─── UI overhaul phase 2: header + Projects home ─────────────────────── */
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--volt); }
+.nav { height: 60px; gap: 6px; padding: 0 20px; background: var(--surface-2); }
+.logo { font-size: 26px; margin-right: 18px; letter-spacing: -.03em; }
+.nav-item { font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 999px; }
+.nav-item[aria-current="true"] { background: var(--surface-3); }
+.nav-ask { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 800; padding: 9px 16px; }
+.nav-ask:hover { background: var(--volt); border-color: var(--volt); color: var(--volt-ink); }
+.nav-tip { display: flex; gap: 8px; align-items: center; max-width: 260px; overflow: hidden; white-space: nowrap; font-size: 12px; color: var(--text-2); }
+.nav-tip i { font-style: normal; color: var(--volt); animation: hpulse 2s infinite; }
+.nav-tip span { overflow: hidden; text-overflow: ellipsis; animation: hrise .6s both; }
+@media (max-width: 1180px) { .nav-tip { display: none; } }
+@keyframes hpulse { 0%, 100% { opacity: 1 } 50% { opacity: .4 } }
+@keyframes hrise { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+
+.library { width: min(1240px, 100%); padding: 34px 30px 80px; }
+.library-head { display: block; margin-bottom: 26px; }
+.library-head h1 { font-size: clamp(44px, 6vw, 88px); line-height: .9; letter-spacing: -.045em; font-weight: 800; margin: 10px 0 8px; }
+.library-head p { font-size: 18px; color: var(--text-2); margin: 0; max-width: 60ch; }
+.start-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 38px; }
+.start-card { text-align: left; font: inherit; color: var(--text); text-decoration: none; cursor: pointer; display: grid; gap: 8px; align-content: start; padding: 20px; border-radius: 16px; border: 1px solid var(--line); background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.45); transition: transform .2s, border-color .2s; animation: hrise .5s both; }
+.start-card:hover { transform: translateY(-3px); border-color: var(--line-hot); }
+.start-card b { font-size: 20px; letter-spacing: -.02em; }
+.start-card small { color: var(--text-2); font-size: 14px; line-height: 1.4; }
+.eyebrow.continue { display: block; margin-bottom: 14px; }
+.library-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+.library-row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "thumb thumb" "name actions" "meta meta"; gap: 8px 10px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.45); transition: transform .2s, border-color .2s; }
+.library-row:hover { transform: translateY(-3px); border-color: var(--line-hot); }
+.library-row .library-thumb { grid-area: thumb; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 10px; }
+.library-row .library-name, .library-row .library-rename { grid-area: name; }
+.library-row .library-meta { grid-area: meta; display: flex; text-align: left; gap: 8px; font: 500 11px var(--mono); color: var(--text-3); }
+.library-row .library-meta i { display: inline; }
+.library-row .library-actions { grid-area: actions; }
+@media (max-width: 760px) { .library { padding: 24px 16px 80px; } }

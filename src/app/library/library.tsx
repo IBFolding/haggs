@@ -195,12 +195,36 @@ export function Library() {
       <div className="canvas">
         <div className="library">
           <div className="library-head">
-            <h1>Projects</h1>
-            <button className="fire" onClick={() => void create()}>
-              New project
+            <span className="eyebrow">Your projects</span>
+            <h1>Start anywhere.</h1>
+            <p>Whatever you begin with ends up in a project, and the project walks you to a finished film.</p>
+          </div>
+
+          <div className="start-grid">
+            <button className="start-card" onClick={() => void create()}>
+              <span className="eyebrow">From an idea or script</span>
+              <b>New project</b>
+              <small>Open a blank board and write or paste it in Sheets.</small>
             </button>
-            <button className="pill" onClick={() => fileInput.current?.click()}>
-              Import
+            <Link className="start-card" href="/photos">
+              <span className="eyebrow">From a photo</span>
+              <b>Make a photo first</b>
+              <small>It becomes the first frame of a shot.</small>
+            </Link>
+            <Link className="start-card" href="/video">
+              <span className="eyebrow">From a video</span>
+              <b>Start with a clip</b>
+              <small>Generate or recreate one in Video.</small>
+            </Link>
+            <Link className="start-card" href="/workflows">
+              <span className="eyebrow">From a workflow</span>
+              <b>Pick a ready-made app</b>
+              <small>Quick start apps and the full workflow library.</small>
+            </Link>
+            <button className="start-card" onClick={() => fileInput.current?.click()}>
+              <span className="eyebrow">From a file</span>
+              <b>Import a project</b>
+              <small>A .haggs.json someone shared or you exported.</small>
             </button>
             <input
               ref={fileInput}
@@ -234,9 +258,10 @@ export function Library() {
             </p>
           )}
 
+          {ready && projects.length > 0 && <span className="eyebrow continue">Continue</span>}
           {!ready ? null : projects.length === 0 ? (
             <div className="library-blank">
-              <p>No projects yet.</p>
+              <p>Nothing to continue yet.</p>
               <p className="library-blank-sub">
                 A project holds a storyboard — its shots, their order, and the threads
                 running through them. Make one, or import a file someone shared.
