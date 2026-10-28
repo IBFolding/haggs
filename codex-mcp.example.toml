@@ -1,8 +1,8 @@
 # Registers the haggs MCP server with Codex. Either run, from the repo folder:
 #
-#   codex mcp add haggs -- npx tsx scripts/mcp.ts
+#   codex mcp add haggs -- node scripts/mcp-start.mjs
 #
 # or paste this into ~/.codex/config.toml and put the real path to your clone in `args`.
 [mcp_servers.haggs]
-command = "npx"
-args = ["tsx", "/path/to/haggs/scripts/mcp.ts"]
+command = "node"
+args = ["/path/to/haggs/scripts/mcp-start.mjs"]

@@ -17,3 +17,7 @@ tsconfig.tsbuildinfo
 
 # Local MCP servers (copy .mcp.example.json to .mcp.json)
 .mcp.json
+
+# The bundled MCP server, made by scripts/mcp-start.mjs
+scripts/mcp.bundle.mjs
+scripts/mcp.bundle.json

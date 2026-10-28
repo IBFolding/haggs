@@ -78,7 +78,7 @@ certificate.
 can use. They can read your
 projects and send you work to apply: drafts, boards, edits, takes, voices, a
 series, or an app laid out on the canvas (`haggs_propose_canvas`,
-`haggs_propose_series`), and search Comfy's workflow library
+`haggs_propose_series`), a Playable game (`haggs_propose_game`), and search Comfy's workflow library
 (`haggs_find_workflows`). Nothing changes until you press Apply, and no
 separate API key is needed.
 
@@ -155,8 +155,10 @@ Community needs the migration in `supabase/migrations/` applied to your
 Supabase project (paste it into the SQL editor).
 
 To use Claude with your projects, copy `.mcp.example.json` to `.mcp.json` (that file is local and not committed); it registers the haggs MCP
-server for Claude Code. For Codex, run `codex mcp add haggs -- npx tsx scripts/mcp.ts` from the repo folder, or use
-`codex-mcp.example.toml`. Any other MCP client can run `npx tsx scripts/mcp.ts`.
+server for Claude Code. For Codex, run `codex mcp add haggs -- node scripts/mcp-start.mjs` from the repo folder, or use
+`codex-mcp.example.toml`. Any other MCP client can run `node scripts/mcp-start.mjs`. It runs the server from one bundled
+file (made on first start, and again when its sources change), so it answers well inside a client's start-up wait even on a
+slow disk; `npx tsx scripts/mcp.ts` still works where startup speed doesn't matter.
 
 ### Development only
 
