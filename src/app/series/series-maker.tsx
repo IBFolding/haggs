@@ -100,6 +100,16 @@ export function SeriesMaker() {
   const seriesRefs = () => allocateRefs({ characters: person?.sheet ? [person.sheet] : [], style: style?.sheet ? [style.sheet] : [], place: extras.filter((i) => i.kind === "place" && i.image).map((i) => i.image!), accessories: extras.filter((i) => i.kind === "accessory" && i.image).map((i) => i.image!) }, 4);
 
   /** Choosing a format loads its example into the form, unless you've already written your own idea. */
+  const composerRef = useRef<HTMLDivElement>(null);
+  const topicRef = useRef<HTMLTextAreaElement>(null);
+  const stylesRef = useRef<HTMLSpanElement>(null);
+  /** A style card: load its example into the box, then take you back to the box to make it yours. */
+  function chooseStyle(id: string) {
+    pickFormat(id);
+    composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => topicRef.current?.focus({ preventScroll: true }), 300);
+  }
+
   function pickFormat(id: string) {
     setFormat(id);
     const own = id.startsWith(MY_FORMAT) ? mine.find((t) => `${MY_FORMAT}${t.id}` === id) : undefined;
@@ -287,61 +297,44 @@ export function SeriesMaker() {
           )}
 
           {!series ? (
-            <div className="series-form">
-              <header className="swap-head">
-                <h1>Make a series</h1>
-                <p>Pick the kind, who is in it and how it looks. Then watch it turn into pictures on this page.</p>
+            <div className="series-form sx">
+              <header className="sx-head">
+                <span className="eyebrow">Series</span>
+                <h1>Pick a style. Type a topic.</h1>
+                <p>A run of short vertical videos, written for you, then made into pictures and clips right here.</p>
               </header>
-              <div className="series-presets" aria-label="Start from a preset">
-                <div className="quick-tabs" role="tablist">
-                  {[...new Set(PRESETS.map((p) => p.category))].map((c) => (
-                    <button key={c} role="tab" aria-selected={category === c} className={category === c ? "on" : ""} onClick={() => setCategory(c)}>{c}</button>
-                  ))}
-                </div>
-                <div className="quick-row">
-                  {PRESETS.filter((p) => p.category === category).map((p) => (
-                    <button key={p.id} className="quick-card pic" onClick={() => usePreset(p.id)} title={p.topic}>
-                      <span className="qc-pic" style={{ backgroundImage: `url(/formats/${p.format}-${1 + (PRESETS.indexOf(p) % 3)}.jpg)` }} role="img" aria-label={`A sample frame for ${p.name}`} />
-                      <b>{p.name}</b>
-                      <small>{p.count} {p.count === 1 ? "video" : "videos"}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="series-formats" role="radiogroup" aria-label="Format">
-                {FORMATS.map((f) => (
-                  <button key={f.id} role="radio" aria-checked={format === f.id} className={format === f.id ? "on" : ""} onClick={() => pickFormat(f.id)}>
-                    <span className="sf-strip" aria-label={`A sample ${f.label} series`}>
-                      {[1, 2, 3].map((n) => (
-                        <span key={n} className="sf-frame" style={{ backgroundImage: `url(/formats/${f.id}-${n}.jpg)` }}>
-                          {n === 1 && <i>{FORMAT_SAMPLES[f.id].hook}</i>}
-                        </span>
-                      ))}
-                    </span>
-                    <b>{f.label}</b>
-                    <span>{f.blurb}</span>
-                  </button>
-                ))}
-                {mine.map((t) => (
-                  <span key={t.id} className={`sf-own${format === `${MY_FORMAT}${t.id}` ? " on" : ""}`}>
-                    <button role="radio" aria-checked={format === `${MY_FORMAT}${t.id}`} className={format === `${MY_FORMAT}${t.id}` ? "on" : ""} onClick={() => pickFormat(`${MY_FORMAT}${t.id}`)}>
-                      <span className="sf-cover" aria-hidden="true"><i>{t.label}</i></span>
-                      <b>{t.label}</b>
-                      <span>{t.how.length > 90 ? `${t.how.slice(0, 88)}…` : t.how}</span>
-                    </button>
-                    <span className="sf-own-tools">
-                      <button aria-label={`Edit ${t.label}`} title="Edit" onClick={() => setMakingTemplate(t.id)}>✎</button>
-                      <button aria-label={`Delete ${t.label}`} title="Delete" onClick={async () => { await templates.remove(t.id); if (format === `${MY_FORMAT}${t.id}`) setFormat("what-if"); refreshTemplates(); }}>×</button>
-                    </span>
-                  </span>
-                ))}
-                <button className="sf-add" onClick={() => setMakingTemplate("new")}>
-                  <span className="sf-plus" aria-hidden="true">+</span>
-                  <b>Make your own template</b>
-                  <span>Top ten, my favorite cars, a day in the life: describe the shape once and use it again.</span>
-                </button>
-              </div>
 
+              <div className="sx-composer" ref={composerRef}>
+                <textarea ref={topicRef} rows={2} value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={1000} placeholder="What if the Moon vanished for a day?" aria-label="What is it about?" />
+                <div className="sx-pills">
+                  <button className="sx-pill" onClick={() => stylesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} title="Choose a style">Style <b>{formatLabel}</b> ▾</button>
+                  <span className="sx-pill sx-count" role="group" aria-label="How many videos">
+                    <button onClick={() => setCount((n) => Math.max(1, n - 1))} disabled={count <= 1} aria-label="Fewer videos">−</button>
+                    <b>{count}</b> {count === 1 ? "video" : "videos"}
+                    <button onClick={() => setCount((n) => Math.min(8, n + 1))} disabled={count >= 8} aria-label="More videos">+</button>
+                  </span>
+                  <label className="sx-pill">Who
+                    <select value={who ?? ""} onChange={(e) => setWho(e.target.value || null)}>
+                      <option value="">Nobody in particular</option>
+                      {cast.map((c) => <option key={c.id} value={c.id}>{c.traits.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="sx-pill">Look
+                    <select value={lookId ?? ""} onChange={(e) => setLookId(e.target.value || null)}>
+                      <option value="">Natural</option>
+                      {looks.all.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                    </select>
+                  </label>
+                  <span className="sx-spacer" />
+                  <span className="sx-cost">then ~7 cr a picture</span>
+                  <button className="fire" disabled={busy || topic.trim().length < 4} onClick={() => void write()}>
+                    {busy ? "Writing…" : "Write the series"}<span className="cost">free</span>
+                  </button>
+                </div>
+                {error && <p className="library-error" role="alert">{error}</p>}
+                {note && <p className="wf-note" role="status">{note}</p>}
+                <details className="sx-more">
+                  <summary>Cast, places and styles</summary>
               <div className="series-pick">
                 <b>Who is in it</b>
                 <div className="series-chips">
@@ -370,20 +363,66 @@ export function SeriesMaker() {
                 </div>
               </div>
 
-              <label className="wf-field">
-                <span>What is it about?</span>
-                <textarea rows={3} value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={1000} placeholder="Strange things that would happen if your body kept doing one thing forever" />
-              </label>
-              <label className="wf-field wf-field-inline">
-                <span>How many videos</span>
-                <input type="number" min={1} max={8} value={count} onChange={(e) => setCount(Math.min(8, Math.max(1, Number(e.target.value) || 1)))} />
-              </label>
-              {error && <p className="library-error" role="alert">{error}</p>}
-              {note && <p className="wf-note" role="status">{note}</p>}
-              <button className="fire wf-run" disabled={busy || topic.trim().length < 4} onClick={() => void write()}>
-                {busy ? "Writing…" : "Write the series"}
-              </button>
-              <p className="wf-small">Written on your Claude key, or by Claude over MCP if you have none. Nothing is made yet, so nothing is spent.</p>
+                </details>
+              </div>
+
+              <span className="eyebrow muted" ref={stylesRef}>Pick a style · each one loads an example you can change</span>
+              <div className="sx-styles" role="radiogroup" aria-label="Style">
+                {FORMATS.map((f) => (
+                  <button key={f.id} role="radio" aria-checked={format === f.id} className={`sx-card${format === f.id ? " on" : ""}`} onClick={() => chooseStyle(f.id)}>
+                    <span className="sx-frames" aria-hidden="true">
+                      {[1, 2, 3].map((n) => <i key={n} style={{ backgroundImage: `url(/formats/${f.id}-${n}.jpg)` }} />)}
+                    </span>
+                    <span className="sx-hook">{FORMAT_SAMPLES[f.id].hook}</span>
+                    <span className="sx-info">
+                      <b>{f.label}</b>
+                      <small>{f.blurb}</small>
+                      <em>{FORMAT_SAMPLES[f.id].count} videos · up to 6 shots each · 12–20 s</em>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {(
+                <div className="series-formats sx-mine" role="radiogroup" aria-label="Your templates">
+                {mine.map((t) => (
+                  <span key={t.id} className={`sf-own${format === `${MY_FORMAT}${t.id}` ? " on" : ""}`}>
+                    <button role="radio" aria-checked={format === `${MY_FORMAT}${t.id}`} className={format === `${MY_FORMAT}${t.id}` ? "on" : ""} onClick={() => pickFormat(`${MY_FORMAT}${t.id}`)}>
+                      <span className="sf-cover" aria-hidden="true"><i>{t.label}</i></span>
+                      <b>{t.label}</b>
+                      <span>{t.how.length > 90 ? `${t.how.slice(0, 88)}…` : t.how}</span>
+                    </button>
+                    <span className="sf-own-tools">
+                      <button aria-label={`Edit ${t.label}`} title="Edit" onClick={() => setMakingTemplate(t.id)}>✎</button>
+                      <button aria-label={`Delete ${t.label}`} title="Delete" onClick={async () => { await templates.remove(t.id); if (format === `${MY_FORMAT}${t.id}`) setFormat("what-if"); refreshTemplates(); }}>×</button>
+                    </span>
+                  </span>
+                ))}
+                <button className="sf-add" onClick={() => setMakingTemplate("new")}>
+                  <span className="sf-plus" aria-hidden="true">+</span>
+                  <b>Make your own template</b>
+                  <span>Top ten, my favorite cars, a day in the life: describe the shape once and use it again.</span>
+                </button>
+                </div>
+              )}
+
+              <span className="eyebrow muted">Or start from a ready-made series</span>
+              <div className="series-presets" aria-label="Start from a preset">
+                <div className="quick-tabs" role="tablist">
+                  {[...new Set(PRESETS.map((p) => p.category))].map((c) => (
+                    <button key={c} role="tab" aria-selected={category === c} className={category === c ? "on" : ""} onClick={() => setCategory(c)}>{c}</button>
+                  ))}
+                </div>
+                <div className="quick-row">
+                  {PRESETS.filter((p) => p.category === category).map((p) => (
+                    <button key={p.id} className="quick-card pic" onClick={() => usePreset(p.id)} title={p.topic}>
+                      <span className="qc-pic" style={{ backgroundImage: `url(/formats/${p.format}-${1 + (PRESETS.indexOf(p) % 3)}.jpg)` }} role="img" aria-label={`A sample frame for ${p.name}`} />
+                      <b>{p.name}</b>
+                      <small>{p.count} {p.count === 1 ? "video" : "videos"}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="wf-small">Written on your Claude key, or by Claude over MCP if you have none. Nothing is made until you press a button that shows its price.</p>
             </div>
           ) : (
             <div className="series-draft">

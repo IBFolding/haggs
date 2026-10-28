@@ -125,3 +125,14 @@ test("the same prompt always hashes the same, a different one does not", () => {
   assert.equal(hashPrompt("abc"), hashPrompt("abc"));
   assert.notEqual(hashPrompt("abc"), hashPrompt("abd"));
 });
+
+test("a shot's look goes into its prompt as plain words, and an empty look changes nothing", () => {
+  const project = board("She runs");
+  const before = promptFor(project, 0);
+  assert.equal(promptFor({ ...project, shots: [{ ...project.shots[0]!, look: {} }] }, 0), before);
+  const looked = promptFor({ ...project, shots: [{ ...project.shots[0]!, look: { framing: "close-up", move: "push-in", grade: "teal-orange" } }] }, 0);
+  assert.match(looked, /close-up on the face/i);
+  assert.match(looked, /push in/i);
+  assert.match(looked, /teal and orange/i);
+  for (const line of before.split("\n")) assert.ok(looked.includes(line), line);
+});

@@ -1,4 +1,6 @@
 import { atmosphere, type GreyScene, type Key } from "./grey-scene";
+import { camAt, type CamKey } from "./grey-camera";
+import type { GreyFrame } from "./grey";
 
 /**
  * A Grey Room set as a Blender scene, for the shots that need real 3D light,
@@ -19,8 +21,14 @@ export type BlenderManifest = {
   exposure: number;
   actor?: { file: string; kind: "movie" | "image" };
   backdrop?: { file: string; scale: number; x: number; y: number; keys?: Key[] };
-  props: { name: string; file: string; x: number; y: number; w: number; rotate: number; opacity: number; behind: boolean; flip: boolean; keys?: Key[] }[];
-  lights: { kind: string; x: number; y: number; size: number; color: string; intensity: number; keys?: Key[] }[];
+  /** The grey room camera. When present the set gets a perspective camera that makes this move. Metres and degrees, as in the Grey room. */
+  camera?: { angle: number; distance: number; height: number; lens: number };
+  /** The camera's keys at the shot's frame rate. */
+  cameraKeys?: { frame: number; angle: number; distance: number; height: number; lens: number }[];
+  /** Stand-in figures from the Grey room's room plan, metres from the middle. */
+  figures?: { label: string; x: number; z: number }[];
+  props: { name: string; file: string; x: number; y: number; w: number; rotate: number; opacity: number; behind: boolean; flip: boolean; /** A 3D model file; the script imports it instead of making a flat picture. */ model?: string; keys?: Key[] }[];
+  lights: { kind: string; x: number; y: number; size: number; color: string; intensity: number; spot?: boolean; power?: number; keys?: Key[] }[];
   /** relative file name → where this app reads it from, so the bundle can copy it in. */
   assets: Record<string, string>;
   notes: string[];
@@ -28,7 +36,7 @@ export type BlenderManifest = {
 
 const slug = (url: string) => (url.split("/").at(-1) ?? "file").split("?")[0]!.replace(/[^\w.-]+/g, "-").slice(-60);
 
-export function blenderManifest(scene: GreyScene, o: { name: string; size: { w: number; h: number }; seconds: number; fps: number; footage: { url: string; kind: "video" | "image" } }): BlenderManifest {
+export function blenderManifest(scene: GreyScene, o: { name: string; size: { w: number; h: number }; seconds: number; fps: number; footage: { url: string; kind: "video" | "image" }; grey?: GreyFrame }): BlenderManifest {
   const assets: Record<string, string> = {};
   const byUrl = new Map<string, string>();
   const add = (url: string) => {
@@ -46,6 +54,9 @@ export function blenderManifest(scene: GreyScene, o: { name: string; size: { w: 
   const actorUrl = scene.matte?.url ?? o.footage.url;
   const actorKind = scene.matte ? "movie" : o.footage.kind === "video" ? "movie" : "image";
   if (!scene.matte) notes.push("The actor isn't cut out yet, so the original footage fills the frame.");
+  const grey = o.grey;
+  const keys: CamKey[] = grey?.camKeys ?? [];
+  if (grey) notes.push(keys.length > 1 ? "The Grey Room camera move is a perspective camera in the set. The actor and the pictures are flat, so they show parallax rather than turning." : "The Grey Room camera is a perspective camera at its still position.");
   return {
     version: 1,
     name: o.name,
@@ -54,10 +65,15 @@ export function blenderManifest(scene: GreyScene, o: { name: string; size: { w: 
     fps: o.fps,
     frames: Math.max(1, Math.round(o.seconds * o.fps)),
     exposure: scene.look?.exposure ?? 0,
+    ...(grey ? {
+      camera: { angle: grey.cam.angle, distance: grey.cam.distance, height: grey.cam.height, lens: grey.cam.lens },
+      ...(keys.length > 1 ? { cameraKeys: keys.map((k) => ({ frame: 1 + Math.round(k.t * o.fps), angle: camAt(grey.cam, keys, k.t).angle, distance: k.distance, height: k.height, lens: k.lens })) } : {}),
+      figures: grey.subjects.map((s) => ({ label: s.label, x: s.x, z: s.z })),
+    } : {}),
     actor: { file: add(actorUrl), kind: actorKind },
     ...(scene.backdrop ? { backdrop: { file: add(scene.backdrop.url), scale: scene.backdrop.scale, x: scene.backdrop.x, y: scene.backdrop.y, ...(scene.backdrop.keys ? { keys: scene.backdrop.keys } : {}) } } : {}),
-    props: (scene.props ?? []).filter((p) => !p.hidden).map((p) => ({ name: p.name, file: add(p.url), x: p.x, y: p.y, w: p.w, rotate: p.rotate, opacity: p.opacity, behind: p.behind, flip: p.flip === true, ...(p.keys ? { keys: p.keys } : {}) })),
-    lights: (scene.lights ?? []).map((l) => ({ kind: l.kind, x: l.x, y: l.y, size: l.size, color: l.color, intensity: l.intensity, ...(l.keys ? { keys: l.keys } : {}) })),
+    props: (scene.props ?? []).filter((p) => !p.hidden).map((p) => ({ name: p.name, file: add(p.url), x: p.x, y: p.y, w: p.w, rotate: p.rotate, opacity: p.opacity, behind: p.behind, flip: p.flip === true, ...(p.model ? { model: add(p.model.url) } : {}), ...(p.keys ? { keys: p.keys } : {}) })),
+    lights: (scene.lights ?? []).map((l) => ({ kind: l.kind, x: l.x, y: l.y, size: l.size, color: l.color, intensity: l.intensity, ...(l.spot ? { spot: true } : {}), ...(l.power !== undefined ? { power: l.power } : {}), ...(l.keys ? { keys: l.keys } : {}) })),
     assets,
     notes,
   };
@@ -71,7 +87,9 @@ orthographic camera: the background, props behind the actor, the actor, props
 in front, and real lights. Everything is set at the size and length of your shot
 (${m.width} x ${m.height}, ${m.frames} frames at ${m.fps} fps).
 
-1. Open Blender (3.6 or newer) and a new General file.
+${m.camera ? `The Grey Room camera is in this set as "GreyRoomCamera" (a perspective camera, ${m.camera.lens} mm to start)${m.cameraKeys ? `, with ${m.cameraKeys.length} keys that make the move you drew` : ""}. The flat orthographic camera "HaggsCamera" is still there: to use it, select it and press Ctrl+Numpad0.
+
+` : ""}1. Open Blender (3.6 or newer) and a new General file.
 2. Click the Scripting tab, then Open, and choose build_scene.py from this folder.
 3. Click Run Script (the play button). The set appears.
 4. Change anything you like: move a light, add a 3D object, change a material.
@@ -212,6 +230,39 @@ def put(obj, x, yfrac, w_units, deg, flip):
     obj.scale = (w_units * (-1 if flip else 1), w_units * aspect, 1)
     obj.rotation_euler = (math.radians(90), math.radians(-deg), 0)
 
+def model_prop(name, rel, w_units, x, yfrac, depth, deg):
+    """A 3D model in place of a flat picture. Returns an empty that holds it, or None if it can't be imported."""
+    path = os.path.join(ROOT, rel)
+    ext = rel.lower().rsplit(".", 1)[-1]
+    before = set(bpy.data.objects)
+    try:
+        if ext in ("glb", "gltf"):
+            bpy.ops.import_scene.gltf(filepath=path)
+        elif ext == "obj":
+            try:
+                bpy.ops.wm.obj_import(filepath=path)
+            except AttributeError:
+                bpy.ops.import_scene.obj(filepath=path)
+        elif ext == "fbx":
+            bpy.ops.import_scene.fbx(filepath=path)
+        else:
+            return None
+    except Exception as err:
+        print("Could not import", rel, "-", err)
+        return None
+    fresh = [o for o in bpy.data.objects if o not in before]
+    if not fresh:
+        return None
+    holder = bpy.data.objects.new(name, None)
+    scene.collection.objects.link(holder)
+    for o in fresh:
+        if o.parent is None:
+            o.parent = holder
+    holder.scale = (w_units, w_units, w_units)
+    holder.rotation_euler = (0, 0, math.radians(-deg))
+    holder.location = ((x - 0.5) * UW, depth, (0.5 - yfrac) * UH)
+    return holder
+
 # Background: a picture sized like the preview (a width of 'scale' frames).
 if "backdrop" in S:
     b = S["backdrop"]
@@ -234,8 +285,13 @@ plane("Actor", actor["file"], UW, 0.0, movie=(actor["kind"] == "movie"), lit=Fal
 # Props: flat pictures, behind the actor or in front of them.
 for i, p in enumerate(S["props"]):
     depth = 2.0 + i * 0.01 if p["behind"] else -2.0 - i * 0.01
-    o = plane(p["name"] or ("Prop %d" % (i + 1)), p["file"], UW * p["w"], depth, lit=True)
-    put(o, p["x"], p["y"], UW * p["w"], p["rotate"], p["flip"])
+    o = None
+    if p.get("model"):
+        o = model_prop(p["name"] or ("Prop %d" % (i + 1)), p["model"], UW * p["w"], p["x"], p["y"], depth, p["rotate"])
+    is_model = o is not None
+    if not is_model:
+        o = plane(p["name"] or ("Prop %d" % (i + 1)), p["file"], UW * p["w"], depth, lit=True)
+        put(o, p["x"], p["y"], UW * p["w"], p["rotate"], p["flip"])
     for k in p.get("keys", []):
         f = frame_of(k["t"])
         if "x" in k:
@@ -245,22 +301,27 @@ for i, p in enumerate(S["props"]):
             o.location.z = (0.5 - k["y"]) * UH
             o.keyframe_insert("location", index=2, frame=f)
         if "w" in k:
-            aspect = o.scale.y / max(abs(o.scale.x), 1e-6)
-            o.scale = (UW * k["w"] * (-1 if p["flip"] else 1), UW * k["w"] * aspect, 1)
+            if is_model:
+                o.scale = (UW * k["w"],) * 3
+            else:
+                aspect = o.scale.y / max(abs(o.scale.x), 1e-6)
+                o.scale = (UW * k["w"] * (-1 if p["flip"] else 1), UW * k["w"] * aspect, 1)
             o.keyframe_insert("scale", frame=f)
         if "rotate" in k:
-            o.rotation_euler = (math.radians(90), math.radians(-k["rotate"]), 0)
+            o.rotation_euler = (0, 0, math.radians(-k["rotate"])) if is_model else (math.radians(90), math.radians(-k["rotate"]), 0)
             o.keyframe_insert("rotation_euler", frame=f)
 
 # Lights: real lights in front of the picture, so they light the props.
 for i, l in enumerate(S["lights"]):
-    data = bpy.data.lights.new("Light %d" % (i + 1), "POINT")
+    data = bpy.data.lights.new("Light %d" % (i + 1), "SPOT" if l.get("spot") else "POINT")
     data.color = tuple(int(l["color"].lstrip("#")[j:j + 2], 16) / 255 for j in (0, 2, 4)) if l["color"].startswith("#") else (1, 1, 1)
-    data.energy = 1500 * l["intensity"] * max(0.3, l["size"])
+    data.energy = l["power"] if "power" in l else 1500 * l["intensity"] * max(0.3, l["size"])
     data.shadow_soft_size = 0.5 + 2.0 * l["size"]
     o = bpy.data.objects.new("Light %d" % (i + 1), data)
     scene.collection.objects.link(o)
     o.location = ((l["x"] - 0.5) * UW, -3.0, (0.5 - l["y"]) * UH)
+    if l.get("spot"):
+        o.rotation_euler = (math.radians(90), 0, 0)   # aims into the picture
     for k in l.get("keys", []):
         f = frame_of(k["t"])
         if "x" in k:
@@ -269,9 +330,45 @@ for i, l in enumerate(S["lights"]):
         if "y" in k:
             o.location.z = (0.5 - k["y"]) * UH
             o.keyframe_insert("location", index=2, frame=f)
-        if "intensity" in k:
+        if "intensity" in k and "power" not in l:
             data.energy = 1500 * k["intensity"] * max(0.3, l["size"])
             data.keyframe_insert("energy", frame=f)
+
+# The Grey Room camera: a perspective camera at the angle, distance, height and lens
+# you worked out, making the same move. It orbits the actor's picture, and looks at its
+# middle. A Grey Room height is measured from the floor with the middle at chest height,
+# so it is offset by 1.2 here. The actor and props are flat pictures: a move round them
+# gives parallax, not a view of their other side.
+if "camera" in S:
+    gdata = bpy.data.cameras.new("GreyRoomCamera")
+    gdata.sensor_fit = "HORIZONTAL"
+    gdata.sensor_width = 36
+    gcam = bpy.data.objects.new("GreyRoomCamera", gdata)
+    scene.collection.objects.link(gcam)
+
+    def aim(c):
+        a = math.radians(c["angle"])
+        gcam.location = (math.sin(a) * c["distance"], -math.cos(a) * c["distance"], c["height"] - 1.2)
+        dx, dy, dz = -gcam.location.x, -gcam.location.y, -gcam.location.z
+        yaw = math.atan2(dx, dy)
+        pitch = math.atan2(dz, math.hypot(dx, dy))
+        gcam.rotation_euler = (math.radians(90) + pitch, 0, -yaw)
+        gdata.lens = c["lens"]
+
+    aim(S["camera"])
+    for k in S.get("cameraKeys", []):
+        aim(k)
+        gcam.keyframe_insert("location", frame=k["frame"])
+        gcam.keyframe_insert("rotation_euler", frame=k["frame"])
+        gdata.keyframe_insert("lens", frame=k["frame"])
+    if S.get("cameraKeys"):
+        aim(S["cameraKeys"][0])
+    scene.camera = gcam
+
+    # Stand-ins from the room plan, so the move has something to travel round.
+    for fig in S.get("figures", []):
+        bpy.ops.mesh.primitive_cylinder_add(radius=0.25, depth=1.75, location=(fig["x"], fig["z"], -1.2 + 0.875))
+        bpy.context.active_object.name = "Figure " + fig["label"]
 
 # Where the video goes.
 out_dir = os.path.join(ROOT, "render")

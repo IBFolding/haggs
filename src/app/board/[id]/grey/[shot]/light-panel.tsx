@@ -1,6 +1,7 @@
 "use client";
 
 import { actorShadow, addLight, removeLight, setAtmos, setLook, setShadow, updateLight, NEUTRAL, type AtmosKind, type GreyScene, type LightKind, type Look } from "../../../../../story/grey-scene";
+import { MAX_POWER } from "../../../../../story/grey-scene";
 import { Slide } from "./set-panel";
 
 const LIGHTS: { kind: LightKind; label: string; says: string }[] = [
@@ -41,6 +42,16 @@ export function LightPanel({ scene, selected, onSelect, onChange }: { scene: Gre
             <label className="gs-slide"><span>Colour</span><input type="color" value={sel.color} onChange={(e) => onChange(updateLight(scene, sel.id, { color: e.target.value }))} /></label>
             <Slide label="Strength" min={0} max={1} step={0.01} value={sel.intensity} onChange={(v) => onChange(updateLight(scene, sel.id, { intensity: v }))} />
             <Slide label="Spread" min={0.05} max={1.5} step={0.01} value={sel.size} onChange={(v) => onChange(updateLight(scene, sel.id, { size: v }))} />
+            {process.env.NEXT_PUBLIC_HOSTED !== "1" && (
+              <>
+                <div className="gs-row">
+                  <button className={`pill${sel.spot ? " on" : ""}`} aria-pressed={sel.spot === true} onClick={() => onChange(updateLight(scene, sel.id, { spot: !sel.spot }))}>Spotlight</button>
+                  <button className="plain" disabled={sel.power === undefined} onClick={() => onChange(updateLight(scene, sel.id, { power: Number.NaN }))}>Power: auto</button>
+                </div>
+                <Slide label="Power (W)" min={0} max={MAX_POWER} step={50} value={sel.power ?? Math.round(1500 * sel.intensity * Math.max(0.3, sel.size))} onChange={(v) => onChange(updateLight(scene, sel.id, { power: v }))} />
+                <small className="gs-soft">Spotlight and power only change the Blender set. Auto follows strength and spread.</small>
+              </>
+            )}
             <button className="plain" onClick={() => { onChange(removeLight(scene, sel.id)); onSelect(null); }}>Remove this light</button>
           </div>
         )}

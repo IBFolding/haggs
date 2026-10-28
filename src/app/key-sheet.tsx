@@ -54,7 +54,7 @@ export function KeySheet({
   const [gpu, setGpu] = useState<{ base: string; note: string } | null>(null);
   const [address, setAddress] = useState("127.0.0.1:8188");
   const [gpuError, setGpuError] = useState<string | null>(null);
-  const [view, setView] = useState<"choose" | "keys">(held.comfy || held.claude || held.fal ? "keys" : "choose");
+  const [view, setView] = useState<"choose" | "keys" | "mcp">(held.comfy || held.claude || held.fal ? "keys" : "choose");
   const { session } = useSession();
   const hosted = Boolean(process.env.NEXT_PUBLIC_HOSTED);
   useEffect(() => {
@@ -95,6 +95,42 @@ export function KeySheet({
     },
   ] as Row[]).filter((r) => FAL_ENABLED || r.id !== "fal");
 
+  if (view === "mcp") {
+    return (
+      <div className="veil" onClick={onClose}>
+        <div ref={dialog} className="sheet wide provider-sheet" role="dialog" aria-modal="true" aria-label="MCP setup" onClick={(event) => event.stopPropagation()}>
+          <h3>Connect Claude or Codex</h3>
+          <p>
+            haggs ships an MCP server. Claude or Codex can read your projects and send boards, takes, voice lines and apps to Activity. Nothing
+            changes until you press Apply, and nothing is spent until you press a button that shows its price. The server runs next to haggs on
+            your computer, so run haggs there first.
+          </p>
+          <ol className="mcp-steps">
+            <li>
+              <b>Run haggs on your computer</b>
+              <CopyLine text="git clone https://github.com/IBFolding/haggs && cd haggs && npm install && npm run dev" />
+            </li>
+            <li>
+              <b>Connect it, from the haggs folder</b>
+              <CopyLine label="Claude Code" text="claude mcp add haggs -- npx tsx scripts/mcp.ts" />
+              <CopyLine label="Codex" text="codex mcp add haggs -- npx tsx scripts/mcp.ts" />
+              <small>Claude Code also picks it up on its own from the repo&rsquo;s <code>.mcp.json</code>. Any other MCP client can run <code>npx tsx scripts/mcp.ts</code>.</small>
+            </li>
+            <li>
+              <b>Open your project in haggs, then ask</b>
+              <small>Open the project once so haggs shares it, then ask Claude for a board, a series or an app. It lands in Activity, ready to apply.</small>
+            </li>
+          </ol>
+          <div className="sheet-row">
+            <button className="plain" onClick={() => setView(held.comfy || held.claude || held.fal || gpu ? "keys" : "choose")}>Back</button>
+            <a className="plain" href="/docs">Read the guide</a>
+            <button className="plain" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (view === "choose") {
     const credits = session ? "/account#credits" : "/signin?next=/account%23credits";
     return (
@@ -117,6 +153,11 @@ export function KeySheet({
               <b>I run Comfy on my own GPU</b>
               <span>Connect your ComfyUI. Your renders stay on your drive and show up here.{hosted ? " The studio is the Platform plan, $15 a month." : ""}</span>
               <i>Connect my GPU</i>
+            </button>
+            <button className="path-card" onClick={() => setView("mcp")}>
+              <b>I use Claude or Codex</b>
+              <span>Connect haggs over MCP. Claude or Codex reads your projects and sends work for you to apply. No extra key.</span>
+              <i>Set up MCP</i>
             </button>
           </div>
           <div className="sheet-row">
@@ -240,6 +281,18 @@ export function KeySheet({
           {gpuError && <p className="library-error" role="alert">{gpuError}</p>}
         </section>
 
+        <section className="key-row">
+          <header>
+            <b>Claude or Codex over MCP</b>
+          </header>
+          <p className="key-blurb">
+            Connect haggs to Claude or Codex. They read your projects and send work to Activity for you to apply. No extra key.
+          </p>
+          <div className="sheet-row">
+            <button className="plain" onClick={() => setView("mcp")}>Set up MCP</button>
+          </div>
+        </section>
+
         <div className="sheet-row">
           <button className="plain" onClick={onClose}>
             Close
@@ -251,6 +304,20 @@ export function KeySheet({
           before you press it.
         </div>
       </div>
+    </div>
+  );
+}
+
+function CopyLine({ text, label }: { text: string; label?: string }) {
+  const [done, setDone] = useState<"" | "Copied" | "Selected, press ⌘C">("");
+  const code = useRef<HTMLElement>(null);
+  const show = (note: typeof done) => { setDone(note); setTimeout(() => setDone(""), 2000); };
+  const select = () => { const range = document.createRange(); if (!code.current) return; range.selectNodeContents(code.current); const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(range); show("Selected, press ⌘C"); };
+  return (
+    <div className="mcp-line">
+      {label && <span>{label}</span>}
+      <code ref={code}>{text}</code>
+      <button className="plain" onClick={() => void navigator.clipboard.writeText(text).then(() => show("Copied"), select)}>{done || "Copy"}</button>
     </div>
   );
 }

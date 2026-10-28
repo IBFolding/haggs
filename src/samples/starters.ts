@@ -22,6 +22,24 @@ export const ACCESSORY_SAMPLES: { name: string; words: string }[] = [
   { name: "Vintage film camera", words: "a black and silver 35mm rangefinder camera on a leather strap" },
 ];
 
+/**
+ * A picture for each sample card, made with ChatGPT and labelled as such. Only a preview of the sample: using a
+ * sample still fills the form, and the sheet, plate or picture is made in haggs as before.
+ */
+export const SAMPLE_PICTURES: Record<string, string> = {
+  "Mara, the lighthouse keeper": "/samples/char-mara.webp",
+  "Dev, the night-shift courier": "/samples/char-dev.webp",
+  "Professor Ines Vale": "/samples/char-ines.webp",
+  "The last diner on Route 9": "/samples/place-diner.webp",
+  "Observatory on the cliff": "/samples/place-observatory.webp",
+  "Grandmother's greenhouse": "/samples/place-greenhouse.webp",
+  "Red wool scarf": "/samples/acc-scarf.webp",
+  "Round glasses": "/samples/acc-glasses.webp",
+  "Leather satchel": "/samples/acc-satchel.webp",
+  "Vintage film camera": "/samples/acc-camera.webp",
+};
+export const SAMPLE_PICTURES_BY = "Sample picture made with ChatGPT";
+
 export const FOUND_SAMPLES: { label: string; brief: string }[] = [
   { label: "A city that is closing down", brief: "A lonely night shift in a city that is closing down" },
   { label: "A small-town summer", brief: "A hot summer in a small town where nothing ever happens" },

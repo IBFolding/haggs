@@ -12,8 +12,8 @@ import { coerceSettings, defaultSettings, toWireSettings, type Settings } from "
 import { cloudPrice } from "../providers/cloud-models";
 import { slotIn, templatesFor, type Template } from "../catalog/templates";
 import { recommend } from "../catalog/recommend";
-import { lookPhrase, withLook, type LookChoice } from "../catalog/look";
-import { LookPanel } from "./look-panel";
+import { withLook, type LookChoice } from "../catalog/look";
+import { LookBar } from "./look-picker";
 import { OUTFIT_IDEAS, castReferences, castWords } from "../catalog/cast";
 import { createCharacterStore, identityLock, type Character } from "../characters/character";
 import { createPlaceStore, placeLock, type SavedPlace } from "../locations/location";
@@ -39,6 +39,7 @@ import type { Layout } from "../story/workspace";
 import { RunTile } from "./run-tile";
 import { SaveToProject } from "./save-to-project";
 import { SettingsRail } from "./settings-rail";
+import { usePrefs } from "./prefs";
 import { creditsText } from "../story/price-text";
 
 /** In-flight work only. Anything finished is a Run and lives in storage. */
@@ -169,7 +170,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
       const gift = raw ? (JSON.parse(raw) as { url: string; to: Surface; prompt?: string }) : null;
       if (gift && gift.to === surface && typeof gift.url === "string") {
         sessionStorage.removeItem(HANDOFF_KEY);
-        setImages([gift.url]);
+        if (gift.url) setImages([gift.url]);
         if (typeof gift.prompt === "string" && gift.prompt.trim()) setPrompt(gift.prompt);
       }
     } catch {
@@ -199,7 +200,6 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const [saving, setSaving] = useState<PictureRun | null>(null);
   const startProject = useStartProject();
   const [showTemplates, setShowTemplates] = useState(false);
-  const [showLook, setShowLook] = useState(false);
   const [look, setLook] = useState<LookChoice>({});
   const lookKey = `haggs.look.${surface}`;
   useEffect(() => {
@@ -255,6 +255,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   };
 
   const card = useMemo(() => getModelCard(modelId), [modelId]);
+  const { pro, openOnly } = usePrefs();
+  const hasPro = Object.values(card.settings).some((f) => f.advanced);
   const rate = rateMap[modelId];
   const workItems = useMemo<(WorkItem & { kind: "image" | "video" })[]>(
     () => [
@@ -363,7 +365,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
     // The look's words go after the prompt, and the run keeps the prompt as it was sent.
     const cast = surface === "Edit" ? null : { characterLock: who ? identityLock(who.traits) : undefined, placeLock: where ? placeLock(where.traits) : undefined, outfit };
-    const sent = surface === "Edit" ? prompt : withLook(cast ? castWords(prompt, cast) : prompt, look);
+    const sent = surface === "Edit" ? prompt : withLook(cast ? castWords(prompt, cast) : prompt, look, surface === "Video");
     // A picture you attached is the opening frame; with none, your character's and place's sheets go in as references.
     const refs = surface === "Edit" ? [] : castReferences({ attached: images, character: who?.sheet ?? null, place: where?.plate ?? null, accessories: outfit.map((w) => outfitPics[w]).filter((x): x is string => Boolean(x)), max: card.inputImages });
     // References are drawn smaller first: two full-size sheets together can pass the host's request limit.
@@ -474,16 +476,19 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
       <Nav current={surface === "Video" ? "Video" : "Photos"} />
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
-      <div className="canvas" onClick={() => setPicking(false)}>
-        {/* The tabs sit in the same place on every page; anything else goes under them. */}
+      {/* The tabs sit in the same bar on every page, with how to show your pictures on the right. */}
+      <div className="mode-bar">
         {surface === "Video" && <ModeTabs group="Video" current="/video" />}
         {surface !== "Video" && <ModeTabs group="Photos" current={surface === "Edit" ? "/edit" : "/photos"} canEdit={surfaceAvailable("Edit")} />}
-        <AcademyNudge />
-        {surface !== "Video" && <MakeBanner />}
         <div className="view-toggle" role="tablist" aria-label="How to show your pictures">
             <button role="tab" aria-selected={view === "grid"} onClick={() => chooseView("grid")}>Grid</button>
             <button role="tab" aria-selected={view === "workspace"} onClick={() => chooseView("workspace")}>Workspace</button>
         </div>
+      </div>
+
+      <div className="canvas" onClick={() => setPicking(false)}>
+        <AcademyNudge />
+        {surface !== "Video" && <MakeBanner />}
         {view === "workspace" ? (
           <Workspace
             storeKey={`workspace/${surface}`}
@@ -545,7 +550,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             <button className="mini-say" onClick={() => chooseMini(false)} title="Open the box">
               {prompt.trim() || "Describe the scene you imagine"}
             </button>
-            <button className="fire" onClick={() => void fire()} disabled={busy || !prompt.trim() || needsImage} title={needsImage ? "Attach an image first" : undefined}>
+            <button className="fire" onClick={() => void fire()} disabled={busy || openOnly || !prompt.trim() || needsImage} title={openOnly ? "Open weights only is on: these models are partner APIs" : needsImage ? "Attach an image first" : undefined}>
               {busy ? "Generating…" : "Generate"}
               <span className="cost">{costLabel}</span>
             </button>
@@ -654,15 +659,10 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </div>
           )}
 
-          {showLook && surface !== "Edit" && <LookPanel value={look} onChange={changeLook} />}
+          {surface !== "Edit" && <LookBar value={look} onChange={changeLook} video={surface === "Video"} />}
           <div className="composer-top">
             <UploadImage inputRef={fileInput} disabled={card.inputImages === 0} onAttach={(url) => setImages(held => [...held, url].slice(-Math.max(1,card.inputImages)))} />
             {card.inputImages === 0 && <span className="takes-note">This model accepts text only. Choose an image-capable model to upload a reference.</span>}
-            {surface !== "Edit" && (
-              <button className={`tpl-open${lookPhrase(look) ? " set" : ""}`} aria-expanded={showLook} onClick={(e) => { e.stopPropagation(); setShowLook((v) => !v); setShowTemplates(false); }}>
-                Look{lookPhrase(look) ? " ·" : ""}
-              </button>
-            )}
             {templates.length > 0 && (
               <div className="tpl-wrap" onClick={(e) => e.stopPropagation()}>
                 <button className="tpl-open" aria-expanded={showTemplates} onClick={() => setShowTemplates((v) => !v)}>
@@ -705,6 +705,19 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </p>
           )}
 
+          {pro && hasPro && (
+            <div className="composer-pro" onClick={(e) => e.stopPropagation()}>
+              <span className="composer-pro-tag">Pro</span>
+              <SettingsRail
+                only="advanced"
+                fields={card.settings}
+                settings={settings}
+                onChange={(key, value) => setSettings((held) => ({ ...held, [key]: value }))}
+              />
+            </div>
+          )}
+          {pro && !hasPro && <p className="composer-pro-none">{card.name} has no seed, negative prompt or CFG to set.</p>}
+
           <div className="composer-bottom">
             <button
               className="pill on"
@@ -723,11 +736,17 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               onChange={(key, value) => setSettings((held) => ({ ...held, [key]: value }))}
             />
 
+            {openOnly && (
+              <span className="open-stop" role="status">
+                Open weights only is on. These models are partner APIs. <Link href="/workflows">Use an open-weights app</Link>
+              </span>
+            )}
+
             <button
               className="fire"
               onClick={() => void fire()}
-              disabled={busy || !prompt.trim() || needsImage}
-              title={needsImage ? "Attach an image first" : undefined}
+              disabled={busy || openOnly || !prompt.trim() || needsImage}
+              title={openOnly ? "Open weights only is on: these models are partner APIs" : needsImage ? "Attach an image first" : undefined}
             >
               {busy ? "Generating…" : "Generate"}
               <span className="cost">{costLabel}</span>

@@ -42,6 +42,7 @@ export function Draw() {
   const [recent, setRecent] = useState<string[]>([]);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [problem, setProblem] = useState<string | null>(null);
+  const [over, setOver] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
 
@@ -137,36 +138,63 @@ export function Draw() {
       <div className="canvas">
         <div className="swap">
           <ModeTabs group="Video" current="/draw" />
-          <header className="swap-head">
-            <h1>Draw to video</h1>
-            <p>Sketch arrows on a picture: one for what moves, one for where the camera goes. haggs writes the motion for you, then you press the priced Generate on the Video page.</p>
-          </header>
+          <div className="cx">
+            <aside className="cx-builder" aria-label="Draw the motion">
+              <div className="cx-scroll">
+                <span className="eyebrow">Draw to video</span>
+                <h1 className="cx-title">Draw the move. Get the shot.</h1>
+                <p className="cx-lede">Drag arrows on a picture: green for what moves, white for where the camera goes. haggs writes the motion, and Video shows the price before anything is made.</p>
+                <button
+                  className={`cx-upload${over ? " over" : ""}`}
+                  onClick={() => file.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+                  onDragLeave={() => setOver(false)}
+                  onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files?.[0]); }}
+                >
+                  <span aria-hidden>＋</span><b>{picture ? "Use another picture" : "Add a picture"}</b><small>drop one here, or pick a sample</small>
+                </button>
+                <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
 
-          <section className="dw-pick" aria-label="Pick a picture">
-            <b>Start from</b>
-            {SAMPLES.map((s) => (
-              <button key={s.name} className="plain dw-chip" onClick={() => choose(s.src, s.marks)}>{s.name}</button>
-            ))}
-            <button className="plain dw-chip" onClick={() => file.current?.click()}>Add a picture</button>
-            <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
-          </section>
-          {recent.length > 0 && (
-            <section className="dw-recent" aria-label="Your pictures">
-              {recent.map((src) => (
-                <button key={src} onClick={() => choose(src)} title="Draw on this one"><img src={src} alt="" loading="lazy" /></button>
-              ))}
-            </section>
-          )}
+                <section className="rx-step">
+                  <b><i>1</i> What the next arrow means</b>
+                  <div className="dw-tools" role="group" aria-label="What the arrow means">
+                    <button className={tool === "subject" ? "on" : ""} onClick={() => setTool("subject")}>Something moves</button>
+                    <button className={tool === "camera" ? "on" : ""} onClick={() => setTool("camera")}>The camera moves</button>
+                  </div>
+                </section>
 
-          {!picture ? (
-            <p className="dw-empty">Pick a picture above, or add your own, then drag on it to draw an arrow.</p>
-          ) : (
-            <div className="dw-grid">
-              <div>
-                <div className="dw-tools" role="group" aria-label="What the arrow means">
-                  <button className={tool === "subject" ? "on" : ""} onClick={() => setTool("subject")}>Something moves</button>
-                  <button className={tool === "camera" ? "on" : ""} onClick={() => setTool("camera")}>The camera moves</button>
-                </div>
+                <section className="rx-step">
+                  <b><i>2</i> Arrows <small className="dw-count">{marks.length} of {MAX_MARKS}</small></b>
+                  {marks.length === 0 ? <p className="dw-hint">{picture ? "Drag on the picture to draw one." : "Pick a picture first."}</p> : (
+                    <ol className="dw-marks">
+                      {marks.map((m, i) => (
+                        <li key={m.id}>
+                          <span className={`dw-n ${m.kind}`}>{i + 1}</span>
+                          {m.kind === "subject" ? (
+                            <input value={m.note} maxLength={40} placeholder="What moves? e.g. the dog" aria-label={`What arrow ${i + 1} moves`} onChange={(e) => { const note = e.target.value; setMarks((held) => held.map((x) => (x.id === m.id ? { ...x, note } : x))); setEdited(null); }} />
+                          ) : <span className="dw-cam">Camera move</span>}
+                          <button className="plain" onClick={() => { setMarks((held) => held.filter((x) => x.id !== m.id)); setEdited(null); }} aria-label={`Delete arrow ${i + 1}`}>×</button>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
+
+                <section className="rx-step">
+                  <b><i>3</i> The motion</b>
+                  <textarea className="dw-prompt" value={prompt} placeholder="Draw an arrow and the motion appears here. You can edit it." onChange={(e) => setEdited(e.target.value)} rows={5} />
+                  {edited !== null && <button className="plain" onClick={() => setEdited(null)}>Write it from the arrows again</button>}
+                </section>
+                {problem && <p className="library-error" role="alert">{problem}</p>}
+              </div>
+              <div className="cx-foot">
+                <button className="cx-shuffle" disabled={marks.length === 0} onClick={() => { setMarks([]); setEdited(null); }}>Clear</button>
+                <button className="fire" onClick={() => void make()} disabled={!picture || !prompt.trim()}>Make it a video <span className="cost">priced on Video</span></button>
+              </div>
+            </aside>
+
+            <div className="cx-main">
+              {picture ? (
                 <div ref={stage} className="dw-stage" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { dragging.current = null; setDrag(null); }}>
                   <img src={picture} alt="The picture you are drawing on" draggable={false} onLoad={(e) => setSize({ w: e.currentTarget.clientWidth, h: e.currentTarget.clientHeight })} />
                   <svg width={size.w} height={size.h} aria-hidden>
@@ -174,32 +202,34 @@ export function Draw() {
                     {drag && arrow(drag.from, drag.to, "drag", tool, undefined, true)}
                   </svg>
                 </div>
-              </div>
+              ) : (
+                <div className="chars-sheet dw-empty-stage"><div className="wf-result-wait">Pick a sample below or add your own picture, then drag on it to draw an arrow.</div></div>
+              )}
 
-              <div className="dw-side">
-                <h2>Arrows</h2>
-                {marks.length === 0 ? <p className="dw-hint">Drag on the picture to draw one.</p> : (
-                  <ol className="dw-marks">
-                    {marks.map((m, i) => (
-                      <li key={m.id}>
-                        <span className={`dw-n ${m.kind}`}>{i + 1}</span>
-                        {m.kind === "subject" ? (
-                          <input value={m.note} maxLength={40} placeholder="What moves? e.g. the dog" aria-label={`What arrow ${i + 1} moves`} onChange={(e) => { const note = e.target.value; setMarks((held) => held.map((x) => (x.id === m.id ? { ...x, note } : x))); setEdited(null); }} />
-                        ) : <span className="dw-cam">Camera move</span>}
-                        <button className="plain" onClick={() => { setMarks((held) => held.filter((x) => x.id !== m.id)); setEdited(null); }} aria-label={`Delete arrow ${i + 1}`}>×</button>
-                      </li>
-                    ))}
-                  </ol>
+              <section className="cx-gallery" aria-label="Pictures to draw on">
+                {recent.length > 0 && (
+                  <>
+                    <span className="eyebrow muted">Your pictures</span>
+                    <div className="dw-recent">
+                      {recent.map((src) => (
+                        <button key={src} className={picture === src ? "on" : ""} onClick={() => choose(src)} title="Draw on this one"><img src={src} alt="" loading="lazy" /></button>
+                      ))}
+                    </div>
+                  </>
                 )}
-
-                <h2>The motion</h2>
-                <textarea className="dw-prompt" value={prompt} placeholder="Draw an arrow and the motion appears here. You can edit it." onChange={(e) => setEdited(e.target.value)} rows={6} />
-                {edited !== null && <button className="plain" onClick={() => setEdited(null)}>Write it from the arrows again</button>}
-                {problem && <p className="library-error" role="alert">{problem}</p>}
-                <button className="fire" onClick={() => void make()} disabled={!prompt.trim()}>Make it a video<span className="cost">price on the next page</span></button>
-              </div>
+                <span className="eyebrow muted">Start from a sample</span>
+                <div className="cx-cards">
+                  {SAMPLES.map((s) => (
+                    <button key={s.name} className={`cx-card${picture === s.src ? " on" : ""}`} onClick={() => choose(s.src, s.marks)}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.src} alt="" />
+                      <span><b>{s.name}</b><small>{s.marks.length} arrow{s.marks.length === 1 ? "" : "s"} already drawn</small></span>
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
-          )}
+          </div>
         </div>
         <SiteFooter />
       </div>

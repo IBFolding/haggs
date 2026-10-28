@@ -10,6 +10,7 @@ import { quoteWorkflow, runWorkflow, type Quote } from "../../../../workflow-act
 import { actorMattePrompt, MATTE_INPUT, type Point } from "../../../../../comfy/actor-matte";
 import { Nav } from "../../../../nav";
 import { Compositor } from "./compositor";
+import { GreyRoom } from "../../cut/grey";
 import { LightPanel } from "./light-panel";
 import { RenderPanel } from "./render-panel";
 import { SetPanel } from "./set-panel";
@@ -34,10 +35,11 @@ import { creditsText } from "../../../../../story/price-text";
  */
 
 const STEPS = [
+  { id: "blockout", label: "Blockout", says: "Work out the camera, the figures and the light in grey, for free. Key a camera move, then make the real picture." },
   { id: "cut", label: "Cut out", says: "Separate the actor from the grey room, so everything behind them can change." },
   { id: "set", label: "Set", says: "Choose where it happens, then drag props into the picture." },
-  { id: "light", label: "Light", says: "Place lights, set the colour of the frame and what is in the air." },
-  { id: "render", label: "Render", says: "Check the set, then make a new take for the cut." },
+  { id: "light", label: "Air and look", says: "Place lights, set the colour of the frame and what is in the air." },
+  { id: "render", label: "Render and Blender", says: "Check the set, then make a new take for the cut." },
 ] as const;
 type StepId = (typeof STEPS)[number]["id"];
 
@@ -51,7 +53,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const full = useRef<Project | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
-  const [step, setStep] = useState<StepId>("cut");
+  const [step, setStep] = useState<StepId>("blockout");
   const [places, setPlaces] = useState<BankItem[]>([]);
   const [accessories, setAccessories] = useState<BankItem[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -97,6 +99,16 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     setProject((current) => {
       if (!current) return current;
       const updated: Project = { ...current, shots: current.shots.map((x) => (x.id === shotId ? { ...x, greyScene: next } : x)) };
+      saves.queue((full.current = commit(full.current ?? updated, boardId, updated)));
+      return updated;
+    });
+  }
+
+  /** Any other change to this shot (its grey blockout, an approval, a new picture), saved by this page. */
+  function updateShot(change: (x: Shot) => Shot) {
+    setProject((current) => {
+      if (!current) return current;
+      const updated: Project = { ...current, shots: current.shots.map((x) => (x.id === shotId ? change(x) : x)) };
       saves.queue((full.current = commit(full.current ?? updated, boardId, updated)));
       return updated;
     });
@@ -238,6 +250,23 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
           ))}
         </ol>
 
+        {step === "blockout" && shot ? (
+          <div className="gs-blockout">
+            <GreyRoom
+              key={shot.id}
+              shot={shot}
+              vertical={vertical}
+              names={project.threads.filter((t) => t.kind === "character" && shot.threadIds.includes(t.id)).map((t) => t.name)}
+              onGrey={(g) => updateShot((x) => ({ ...x, grey: g }))}
+              onApprove={() => updateShot((x) => ({ ...x, approved: true }))}
+              onTake={(url, usd) => updateShot((x) => addTake(x, { url, kind: "image", usd, promptHash: x.render?.promptHash ?? "", at: Date.now() }, "Grey room"))}
+            />
+            <div className="gs-nav">
+              <span />
+              <button className="pill on" onClick={() => setStep("cut")}>Next: Cut out →</button>
+            </div>
+          </div>
+        ) : (
         <div className="gs-body">
           <section className="gs-stage" aria-label="Preview">
             <div ref={stage} className={`gs-pickwrap${picking ? " picking" : ""}`} onClick={pick}>
@@ -318,6 +347,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
             </div>
           </aside>
         </div>
+        )}
       </div>
     </div>
   );

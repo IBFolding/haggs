@@ -406,7 +406,7 @@ export function qaSheet(sheets: Sheets): Finding[] {
   return out;
 }
 
-const COLORS = ["#d4f83a", "#7dd3fc", "#f5c451", "#f9a8d4", "#a78bfa", "#fb923c", "#34d399", "#f87171"];
+const COLORS = ["#35e48a", "#7dd3fc", "#f5c451", "#f9a8d4", "#a78bfa", "#fb923c", "#34d399", "#f87171"];
 
 export type SyncResult = { project: Project; added: number; updated: number; removed: number; kept: number };
 

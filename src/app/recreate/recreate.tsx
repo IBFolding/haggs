@@ -45,6 +45,8 @@ export function Recreate() {
   const [presetName, setPresetName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [shelf, setShelf] = useState<"All" | "Vertical" | "Landscape" | "Yours">("All");
 
   useEffect(() => {
     void createCharacterStore(defaultKv()).list().then((all) => { setCast(all); const pick = readPick(window.location.search); if (pick?.kind === "character" && all.some((c) => c.id === pick.id)) setWho(pick.id); }).catch(() => undefined);
@@ -119,75 +121,116 @@ export function Recreate() {
       <div className="canvas">
         <div className="swap">
           <ModeTabs group="Video" current="/recreate" />
-          <header className="swap-head">
-            <h1>Recreate an edit</h1>
-            <p>Drop an edit you love: a trailer, an ad, a viral cut. haggs finds every shot, then rebuilds the same edit around your character and your place.</p>
-          </header>
+          <div className="rx">
+            <aside className="rx-panel" aria-label="Recreate an edit">
+              <span className="eyebrow">Recreate an edit</span>
 
-          {!video && !shots && (
-            <div className="recreate-presets">
-              <b>Start from a structure</b>
-              <div className="quick-row">
-                {EDIT_PRESETS.map((p) => (
-                  <button key={p.id} className="quick-card struct" onClick={() => { setShots(presetShots(p)); setVertical(p.vertical); setError(null); }} title={p.says}>
-                    <span className={`st-strip${p.vertical ? "" : " land"}`} aria-label={`A sample ${p.name} edit`}>
-                      {[1, 2, 3].map((n) => <span key={n} className="st-frame" style={{ backgroundImage: `url(/structures/${p.id}-${n}.jpg)` }} />)}
-                    </span>
-                    <b>{p.name}</b>
-                    <small>{p.says} · {p.shots.length} shots · {p.vertical ? "vertical" : "landscape"}</small>
+              <section className="rx-step">
+                <b><i>1</i> The edit to copy</b>
+                {video ? (
+                  <div className="rx-picked">
+                    <video src={video.url} muted playsInline preload="metadata" />
+                    <span>{video.seconds}s · {video.vertical ? "vertical" : "landscape"}</span>
+                    <button className="plain" onClick={() => { setVideo(null); setShots(null); }}>Use a different one</button>
+                  </div>
+                ) : shots ? (
+                  <div className="rx-picked">
+                    <span>A starting structure · {shots.length} shots</span>
+                    <button className="plain" onClick={() => setShots(null)}>Pick another</button>
+                  </div>
+                ) : (
+                  <button
+                    className={`rx-drop${dragging ? " over" : ""}`}
+                    onClick={() => file.current?.click()}
+                    disabled={busy !== null}
+                    onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) void add(f); }}
+                  >
+                    <span aria-hidden>▶</span>
+                    <b>{busy ?? "Add a reference video"}</b>
+                    <small>A trailer, an ad, a viral cut. Up to three minutes. Or pick a structure on the right.</small>
                   </button>
-                ))}
-                {mine.map((p) => (
-                  <span key={p.id} className="quick-card mine">
-                    <button className="plain" onClick={() => { setShots(p.shots); setVertical(p.vertical); setError(null); }}><b>{p.name}</b><small>Yours · {p.shots.length} shots</small></button>
-                    <button className="plain danger" aria-label={`Remove ${p.name}`} onClick={() => void dropPreset(p.id)}>×</button>
-                  </span>
-                ))}
-              </div>
-              <b>Or copy an edit you love</b>
-            </div>
-          )}
-          {!video && !shots ? (
-            <div className="recreate-drop">
-              <button className="fire" onClick={() => file.current?.click()} disabled={busy !== null}>{busy ?? "Add the reference video"}</button>
-              <input ref={file} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void add(f); }} />
-              <p className="wf-small">Up to three minutes. It stays on this computer; only a few seconds of reading go to Comfy.</p>
-            </div>
-          ) : (
-            <div className="recreate-body">
-              {video && <video className="recreate-ref" src={video.url} controls muted playsInline />}
-              <div className="recreate-side">
-                <p className="wf-small">{video ? `${video.seconds}s · ${video.vertical ? "vertical" : "landscape"}. ` : "A starting structure. "}<button className="plain" onClick={() => { setVideo(null); setShots(null); }}>{video ? "Use a different one" : "Pick another"}</button></p>
-                {!shots ? (
-                  <button className="fire" disabled={busy !== null} onClick={() => void read()}>{busy ?? "Find the shots"} <span className="cost">about 3 credits</span></button>
+                )}
+                <input ref={file} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void add(f); }} />
+              </section>
+
+              <section className="rx-step">
+                <b><i>2</i> Who is in yours</b>
+                <div className="series-chips">
+                  <button className={!who ? "on" : ""} onClick={() => setWho(null)}>Nobody in particular</button>
+                  {cast.map((c) => <button key={c.id} className={who === c.id ? "on" : ""} onClick={() => setWho(c.id)}><img src={c.sheet} alt="" />{c.traits.name}</button>)}
+                  <BuildLink className="plain" href="/characters" label="Recreate an edit">+ Build a character</BuildLink>
+                </div>
+                <ExtrasRow items={extras} onChange={setExtras} label="Recreate an edit" title="Where it is set and what they wear" />
+              </section>
+
+              <details className="rx-step rx-notes" open={instructions.length > 0}>
+                <summary>Instructions <small>optional</small></summary>
+                <textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Set it in Tokyo at night. She wears a red coat." maxLength={500} aria-label="Anything else to change" />
+              </details>
+
+              {video && shots && (
+                <form className="cast-add" onSubmit={(e) => { e.preventDefault(); void savePreset(); }}>
+                  <input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="Save this edit as a structure" aria-label="Preset name" maxLength={60} />
+                  <button className="pill" disabled={!presetName.trim()}>Save</button>
+                </form>
+              )}
+
+              <div className="rx-go">
+                {shots ? (
+                  <>
+                    <button className="fire" onClick={() => void make()}>Make the board <span className="cost">{shots.length} shots · {total.toFixed(1)}s</span></button>
+                    <small>Then on the board: pictures about {money(shots.length * PICTURE)}, clips about {money(shots.reduce((n, s) => n + Math.max(4, Math.round(s.seconds)) * CLIP, 0))}. Each priced before you press it.</small>
+                  </>
+                ) : video ? (
+                  <>
+                    <button className="fire" disabled={busy !== null} onClick={() => void read()}>{busy ?? "Find the shots"} <span className="cost">about 3 credits</span></button>
+                    <small>It stays on this computer; only a few seconds of reading go to Comfy.</small>
+                  </>
                 ) : (
                   <>
-                    <div className="series-pick">
-                      <b>Who is in yours</b>
-                      <div className="series-chips">
-                        <button className={!who ? "on" : ""} onClick={() => setWho(null)}>Nobody in particular</button>
-                        {cast.map((c) => <button key={c.id} className={who === c.id ? "on" : ""} onClick={() => setWho(c.id)}><img src={c.sheet} alt="" />{c.traits.name}</button>)}
-                        <BuildLink className="plain" href="/characters" label="Recreate an edit">+ Build a character</BuildLink>
-                      </div>
-                    </div>
-                    <ExtrasRow items={extras} onChange={setExtras} label="Recreate an edit" title="Where it is set and what they wear" />
-                    <label className="wf-field"><span>Anything else to change (mood, time of day)</span><textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Set it in Tokyo at night. She wears a red coat." maxLength={500} /></label>
-                    {video && (
-                      <form className="cast-add" onSubmit={(e) => { e.preventDefault(); void savePreset(); }}>
-                        <input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="Save this edit as a preset: name it" aria-label="Preset name" maxLength={60} />
-                        <button className="pill" disabled={!presetName.trim()}>Save</button>
-                      </form>
-                    )}
-                    <button className="fire" onClick={() => void make()}>Make the board · {shots.length} shots, {total.toFixed(1)}s</button>
-                    <p className="wf-small">Then on the board: pictures about {money(shots.length * PICTURE)}, clips about {money(shots.reduce((n, s) => n + Math.max(4, Math.round(s.seconds)) * CLIP, 0))}. Each priced before you press it.</p>
+                    <button className="fire" disabled>Add an edit or pick a structure</button>
+                    <small>Nothing is spent until a button shows its price.</small>
                   </>
                 )}
                 {error && <p className="library-error" role="alert">{error}</p>}
               </div>
-            </div>
-          )}
-          {error && !video && !shots && <p className="library-error" role="alert">{error}</p>}
+            </aside>
 
+            <div className="rx-main">
+              {!shots && !video && (
+                <>
+                  <div className="rx-hero">
+                    <div>
+                      <h1>Recreate the edit. <b>Make it yours.</b></h1>
+                      <p>Drop an edit you love. haggs finds every shot, then rebuilds the same edit around your character and your place.</p>
+                    </div>
+                    <video src="/brand/hero.mp4" muted loop autoPlay playsInline preload="metadata" aria-label="An edit and its recreation with a new cast" />
+                  </div>
+
+                  <div className="rx-filter" role="tablist" aria-label="Structures">
+                    {(mine.length ? (["All", "Vertical", "Landscape", "Yours"] as const) : (["All", "Vertical", "Landscape"] as const)).map((f) => (
+                      <button key={f} role="tab" aria-selected={shelf === f} onClick={() => setShelf(f)}>{f}</button>
+                    ))}
+                  </div>
+                  <div className="rx-grid">
+                    {shelf !== "Yours" && EDIT_PRESETS.filter((p) => shelf === "All" || (shelf === "Vertical") === p.vertical).map((p) => (
+                      <button key={p.id} className="rx-card" onClick={() => { setShots(presetShots(p)); setVertical(p.vertical); setError(null); }} title={p.says}>
+                        <span className="sx-frames" aria-hidden="true">{[1, 2, 3].map((n) => <i key={n} style={{ backgroundImage: `url(/structures/${p.id}-${n}.jpg)` }} />)}</span>
+                        <span className="sx-info"><b>{p.name}</b><small>{p.says}</small><em>{p.shots.length} shots · {p.vertical ? "vertical" : "landscape"}</em></span>
+                      </button>
+                    ))}
+                    {(shelf === "All" || shelf === "Yours") && mine.map((p) => (
+                      <span key={p.id} className="rx-card rx-mine">
+                        <button className="plain" onClick={() => { setShots(p.shots); setVertical(p.vertical); setError(null); }}><b>{p.name}</b><small>Yours · {p.shots.length} shots · {p.vertical ? "vertical" : "landscape"}</small></button>
+                        <button className="plain danger" aria-label={`Remove ${p.name}`} onClick={() => void dropPreset(p.id)}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+              {video && !shots && <video className="recreate-ref" src={video.url} controls muted playsInline />}
           {shots && (
             <ol className="recreate-shots">
               {shots.map((s, i) => (
@@ -199,6 +242,8 @@ export function Recreate() {
               ))}
             </ol>
           )}
+            </div>
+          </div>
         </div>
         <SiteFooter />
       </div>

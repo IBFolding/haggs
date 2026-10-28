@@ -1,5 +1,6 @@
 "use server";
 
+import { partnerRefusal } from "../server/open-only";
 import { readFile } from "node:fs/promises";
 import { cookies } from "next/headers";
 
@@ -16,6 +17,7 @@ export type Analysed = { ok: true; shots: RefShot[] } | { ok: false; reason: str
 
 /** A video model (Gemini, on Comfy) watches the reference edit and lists its shots. A few cents; never retried automatically. */
 export async function analyzeEdit(url: string, seconds: number): Promise<Analysed> {
+  { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
   if (!mediaAllowed(url)) return { ok: false, reason: "Add the video from your computer first." };
   if (!(seconds > 0 && seconds <= 180)) return { ok: false, reason: "Use a reference of up to three minutes." };
   const own = keyIn(await cookies(), COMFY_COOKIE);

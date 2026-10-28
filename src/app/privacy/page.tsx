@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LearnShell } from "../learn-shell";
 
 export const metadata: Metadata = { title: "Privacy — haggs" };
 
 /** What the hosted service does with data, in plain words. A first draft: have a lawyer read it before you charge anyone. */
 export default function Privacy() {
   return (
-    <div className="app">
-      <div className="canvas">
+    <LearnShell current="/privacy">
         <article className="legal">
-          <p className="wf-small"><Link href="/">← haggs</Link></p>
           <h1>Privacy</h1>
           <p className="wf-small">Last updated 23 October 2026.</p>
           <h2>What stays in your browser</h2>
@@ -30,7 +29,6 @@ export default function Privacy() {
           <p>Clear your browser&rsquo;s site data to remove local projects. Ask us to delete your account and stored files through the project&rsquo;s GitHub issues, and we will.</p>
           <p className="wf-small"><Link href="/terms">Terms</Link></p>
         </article>
-      </div>
-    </div>
+    </LearnShell>
   );
 }

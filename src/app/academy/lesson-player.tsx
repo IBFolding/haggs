@@ -58,7 +58,20 @@ export function LessonPlayer({ index }: { index: number }) {
             <small>Lesson {index + 1} of {LESSONS.length} · about {lesson.minutes} min</small>
             <h1>{lesson.title}</h1>
             <p>{lesson.goal}</p>
+            {lesson.why && <p className="ac-why">{lesson.why}</p>}
           </div>
+
+          {lesson.techs && (
+            <ul className="ac-techs" aria-label="Techniques">
+              {lesson.techs.map((t) => (
+                <li key={t.do}>
+                  <p className="do"><i>Do</i>{t.do}</p>
+                  <p className="avoid"><i>Avoid</i>{t.avoid}</p>
+                  <small>{t.why}</small>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="ac-grid">
             <aside className="ac-steps" aria-label="Steps">
@@ -103,7 +116,7 @@ export function LessonPlayer({ index }: { index: number }) {
           </footer>
         </div>
       </div>
-      {burst && <div className="ac-burst" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ "--a": `${(i / 28) * 360}deg`, "--d": `${120 + (i % 5) * 36}px`, "--c": ["#d4f83a", "#7dd3fc", "#f5a524", "#c4a7ff"][i % 4] } as React.CSSProperties} />)}</div>}
+      {burst && <div className="ac-burst" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ "--a": `${(i / 28) * 360}deg`, "--d": `${120 + (i % 5) * 36}px`, "--c": ["#35e48a", "#7dd3fc", "#f5a524", "#c4a7ff"][i % 4] } as React.CSSProperties} />)}</div>}
     </div>
   );
 }

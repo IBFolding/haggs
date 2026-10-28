@@ -8,9 +8,16 @@
 export type Matte = { url: string; at: number; price: string };
 /** A moment in the shot where some of an item's values are set. Between two keys a value moves in a straight line; before the first and after the last it holds. */
 export type Key = { t: number; x?: number; y?: number; w?: number; rotate?: number; opacity?: number; intensity?: number; size?: number; scale?: number };
-export type Prop = { id: string; name: string; url: string; x: number; y: number; w: number; rotate: number; behind: boolean; opacity: number; flip?: boolean; locked?: boolean; hidden?: boolean; /** How dark the contact shadow under it is, 0–1. Default 0.4. */ shadow?: number; keys?: Key[] };
+export type Prop = { id: string; name: string; url: string; x: number; y: number; w: number; rotate: number; behind: boolean; opacity: number; flip?: boolean; locked?: boolean; hidden?: boolean; /** How dark the contact shadow under it is, 0–1. Default 0.4. */ shadow?: number; keys?: Key[];
+  /** A real 3D model for the Blender set (glb, gltf, obj or fbx). The picture above stays what the preview shows. */
+  model?: { url: string; name: string } };
 export type LightKind = "key" | "fill" | "glow" | "practical";
-export type Light = { id: string; kind: LightKind; x: number; y: number; size: number; color: string; intensity: number; keys?: Key[] };
+export type Light = { id: string; kind: LightKind; x: number; y: number; size: number; color: string; intensity: number; keys?: Key[];
+  /** For the Blender set only: a spotlight rather than an area light, and its power in watts. Without `power` it follows strength and spread. */
+  spot?: boolean; power?: number };
+
+export const MODEL_EXT = /\.(glb|gltf|obj|fbx)(\?.*)?$/i;
+export const MAX_POWER = 5000;
 export type AtmosKind = "fog" | "rain" | "snow" | "dust" | "embers" | "beams";
 export type Atmos = { kind: AtmosKind; amount: number };
 /** A real surface in the footage (a wall, a floor) given a new texture. `mask` is that surface cut out of the footage; the texture is laid over it. */
@@ -54,10 +61,20 @@ export function addProp(s: GreyScene, p: { name: string; url: string; behind?: b
   return { ...s, props: [...(s.props ?? []), prop] };
 }
 
-const tidyProp = (p: Prop): Prop => ({ ...p, ...(p.shadow === undefined ? {} : { shadow: unit(p.shadow) }), x: unit(p.x), y: unit(p.y), w: clamp(p.w, 0.03, 1.5), rotate: ((Math.round(p.rotate) % 360) + 360) % 360, opacity: unit(p.opacity) });
+const tidyModel = (m: Prop["model"]): Prop["model"] => (m && typeof m.url === "string" && typeof m.name === "string" && MODEL_EXT.test(m.url) ? { url: m.url, name: m.name.slice(0, 60) } : undefined);
+const tidyProp = (input: Prop): Prop => {
+  const { model, ...p } = input;
+  const kept = tidyModel(model);
+  return { ...p, ...(kept ? { model: kept } : {}), ...(p.shadow === undefined ? {} : { shadow: unit(p.shadow) }), x: unit(p.x), y: unit(p.y), w: clamp(p.w, 0.03, 1.5), rotate: ((Math.round(p.rotate) % 360) + 360) % 360, opacity: unit(p.opacity) };
+};
 
 export function updateProp(s: GreyScene, id: string, change: Partial<Omit<Prop, "id">>): GreyScene {
   return { ...s, props: (s.props ?? []).map((p) => (p.id === id ? tidyProp({ ...p, ...change }) : p)) };
+}
+
+/** Gives a prop a real 3D model for the Blender set, or takes it away with null. Files that aren't glb, gltf, obj or fbx are ignored. */
+export function setPropModel(s: GreyScene, id: string, model: { url: string; name: string } | null): GreyScene {
+  return { ...s, props: (s.props ?? []).map((p) => { if (p.id !== id) return p; const { model: _drop, ...rest } = p; return tidyProp(model ? { ...rest, model } : rest); }) };
 }
 
 /** A locked prop stays where it is. */
@@ -109,8 +126,13 @@ export function addLight(s: GreyScene, kind: LightKind): GreyScene {
   return { ...s, lights: [...(s.lights ?? []), { id: uid(), kind, ...LIGHT_DEFAULT[kind] }] };
 }
 
+const tidyLightExtras = (l: Pick<Light, "spot" | "power">): Pick<Light, "spot" | "power"> => ({
+  ...(l.spot === true ? { spot: true } : {}),
+  ...(Number.isFinite(l.power) ? { power: clamp(Math.round(l.power!), 0, MAX_POWER) } : {}),
+});
+
 export function updateLight(s: GreyScene, id: string, change: Partial<Omit<Light, "id" | "kind">>): GreyScene {
-  return { ...s, lights: (s.lights ?? []).map((l) => (l.id === id ? { ...l, ...change, x: unit(change.x ?? l.x), y: unit(change.y ?? l.y), size: clamp(change.size ?? l.size, 0.05, 1.5), intensity: unit(change.intensity ?? l.intensity) } : l)) };
+  return { ...s, lights: (s.lights ?? []).map((l) => { if (l.id !== id) return l; const { spot: _s, power: _p, ...base } = { ...l, ...change }; return { ...base, x: unit(change.x ?? l.x), y: unit(change.y ?? l.y), size: clamp(change.size ?? l.size, 0.05, 1.5), intensity: unit(change.intensity ?? l.intensity), ...tidyLightExtras({ ...l, ...change }) }; }) };
 }
 
 export const removeLight = (s: GreyScene, id: string): GreyScene => ({ ...s, lights: (s.lights ?? []).filter((l) => l.id !== id) });
@@ -157,7 +179,7 @@ export function normalizeScene(raw: GreyScene | undefined): GreyScene {
     ...(Array.isArray(raw.surfaces) ? { surfaces: raw.surfaces.filter((x) => x && typeof x.id === "string").map((x) => ({ ...x, strength: unit(x.strength ?? 0.85) })) } : {}),
     ...(raw.backdrop ? { backdrop: raw.backdrop } : {}),
     props: Array.isArray(raw.props) ? raw.props.filter(isProp).map((p) => tidyProp({ ...p, w: p.w ?? 0.25, rotate: p.rotate ?? 0, behind: p.behind ?? false, opacity: p.opacity ?? 1, name: p.name ?? "Prop" })) : [],
-    lights: Array.isArray(raw.lights) ? raw.lights.filter(isLight) : [],
+    lights: Array.isArray(raw.lights) ? raw.lights.filter(isLight).map((l) => { const { spot: _s, power: _p, ...rest } = l; return { ...rest, ...tidyLightExtras(l) }; }) : [],
     ...(Array.isArray(raw.atmos) ? { atmos: raw.atmos } : {}),
     ...(raw.look ? { look: setLook({}, raw.look).look! } : {}),
     ...(raw.shadow ? { shadow: setShadow({}, raw.shadow).shadow! } : {}),

@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { capacity, type Plan, type Topup } from "../../server/billing";
-import { Nav } from "../nav";
 import { authed, useSession } from "../session";
-import { SiteFooter } from "../site-footer";
+import { LearnShell } from "../learn-shell";
 
 type Shown = Omit<Plan, "priceEnv">;
 
@@ -45,9 +44,7 @@ export function Pricing({ plans, credits, packs=[] }: { plans: Shown[]; credits:
   }
 
   return (
-    <div className="app">
-      <Nav current="Account" />
-      <div className="canvas">
+    <LearnShell current="/pricing">
         <div className="pr">
           <h1>Plans</h1>
           <p className="pr-lead">Every plan unlocks the whole studio. The difference is who pays for generation: you, on your own Comfy key or your own GPU, or us, from the generation your plan includes.</p>
@@ -93,8 +90,6 @@ export function Pricing({ plans, credits, packs=[] }: { plans: Shown[]; credits:
           </p>
           {problem && <p className="library-error" role="alert">{problem}</p>}
         </div>
-        <SiteFooter />
-      </div>
-    </div>
+    </LearnShell>
   );
 }

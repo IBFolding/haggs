@@ -101,7 +101,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
     if (!shot.render) return;
     setBusy("export");
     setProblem(null);
-    const res = await fetch("/api/grey/blender", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene, footage: shot.render.url, footageKind: shot.render.kind, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
+    const res = await fetch("/api/grey/blender", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene, ...(shot.grey ? { grey: shot.grey } : {}), footage: shot.render.url, footageKind: shot.render.kind, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
     setBusy(null);
     if (!res?.ok) {
       const body = (await res?.json().catch(() => null)) as { reason?: string } | null;
