@@ -8,6 +8,8 @@ import { AcademyPath } from "./academy-path";
 import { JoinBand, JoinButton } from "./join-push";
 import { HeroReel } from "./hero-reel";
 import { ModelsWall } from "./models-wall";
+import { ModelTicker } from "./model-ticker";
+import { OpenWeightsBand } from "./open-weights-band";
 import { WorkflowDemo } from "./workflow-demo";
 import { Nav } from "./nav";
 
@@ -59,6 +61,8 @@ export default function Landing() {
           <HeroReel />
         </section>
 
+        <ModelTicker />
+
         <section className="lp-tiles" aria-label="Make something now">
           <h2>Make something now</h2>
           <div className="lp-tile-grid">
@@ -103,6 +107,8 @@ export default function Landing() {
         </section>
 
         <WorkflowDemo />
+
+        <OpenWeightsBand />
 
         <ModelsWall />
 

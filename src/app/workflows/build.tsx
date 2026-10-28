@@ -40,6 +40,8 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   const [hunt, setHunt] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]);
   const [note, setNote] = useState<string | null>(null);
+  // Set when the canvas can't load its library steps without a way to run them. Asked on the page, not in a pop-up on arrival.
+  const [needKey, setNeedKey] = useState(false);
   const [trying, setTrying] = useState(false);
   const autoTried = useRef(false);
   const [goal, setGoal] = useState("");
@@ -56,7 +58,8 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
     const need = [...new Set(canvas.nodes.flatMap((n) => (n.kind === "library" && n.template && !library[n.template] ? [n.template] : [])))];
     if (!need.length) return;
     void libraryPrompts(need).then((r) => {
-      if (!r.ok) return r.needsKey ? openKeys() : setNote(r.reason);
+      if (!r.ok) return r.needsKey ? setNeedKey(true) : setNote(r.reason);
+      setNeedKey(false);
       setLibrary((l) => ({ ...l, ...r.prompts }));
     });
   }, [canvas.nodes, library]);
@@ -351,6 +354,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
         </div>
 
         <div className="cv-status" role="status">
+          {needKey && <span className="key-callout inline"><b>Choose how to run this to build it.</b> Browsing is free; this app needs a way to run before it can be put together. <button className="plain" onClick={() => openKeys()}>Choose how to run</button></span>}
           {note && <span>{note}</span>}
           {compiled.error ? <span className="library-error">{compiled.error}</span> : <span>Ready: this canvas runs as one workflow.</span>}
         </div>

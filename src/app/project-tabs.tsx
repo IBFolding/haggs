@@ -8,6 +8,7 @@ import { addBoard, boardOf, normalize, removeBoard } from "../story/boards";
 import { defaultKv } from "../story/kv";
 import type { Project } from "../story/model";
 import { createProjectStore } from "../story/store";
+import { nextStep, progress } from "../story/next-step";
 
 /**
  * The bar under the header on every project page: which project, which
@@ -65,6 +66,8 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
   const boards = normalize(project).boards!;
   const board = boardOf(project, boardId);
   const path = TABS.find((t) => t.id === current)!.path;
+  const done = progress(project, board.id);
+  const next = nextStep(project, board.id);
   const href = (tabPath: string, b = board.id) => `/board/${project.id}${tabPath}?b=${encodeURIComponent(b)}`;
 
   async function choose(value: string) {
@@ -117,7 +120,7 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
       <nav className="ptabs-list" aria-label="Project">
         {TABS.map((tab, i) => (
           <Link key={tab.id} href={href(tab.path)} aria-current={tab.id === current ? "page" : undefined}>
-            <i>{i + 1}</i>
+            <i className={done[tab.id] ? "done" : undefined} aria-label={done[tab.id] ? "has work in it" : undefined}>{done[tab.id] ? "✓" : i + 1}</i>
             {tab.label}
           </Link>
         ))}
@@ -125,6 +128,12 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
       {board.shots[0] && (
         <Link className="ptabs-grey" href={`/board/${project.id}/grey/${board.shots[0].id}?b=${encodeURIComponent(board.id)}`}>
           ◐ Grey room
+        </Link>
+      )}
+      {!(next.tab === current && current !== "board") && (
+        <Link className="ptabs-next" href={href(TABS.find((t) => t.id === next.tab)!.path)}>
+          <small>Next</small>
+          {next.label}
         </Link>
       )}
     </div>

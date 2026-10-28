@@ -207,7 +207,6 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
       if (!live) return;
       setOpened(o);
       if (o.ok) setQuote({ label: o.price, min: 0, max: 0, perSecond: false });
-      if (!o.ok && o.needsKey) openKeys();
     });
     return () => {
       live = false;
@@ -275,7 +274,15 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
       <div className="app">
         <Nav current="Workflows" />
         <div className="canvas"><div className="wf">
-          <p className="library-error" role="alert">{opened.reason}</p>
+          {opened.needsKey ? (
+            <div className="key-callout">
+              <b>Choose how to run this first.</b>
+              <span>Looking around is free. To open and run a workflow, buy credits, add your Comfy key or connect your own GPU.</span>
+              <button className="ph-go" onClick={() => openKeys()}>Choose how to run</button>
+            </div>
+          ) : (
+            <p className="library-error" role="alert">{opened.reason}</p>
+          )}
           <Link className="pill" href="/workflows">Back to workflows</Link>
         </div></div>
       </div>
