@@ -1,10 +1,9 @@
 {
   "mcpServers": {
     "haggs": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "tsx",
-        "scripts/mcp.ts"
+        "scripts/mcp-start.mjs"
       ]
     },
     "broll": {

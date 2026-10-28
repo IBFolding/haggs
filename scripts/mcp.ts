@@ -2,11 +2,14 @@
  * The haggs MCP server: lets Claude and Codex (in Claude Code, Claude Desktop, the Codex CLI, anywhere
  * MCP runs) read your projects and send drafts, looks and sheet edits to them.
  *
- *   npx tsx scripts/mcp.ts
+ *   node scripts/mcp-start.mjs   (or npx tsx scripts/mcp.ts)
  *
  * It reads the snapshots the app writes to the bridge folder while you work,
  * and writes proposals into each project's inbox. Nothing Claude sends changes
  * a project until you press Apply in the app. Nothing here spends money.
+ *
+ * Start it with `node scripts/mcp-start.mjs`, which runs it from one bundled
+ * file so it answers in time on a slow disk.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -24,6 +27,8 @@ import { FORMATS as SERIES_FORMATS, validateSeries } from "../src/series/series"
 import { indexOf } from "../src/server/comfy-library";
 import { applyBoardProposal, validateBoardProposal } from "../src/story/proposed-board";
 import { applyTakes, applyVoices, validateTakes, validateVoices } from "../src/story/proposed-takes";
+import { GAME_GUIDE, GAME_SCHEMA, forClaude, readGameReply } from "../src/playable/claude";
+import { TEMPLATES, bare, defaultSpec, ruleChips } from "../src/playable/spec";
 import { applyDraft, validateDraft } from "../src/writer/draft";
 import { applyFill, type Fill } from "../src/writer/fill";
 
@@ -330,8 +335,6 @@ server.registerTool(
   async ({ project }) => text((await inbox(root, project)).map((i) => ({ id: i.id, kind: i.kind, summary: i.summary, board: i.boardId, at: new Date(i.at).toISOString() }))),
 );
 
-await server.connect(new StdioServerTransport());
-
 server.registerTool(
   "haggs_find_workflows",
   {
@@ -402,3 +405,38 @@ server.registerTool(
     }
   },
 );
+
+server.registerTool(
+  "haggs_playable_guide",
+  {
+    description: "How to make a haggs Playable game: the three templates (runner, collector, match), the shape a game is written in (a JSON schema) with each rule's range, and one starting game per template. Read it before haggs_propose_game.",
+    inputSchema: {},
+    annotations: readOnly,
+  },
+  async () => text({ guide: GAME_GUIDE, schema: GAME_SCHEMA, examples: TEMPLATES.map((t) => forClaude(defaultSpec(t))) }),
+);
+
+server.registerTool(
+  "haggs_propose_game",
+  {
+    description:
+      "Send a Playable game to haggs: a new one from an idea, or a changed version of a game the person shared (pass its id as `game`, and keep everything they didn't ask to change). Write `spec` in the shape haggs_playable_guide gives, with `said` as one short line to the player. It is checked here and every rule is clamped into a playable range. The person sees it on Playable and presses Apply; art is made only when they press Make on a picture, which shows its price first.",
+    inputSchema: {
+      summary: z.string().max(300),
+      game: z.string().regex(/^[\w-]{1,80}$/).optional(),
+      spec: z.record(z.string(), z.unknown()),
+    },
+    annotations: proposes,
+  },
+  async ({ summary, game, spec }) => {
+    try {
+      const read = readGameReply(spec);
+      const item = await propose(root, "playable", { kind: "game", summary, payload: { spec: bare(read.spec), said: read.said, ...(game ? { game } : {}) } });
+      return text({ sent: item.id, title: read.spec.title, template: read.spec.template, rules: ruleChips(read.spec), next: game ? "The person presses Apply in that game's studio on Playable." : "The person presses Apply under From Claude on Playable." });
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);
+
+await server.connect(new StdioServerTransport());

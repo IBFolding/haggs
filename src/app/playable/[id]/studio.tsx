@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { defaultKv } from "../../../story/kv";
 import { creditsText, totalText } from "../../../story/price-text";
+import { mcpEditAsk, type SentGame } from "../../../playable/claude";
 import { TEMPLATE_INFO, bare, keepMadeArt, readSpec, ruleChips, slotsOf, withArt, type GameSpec, type Slot } from "../../../playable/spec";
 import { createGameStore, type ChatLine, type SavedGame } from "../../../playable/store";
 import { Nav, openKeys } from "../../nav";
 import { editGame, makeArt, quoteArt, type ArtQuote } from "../actions";
 import { GameCanvas } from "../game-canvas";
+import { McpAsk, useSentGames } from "../sent";
 
 const line = (who: ChatLine["who"], text: string): ChatLine => ({ who, text, at: Date.now() });
 
@@ -21,12 +23,15 @@ export function Studio({ id }: { id: string }) {
   const [needsKey, setNeedsKey] = useState(false);
   const [showJson, setShowJson] = useState(false);
   const chatEnd = useRef<HTMLDivElement>(null);
+  const [ask, setAsk] = useState<string | null>(null);
+  const { sent, drop } = useSentGames();
+  const mine = sent.filter((s) => s.game === id);
 
   useEffect(() => {
     store.get(id).then((g) => setGame(g ?? null), () => setGame(null));
   }, [id, store]);
 
-  useEffect(() => { chatEnd.current?.scrollIntoView({ block: "nearest" }); }, [game?.chat.length]);
+  useEffect(() => { chatEnd.current?.scrollIntoView({ block: "nearest" }); }, [game?.chat.length, mine.length]);
 
   const send = async () => {
     const text = message.trim();
@@ -34,12 +39,24 @@ export function Studio({ id }: { id: string }) {
     setThinking(true);
     setMessage("");
     const answer = await editGame(bare(game.spec), text).catch(() => ({ ok: false as const, reason: "Claude couldn't be reached. Try again." }));
+    const keyless = !answer.ok && "needsKey" in answer && Boolean(answer.needsKey);
+    // On your own computer the connected Claude can change it over MCP instead, and send it here.
+    setAsk(keyless && process.env.NODE_ENV !== "production" ? mcpEditAsk(game.id, bare(game.spec), text) : null);
     const next = answer.ok
       ? await store.change(game.id, keepMadeArt(game.spec, answer.spec), line("you", text), line("claude", answer.said))
       : await store.say(game.id, line("you", text), line("note", answer.reason));
-    setNeedsKey(!answer.ok && "needsKey" in answer && Boolean(answer.needsKey));
+    setNeedsKey(keyless);
     if (next) setGame(next);
     setThinking(false);
+  };
+
+  /** A change Claude sent over MCP; art already made stays where the prompt didn't change. */
+  const applySent = async (s: SentGame) => {
+    if (!game) return;
+    const next = await store.change(game.id, keepMadeArt(game.spec, s.spec), line("claude", s.said));
+    drop(s.id);
+    setAsk(null);
+    if (next) setGame(next);
   };
 
   const undo = async () => {
@@ -89,9 +106,19 @@ export function Studio({ id }: { id: string }) {
               {game.chat.length === 0 ? <p className="pl-sub">Say what to change: faster, harder, a different hero, a winter theme, a different kind of game.</p> : null}
               {game.chat.map((l, i) => <p key={i} className={`pl-line pl-${l.who}`}>{l.text}</p>)}
               {thinking ? <p className="pl-line pl-claude pl-thinking">Changing the game…</p> : null}
+              {mine.map((s) => (
+                <div key={s.id} className="pl-line pl-claude pl-sent-line">
+                  <span>Claude sent a change over MCP: {s.summary}</span>
+                  <span className="pl-saved-row">
+                    <button className="pl-go pl-small" onClick={() => void applySent(s)}>Apply</button>
+                    <button className="pl-plain" onClick={() => drop(s.id)}>Dismiss</button>
+                  </span>
+                </div>
+              ))}
               <div ref={chatEnd} />
             </div>
             {needsKey ? <button className="pl-ghost pl-small" onClick={openKeys}>Add a Claude key</button> : null}
+            {ask ? <McpAsk text={ask} /> : null}
             <div className="pl-composer pl-composer-small">
               <textarea
                 value={message}

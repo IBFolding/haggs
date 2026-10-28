@@ -58,7 +58,8 @@ export const GAME_SCHEMA = obj({
 
 const templates = TEMPLATES.map((t) => `- ${t}: ${TEMPLATE_INFO[t].genre}. ${TEMPLATE_INFO[t].says} Controls: ${TEMPLATE_INFO[t].controls}.`).join("\n");
 
-const SYSTEM = [
+/** How a game is made, for Claude: on the person's key here, and over MCP (haggs_playable_guide). */
+export const GAME_GUIDE = [
   "You design small browser games for haggs Playable. A game is a spec for one of three templates; you never write code.",
   templates,
   "Pick the template that fits the idea best, and theme everything to it: the title, the words on the cards, the colours, and what each piece of art shows.",
@@ -70,7 +71,7 @@ export function ideaRequest(idea: string): DraftRequest {
   const text = idea.trim();
   if (text.length < 4) throw new Error("Say what the game is about, a few words is enough.");
   if (text.length > 2000) throw new Error("That idea is too long. Keep it under 2,000 characters.");
-  return { system: SYSTEM, user: `Make a game from this idea:\n\n${text}`, maxTokens: 4000 };
+  return { system: GAME_GUIDE, user: `Make a game from this idea:\n\n${text}`, maxTokens: 4000 };
 }
 
 /** The spec as Claude sees it: no picture links, which it has no use for and shouldn't rewrite. */
@@ -88,7 +89,7 @@ export function editRequest(spec: GameSpec, message: string): DraftRequest {
     "Change it as the player asks, and keep everything they didn't ask to change exactly as it is. Change the template only if they ask for a different kind of game.",
     `The player says: ${text}`,
   ].join("\n\n");
-  return { system: SYSTEM, user, maxTokens: 4000 };
+  return { system: GAME_GUIDE, user, maxTokens: 4000 };
 }
 
 export type GameReply = { spec: GameSpec; said: string };
@@ -103,4 +104,40 @@ export function readGameReply(value: unknown, before?: GameSpec): GameReply {
   const spec = before ? keepMadeArt(before, read) : read;
   const said = typeof v?.said === "string" && v.said.trim() ? v.said.trim().slice(0, 300) : before ? "Changed." : `Made ${spec.title}.`;
   return { spec, said };
+}
+
+/**
+ * With no Claude key, the request a person pastes to Claude where the haggs
+ * MCP is connected; the game comes back through the bridge for them to apply.
+ */
+export function mcpIdeaAsk(idea: string): string {
+  return `Use haggs_playable_guide, then haggs_propose_game, to make a haggs Playable game from this idea: ${idea.trim()}`;
+}
+
+export function mcpEditAsk(game: string, spec: GameSpec, message: string): string {
+  return [
+    `Use haggs_playable_guide, then haggs_propose_game with game "${game}", to change this haggs Playable game. Keep everything the player didn't ask to change. The player says: ${message.trim()}`,
+    "The game as it is now:",
+    JSON.stringify(forClaude(spec)),
+  ].join("\n\n");
+}
+
+export type SentGame = { id: string; summary: string; spec: GameSpec; said: string; game?: string };
+
+/** Games Claude sent over MCP, from the bridge inbox. Anything that isn't a readable game is left out. */
+export function readSent(items: unknown): SentGame[] {
+  if (!Array.isArray(items)) return [];
+  const out: SentGame[] = [];
+  for (const item of items as { id?: unknown; kind?: unknown; summary?: unknown; payload?: { spec?: unknown; said?: unknown; game?: unknown } }[]) {
+    if (item?.kind !== "game" || typeof item.id !== "string") continue;
+    try {
+      const spec = readSpec(item.payload?.spec);
+      const said = typeof item.payload?.said === "string" && item.payload.said.trim() ? item.payload.said.trim().slice(0, 300) : `Made ${spec.title}.`;
+      const game = typeof item.payload?.game === "string" ? item.payload.game : undefined;
+      out.push({ id: item.id, summary: typeof item.summary === "string" ? item.summary.slice(0, 300) : spec.title, spec, said, ...(game ? { game } : {}) });
+    } catch {
+      // Not a game this version can read.
+    }
+  }
+  return out;
 }

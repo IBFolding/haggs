@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { defaultKv } from "../../story/kv";
-import { TEMPLATE_INFO, TEMPLATES, defaultSpec, type Shape, type Template } from "../../playable/spec";
+import { mcpIdeaAsk, type SentGame } from "../../playable/claude";
+import { TEMPLATE_INFO, TEMPLATES, defaultSpec, ruleChips, type Shape, type Template } from "../../playable/spec";
 import { createGameStore, type GameSummary } from "../../playable/store";
 import { Nav, openKeys } from "../nav";
 import { gameFromIdea } from "./actions";
+import { McpAsk, useSentGames } from "./sent";
 
 const IDEAS = [
   "A snail racing across a rainy garden, hopping over puddles and picking up clover",
@@ -54,6 +56,9 @@ export function PlayableHome() {
   const [idea, setIdea] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<{ text: string; needsKey?: boolean } | null>(null);
+  const [ask, setAsk] = useState<string | null>(null);
+  const { sent, drop } = useSentGames();
+  const fresh = sent.filter((s) => !s.game);
 
   const refresh = useCallback(async () => {
     try {
@@ -75,14 +80,24 @@ export function PlayableHome() {
     if (busy) return;
     setBusy(true);
     setProblem(null);
+    setAsk(null);
     const answer = await gameFromIdea(idea).catch(() => ({ ok: false as const, reason: "Claude couldn't be reached. Try again." }));
     if (!answer.ok) {
-      setProblem({ text: answer.reason, ...("needsKey" in answer && answer.needsKey ? { needsKey: true } : {}) });
+      const needsKey = "needsKey" in answer && Boolean(answer.needsKey);
+      setProblem({ text: answer.reason, ...(needsKey ? { needsKey: true } : {}) });
+      // On your own computer the connected Claude can make it over MCP instead, and send it here.
+      if (needsKey && process.env.NODE_ENV !== "production") setAsk(mcpIdeaAsk(idea));
       setBusy(false);
       return;
     }
     const at = Date.now();
     const game = await store.create(answer.spec, [{ who: "you", text: idea.trim(), at }, { who: "claude", text: answer.said, at }]);
+    router.push(`/playable/${game.id}`);
+  };
+
+  const applySent = async (s: SentGame) => {
+    const game = await store.create(s.spec, [{ who: "claude", text: s.said, at: Date.now() }]);
+    drop(s.id);
     router.push(`/playable/${game.id}`);
   };
 
@@ -124,7 +139,29 @@ export function PlayableHome() {
               {problem.needsKey ? <button className="pl-ghost pl-small" onClick={openKeys}>Add a Claude key</button> : null}
             </p>
           ) : null}
+          {ask ? <McpAsk text={ask} /> : null}
         </section>
+
+        {fresh.length > 0 ? (
+          <section className="pl-section" aria-label="From Claude">
+            <h2>From Claude</h2>
+            <p className="pl-sub">Sent over MCP. Nothing is saved until you apply it.</p>
+            <div className="pl-grid">
+              {fresh.map((s) => (
+                <div key={s.id} className="pl-card pl-sent">
+                  <span className="pl-eyebrow">{TEMPLATE_INFO[s.spec.template].genre}</span>
+                  <strong>{s.spec.title}</strong>
+                  <span className="pl-card-says">{s.summary}</span>
+                  <span className="pl-mono">{ruleChips(s.spec).slice(0, 3).join(" · ")}</span>
+                  <div className="pl-saved-row">
+                    <button className="pl-go pl-small" onClick={() => void applySent(s)}>Apply</button>
+                    <button className="pl-plain" onClick={() => drop(s.id)}>Dismiss</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="pl-section">
           <h2>Start from a template</h2>
