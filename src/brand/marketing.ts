@@ -30,7 +30,7 @@ export type MarketingTemplate = {
   /** A sample from our own library, or none (the tile is then drawn in the brand's colours). */
   sample?: string;
   /** Who made the sample when it was not haggs: shown on the tile, so a sample never passes for our own output. */
-  madeWith?: "ChatGPT";
+  madeWith?: "ChatGPT" | "a ChatGPT still, animated with Wan 2.2";
   /** A ready-made app that does this job end to end; the template opens it. */
   app?: string;
   /** Needs a person (a saved character or a photo). */
@@ -52,7 +52,7 @@ export const TEMPLATES: MarketingTemplate[] = [
   { id: "motion-orbit", mode: "motion", name: "Orbit", makes: "video", ratio: "9:16", sample: "/templates/product-orbit.mp4", direction: "The camera orbits slowly around the product on a turntable, studio light sweeping across it, a clean backdrop." },
   { id: "motion-placement", mode: "motion", name: "In a scene", makes: "video", ratio: "16:9", sample: "/templates/product-placement.mp4", direction: "The product sits in a lived-in scene while the camera drifts in slowly, gentle movement in the background, warm natural light." },
   { id: "motion-ad", mode: "motion", name: "Photo to ad clip", makes: "video", ratio: "9:16", sample: "/quick/product-ad.webp", app: "product-ad", direction: "Restage the product photo as an ad and animate it into a short clip." },
-  { id: "motion-macro", mode: "motion", name: "Macro drift", makes: "video", ratio: "9:16", sample: "/marketing/motion-macro-still.webp", madeWith: "ChatGPT", direction: "Extreme close-up of the product's surface and texture, the camera drifting across it slowly, light glinting, shallow focus." },
+  { id: "motion-macro", mode: "motion", name: "Macro drift", makes: "video", ratio: "9:16", sample: "/marketing/motion-macro.mp4", madeWith: "a ChatGPT still, animated with Wan 2.2", direction: "Extreme close-up of the product's surface and texture, the camera drifting across it slowly, light glinting, shallow focus." },
   { id: "ads-grid", mode: "ads", name: "Nine-shot grid", makes: "image", ratio: "1:1", sample: "/quick/product-grid.webp", app: "product-grid", direction: "One product photo as a 3×3 grid of ad frames." },
   { id: "ads-swap", mode: "ads", name: "Into an ad you like", makes: "image", ratio: "4:5", sample: "/quick/swap-ad.webp", app: "swap-ad", direction: "Put the product into an existing ad, replacing theirs." },
   { id: "ads-sequence", mode: "ads", name: "Cinematic sequence", makes: "image", ratio: "16:9", sample: "/quick/product-sequence.webp", app: "product-sequence", direction: "A cinematic ad sequence of the product." },
