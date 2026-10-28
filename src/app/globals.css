@@ -3671,3 +3671,62 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .studio-app .dock .composer { max-width: none; }
 .studio-app .composer.mini { max-width: 760px; }
 @media (max-width: 760px) { .mode-bar { padding: 10px 12px; } .studio-app .nudge { margin: 0 12px 12px; } .studio-app .work-note, .studio-app .grid { margin-left: 12px; margin-right: 12px; } .studio-app .dock { padding: 0 12px 12px; } }
+
+/* ─── Rebuild 4: Workflows, matched to the prototype ───────────────────── */
+.wf-head h1 { margin-top: 10px; }
+.wf-shelves button, .wf-tabs button { border-color: transparent; color: var(--text-2); font: 700 13px var(--ui); padding: 7px 14px; }
+.wf-shelves button:hover { color: var(--text); }
+.wf-shelves button.on { background: var(--volt); color: var(--volt-ink); border-color: var(--volt); }
+.wf-bar > .plain[aria-pressed] { border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font: 700 13px var(--ui); }
+.wf-bar > .plain[aria-pressed="true"] { border-color: var(--volt); color: var(--volt); }
+.wf-hunt { border-radius: 999px; }
+.quick-tabs button { border-color: var(--line); color: var(--text); font: 700 13px var(--ui); padding: 7px 14px; opacity: 1; }
+.quick-tabs button.on { background: var(--volt); border-color: var(--volt); color: var(--volt-ink); }
+.wf-favorite-card { position: relative; display: block; }
+.wf-favorite { position: absolute; top: 10px; right: 10px; z-index: 2; min-height: 0; width: 32px; height: 32px; padding: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(10, 10, 11, .75); color: var(--volt); font-size: 16px; border: 0; }
+.wf-favorite:hover { background: rgba(10, 10, 11, .95); }
+.wf-favorite[aria-pressed="true"] { color: var(--volt); }
+.quick-row .quick-card.pic { padding: 0; overflow: hidden; gap: 6px; height: 100%; }
+.quick-row .quick-card.pic .qc-pic { aspect-ratio: 4 / 3; border-radius: 0; margin: 0 0 4px; background-size: cover; }
+.quick-row .quick-card.pic b, .quick-row .quick-card.pic span:not(.qc-pic), .quick-row .quick-card.pic small { margin-left: 14px; margin-right: 14px; }
+.quick-row .quick-card.pic b { font-size: 15px; }
+.quick-row .quick-card.pic small { justify-self: start; margin-bottom: 14px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-2); font: 500 10.5px var(--mono); letter-spacing: .04em; }
+.quick-row .quick-card.pic small.qc-open { border-color: var(--volt); color: var(--volt); }
+.quick-row .quick-card.pic:hover { transform: translateY(-3px); border-color: var(--line-hot); }
+.wf-tile { border-radius: 14px; }
+
+/* ─── Rebuild 4: Gallery, matched to the prototype ─────────────────────── */
+.gallery.gl { width: min(1400px, 100%); margin: 0 auto; padding: 28px 24px 80px; }
+.gl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.gl-head h1 { margin: 0; font-size: clamp(36px, 4.5vw, 64px); line-height: .95; font-weight: 800; letter-spacing: -.045em; }
+.gl-head h1 small { font: 500 13px var(--mono); letter-spacing: 0; color: var(--text-2); margin-left: 12px; vertical-align: middle; }
+.gl-head p { margin: 8px 0 0; color: var(--text-2); font-size: 15px; }
+.gl-head .view-toggle { margin: 0; flex: none; background: none; }
+.gl-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.gl-bar .scopes { border: 0; padding: 0; gap: 6px; }
+.gl-bar .scope { border: 1px solid var(--line); color: var(--text); }
+.gl-bar .scope[aria-selected="true"] { background: var(--volt); border-color: var(--volt); color: var(--volt-ink); }
+.gl-bar .gallery-search { flex: 1 1 220px; max-width: 360px; border-radius: 999px; }
+.gl-ghost { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 999px; padding: 8px 14px; font: 700 13px var(--ui); cursor: pointer; }
+.gl-ghost:hover { border-color: var(--line-hot); }
+.gl-bar .gl-ghost { margin-left: auto; }
+.gl-banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 14px; border: 1px solid var(--volt); border-radius: 14px; background: color-mix(in oklch, var(--volt) 7%, transparent); font-size: 14px; }
+.gl-go { background: var(--volt); color: var(--volt-ink); border: 0; border-radius: 999px; padding: 7px 16px; font: 800 13px var(--ui); cursor: pointer; }
+.gl-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.gl-body { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; align-items: start; }
+.gl-rail { position: sticky; top: 12px; display: grid; gap: 4px; }
+.gl-rail .eyebrow { margin-bottom: 6px; }
+.gl-folder { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--text-2); font: 700 13.5px var(--ui); cursor: pointer; text-align: left; }
+.gl-folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-folder i { font: 500 11px var(--mono); font-style: normal; color: var(--text-3); }
+.gl-folder:hover { color: var(--text); }
+.gl-folder[aria-pressed="true"] { border-color: var(--line-hot); background: linear-gradient(180deg, #1a1a1d, #141416); color: var(--text); }
+.gl-rail-note { margin: 8px 0; font-size: 12px; line-height: 1.45; color: var(--text-3); }
+.gl-recover { margin-bottom: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.gl-section { margin-bottom: 22px; }
+.gl-section-head { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 6px 0 10px; border: 0; border-bottom: 1px solid var(--line); margin-bottom: 14px; background: none; color: var(--text); cursor: pointer; text-align: left; }
+.gl-section-head span { color: var(--text-3); width: 12px; }
+.gl-section-head b { font: 800 17px var(--ui); }
+.gl-section-head small { font: 500 12px var(--mono); color: var(--text-2); }
+.gl-main .grid { margin: 0; }
+@media (max-width: 860px) { .gl-body { grid-template-columns: 1fr; } .gl-rail { position: static; grid-auto-flow: column; overflow-x: auto; justify-content: start; } .gl-rail-note { display: none; } .gl-head { flex-direction: column; } }
