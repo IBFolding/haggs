@@ -103,7 +103,7 @@ export function brandFromHtml(html: string, pageUrl: string): Omit<BrandKit, "id
 /** The brand as words a picture model can follow. */
 export function brandWords(kit: Pick<BrandKit, "name" | "colors" | "fonts" | "tone" | "about">): string {
   return [
-    `Brand: ${kit.name}.`,
+    `Brand: ${kit.name.trim().replace(/[.\s]+$/, "")}.`,
     kit.about ? `${kit.about.replace(/[.\s]+$/, "")}.` : "",
     kit.tone ? `Tone: ${kit.tone}.` : "",
     kit.colors.length ? `Brand colours: ${kit.colors.join(", ")}.` : "",

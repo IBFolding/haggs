@@ -170,7 +170,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
       const gift = raw ? (JSON.parse(raw) as { url: string; to: Surface; prompt?: string }) : null;
       if (gift && gift.to === surface && typeof gift.url === "string") {
         sessionStorage.removeItem(HANDOFF_KEY);
-        setImages([gift.url]);
+        if (gift.url) setImages([gift.url]);
         if (typeof gift.prompt === "string" && gift.prompt.trim()) setPrompt(gift.prompt);
       }
     } catch {
