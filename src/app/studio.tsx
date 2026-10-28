@@ -557,8 +557,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             <button className="mini-toggle" onClick={() => chooseMini(false)} title="Open the box" aria-label="Open the box">▴</button>
           </div>
         ) : (
-        <div className="composer" aria-busy={!draftReady}>
-          <span className="wf-small" role="status">{draftNotice}</span>
+        <div className="composer compact" aria-busy={!draftReady}>
           <button className="mini-toggle" onClick={() => chooseMini(true)} title="Minimise the box" aria-label="Minimise the box">▾</button>
           {picking && (
             <div className="picker" onClick={(event) => event.stopPropagation()}>
@@ -619,67 +618,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </div>
           )}
 
-          {surface !== "Edit" && (
-            <div className="cast">
-              <button className={`cast-tile${who ? " set" : ""}`} onClick={() => setTile(tile === "character" ? null : "character")} aria-expanded={tile === "character"}>
-                {who ? <img src={who.sheet} alt="" /> : <span className="cast-plus">+</span>}
-                <b>{who ? who.traits.name : "Character"}</b>
-                {who && <i role="button" aria-label="Remove the character" onClick={(e) => { e.stopPropagation(); setWho(null); }}>×</i>}
-              </button>
-              <button className={`cast-tile${where ? " set" : ""}`} onClick={() => setTile(tile === "location" ? null : "location")} aria-expanded={tile === "location"}>
-                {where ? <img src={where.plate} alt="" /> : <span className="cast-plus">+</span>}
-                <b>{where ? where.traits.name : "Location"}</b>
-                {where && <i role="button" aria-label="Remove the location" onClick={(e) => { e.stopPropagation(); setWhere(null); }}>×</i>}
-              </button>
-              <button className={`cast-tile${outfit.length ? " set" : ""}`} onClick={() => setTile(tile === "wardrobe" ? null : "wardrobe")} aria-expanded={tile === "wardrobe"}>
-                <span className="cast-plus">{outfit.length || "+"}</span>
-                <b>Accessories</b>
-              </button>
-            </div>
-          )}
-          {tile === "character" && surface !== "Edit" && <BankPicker kinds={["character"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setTile(null)} onPick={(item) => setWho(people.find((p) => p.id === item.id) ?? null)} picked={who ? [`character:${who.id}`] : []} />}
-          {tile === "location" && surface !== "Edit" && <BankPicker kinds={["place"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setTile(null)} onPick={(item) => setWhere(places.find((p) => p.id === item.id) ?? null)} picked={where ? [`place:${where.id}`] : []} />}
-          {tile === "wardrobe" && surface !== "Edit" && (
-            <div className="cast-pick" onClick={(e) => e.stopPropagation()}>
-              {tile === "wardrobe" && (
-                <div className="cast-wardrobe">
-                  <p className="wf-small">What the character wears or carries. Added to the words, so it works with any model.</p>
-                  <div className="series-chips">
-                    {OUTFIT_IDEAS.map((o) => <button key={o} className={outfit.includes(o) ? "on" : ""} onClick={() => setOutfit((all) => (all.includes(o) ? all.filter((x) => x !== o) : [...all, o]))}>{o}</button>)}
-                    {outfit.filter((o) => !OUTFIT_IDEAS.includes(o)).map((o) => <button key={o} className="on" onClick={() => setOutfit((all) => all.filter((x) => x !== o))}>{o} ×</button>)}
-                  </div>
-                  <p className="cast-bank"><button className="plain" onClick={() => setBankOpen(true)}>From your accessories</button></p>
-                  {bankOpen && <BankPicker kinds={["accessory"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setBankOpen(false)} onPick={pickAccessory} />}
-                  <form className="cast-add" onSubmit={(e) => { e.preventDefault(); const v = custom.trim(); if (v && !outfit.includes(v)) setOutfit((all) => [...all, v]); setCustom(""); }}>
-                    <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Something else: a silver watch, a red kimono…" aria-label="Add clothing or an accessory" maxLength={60} />
-                    <button className="pill">Add</button>
-                  </form>
-                </div>
-              )}
-            </div>
-          )}
-
-          {surface !== "Edit" && <LookBar value={look} onChange={changeLook} video={surface === "Video"} />}
           <div className="composer-top">
-            <UploadImage inputRef={fileInput} disabled={card.inputImages === 0} onAttach={(url) => setImages(held => [...held, url].slice(-Math.max(1,card.inputImages)))} />
-            {card.inputImages === 0 && <span className="takes-note">This model accepts text only. Choose an image-capable model to upload a reference.</span>}
-            {templates.length > 0 && (
-              <div className="tpl-wrap" onClick={(e) => e.stopPropagation()}>
-                <button className="tpl-open" aria-expanded={showTemplates} onClick={() => setShowTemplates((v) => !v)}>
-                  Templates
-                </button>
-                {showTemplates && (
-                  <div className="tpl-menu" role="menu">
-                    {templates.map((t) => (
-                      <button key={t.id} role="menuitem" onClick={() => applyTemplate(t)}>
-                        {t.sample && (/\.mp4$/.test(t.sample) ? <video src={t.sample} muted loop autoPlay playsInline /> : <img src={t.sample} alt="" />)}
-                        <span className="tpl-words"><b>{t.name}</b><span>{t.blurb}</span></span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
             <textarea
               ref={say}
               className="say"
@@ -705,6 +644,52 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </p>
           )}
 
+          {/* Who, where, what they wear, then the look: one row of small chips, each opening its own picker. */}
+          {surface !== "Edit" && (
+            <div className="composer-chips">
+              <div className="cast">
+                <button className={`cast-tile${who ? " set" : ""}`} onClick={() => setTile(tile === "character" ? null : "character")} aria-expanded={tile === "character"}>
+                  {who ? <img src={who.sheet} alt="" /> : <span className="cast-plus">+</span>}
+                  <b>{who ? who.traits.name : "Character"}</b>
+                  {who && <i role="button" aria-label="Remove the character" onClick={(e) => { e.stopPropagation(); setWho(null); }}>×</i>}
+                </button>
+                <button className={`cast-tile${where ? " set" : ""}`} onClick={() => setTile(tile === "location" ? null : "location")} aria-expanded={tile === "location"}>
+                  {where ? <img src={where.plate} alt="" /> : <span className="cast-plus">+</span>}
+                  <b>{where ? where.traits.name : "Location"}</b>
+                  {where && <i role="button" aria-label="Remove the location" onClick={(e) => { e.stopPropagation(); setWhere(null); }}>×</i>}
+                </button>
+                <button className={`cast-tile${outfit.length ? " set" : ""}`} onClick={() => setTile(tile === "wardrobe" ? null : "wardrobe")} aria-expanded={tile === "wardrobe"}>
+                  <span className="cast-plus">{outfit.length || "+"}</span>
+                  <b>Accessories</b>
+                </button>
+              </div>
+              <LookBar value={look} onChange={changeLook} video={surface === "Video"} />
+            </div>
+          )}
+          {tile === "character" && surface !== "Edit" && <BankPicker kinds={["character"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setTile(null)} onPick={(item) => setWho(people.find((p) => p.id === item.id) ?? null)} picked={who ? [`character:${who.id}`] : []} />}
+          {tile === "location" && surface !== "Edit" && <BankPicker kinds={["place"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setTile(null)} onPick={(item) => setWhere(places.find((p) => p.id === item.id) ?? null)} picked={where ? [`place:${where.id}`] : []} />}
+          {tile === "wardrobe" && surface !== "Edit" && (
+            <div className="cast-pick" onClick={(e) => e.stopPropagation()}>
+              {tile === "wardrobe" && (
+                <div className="cast-wardrobe">
+                  <p className="wf-small">What the character wears or carries. Added to the words, so it works with any model.</p>
+                  <div className="series-chips">
+                    {OUTFIT_IDEAS.map((o) => <button key={o} className={outfit.includes(o) ? "on" : ""} onClick={() => setOutfit((all) => (all.includes(o) ? all.filter((x) => x !== o) : [...all, o]))}>{o}</button>)}
+                    {outfit.filter((o) => !OUTFIT_IDEAS.includes(o)).map((o) => <button key={o} className="on" onClick={() => setOutfit((all) => all.filter((x) => x !== o))}>{o} ×</button>)}
+                  </div>
+                  <p className="cast-bank"><button className="plain" onClick={() => setBankOpen(true)}>From your accessories</button></p>
+                  {bankOpen && <BankPicker kinds={["accessory"]} label={surface === "Video" ? "Video" : "Photos"} onClose={() => setBankOpen(false)} onPick={pickAccessory} />}
+                  <form className="cast-add" onSubmit={(e) => { e.preventDefault(); const v = custom.trim(); if (v && !outfit.includes(v)) setOutfit((all) => [...all, v]); setCustom(""); }}>
+                    <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Something else: a silver watch, a red kimono…" aria-label="Add clothing or an accessory" maxLength={60} />
+                    <button className="pill">Add</button>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
+
+          {card.inputImages === 0 && <p className="takes-note">This model accepts text only. Choose an image-capable model to upload a reference.</p>}
+
           {pro && hasPro && (
             <div className="composer-pro" onClick={(e) => e.stopPropagation()}>
               <span className="composer-pro-tag">Pro</span>
@@ -719,6 +704,24 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
           {pro && !hasPro && <p className="composer-pro-none">{card.name} has no seed, negative prompt or CFG to set.</p>}
 
           <div className="composer-bottom">
+            <span className="composer-upload"><UploadImage inputRef={fileInput} disabled={card.inputImages === 0} onAttach={(url) => setImages(held => [...held, url].slice(-Math.max(1,card.inputImages)))} /></span>
+            {templates.length > 0 && (
+              <div className="tpl-wrap" onClick={(e) => e.stopPropagation()}>
+                <button className="tpl-open" aria-expanded={showTemplates} onClick={() => setShowTemplates((v) => !v)}>
+                  Templates
+                </button>
+                {showTemplates && (
+                  <div className="tpl-menu" role="menu">
+                    {templates.map((t) => (
+                      <button key={t.id} role="menuitem" onClick={() => applyTemplate(t)}>
+                        {t.sample && (/\.mp4$/.test(t.sample) ? <video src={t.sample} muted loop autoPlay playsInline /> : <img src={t.sample} alt="" />)}
+                        <span className="tpl-words"><b>{t.name}</b><span>{t.blurb}</span></span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <button
               className="pill on"
               onClick={(event) => {
@@ -741,6 +744,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
                 Open weights only is on. These models are partner APIs. <Link href="/workflows">Use an open-weights app</Link>
               </span>
             )}
+
+            <span className="wf-small composer-draft" role="status">{draftNotice}</span>
 
             <button
               className="fire"

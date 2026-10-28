@@ -4379,3 +4379,42 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .mcp-steps, .mcp-steps li { grid-template-columns: minmax(0, 1fr); min-width: 0; }
 .ms-made { position: absolute; left: 8px; bottom: 8px; padding: 3px 8px; border-radius: 999px; background: rgba(8, 8, 10, .72); color: #d6d6da; font: 600 10.5px var(--ui); font-style: normal; }
 .cx-card img.cx-sample-pic { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; }
+
+/* ─── Compact composer (Photos, Video): the prompt first, one row of chips, one bar ─── */
+.composer.compact { padding: 10px 12px; }
+.composer.compact .say { font-size: 15px; line-height: 1.45; padding: 4px 2px; min-height: 44px; max-height: 160px; field-sizing: content; }
+.composer.compact .suggest { margin: 2px 2px 0; font-size: 12.5px; }
+.composer.compact .takes-note { margin: 6px 2px 0; }
+.composer.compact .tray { flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin: 0 0 6px; }
+.composer.compact .tray-item { flex: none; width: auto; flex-direction: row; align-items: center; gap: 6px; padding: 3px 4px 3px 3px; border: 1px solid var(--line); border-radius: 10px; }
+.composer.compact .tray-item img { width: 40px; height: 40px; object-fit: cover; border-radius: 7px; }
+.composer.compact .tray-item button { min-height: 28px; padding: 3px 9px; font-size: 12px; }
+.composer.compact .tray-item > span { display: inline-flex; align-items: center; gap: 6px; }
+/* Character, location, accessories and the eight look pickers share one scrolling row. */
+.composer-chips { display: flex; gap: 6px; margin-top: 6px; padding-bottom: 2px; overflow-x: auto; scrollbar-width: thin; }
+.composer-chips .cast, .composer-chips .vk-bar { display: contents; }
+.composer.compact .cast-tile, .composer.compact .vk-card { flex: none; display: inline-flex; align-items: center; gap: 7px; width: auto; height: 34px; padding: 0 11px 0 4px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-2); font: inherit; overflow: visible; }
+.composer.compact .cast-tile:hover, .composer.compact .vk-card:hover { border-color: var(--line-hot); color: var(--text); }
+.composer.compact .cast-tile.set, .composer.compact .vk-card.set { border-color: color-mix(in oklch, var(--volt) 45%, var(--line)); color: var(--text); }
+.composer.compact .cast-tile b { font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composer.compact .cast-tile img { position: static; flex: none; width: 26px; height: 26px; border-radius: 50%; opacity: 1; }
+.composer.compact .cast-plus { position: static; flex: none; width: 26px; height: 26px; border-radius: 50%; font-size: 15px; }
+.composer.compact .cast-tile i { position: static; padding: 0 2px; margin-right: -4px; background: none; color: var(--text-3); font-size: 15px; }
+.composer.compact .cast-tile i:hover { color: var(--text); }
+.composer.compact .vk-thumb { width: 26px; height: 26px; border-radius: 50%; }
+.composer.compact .vk-card > span:last-child { display: flex; align-items: baseline; gap: 5px; }
+.composer.compact .vk-card small { font-size: 10px; }
+.composer.compact .vk-card b { font-size: 12.5px; max-width: 160px; }
+.composer.compact .composer-bottom { gap: 6px; margin-top: 8px; }
+.composer.compact .pill, .composer.compact .tpl-open { padding: 6px 12px; font-size: 12.5px; }
+.composer.compact .stepper button { height: 30px; }
+/* Templates opens above the whole box, like the model picker, so it never runs off a phone screen. */
+.composer.compact .tpl-wrap { position: static; }
+.composer-upload > span { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.composer-upload [role="alert"] { font-size: 12px; color: #f87171; }
+.composer.compact .composer-draft { margin: 0 0 0 auto; font-size: 11px; text-align: right; }
+.composer.compact .fire { margin-left: 4px; padding: 9px 18px; font-size: 14px; }
+@media (max-width: 680px) {
+  .composer.compact .composer-draft { flex: 1 1 100%; text-align: left; }
+  .composer.compact .fire { margin-left: 0; }
+}
