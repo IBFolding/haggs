@@ -10,7 +10,7 @@ import { ReturnBar } from "../return-bar";
 import { makeStill } from "../series-actions";
 import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
-import { ACCESSORY_SAMPLES } from "../../samples/starters";
+import { ACCESSORY_SAMPLES, SAMPLE_PICTURES, SAMPLE_PICTURES_BY } from "../../samples/starters";
 import { ModeTabs } from "../mode-tabs";
 import { galleryStill } from "../gallery-log";
 import { SiteFooter } from "../site-footer";
@@ -124,7 +124,7 @@ export function Accessories() {
                 <div className="cx-cards">
                   {ACCESSORY_SAMPLES.map((a) => (
                     <button key={a.name} className="cx-card cx-sample" onClick={() => { setSaved(null); setName(a.name); setWords(a.words); setPicture(null); setProblem(null); }}>
-                      <span className="cx-mono" aria-hidden>{a.name.slice(0, 1)}</span>
+                      {SAMPLE_PICTURES[a.name] ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="cx-sample-pic" src={SAMPLE_PICTURES[a.name]} alt="" title={SAMPLE_PICTURES_BY} /> : <span className="cx-mono" aria-hidden>{a.name.slice(0, 1)}</span>}
                       <span><b>{a.name}</b><small>{a.words}</small><em>Use this →</em></span>
                     </button>
                   ))}
