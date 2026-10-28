@@ -10,6 +10,7 @@ import { HeroReel } from "./hero-reel";
 import { ModelsWall } from "./models-wall";
 import { QUICK_APPS } from "../comfy/quick";
 import { ModelTicker } from "./model-ticker";
+import { ShowcaseReel } from "./showcase-reel";
 import { OpenWeightsBand } from "./open-weights-band";
 import { WorkflowDemo } from "./workflow-demo";
 import { Nav } from "./nav";
@@ -70,6 +71,8 @@ export default function Landing() {
         </section>
 
         <ModelTicker />
+
+        <ShowcaseReel />
 
         <section className="lp-tiles" aria-label="Make something now">
           <h2 data-kicker="Make something now">Pick a door. Every one leads to a finished cut.</h2>
