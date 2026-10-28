@@ -3549,3 +3549,20 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .gr-dots { position: absolute; left: 0; right: 0; top: 50%; height: 0; pointer-events: none; }
 .gr-dots i { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--amber, #f5c451); box-shadow: 0 0 0 2px var(--surface-2); }
 .gr-time { font: 500 11px var(--mono); color: var(--text-3); }
+
+/* ─── UI overhaul phase 9: Landing ─────────────────────────────────────── */
+.lp-hero h1 { font-size: clamp(56px, 8.4vw, 118px); line-height: .92; letter-spacing: -.045em; max-width: 15ch; }
+.lp-hero p { font-size: 19px; }
+.lp-main { counter-reset: lpsec; }
+.lp-main h2 { font-size: clamp(32px, 4.5vw, 64px); line-height: .98; letter-spacing: -.045em; margin-bottom: 20px; }
+.lp-main section > h2::before { counter-increment: lpsec; content: counter(lpsec, decimal-leading-zero) " · "; display: block; margin-bottom: 10px; font: 500 12px var(--mono); letter-spacing: .16em; color: var(--volt); }
+.lp-main section.lp-hero > h2::before, .lp-main .lp-foot h2::before { content: none; counter-increment: none; }
+.lp-tile, .lp-start-grid article, .lp-mcp-grid article, .lp-wall figure, .lp-case { border-radius: 16px; background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.45); transition: transform .2s, border-color .2s; }
+.lp-tile:hover, .lp-start-grid article:hover, .lp-mcp-grid article:hover, .lp-wall figure:hover { transform: translateY(-4px); border-color: var(--line-hot); }
+.lp-tile:hover { border-color: var(--line-hot); }
+.lp-tile b { font-size: 18px; letter-spacing: -.02em; }
+.lp-tile span, .lp-start-grid p { color: var(--text-2); }
+.lp-hero .fire { padding: 14px 28px; font-size: 16px; }
+.lp-code { font-family: var(--mono); }
+.site-foot { background: var(--surface-2); border-top: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) { .lp-tile, .lp-start-grid article, .lp-mcp-grid article, .lp-wall figure { transition: none; } }
