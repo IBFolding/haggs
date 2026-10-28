@@ -10,7 +10,9 @@ import { TEMPLATE_INFO, bare, keepMadeArt, readSpec, ruleChips, slotsOf, withArt
 import { createGameStore, type ChatLine, type SavedGame } from "../../../playable/store";
 import { Nav, openKeys } from "../../nav";
 import { editGame, makeArt, quoteArt, type ArtQuote } from "../actions";
+import { BankPicker, useReturnedPick } from "../../bank-picker";
 import { GameCanvas } from "../game-canvas";
+import { pictureFile } from "../picture-file";
 import { McpAsk, useSentGames } from "../sent";
 
 const line = (who: ChatLine["who"], text: string): ChatLine => ({ who, text, at: Date.now() });
@@ -181,7 +183,8 @@ function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpe
     setBusy((b) => new Set([...b, ...wanted.map((s) => s.key)]));
     // One at a time: each is charged on its own, and a failure stops the rest.
     for (const slot of wanted) {
-      const made = await makeArt(bare(specRef.current), slot.key).catch(() => ({ ok: false as const, reason: "The art couldn't be made. Nothing was retried." }));
+      const follow = slotsOf(specRef.current).find((s) => s.key === slot.key)?.art.ref;
+      const made = await makeArt(bare(specRef.current), slot.key, ...(follow ? [follow] : [])).catch(() => ({ ok: false as const, reason: "The art couldn't be made. Nothing was retried." }));
       setBusy((b) => { const n = new Set(b); n.delete(slot.key); return n; });
       if (!made.ok) {
         setProblem({ text: made.reason, ...("needsKey" in made && made.needsKey ? { needsKey: true } : {}) });
@@ -190,6 +193,29 @@ function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpe
       }
       const next = await onChange(withArt(specRef.current, slot.key, { url: made.url }), `Made the ${slot.label.toLowerCase()} art${made.usd ? ` · ${creditsText(made.usd)}` : ""}.`);
       if (next) specRef.current = next.spec;
+    }
+  };
+
+  const [picking, setPicking] = useState<Slot | null>(null);
+  const follow = (slot: Slot, ref: string, from: string) => {
+    setProblem(null);
+    void onChange(withArt(specRef.current, slot.key, { ref }), `The ${slot.label.toLowerCase()} art will follow ${from}.`);
+  };
+  // Building a new character or place leaves the page; it comes back with `?pick=`, for the slot it was for.
+  const PICK_SLOT = "playable/pick-slot";
+  useReturnedPick(["character", "place", "accessory"], (item) => {
+    let key: string | null = null;
+    try { key = sessionStorage.getItem(PICK_SLOT); sessionStorage.removeItem(PICK_SLOT); } catch { /* no storage */ }
+    const slot = slotsOf(specRef.current).find((s) => s.key === key);
+    if (slot && item.image) follow(slot, item.image, item.name);
+  });
+
+  const upload = async (slot: Slot, file: File | undefined) => {
+    if (!file) return;
+    try {
+      follow(slot, await pictureFile(file, slot.kind), "your picture");
+    } catch (caught) {
+      setProblem({ text: caught instanceof Error ? caught.message : "That picture couldn't be used." });
     }
   };
 
@@ -211,6 +237,22 @@ function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpe
               <span className="pl-mono">{slot.kind}</span>
             </div>
             <PromptBox key={`${slot.key}:${slot.art.prompt}`} value={slot.art.prompt} onSave={(prompt) => void onChange(withArt(specRef.current, slot.key, { prompt }))} />
+            {slot.art.ref ? (
+              <div className="pl-ref">
+                <img src={slot.art.ref} alt="" />
+                <span className="pl-mono">Make follows this picture</span>
+                <button className="pl-ghost pl-small" disabled={working} onClick={() => void onChange(withArt(specRef.current, slot.key, { url: slot.art.ref }), `Using your picture as the ${slot.label.toLowerCase()}.`)}>Use as is · free</button>
+                <button className="pl-plain" disabled={working} onClick={() => void onChange(withArt(specRef.current, slot.key, { ref: undefined }))}>Remove</button>
+              </div>
+            ) : (
+              <div className="pl-pair">
+                <button className="pl-plain" disabled={working} onClick={() => setPicking(slot)}>Your pictures</button>
+                <label className="pl-plain pl-upload">
+                  Upload
+                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { void upload(slot, e.target.files?.[0]); e.target.value = ""; }} />
+                </label>
+              </div>
+            )}
             <div className="pl-pair">
               <button className="pl-go pl-small" disabled={openOnly || working || !quote?.ok} onClick={() => void make([slot])}>
                 {busy.has(slot.key) ? "Making…" : `${slot.art.url ? "Make again" : "Make"} · ${creditsText(prices[slot.key])}`}
@@ -230,6 +272,21 @@ function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpe
           {problem.text}
           {problem.needsKey ? <button className="pl-ghost pl-small" onClick={openKeys}>Keys</button> : null}
         </p>
+      ) : null}
+      {picking ? (
+        <BankPicker
+          kinds={picking.kind === "background" ? ["place", "character", "accessory"] : ["character", "accessory", "place"]}
+          label={`A picture for the ${picking.label.toLowerCase()}`}
+          allowPhotoBuild={false}
+          beforeBuild={async () => { try { sessionStorage.setItem(PICK_SLOT, picking.key); } catch { /* no storage */ } }}
+          onClose={() => setPicking(null)}
+          onPick={(item) => {
+            const slot = picking;
+            setPicking(null);
+            if (!item.image) return setProblem({ text: `${item.name} has no picture yet. Make one first, or upload a picture.` });
+            follow(slot, item.image, item.name);
+          }}
+        />
       ) : null}
     </aside>
   );

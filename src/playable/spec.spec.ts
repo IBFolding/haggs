@@ -114,3 +114,20 @@ test("bare drops every picture; keepMadeArt puts back the ones whose prompt is u
   assert.equal(kept.template === "match" && kept.art.tiles[1]!.url, undefined);
   assert.equal(kept.template === "match" && kept.art.tiles[1]!.prompt, "a new tile");
 });
+
+test("a picture to follow is kept when safe, dropped when not, and never sent to Claude or the server", () => {
+  const ref = "https://blob.test/cast/ana.png";
+  const spec = withArt(defaultSpec("runner"), "player", { ref, url: "https://blob.test/made.png" });
+  assert.equal(slotsOf(readSpec(spec)).find((s) => s.key === "player")!.art.ref, ref);
+  assert.equal(slotsOf(withArt(spec, "player", { ref: "javascript:alert(1)" })).find((s) => s.key === "player")!.art.ref, undefined);
+  assert.equal(slotsOf(withArt(spec, "player", { ref: undefined })).find((s) => s.key === "player")!.art.ref, undefined);
+  assert.doesNotMatch(JSON.stringify(bare(spec)), /blob\.test/);
+});
+
+test("an edit keeps each slot's picture to follow, even when its prompt changes", () => {
+  const before = withArt(defaultSpec("collector"), "hazard", { ref: "/api/local/wasp.png" });
+  const after = withArt(defaultSpec("collector"), "hazard", { prompt: "a grumpy hornet" });
+  const kept = slotsOf(keepMadeArt(before, after)).find((s) => s.key === "hazard")!.art;
+  assert.equal(kept.ref, "/api/local/wasp.png");
+  assert.equal(kept.prompt, "a grumpy hornet");
+});

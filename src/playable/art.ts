@@ -10,17 +10,20 @@ import type { GameSpec, Slot } from "./spec";
 export const ART_MODEL = "google/nano-banana-2-lite";
 export const KEY_COLOUR = "#ff00ff";
 
-export function artPrompt(spec: GameSpec, slot: Slot): string {
+/** With `follow`, the request carries a reference picture (a character, a place, an upload) to base the art on. */
+export function artPrompt(spec: GameSpec, slot: Slot, follow = false): string {
   const look = `${spec.title}: ${spec.pitch}`;
   if (slot.kind === "background") {
     return [
       slot.art.prompt,
+      ...(follow ? ["Base the place, its light and its colours on the reference picture."] : []),
       `Wide 16:9 2D game background for "${look}".`,
       "Flat, clean, readable shapes, nothing in the foreground, no characters, no text, no UI, no border.",
     ].join(" ");
   }
   return [
     `A single 2D game sprite: ${slot.art.prompt}.`,
+    ...(follow ? ["Base it on the reference picture: the same subject, face, shape, outfit and colours, simplified into a sprite."] : []),
     `For the game "${look}".`,
     `Centred, the whole subject in frame, bold outline, flat colours, on a perfectly flat solid magenta (${KEY_COLOUR}) background with no shadow, no ground, no text and no border.`,
   ].join(" ");

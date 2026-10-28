@@ -106,6 +106,10 @@
 .pl-saved-row { display: flex; align-items: center; gap: 10px; }
 .pl-sent { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-color: color-mix(in oklch, var(--volt) 40%, transparent); }
 .pl-sent-line { display: flex; flex-direction: column; gap: 8px; }
+.pl-ref { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pl-ref img { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.pl-upload { position: relative; cursor: pointer; }
+.pl-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
 .pl-ask { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 12px; padding: 12px; border-radius: 12px; border: 1px dashed var(--line); color: var(--text-2); font-size: 13px; line-height: 1.45; }
 .pl-ask textarea { width: 100%; box-sizing: border-box; resize: vertical; font: 12px/1.4 var(--mono); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .pl-saved-name { font-weight: 700; font-size: 17px; color: var(--text); text-decoration: none; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

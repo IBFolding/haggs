@@ -76,7 +76,7 @@ export function ideaRequest(idea: string): DraftRequest {
 
 /** The spec as Claude sees it: no picture links, which it has no use for and shouldn't rewrite. */
 export function forClaude(spec: GameSpec): unknown {
-  return JSON.parse(JSON.stringify(spec, (k, v) => (k === "url" || k === "version" ? undefined : v)));
+  return JSON.parse(JSON.stringify(spec, (k, v) => (k === "url" || k === "ref" || k === "version" ? undefined : v)));
 }
 
 export function editRequest(spec: GameSpec, message: string): DraftRequest {

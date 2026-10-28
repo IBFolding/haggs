@@ -14,7 +14,8 @@ export const SHAPES = ["circle", "square", "triangle", "diamond", "star"] as con
 export type Shape = (typeof SHAPES)[number];
 
 /** One piece of art: drawn as a coloured shape until a picture is made for it. */
-export type Art = { prompt: string; color: string; shape: Shape; url?: string };
+/** A piece of art: a placeholder shape, what to make, the picture once made, and a picture to follow (a character, a place, an upload). */
+export type Art = { prompt: string; color: string; shape: Shape; url?: string; ref?: string };
 
 export type Palette = { sky: string; ground: string; accent: string; text: string };
 export type Words = { intro: string; win: string; lose: string };
@@ -105,7 +106,7 @@ const text = (v: unknown, fallback: string, max: number) => (typeof v === "strin
 const HEX = /^#[0-9a-f]{6}$/i;
 const color = (v: unknown, fallback: string) => (typeof v === "string" && HEX.test(v.trim()) ? v.trim().toLowerCase() : fallback);
 /** Only https pictures and the app's own kept media; never a script or data of any other kind. */
-const safeUrl = (v: unknown): string | undefined => {
+export const safeUrl = (v: unknown): string | undefined => {
   if (typeof v !== "string") return undefined;
   const u = v.trim();
   if (/^https:\/\/[^\s"'<>]+$/.test(u) && u.length < 2000) return u;
@@ -123,7 +124,8 @@ function readArt(v: unknown, fallback: Art): Art {
   if (!isObj(v)) return { ...fallback };
   const shape = SHAPES.includes(v.shape as Shape) ? (v.shape as Shape) : fallback.shape;
   const url = safeUrl(v.url);
-  return { prompt: text(v.prompt, fallback.prompt, 400), color: color(v.color, fallback.color), shape, ...(url ? { url } : {}) };
+  const ref = safeUrl(v.ref);
+  return { prompt: text(v.prompt, fallback.prompt, 400), color: color(v.color, fallback.color), shape, ...(url ? { url } : {}), ...(ref ? { ref } : {}) };
 }
 
 function readRules<R extends object>(v: unknown, template: Template, fallback: R): R {
@@ -215,6 +217,7 @@ export function withArt(spec: GameSpec, key: string, change: { [K in keyof Art]?
   const apply = (a: Art): Art => {
     const merged = { ...a, ...change };
     if (change.url === undefined && "url" in change) delete merged.url;
+    if (change.ref === undefined && "ref" in change) delete merged.ref;
     return readArt(merged, a);
   };
   if (next.template === "match") {
@@ -229,16 +232,20 @@ export function withArt(spec: GameSpec, key: string, change: { [K in keyof Art]?
 
 /** The spec without its pictures: what the server needs to price, make art or edit, and a small request. */
 export function bare(spec: GameSpec): GameSpec {
-  return readSpec(JSON.parse(JSON.stringify(spec, (k, v) => (k === "url" ? undefined : v))));
+  return readSpec(JSON.parse(JSON.stringify(spec, (k, v) => (k === "url" || k === "ref" ? undefined : v))));
 }
 
-/** A copy of `after` with the art already made in `before` kept on every slot whose prompt is unchanged. */
+/**
+ * A copy of `after` with the art already made in `before` kept on every slot
+ * whose prompt is unchanged, and every picture to follow kept on its slot.
+ */
 export function keepMadeArt(before: GameSpec, after: GameSpec): GameSpec {
-  const made = new Map(slotsOf(before).filter((s) => s.art.url).map((s) => [s.key, s.art]));
+  const old = new Map(slotsOf(before).map((s) => [s.key, s.art]));
   let spec = after;
   for (const slot of slotsOf(after)) {
-    const old = made.get(slot.key);
-    if (old?.url && !slot.art.url && old.prompt === slot.art.prompt) spec = withArt(spec, slot.key, { url: old.url });
+    const was = old.get(slot.key);
+    if (was?.url && !slot.art.url && was.prompt === slot.art.prompt) spec = withArt(spec, slot.key, { url: was.url });
+    if (was?.ref && !slot.art.ref) spec = withArt(spec, slot.key, { ref: was.ref });
   }
   return spec;
 }

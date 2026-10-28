@@ -27,3 +27,12 @@ test("keying: magenta goes, near-magenta fades, everything else stays", () => {
   assert.equal(px[7], 255);
   assert.ok(px[11]! > 0 && px[11]! < 255);
 });
+
+test("with a reference picture, the prompt says to follow it; without, it doesn't", () => {
+  const spec = defaultSpec("collector");
+  const [player, , , background] = slotsOf(spec);
+  assert.match(artPrompt(spec, player!, true), /reference picture/);
+  assert.match(artPrompt(spec, player!, true), new RegExp(KEY_COLOUR));
+  assert.match(artPrompt(spec, background!, true), /reference picture/);
+  assert.doesNotMatch(artPrompt(spec, player!), /reference/);
+});

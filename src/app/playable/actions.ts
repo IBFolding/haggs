@@ -6,7 +6,7 @@ import { askClaude } from "../../writer/draft";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, keyIn } from "../../server/keys";
 import { ART_MODEL, artPrompt, artSettings } from "../../playable/art";
 import { GAME_SCHEMA, editRequest, ideaRequest, readGameReply, type GameReply } from "../../playable/claude";
-import { readSpec, slotsOf, type GameSpec } from "../../playable/spec";
+import { readSpec, safeUrl, slotsOf, type GameSpec } from "../../playable/spec";
 import { estimateGeneration, run } from "../actions";
 
 /**
@@ -77,7 +77,8 @@ export async function quoteArt(spec: unknown): Promise<ArtQuote> {
 export type MadeArt = { ok: true; url: string; usd: number | null } | { ok: false; reason: string; needsKey?: boolean };
 
 /** Makes one piece of art. Only ever called from a button that showed its price. */
-export async function makeArt(spec: unknown, slotKey: string): Promise<MadeArt> {
+/** One piece of art; with `follow`, made to match that picture (a character, a place, an upload). */
+export async function makeArt(spec: unknown, slotKey: string, follow?: string): Promise<MadeArt> {
   if ((await cookies()).get(OPEN_COOKIE)?.value === "1") return { ok: false, reason: OPEN_REFUSAL };
   let game: GameSpec;
   try {
@@ -87,7 +88,9 @@ export async function makeArt(spec: unknown, slotKey: string): Promise<MadeArt> 
   }
   const slot = slotsOf(game).find((s) => s.key === slotKey);
   if (!slot) return { ok: false, reason: "That piece of art isn't in this game." };
-  const result = await run(ART_MODEL, artPrompt(game, slot), artSettings(slot));
+  const ref = follow === undefined ? undefined : safeUrl(follow);
+  if (follow !== undefined && !ref) return { ok: false, reason: "That reference picture can't be used. Pick another." };
+  const result = ref ? await run(ART_MODEL, artPrompt(game, slot, true), artSettings(slot), [ref], false) : await run(ART_MODEL, artPrompt(game, slot), artSettings(slot));
   if (!result.ok) return result;
   const shot = result.shots.find((s) => s.kind === "image");
   if (!shot) return { ok: false, reason: "The model returned no picture." };
