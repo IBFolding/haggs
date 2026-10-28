@@ -50,7 +50,7 @@ export default function Landing() {
         <section className="lp-hero">
           <div className="lp-hero-text">
             <span className="lp-kicker">Open-source film studio on Comfy</span>
-            <h1>Script to screen. <b>Every price in the open.</b></h1>
+            <h1>Make movies, <b>not guesses.</b></h1>
             <p>
               Turn a script, a photo, a video or a workflow into a finished cut. Pictures, motion, voices and music in one studio, with the price on every button before you press it.
             </p>
