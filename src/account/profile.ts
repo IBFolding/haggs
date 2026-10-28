@@ -38,8 +38,8 @@ export function socialUrl(id: SocialId, raw: string): string | null {
       return `https://${host}${u.pathname.replace(/\/+$/, "")}`;
     } catch { return null; }
   }
-  const h = v.replace(/^@+/, "").replace(/[^A-Za-z0-9._-]/g, "");
-  if (!h) return null;
+  const h = v.replace(/^@+/, "");
+  if (!/^[A-Za-z0-9._-]{1,60}$/.test(h)) return null;
   return SOCIALS.find((s) => s.id === id)!.path(h);
 }
 

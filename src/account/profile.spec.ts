@@ -39,3 +39,8 @@ test("a profile read back is safe with nothing stored", () => {
   assert.deepEqual(readProfile(undefined), { name: "", handle: "", picture: null, bio: "", links: {} });
   assert.equal(readProfile({ name: 4 }).name, "");
 });
+
+test("a bare handle with characters a handle can't have is refused, not tidied into one", () => {
+  assert.equal(socialUrl("x", "javascript:alert(1)"), null);
+  assert.equal(socialUrl("instagram", "kiln co"), null);
+});

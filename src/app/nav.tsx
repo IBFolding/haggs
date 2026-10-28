@@ -20,9 +20,8 @@ import { setOpenOnly, setPro, usePrefs } from "./prefs";
  * the same key state on the right — so it never changes shape under you.
  * Anything a page needs to do lives in the page, not up here.
  *
- * There is no Explore. Higgsfield's Explore is a feed of other people's work,
- * and there is no community to put in one; Gallery shows your own runs and
- * what they cost instead.
+ * Explore is what people chose to share, each with its prompt and price; Gallery
+ * stays your own runs and what they cost.
  */
 
 const ITEMS = [
@@ -32,6 +31,7 @@ const ITEMS = [
   { label: "Editor", href: "/editor" },
   { label: "Workflows", href: "/workflows" },
   { label: "Gallery", href: "/gallery" },
+  { label: "Explore", href: "/explore" },
   { label: "Academy", href: "/academy" },
   { label: "Playable", href: "/playable" },
 ] as const;
