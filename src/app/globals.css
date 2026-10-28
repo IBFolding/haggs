@@ -3540,3 +3540,12 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .gs-side h2 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
 .gs-track input { height: 4px; }
 .gs-note { font-family: var(--mono); font-size: 11.5px; letter-spacing: .02em; }
+
+/* Grey room camera path */
+.gr-path { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.gr-path-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.gr-path-bar label.pill input { accent-color: var(--volt); margin-right: 4px; }
+.gr-path .gs-track { position: relative; }
+.gr-dots { position: absolute; left: 0; right: 0; top: 50%; height: 0; pointer-events: none; }
+.gr-dots i { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--amber, #f5c451); box-shadow: 0 0 0 2px var(--surface-2); }
+.gr-time { font: 500 11px var(--mono); color: var(--text-3); }

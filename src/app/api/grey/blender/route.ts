@@ -9,6 +9,7 @@ import { hosted } from "../../../../server/blob";
 import { localFile } from "../../../../server/local-media";
 import { frameOf } from "../../../../story/cut";
 import { BLENDER_README, BLENDER_SCRIPT, blenderManifest } from "../../../../story/grey-blender";
+import { tidy, type GreyFrame } from "../../../../story/grey";
 import { normalizeScene } from "../../../../story/grey-scene";
 
 const run = promisify(execFile);
@@ -18,14 +19,16 @@ export async function POST(request: Request) {
   if (hosted() || !bridgeAllowed(request)) return new Response("Not found", { status: 404 });
   const root = process.env.HAGGS_LOCAL_MEDIA;
   if (!root) return Response.json({ ok: false, reason: "Set HAGGS_LOCAL_MEDIA so the set can be gathered." }, { status: 400 });
-  const body = (await request.json().catch(() => null)) as { scene?: unknown; footage?: unknown; footageKind?: unknown; seconds?: unknown; aspect?: unknown; name?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { scene?: unknown; grey?: unknown; footage?: unknown; footageKind?: unknown; seconds?: unknown; aspect?: unknown; name?: unknown } | null;
   const footage = typeof body?.footage === "string" ? body.footage : "";
   const seconds = Math.min(120, Math.max(0.5, Number(body?.seconds) || 4));
   const name = String(body?.name ?? "shot").replace(/[^\w -]+/g, "").trim().slice(0, 50) || "shot";
   let work: string | null = null;
   try {
     const scene = normalizeScene(body?.scene as never);
-    const manifest = blenderManifest(scene, { name, size: frameOf(body?.aspect === "9:16" ? "9:16" : "16:9"), seconds, fps: 24, footage: { url: footage, kind: body?.footageKind === "image" ? "image" : "video" } });
+    const g = body?.grey as GreyFrame | undefined;
+    const grey = g && typeof g === "object" && g.cam && Array.isArray(g.subjects) && g.light ? tidy(g) : undefined;
+    const manifest = blenderManifest(scene, { name, size: frameOf(body?.aspect === "9:16" ? "9:16" : "16:9"), seconds, fps: 24, footage: { url: footage, kind: body?.footageKind === "image" ? "image" : "video" }, ...(grey ? { grey } : {}) });
     work = await mkdtemp(join(tmpdir(), "haggs-blender-"));
     const folder = `Haggs-Grey-Room-${name.replace(/\s+/g, "-")}`;
     const dir = join(work, folder);

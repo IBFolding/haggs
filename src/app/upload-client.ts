@@ -8,7 +8,7 @@ async function ownerFolder(): Promise<string> {
   return id ? `u-${id}` : "guest";
 }
 
-export type Uploaded = { ok: true; url: string; kind: "audio" | "video" | "image"; name: string } | { ok: false; reason: string };
+export type Uploaded = { ok: true; url: string; kind: "audio" | "video" | "image" | "model"; name: string } | { ok: false; reason: string };
 
 const kindOf = (file: File): "audio" | "video" | "image" | null => (file.type.startsWith("audio/") ? "audio" : file.type.startsWith("video/") ? "video" : file.type.startsWith("image/") ? "image" : null);
 
@@ -33,7 +33,7 @@ export async function uploadFile(file: File): Promise<Uploaded> {
   const form = new FormData();
   form.append("file", file);
   const res = await fetch("/api/upload", { method: "POST", body: form }).catch(() => null);
-  const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; kind?: "audio" | "video" | "image"; name?: string; reason?: string } | null;
+  const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; kind?: "audio" | "video" | "image" | "model"; name?: string; reason?: string } | null;
   if (body?.ok && body.url) return { ok: true, url: body.url, kind: body.kind ?? kindOf(file) ?? "image", name: body.name ?? file.name };
   return { ok: false, reason: body?.reason ?? "The file couldn't be added." };
 }
