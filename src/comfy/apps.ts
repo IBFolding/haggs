@@ -31,13 +31,19 @@ const SETTINGS = /(^|\.)(resolution|aspect_ratio|ratio|duration|seconds|size|qua
 /** Helper nodes whose text is plumbing, not something a person writes. */
 const PLUMBING = new Set(["ComfyMathExpression", "PreviewAny", "StringConcatenate", "PrimitiveString", "PrimitiveStringMultiline"]);
 
-/** Nodes that only feed a negative prompt: found by walking back from every input called negative. */
+/**
+ * Nodes that only feed a negative prompt: found by walking back from every input called negative. A node that takes
+ * both a positive and a negative (Wan's image-to-video, a conditioning combiner) passes the negative on, so from it the
+ * walk follows only its negative side; otherwise the prompt you type would be taken for the negative and hidden.
+ */
 function negativeNodes(prompt: ApiPrompt): Set<string> {
   const seen = new Set<string>();
   const walk = (id: string) => {
     if (seen.has(id) || !prompt[id]) return;
     seen.add(id);
-    for (const v of Object.values(prompt[id]!.inputs)) if (Array.isArray(v) && typeof v[0] === "string") walk(v[0]);
+    const inputs = Object.entries(prompt[id]!.inputs);
+    const both = inputs.some(([k]) => /positive/i.test(k)) && inputs.some(([k]) => /negative/i.test(k));
+    for (const [k, v] of inputs) if (Array.isArray(v) && typeof v[0] === "string" && (!both || /negative/i.test(k))) walk(v[0]);
   };
   for (const node of Object.values(prompt)) for (const [k, v] of Object.entries(node.inputs)) if (/negative/i.test(k) && Array.isArray(v) && typeof v[0] === "string") walk(v[0]);
   return seen;

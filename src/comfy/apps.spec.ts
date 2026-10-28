@@ -97,3 +97,19 @@ test("a transparent WebM is a finished video, so a cut-out workflow has a result
   assert.equal(app.output, "7");
   assert.equal(app.produces, "video");
 });
+
+test("a node that takes both prompts passes on only the negative: the prompt you type stays in the app", () => {
+  const prompt = {
+    "1": { class_type: "CLIPTextEncode", inputs: { text: "A mug, the camera drifting across its glaze", clip: ["9", 0] } },
+    "2": { class_type: "CLIPTextEncode", inputs: { text: "blurry, static, low quality", clip: ["9", 0] } },
+    "3": { class_type: "WanImageToVideo", inputs: { positive: ["1", 0], negative: ["2", 0], width: 640, height: 640, length: 81, batch_size: 1 } },
+    "4": { class_type: "KSampler", inputs: { positive: ["3", 0], negative: ["3", 1], seed: 1, steps: 20, cfg: 5, sampler_name: "euler", scheduler: "simple", denoise: 1, model: ["8", 0], latent_image: ["3", 2] } },
+  } as unknown as Parameters<typeof appOf>[1];
+  // The fixture catalog has no text encoder, so this test brings the two node specs it needs.
+  const withEncoders = { ...catalog,
+    CLIPTextEncode: { input: { required: { text: ["STRING", { multiline: true }], clip: ["CLIP"] } }, output: ["CONDITIONING"] },
+    WanImageToVideo: { input: { required: { positive: ["CONDITIONING"], negative: ["CONDITIONING"], width: ["INT", {}], height: ["INT", {}], length: ["INT", {}], batch_size: ["INT", {}] } }, output: ["CONDITIONING", "CONDITIONING", "LATENT"] },
+  } as unknown as Catalog;
+  const texts = appOf({ nodes: [], links: [] }, prompt, withEncoders).fields.filter((f) => f.kind === "text").map((f) => f.node);
+  assert.deepEqual(texts, ["1"]);
+});
