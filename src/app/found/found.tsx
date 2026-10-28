@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -94,50 +93,78 @@ export function Found() {
       <div className="canvas">
         <div className="swap">
           <ModeTabs group="Video" current="/found" />
-          <header className="swap-head">
-            <h1>Found footage</h1>
-            <p>Describe the film. haggs searches the Prelinger Archives, thousands of public-domain films from the Internet Archive, for scenes that fit. Select scenes, choose an edit, then import them for trimming, titles, voice and music. Searching is free; importing does not run AI generation.</p>
-          </header>
-          <div className="cm-row" aria-label="Samples">
-            <span className="muted">Try a sample:</span>
-            {FOUND_SAMPLES.map((s) => <button key={s.label} className="pill" onClick={() => { setBrief(s.brief); setWords(searchWords(s.brief).join(" ")); setFound(null); setProblem(null); }}>{s.label}</button>)}
-          </div>
+          <div className="cx">
+            <aside className="cx-builder" aria-label="Find footage">
+              <div className="cx-scroll">
+                <span className="eyebrow">Found footage</span>
+                <h1 className="cx-title">Cut a film from the archive.</h1>
+                <p className="cx-lede">haggs searches the Prelinger Archives, thousands of public-domain films on the Internet Archive, for scenes that fit. Searching and importing are free; nothing is generated.</p>
 
-          <label className="wf-field"><span>What is the film?</span>
-            <textarea rows={2} value={brief} maxLength={300} placeholder="A lonely night shift in a city that is closing down" onChange={(e) => { setBrief(e.target.value); setWords(searchWords(e.target.value).join(" ")); }} />
-          </label>
-          <label className="wf-field"><span>Search words (change them if the results are off)</span>
-            <input value={words} onChange={(e) => setWords(e.target.value)} placeholder="city night diner" aria-label="Search words" />
-          </label>
-          <p><button className="fire" disabled={!ready || busy !== null || words.trim().length < 3} onClick={() => void search()}>{busy ?? "Find footage"} <span className="cost">free</span></button></p>
-          {problem && <p className="library-error" role="alert">{problem}</p>}
+                <section className="rx-step">
+                  <b><i>1</i> What is the film?</b>
+                  <textarea className="dw-prompt" rows={3} value={brief} maxLength={300} placeholder="A lonely night shift in a city that is closing down" aria-label="What is the film?" onChange={(e) => { setBrief(e.target.value); setWords(searchWords(e.target.value).join(" ")); }} />
+                  <label className="wf-field"><span>Search words (change them if the results are off)</span>
+                    <input value={words} onChange={(e) => setWords(e.target.value)} placeholder="city night diner" aria-label="Search words" />
+                  </label>
+                  {found && <button className="pill" disabled={!ready || busy !== null || words.trim().length < 3} onClick={() => void search()}>Search again <span className="cost">free</span></button>}
+                </section>
 
-          {found && found.length > 0 && (
-            <>
-              <ul className="found-grid">
-                {found.map((f) => {
-                  const on = picked.includes(f.id);
-                  return (
-                    <li key={f.id} className={on ? "on" : ""}>
-                      <button disabled={busy !== null} onClick={() => { pending.current = null; setPicked((p) => (on ? p.filter((x) => x !== f.id) : [...p, f.id])); }} aria-pressed={on}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={f.thumb} alt="" loading="lazy" />
-                        <b>{f.title}</b>
-                        <small>{f.year || "undated"}{f.about ? ` · ${f.about}` : ""}</small>
-                        <span className="found-tick">{on ? "✓ Selected" : "Select scene"}</span>
-                      </button>
-                      <a href={f.page} target="_blank" rel="noreferrer">on archive.org</a>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="found-bar">
-                <label>Destination edit <select aria-label="Destination edit" value={destination} disabled={busy !== null} onChange={(e) => { setDestination(e.target.value); pending.current = null; }}><option value="">Choose where to add footage</option><option value="new">Create a new edit</option>{destinations.map((d) => <option key={`${d.id}:${d.board}`} value={`${d.id}:${d.board}`}>{d.label}</option>)}</select></label>
-                <button className="fire" disabled={!picked.length || !destination || busy !== null} onClick={() => void make()}>{busy ?? `Add ${picked.length || "selected"} scene${picked.length === 1 ? "" : "s"} to edit`}</button>
-                <small>Select only marks a scene. Add to edit downloads usable footage, saves it to the destination above and opens that video editor. It does not reskin or generate anything. For a new visual style, use the editor’s existing Restyle tool after importing; review its price before running it. Source attribution stays with each shot. Check each film’s licence on archive.org before publishing.</small>
+                <section className="rx-step">
+                  <b><i>2</i> Pick the scenes</b>
+                  <p className="dw-hint">{!found ? "Search, then pick scenes on the right." : picked.length ? `${picked.length} of ${found.length} picked.` : `${found.length} found. Pick the ones you want.`}</p>
+                </section>
+
+                <section className="rx-step">
+                  <b><i>3</i> Where they go</b>
+                  <select className="fd-dest" aria-label="Destination edit" value={destination} disabled={busy !== null} onChange={(e) => { setDestination(e.target.value); pending.current = null; }}><option value="">Choose where to add footage</option><option value="new">Create a new edit</option>{destinations.map((d) => <option key={`${d.id}:${d.board}`} value={`${d.id}:${d.board}`}>{d.label}</option>)}</select>
+                  <small className="dw-hint">Scenes arrive in the video editor as ordinary shots, with their source kept. Restyle them there if you want a new look (it shows its price first). Check each film&rsquo;s licence on archive.org before you publish.</small>
+                </section>
+                {problem && <p className="library-error" role="alert">{problem}</p>}
               </div>
-            </>
-          )}
+              <div className="cx-foot">
+                {!found ? (
+                  <button className="fire" disabled={!ready || busy !== null || words.trim().length < 3} onClick={() => void search()}>{busy ?? "Find footage"} <span className="cost">free</span></button>
+                ) : (
+                  <button className="fire" disabled={!picked.length || !destination || busy !== null} onClick={() => void make()}>{busy ?? (!picked.length ? "Pick scenes on the right" : !destination ? "Choose where they go" : `Add ${picked.length} scene${picked.length === 1 ? "" : "s"} to the edit`)} <span className="cost">free</span></button>
+                )}
+              </div>
+            </aside>
+
+            <div className="cx-main">
+              {found && found.length > 0 ? (
+                <ul className="found-grid">
+                  {found.map((f) => {
+                    const on = picked.includes(f.id);
+                    return (
+                      <li key={f.id} className={on ? "on" : ""}>
+                        <button disabled={busy !== null} onClick={() => { pending.current = null; setPicked((p) => (on ? p.filter((x) => x !== f.id) : [...p, f.id])); }} aria-pressed={on}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={f.thumb} alt="" loading="lazy" />
+                          <b>{f.title}</b>
+                          <small>{f.year || "undated"}{f.about ? ` · ${f.about}` : ""}</small>
+                          <span className="found-tick">{on ? "✓ Picked" : "Pick"}</span>
+                        </button>
+                        <a href={f.page} target="_blank" rel="noreferrer">on archive.org</a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="chars-sheet" aria-live="polite"><div className="wf-result-wait">{busy ?? "Describe the film and press Find footage. Scenes from the archive appear here to pick from."}</div></div>
+              )}
+              <section className="cx-gallery" aria-label="Samples">
+                <span className="eyebrow muted">Start from a sample</span>
+                <div className="cx-cards">
+                  {FOUND_SAMPLES.map((s) => (
+                    <button key={s.label} className={`cx-card${brief === s.brief ? " on" : ""}`} onClick={() => { setBrief(s.brief); setWords(searchWords(s.brief).join(" ")); setFound(null); setPicked([]); setProblem(null); }}>
+                      <span className="cx-mono" aria-hidden>{s.label.replace(/^(A|The) /, "").slice(0, 1)}</span>
+                      <span><b>{s.label}</b><small>{searchWords(s.brief).join(" ")}</small></span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
         <SiteFooter />
       </div>
