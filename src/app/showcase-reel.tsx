@@ -9,7 +9,7 @@ export function ShowcaseReel() {
   return (
     <section className="lp-show" aria-label="See it run">
       <div className="lp-show-text">
-        <h2 data-kicker="See it run">From the script to the screen, priced at every step.</h2>
+        <h2 data-kicker="See it run">See the film. <b>See the bill.</b></h2>
         <p>Turn a script, a photo, a video or a workflow into a finished cut. Pictures, motion, voices and music in one studio, with the price on every button before you press it.</p>
         <div className="lp-cta">
           <Link className="fire" href="/library">Start a project →</Link>
