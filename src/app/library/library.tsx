@@ -14,14 +14,15 @@ import { Nav } from "../nav";
 import { SiteFooter } from "../site-footer";
 import { useStartProject } from "../start-project";
 import { uploadFile } from "../upload-client";
+import { QUICK_APPS } from "../../comfy/quick";
 
 /** The kinds of show the idea card can start, each a real format on the Sheets start screen. */
 const STARTS = [
-  { label: "Trailer", format: "sizzle-120" },
-  { label: "Vertical", format: "vertical-drama" },
-  { label: "Short comedy", format: "vertical-comedy" },
-  { label: "Sitcom", format: "comedy-30" },
-  { label: "Drama", format: "drama-60" },
+  { label: "Short video", format: "vertical-comedy", note: "A short video, one idea, under a minute." },
+  { label: "Influencer", format: "vertical-comedy", note: "An influencer-style video in the creator's own voice: routine, outfit, a place they love, a small confession, a sign-off with a hook." },
+  { label: "Series", format: "vertical-drama", note: "Episode one of a series, ending on a reason to watch the next." },
+  { label: "Trailer", format: "sizzle-120", note: "A trailer." },
+  { label: "Ad", format: "sizzle-120", note: "An ad: the hook, the product as the hero shot, a quick demo, proof, then the offer and a call to action." },
 ] as const;
 
 /** Pictures you can start from without making one first. */
@@ -116,7 +117,7 @@ export function Library() {
 
   const startFrom = useStartProject();
   const [idea, setIdea] = useState("");
-  const [format, setFormat] = useState<string>(STARTS[0].format);
+  const [goal, setGoal] = useState<string>("Trailer");
   const [busy, setBusy] = useState<string | null>(null);
   const [sampleHidden, setSampleHidden] = useState(false);
   useEffect(() => {
@@ -129,12 +130,13 @@ export function Library() {
 
   /** A new project whose Sheets open on the start screen with this idea and format already filled in. */
   const startIdea = useCallback(async () => {
-    const label = STARTS.find((s) => s.format === format)?.label ?? "Project";
-    const project = createProject((idea.trim() || label).replace(/\s+/g, " ").slice(0, 40));
+    const start = STARTS.find((s) => s.label === goal) ?? STARTS[3];
+    const project = createProject((idea.trim() || start.label).replace(/\s+/g, " ").slice(0, 40));
     await store.save(project);
-    await kv.set(`project-start:/board/${project.id}?b=main`, { formatId: format, idea: idea.trim(), notes: "", title: "", assets: [] });
+    // The kind of video becomes the Sheets format and a note for the writer; the idea is yours.
+    await kv.set(`project-start:/board/${project.id}?b=main`, { formatId: start.format, idea: idea.trim(), notes: start.note, title: "", assets: [] });
     router.push(`/board/${project.id}/sheets`);
-  }, [idea, format, store, kv, router]);
+  }, [idea, goal, store, kv, router]);
 
   /** A project whose first shot is this picture. */
   const startPhoto = useCallback(async (url: string, says: string) => {
@@ -262,7 +264,7 @@ export function Library() {
               <span className="eyebrow">From an idea</span>
               <textarea value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="A noir trailer about a night-shift nurse…" rows={3} aria-label="Your idea" />
               <div className="ph-chips" role="group" aria-label="Kind of show">
-                {STARTS.map((s) => <button key={s.format} className="ph-chip" aria-pressed={format === s.format} onClick={() => setFormat(s.format)}>{s.label}</button>)}
+                {STARTS.map((s) => <button key={s.label} className="ph-chip" aria-pressed={goal === s.label} onClick={() => setGoal(s.label)}>{s.label}</button>)}
               </div>
               <button className="ph-go" onClick={() => void startIdea()}>Write my script →</button>
             </section>
@@ -288,12 +290,11 @@ export function Library() {
                   <button className="ph-x" title="Remove the sample" aria-label="Remove the sample" onClick={() => hideSample(true)}>✕</button>
                 </div>
               )}
-              <Link className="ph-ghost" href="/recreate">Drop your own video →</Link>
             </section>
 
             <section className="ph-card">
               <span className="eyebrow">From a workflow</span>
-              <p>Ready-made apps: swap a person, relight, try on, make an ad. Each result can go into your project.</p>
+              <p>{QUICK_APPS.length} ready-made apps: swap a person, relight, try on, make an ad. Each result goes into your project.</p>
               <Link className="ph-ghost" href="/workflows">Browse apps →</Link>
             </section>
 
