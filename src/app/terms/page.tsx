@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LearnShell } from "../learn-shell";
 
 export const metadata: Metadata = { title: "Terms — haggs" };
 
 /** Plain terms for the hosted service. A first draft: have a lawyer read it before you charge anyone. */
 export default function Terms() {
   return (
-    <div className="app">
-      <div className="canvas">
+    <LearnShell current="/terms">
         <article className="legal">
-          <p className="wf-small"><Link href="/">← haggs</Link></p>
           <h1>Terms of use</h1>
           <p className="wf-small">Last updated 23 October 2026.</p>
           <h2>What haggs is</h2>
@@ -30,7 +29,6 @@ export default function Terms() {
           <p>Questions or a problem: use the issues page on the project&rsquo;s GitHub, <a href="https://github.com/IBFolding/haggs">github.com/IBFolding/haggs</a>.</p>
           <p className="wf-small"><Link href="/privacy">Privacy</Link></p>
         </article>
-      </div>
-    </div>
+    </LearnShell>
   );
 }
