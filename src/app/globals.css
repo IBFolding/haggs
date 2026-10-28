@@ -3822,3 +3822,26 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ed-library-note { color: var(--premium); font-size: 12px; }
 .ed-library .ph-ghost { margin-top: auto; font-size: 13px; }
 @media (max-width: 1180px) { .ed-library { display: none; } }
+
+/* Landing: the model ticker and the open-weights band, as in the prototype */
+.lp-ticker { overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.45); }
+.lp-ticker-row { display: flex; gap: 44px; width: max-content; padding: 18px 0; animation: lmarq 50s linear infinite; }
+.lp-ticker-row span { display: flex; gap: 10px; align-items: center; white-space: nowrap; font: 700 20px var(--ui); letter-spacing: -.01em; color: var(--text); }
+.lp-ticker-row i { font: 700 9px var(--mono); font-style: normal; letter-spacing: .1em; text-transform: uppercase; color: var(--volt-ink); background: var(--volt); border-radius: 999px; padding: 2px 7px; }
+@keyframes lmarq { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@media (prefers-reduced-motion: reduce) { .lp-ticker-row { animation: none; } }
+.lp-openband { margin: 40px 0; padding: 44px max(32px, calc(50% - 628px)); background: var(--volt); color: var(--volt-ink); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 32px; align-items: center; }
+.lp-openband span { font: 700 12px var(--mono); letter-spacing: .16em; text-transform: uppercase; }
+.lp-openband h2 { font: 800 clamp(36px, 4.2vw, 64px)/.92 var(--ui); letter-spacing: -.05em; margin: 14px 0 0; color: var(--volt-ink); }
+.lp-openband h2::before { content: none !important; }
+.lp-openband p { font: 500 17px/1.5 var(--ui); margin: 0 0 18px; color: var(--volt-ink); }
+.lp-openband button { background: var(--volt-ink); color: var(--volt); border: 0; border-radius: 999px; padding: 16px 28px; font: 800 16px var(--ui); cursor: pointer; }
+.lp-openband button:hover { filter: brightness(1.3); }
+
+/* Asked on the page when something needs a way to run, instead of a pop-up on arrival. */
+.key-callout { display: grid; gap: 8px; justify-items: start; max-width: 560px; padding: 18px 20px; margin: 0 0 14px; border: 1px solid var(--volt); border-radius: 14px; background: color-mix(in oklch, var(--volt) 7%, transparent); font-size: 14px; line-height: 1.5; color: var(--text-2); }
+.key-callout b { color: var(--text); font-size: 15px; }
+.key-callout .ph-go { padding: 10px 18px; }
+.key-callout.inline { display: inline; max-width: none; padding: 4px 10px; margin: 0 10px 0 0; border-radius: 999px; font-size: 12.5px; }
+.key-callout.inline b { font-size: 12.5px; }
+.key-callout.inline .plain { color: var(--volt); }
