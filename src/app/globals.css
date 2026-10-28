@@ -3529,3 +3529,14 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .shot:hover { transform: translateY(-3px); }
 .md-head h1, .sh-head h1 { font-size: clamp(32px, 4vw, 52px); line-height: .98; letter-spacing: -.04em; }
 .shot-no, .shot-badge, .shot-lock, .cell-cost { font-family: var(--mono); }
+
+/* ─── UI overhaul phase 7: Cut and Grey room ───────────────────────────── */
+.ed-side, .ed-time { background: var(--surface-2); }
+.ed-side { border-left-color: var(--line); }
+.ed-time-bar { font-family: var(--mono); font-size: 12px; }
+.ed-card, .takes-note { border-radius: 12px; }
+.gs-head h1 { font-size: clamp(28px, 3.4vw, 44px); line-height: 1; font-weight: 800; letter-spacing: -.04em; }
+.gs-side, .gs-panel-card { border-radius: 16px; background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.45); }
+.gs-side h2 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.gs-track input { height: 4px; }
+.gs-note { font-family: var(--mono); font-size: 11.5px; letter-spacing: .02em; }
