@@ -8,6 +8,7 @@ import { AcademyPath } from "./academy-path";
 import { JoinBand, JoinButton } from "./join-push";
 import { HeroReel } from "./hero-reel";
 import { ModelsWall } from "./models-wall";
+import { QUICK_APPS } from "../comfy/quick";
 import { ModelTicker } from "./model-ticker";
 import { OpenWeightsBand } from "./open-weights-band";
 import { WorkflowDemo } from "./workflow-demo";
@@ -47,16 +48,23 @@ export default function Landing() {
       <main className="lp-main">
         <section className="lp-hero">
           <div className="lp-hero-text">
-            <h1>Script to screen. <b>Every shot, every price, in the open.</b></h1>
+            <span className="lp-kicker">Open-source film studio on Comfy</span>
+            <h1>Script to screen. <b>Every price in the open.</b></h1>
             <p>
-              Turn your script into a board, create the shots, and finish the cut. Pictures, motion, voices and music in one open-source studio.
-              See the price before you generate.
+              Turn a script, a photo, a video or a workflow into a finished cut. Pictures, motion, voices and music in one studio, with the price on every button before you press it.
             </p>
             <div className="lp-cta">
-              <Link className="fire" href="/library">Start a project</Link>
+              <Link className="fire" href="/library">Start a project →</Link>
+              <Link className="lp-ghost" href="/photos">Make something now</Link>
               <JoinButton />
-              <Link className="plain" href="/workflows">See the Comfy workflows</Link>
             </div>
+            <Link className="plain lp-wf-link" href="/workflows">See the Comfy workflows</Link>
+            <ul className="lp-stats" aria-label="About haggs">
+              <li>MIT licensed</li>
+              <li>{QUICK_APPS.length} ready-made apps</li>
+              <li>Runs on your GPU</li>
+              <li>#OpenSourceHiggsfield</li>
+            </ul>
           </div>
           <HeroReel />
         </section>
@@ -64,7 +72,7 @@ export default function Landing() {
         <ModelTicker />
 
         <section className="lp-tiles" aria-label="Make something now">
-          <h2>Make something now</h2>
+          <h2 data-kicker="Make something now">Pick a door. Every one leads to a finished cut.</h2>
           <div className="lp-tile-grid">
             {TILES.map((t) => (
               <Link key={t.href} href={t.href} className="lp-tile">
@@ -80,7 +88,7 @@ export default function Landing() {
         <JoinBand />
 
         <section className="lp-wall" aria-label="What it makes">
-          <h2>Made with it, and how</h2>
+          <h2 data-kicker="Made with it, and how">Every result is a starting point you can open.</h2>
           <p className="lp-wall-lede">Every result here is a starting point you can open. Press “How it was made” for the exact prompt, the model and what it cost, then try it with your own words.</p>
           <div className="lp-wall-grid">
             {SHOWN.map((t) => (
@@ -113,7 +121,7 @@ export default function Landing() {
         <ModelsWall />
 
         <section className="lp-case" aria-label="Case study: recreate an edit">
-          <h2>Recreate an edit, made for real</h2>
+          <h2 data-kicker="Recreate an edit, made for real">A trending edit, rebuilt around a character who stays the same.</h2>
           <div className="lp-case-body">
             <video src="/showcase/recreate-outfit-check.mp4" poster="/showcase/recreate-outfit-check.jpg" muted loop playsInline autoPlay controls preload="metadata" />
             <div>
@@ -132,7 +140,7 @@ export default function Landing() {
         </section>
 
         <section className="lp-starts">
-          <h2>Start however you start</h2>
+          <h2 data-kicker="Start however you start">Four ways in.</h2>
           <div className="lp-start-grid">
             <article>
               <h3>Pick a format</h3>
@@ -175,13 +183,13 @@ export default function Landing() {
         </section>
 
         <section className="lp-academy" id="academy">
-          <h2>Learn it by making it</h2>
+          <h2 data-kicker="Academy">Learn it by making it.</h2>
           <p>The Academy is seven short lessons, about 90 minutes in all. You make a video in the first one, and every lesson ends in something real in haggs. Finish all seven for a certificate.</p>
           <AcademyPath lessons={LESSONS} />
         </section>
 
         <section className="lp-mcp" id="mcp">
-          <h2>Works with Claude and Codex over MCP</h2>
+          <h2 data-kicker="Claude and Codex over MCP">They read your project. You press Apply.</h2>
           <p>
             haggs ships an MCP server. Connect Claude or Codex and it can read your projects, then send you work to apply: a whole board, takes,
             voice lines, a series, or an app laid out on the canvas. Nothing changes until you press Apply, and nothing is spent until you
@@ -198,7 +206,7 @@ export default function Landing() {
         </section>
 
         <section className="lp-honest">
-          <h2>What it costs</h2>
+          <h2 data-kicker="What it costs">The price is on the button, every time.</h2>
           <p>
             Every Generate button shows its price before you press it. Bring your own Comfy key and pay Comfy directly, or subscribe and
             spend included credits.

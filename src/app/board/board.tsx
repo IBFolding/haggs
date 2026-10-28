@@ -18,6 +18,7 @@ import { rates, run, type Rate } from "../actions";
 import { addSubplot, placeShot } from "../../story/flow";
 import { Nav, openKeys } from "../nav";
 import { FlowCanvas } from "./flow-canvas";
+import { BoardTable } from "./board-table";
 import { shoot } from "../shoot";
 import { addTake } from "../../story/takes";
 import { PROJECT_SAVED } from "../agent";
@@ -47,6 +48,9 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
   const dragging = useRef<number | null>(null);
   const [animating, setAnimating] = useState(false);
   const [picturing, setPicturing] = useState(false);
+  const [shown, setShown] = useState<"table" | "flow">("flow");
+  useEffect(() => { try { if (localStorage.getItem("haggs.board.view") === "table") setShown("table"); } catch { /* a view preference only */ } }, []);
+  const chooseView = (v: "table" | "flow") => { setShown(v); try { localStorage.setItem("haggs.board.view", v); } catch { /* a view preference only */ } };
 
   // The producer changed this project from the chat: load it again, so this page's next save keeps the change.
   useEffect(() => {
@@ -269,6 +273,10 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
               Animate stills · {plan.shots.length}
             </button>
           )}
+          <span className="view-toggle board-view" role="tablist" aria-label="Board view">
+            <button role="tab" aria-selected={shown === "table"} onClick={() => chooseView("table")}>Table</button>
+            <button role="tab" aria-selected={shown === "flow"} onClick={() => chooseView("flow")}>Flow</button>
+          </span>
         </div>
         {animating && <AnimateAll plan={plan} onRun={animateOne} onClose={() => setAnimating(false)} />}
         {picturing && (
@@ -280,6 +288,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
           />
         )}
 
+        {shown === "table" ? <BoardTable project={project} selected={selected} stale={stale} rates={rateMap} onSelect={setSelected} /> : (
         <FlowCanvas
           project={project}
           selected={selected}
@@ -309,6 +318,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
             })
           }
         />
+        )}
       </div>
 
       {shot && (

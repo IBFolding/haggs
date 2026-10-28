@@ -22,7 +22,7 @@ const MODELS: Model[] = [
 export function ModelsWall() {
   return (
     <section className="mw" aria-label="The models">
-      <h2>The models, and what each one is for</h2>
+      <h2 data-kicker="The models">The models, and what each one is for.</h2>
       <p className="mw-lede">Everything runs on Comfy. Pick the model for the job, see the price first, and swap any step for an open-weights one.</p>
       <ul className="mw-row">
         {MODELS.map((m) => (
