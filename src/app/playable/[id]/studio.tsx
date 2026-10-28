@@ -83,7 +83,10 @@ export function Studio({ id }: { id: string }) {
     const next = answer.ok
       ? await store.change(game.id, answer.spec, line("note", `Asked Claude to fix: ${error}`), line("claude", answer.said))
       : await store.say(game.id, line("note", answer.reason));
-    setNeedsKey(!answer.ok && "needsKey" in answer && Boolean(answer.needsKey));
+    const keyless = !answer.ok && "needsKey" in answer && Boolean(answer.needsKey);
+    setNeedsKey(keyless);
+    // On your own computer the connected Claude can fix it over MCP instead.
+    if (keyless && process.env.NODE_ENV !== "production") setAsk(mcpEditAsk(game.id, bare(game.spec), `Fix this bug: ${error}`));
     if (next) setGame(next);
     setThinking(false);
   };
