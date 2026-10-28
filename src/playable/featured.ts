@@ -1,4 +1,4 @@
-import type { Art, GameSpec, Shape } from "./spec";
+import type { Art, TemplateSpec, Shape } from "./spec";
 
 /**
  * Ready-made games shown on Playable's home page, so there is something to
@@ -8,7 +8,7 @@ import type { Art, GameSpec, Shape } from "./spec";
 
 const art = (prompt: string, color: string, shape: Shape): Art => ({ prompt, color, shape });
 
-export type Featured = { id: string; spec: GameSpec };
+export type Featured = { id: string; spec: TemplateSpec };
 
 export const FEATURED: Featured[] = [
   {

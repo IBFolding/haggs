@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MIN_JUMP, RANGES, SpecError, bare, keepMadeArt, TEMPLATES, defaultSpec, readSpec, ruleChips, slotsOf, withArt, type GameSpec } from "./spec";
+import { MIN_JUMP, RANGES, SpecError, bare, keepMadeArt, TEMPLATES, defaultSpec, readSpec, ruleChips, slotsOf, withArt, type GameSpec, type TemplateSpec } from "./spec";
 
 test("every default spec reads back unchanged", () => {
   for (const t of TEMPLATES) assert.deepEqual(readSpec(defaultSpec(t)), defaultSpec(t));
@@ -52,7 +52,7 @@ test("art keeps only https, the app's own media, and picture data URIs", () => {
 });
 
 test("long words are cut to fit the cards", () => {
-  const spec = readSpec({ template: "match", title: "x".repeat(500), text: { win: "y".repeat(500) } });
+  const spec = readSpec({ template: "match", title: "x".repeat(500), text: { win: "y".repeat(500) } }) as TemplateSpec;
   assert.equal(spec.title.length, 60);
   assert.equal(spec.text.win.length, 120);
 });
@@ -110,7 +110,7 @@ test("bare drops every picture; keepMadeArt puts back the ones whose prompt is u
   assert.equal(JSON.stringify(stripped).includes("blob.example.com"), false);
   const edited = withArt(stripped, "tiles.1", { prompt: "a new tile" });
   const kept = keepMadeArt(made, edited);
-  assert.equal(kept.art.background.url, "https://blob.example.com/bg.png");
+  assert.equal(kept.template === "match" && kept.art.background.url, "https://blob.example.com/bg.png");
   assert.equal(kept.template === "match" && kept.art.tiles[1]!.url, undefined);
   assert.equal(kept.template === "match" && kept.art.tiles[1]!.prompt, "a new tile");
 });

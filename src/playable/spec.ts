@@ -13,7 +13,6 @@ export type Template = (typeof TEMPLATES)[number];
 export const SHAPES = ["circle", "square", "triangle", "diamond", "star"] as const;
 export type Shape = (typeof SHAPES)[number];
 
-/** One piece of art: drawn as a coloured shape until a picture is made for it. */
 /** A piece of art: a placeholder shape, what to make, the picture once made, and a picture to follow (a character, a place, an upload). */
 export type Art = { prompt: string; color: string; shape: Shape; url?: string; ref?: string };
 
@@ -30,7 +29,38 @@ export type RunnerSpec = Base & { template: "runner"; art: { player: Art; hazard
 export type CollectorSpec = Base & { template: "collector"; art: { player: Art; hazard: Art; pickup: Art; background: Art }; rules: CollectorRules };
 export type MatchSpec = Base & { template: "match"; art: { background: Art; tiles: Art[] }; rules: MatchRules };
 
-export type GameSpec = RunnerSpec | CollectorSpec | MatchSpec;
+export type TemplateSpec = RunnerSpec | CollectorSpec | MatchSpec;
+
+/**
+ * A game Claude wrote as code: a manifest (what it is, how it's played, every
+ * asset it draws) and the game script, which runs locked down in a frame
+ * against the haggs game kit (`kit.ts`). Its assets are art slots like any
+ * other, so they are priced, made and referenced the same way.
+ */
+export const ASPECTS = ["16:9", "9:16", "4:3", "1:1"] as const;
+export type Aspect = (typeof ASPECTS)[number];
+export type Asset = Art & { id: string; label: string; kind: "sprite" | "background" };
+export type CodeSpec = {
+  version: 2;
+  template: "code";
+  title: string;
+  pitch: string;
+  genre: string;
+  controls: string;
+  aspect: Aspect;
+  /** Three.js is loaded for the game: the 3D (beta) switch. */
+  three: boolean;
+  /** "pad": an on-screen stick and two buttons on touch screens. "tap": the game reads taps itself. */
+  touch: "pad" | "tap";
+  palette: Palette;
+  art: { assets: Asset[] };
+  code: string;
+};
+
+export type GameSpec = TemplateSpec | CodeSpec;
+
+export const CODE_LIMITS = { assets: 24, code: 200_000 } as const;
+const ASSET_ID = /^[a-z][a-z0-9_-]{0,31}$/;
 
 /** [min, max] for every number, per template. Clamped into, never rejected. */
 export const RANGES = {
@@ -50,7 +80,7 @@ export const TEMPLATE_INFO: Record<Template, { name: string; genre: string; says
 
 const art = (prompt: string, color: string, shape: Shape): Art => ({ prompt, color, shape });
 
-export function defaultSpec(template: Template): GameSpec {
+export function defaultSpec(template: Template): TemplateSpec {
   if (template === "runner") {
     return {
       version: 1, template, title: "Rooftop Dash", pitch: "A courier sprints across the city's rooftops at dusk.",
@@ -167,6 +197,7 @@ function clearable({ speed, gravity, jump }: RunnerRules): Pick<RunnerRules, "gr
  */
 export function readSpec(value: unknown): GameSpec {
   if (!isObj(value)) throw new SpecError("That isn't a game spec.");
+  if (value.template === "code") return readCodeSpec(value);
   const template = value.template;
   if (!TEMPLATES.includes(template as Template)) throw new SpecError(`A game needs a template: ${TEMPLATES.join(", ")}.`);
   const base = defaultSpec(template as Template);
@@ -193,10 +224,54 @@ export function readSpec(value: unknown): GameSpec {
   return { ...shared, template: "collector", art: four, rules: readRules(value.rules, "collector", base.rules) };
 }
 
+const CODE_PALETTE: Palette = { sky: "#101418", ground: "#1b222b", accent: "#35e48a", text: "#f5f5f4" };
+
+/**
+ * A code game, read like any spec: words trimmed, colours checked, picture
+ * links kept only when safe, assets limited and named so the kit can find
+ * them. Code that is empty reads (it's how the server sees a game it only
+ * prices or makes art for); code that is too long is refused.
+ */
+function readCodeSpec(value: Record<string, unknown>): CodeSpec {
+  const palette = isObj(value.palette) ? value.palette : {};
+  const given = isObj(value.art) && Array.isArray(value.art.assets) ? value.art.assets : [];
+  const seen = new Set<string>();
+  const assets: Asset[] = [];
+  for (const a of given) {
+    if (!isObj(a) || typeof a.id !== "string" || !ASSET_ID.test(a.id) || seen.has(a.id)) continue;
+    if (assets.length >= CODE_LIMITS.assets) break;
+    seen.add(a.id);
+    const kind = a.kind === "background" ? "background" : "sprite";
+    const art = readArt(a, { prompt: a.id, color: CODE_PALETTE.accent, shape: kind === "background" ? "square" : "circle" });
+    assets.push({ id: a.id, label: text(a.label, a.id, 40), kind, ...art });
+  }
+  const code = typeof value.code === "string" ? value.code : "";
+  if (code.length > CODE_LIMITS.code) throw new SpecError("That game's code is too long to keep.");
+  return {
+    version: 2,
+    template: "code",
+    title: text(value.title, "Untitled game", 60),
+    pitch: text(value.pitch, "A game made with haggs Playable.", 280),
+    genre: text(value.genre, "Arcade", 40),
+    controls: text(value.controls, "Arrows or tap", 160),
+    aspect: ASPECTS.includes(value.aspect as Aspect) ? (value.aspect as Aspect) : "16:9",
+    three: value.three === true,
+    touch: value.touch === "tap" ? "tap" : "pad",
+    palette: { sky: color(palette.sky, CODE_PALETTE.sky), ground: color(palette.ground, CODE_PALETTE.ground), accent: color(palette.accent, CODE_PALETTE.accent), text: color(palette.text, CODE_PALETTE.text) },
+    art: { assets },
+    code,
+  };
+}
+
+/** What kind of game it is and how it's played, for cards and headers. */
+export const genreOf = (spec: GameSpec) => (spec.template === "code" ? spec.genre : TEMPLATE_INFO[spec.template].genre);
+export const controlsOf = (spec: GameSpec) => (spec.template === "code" ? spec.controls : TEMPLATE_INFO[spec.template].controls);
+
 /** The art slots a spec has, in the order the art panel lists them. */
 export type Slot = { key: string; label: string; kind: "sprite" | "background"; art: Art };
 
 export function slotsOf(spec: GameSpec): Slot[] {
+  if (spec.template === "code") return spec.art.assets.map((a): Slot => ({ key: `assets.${a.id}`, label: a.label, kind: a.kind, art: a }));
   if (spec.template === "match") {
     return [
       { key: "background", label: "Background", kind: "background", art: spec.art.background },
@@ -220,6 +295,12 @@ export function withArt(spec: GameSpec, key: string, change: { [K in keyof Art]?
     if (change.ref === undefined && "ref" in change) delete merged.ref;
     return readArt(merged, a);
   };
+  if (next.template === "code") {
+    const at = next.art.assets.findIndex((a) => `assets.${a.id}` === key);
+    const was = next.art.assets[at];
+    if (was) next.art.assets[at] = { id: was.id, label: was.label, kind: was.kind, ...apply(was) };
+    return next;
+  }
   if (next.template === "match") {
     if (key === "background") next.art.background = apply(next.art.background);
     const tile = /^tiles\.(\d)$/.exec(key);
@@ -233,6 +314,12 @@ export function withArt(spec: GameSpec, key: string, change: { [K in keyof Art]?
 /** The spec without its pictures: what the server needs to price, make art or edit, and a small request. */
 export function bare(spec: GameSpec): GameSpec {
   return readSpec(JSON.parse(JSON.stringify(spec, (k, v) => (k === "url" || k === "ref" ? undefined : v))));
+}
+
+/** Smaller still, for pricing and making art: a code game without its code. */
+export function forArt(spec: GameSpec): GameSpec {
+  const light = bare(spec);
+  return light.template === "code" ? { ...light, code: "" } : light;
 }
 
 /**
@@ -252,6 +339,7 @@ export function keepMadeArt(before: GameSpec, after: GameSpec): GameSpec {
 
 /** The numbers as short chips for the spec panel: "Speed 320", "3 lives". */
 export function ruleChips(spec: GameSpec): string[] {
+  if (spec.template === "code") return [spec.genre, spec.three ? "3D (beta)" : "2D", spec.aspect, `${spec.art.assets.length} ${spec.art.assets.length === 1 ? "asset" : "assets"}`];
   if (spec.template === "runner") {
     const r = spec.rules;
     return [`Speed ${r.speed}`, `Jump ${r.jump}`, `Gravity ${r.gravity}`, `Hazard every ${r.spawnEvery}s`, `${r.lives} ${r.lives === 1 ? "life" : "lives"}`, r.goal === "distance" ? `Run ${r.target} m` : `Score ${r.target}`];

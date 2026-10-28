@@ -6,14 +6,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { defaultKv } from "../../../story/kv";
 import { creditsText, totalText } from "../../../story/price-text";
 import { mcpEditAsk, type SentGame } from "../../../playable/claude";
-import { TEMPLATE_INFO, bare, keepMadeArt, readSpec, ruleChips, slotsOf, withArt, type GameSpec, type Slot } from "../../../playable/spec";
+import { readCodeReply, type Quality } from "../../../playable/code";
+import { bare, forArt, genreOf, keepMadeArt, readSpec, ruleChips, slotsOf, withArt, type CodeSpec, type GameSpec, type Slot } from "../../../playable/spec";
 import { createGameStore, type ChatLine, type SavedGame } from "../../../playable/store";
 import { Nav, openKeys } from "../../nav";
 import { editGame, makeArt, quoteArt, type ArtQuote } from "../actions";
 import { BankPicker, useReturnedPick } from "../../bank-picker";
+import { CodeFrame } from "../code-frame";
 import { GameCanvas } from "../game-canvas";
 import { pictureFile } from "../picture-file";
 import { McpAsk, useSentGames } from "../sent";
+import { QualitySwitch } from "../quality-switch";
+import { writeGame } from "../write";
 
 const line = (who: ChatLine["who"], text: string): ChatLine => ({ who, text, at: Date.now() });
 
@@ -28,6 +32,10 @@ export function Studio({ id }: { id: string }) {
   const [ask, setAsk] = useState<string | null>(null);
   const { sent, drop } = useSentGames();
   const mine = sent.filter((s) => s.game === id);
+  const [quality, setQuality] = useState<Quality>("quality");
+  const [lines, setLines] = useState(0);
+  const [bug, setBug] = useState<string | null>(null);
+  const onBug = useCallback((m: string | null) => setBug(m), []);
 
   useEffect(() => {
     store.get(id).then((g) => setGame(g ?? null), () => setGame(null));
@@ -35,12 +43,26 @@ export function Studio({ id }: { id: string }) {
 
   useEffect(() => { chatEnd.current?.scrollIntoView({ block: "nearest" }); }, [game?.chat.length, mine.length]);
 
+  /** A code game rewritten by Claude on your key, streamed; made art stays where its asset didn't change. */
+  const rewrite = async (spec: CodeSpec, body: { mode: "edit"; message: string } | { mode: "fix"; error: string }) => {
+    setLines(0);
+    const written = await writeGame({ ...body, quality, game: bare(spec) }, setLines);
+    if (!written.ok) return { ok: false as const, reason: written.reason, ...(written.needsKey ? { needsKey: true } : {}) };
+    try {
+      const reply = readCodeReply(written.text, { three: spec.three, before: spec });
+      return { ok: true as const, spec: reply.spec, said: reply.said };
+    } catch (caught) {
+      return { ok: false as const, reason: caught instanceof Error ? caught.message : "Claude's reply couldn't be read." };
+    }
+  };
+
   const send = async () => {
     const text = message.trim();
     if (!game || !text || thinking) return;
     setThinking(true);
     setMessage("");
-    const answer = await editGame(bare(game.spec), text).catch(() => ({ ok: false as const, reason: "Claude couldn't be reached. Try again." }));
+    const spec = game.spec;
+    const answer = await (spec.template === "code" ? rewrite(spec, { mode: "edit", message: text }) : editGame(bare(spec), text)).catch(() => ({ ok: false as const, reason: "Claude couldn't be reached. Try again." }));
     const keyless = !answer.ok && "needsKey" in answer && Boolean(answer.needsKey);
     // On your own computer the connected Claude can change it over MCP instead, and send it here.
     setAsk(keyless && process.env.NODE_ENV !== "production" ? mcpEditAsk(game.id, bare(game.spec), text) : null);
@@ -48,6 +70,20 @@ export function Studio({ id }: { id: string }) {
       ? await store.change(game.id, keepMadeArt(game.spec, answer.spec), line("you", text), line("claude", answer.said))
       : await store.say(game.id, line("you", text), line("note", answer.reason));
     setNeedsKey(keyless);
+    if (next) setGame(next);
+    setThinking(false);
+  };
+
+  /** One round of Claude reading the bug and fixing the game. */
+  const fixBug = async () => {
+    if (!game || game.spec.template !== "code" || !bug || thinking) return;
+    setThinking(true);
+    const error = bug;
+    const answer = await rewrite(game.spec, { mode: "fix", error });
+    const next = answer.ok
+      ? await store.change(game.id, answer.spec, line("note", `Asked Claude to fix: ${error}`), line("claude", answer.said))
+      : await store.say(game.id, line("note", answer.reason));
+    setNeedsKey(!answer.ok && "needsKey" in answer && Boolean(answer.needsKey));
     if (next) setGame(next);
     setThinking(false);
   };
@@ -91,7 +127,7 @@ export function Studio({ id }: { id: string }) {
   }
 
   const spec = game.spec;
-  const info = TEMPLATE_INFO[spec.template];
+  const genre = genreOf(spec);
   return (
     <div className="app">
       <Nav current="Playable" />
@@ -99,7 +135,7 @@ export function Studio({ id }: { id: string }) {
         <header className="pl-studio-head">
           <Link href="/playable" className="pl-back">← Playable</Link>
           <h1>{spec.title}</h1>
-          <span className="pl-badge">{info.genre}</span>
+          <span className="pl-badge">{genre}</span>
         </header>
         <div className="pl-studio">
           <aside className="pl-panel pl-chat" aria-label="Chat">
@@ -107,7 +143,7 @@ export function Studio({ id }: { id: string }) {
             <div className="pl-log">
               {game.chat.length === 0 ? <p className="pl-sub">Say what to change: faster, harder, a different hero, a winter theme, a different kind of game.</p> : null}
               {game.chat.map((l, i) => <p key={i} className={`pl-line pl-${l.who}`}>{l.text}</p>)}
-              {thinking ? <p className="pl-line pl-claude pl-thinking">Changing the game…</p> : null}
+              {thinking ? <p className="pl-line pl-claude pl-thinking">{spec.template === "code" ? `Changing the game… ${lines ? `${lines} lines` : "thinking"}` : "Changing the game…"}</p> : null}
               {mine.map((s) => (
                 <div key={s.id} className="pl-line pl-claude pl-sent-line">
                   <span>Claude sent a change over MCP: {s.summary}</span>
@@ -133,7 +169,7 @@ export function Studio({ id }: { id: string }) {
               />
               <div className="pl-composer-bar">
                 <button className="pl-ghost pl-small" onClick={() => void undo()} disabled={!game.history.length || thinking}>Undo</button>
-                <span className="pl-mono">Claude · your key</span>
+                {spec.template === "code" ? <QualitySwitch value={quality} onChange={setQuality} /> : <span className="pl-mono">Claude · your key</span>}
                 <button className="pl-go pl-small" onClick={() => void send()} disabled={!message.trim() || thinking}>Send</button>
               </div>
             </div>
@@ -146,7 +182,13 @@ export function Studio({ id }: { id: string }) {
           </aside>
 
           <main className="pl-main">
-            <GameCanvas spec={spec} />
+            {spec.template === "code" ? <CodeFrame spec={spec} onBug={onBug} /> : <GameCanvas spec={spec} />}
+            {spec.template === "code" && bug ? (
+              <div className="pl-bug" role="alert">
+                <span>This game hit a bug: {bug}</span>
+                <button className="pl-go pl-small" disabled={thinking} onClick={() => void fixBug()}>{thinking ? "Fixing…" : "Ask Claude to fix · your key"}</button>
+              </div>
+            ) : null}
           </main>
 
           <ArtPanel spec={spec} onChange={changeSpec} />
@@ -168,7 +210,7 @@ function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpe
   useEffect(() => {
     let live = true;
     const timer = setTimeout(() => {
-      quoteArt(bare(specRef.current)).then((q) => { if (live) setQuote(q); }, () => undefined);
+      quoteArt(forArt(specRef.current)).then((q) => { if (live) setQuote(q); }, () => undefined);
     }, 300);
     return () => { live = false; clearTimeout(timer); };
   }, [prompts]);
@@ -184,7 +226,7 @@ function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpe
     // One at a time: each is charged on its own, and a failure stops the rest.
     for (const slot of wanted) {
       const follow = slotsOf(specRef.current).find((s) => s.key === slot.key)?.art.ref;
-      const made = await makeArt(bare(specRef.current), slot.key, ...(follow ? [follow] : [])).catch(() => ({ ok: false as const, reason: "The art couldn't be made. Nothing was retried." }));
+      const made = await makeArt(forArt(specRef.current), slot.key, ...(follow ? [follow] : [])).catch(() => ({ ok: false as const, reason: "The art couldn't be made. Nothing was retried." }));
       setBusy((b) => { const n = new Set(b); n.delete(slot.key); return n; });
       if (!made.ok) {
         setProblem({ text: made.reason, ...("needsKey" in made && made.needsKey ? { needsKey: true } : {}) });
@@ -324,3 +366,4 @@ function PromptBox({ value, onSave }: { value: string; onSave: (value: string) =
   const save = () => { if (text.trim() && text.trim() !== value) onSave(text.trim()); };
   return <textarea className="pl-prompt" value={text} rows={2} maxLength={400} onChange={(e) => setText(e.target.value)} onBlur={save} aria-label="What the picture shows" />;
 }
+

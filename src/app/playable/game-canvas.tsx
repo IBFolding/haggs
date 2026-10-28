@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { keyOut } from "../../playable/art";
 import { draw, loadPicture, matchLayout, toWorld, type Pictures } from "../../playable/render";
-import { TEMPLATE_INFO, slotsOf, type GameSpec } from "../../playable/spec";
+import { TEMPLATE_INFO, slotsOf, type TemplateSpec } from "../../playable/spec";
 import { hudOf, initGame, stepGame, type GameState, type Input } from "../../playable/templates";
 import { tapCell } from "../../playable/templates/match";
 
@@ -21,7 +21,7 @@ const typing = (target: EventTarget | null) => target instanceof HTMLElement && 
  * A new spec with the same template carries on with the new rules and art, so
  * a chat edit can be felt mid-run; a new template starts over at the intro.
  */
-export function GameCanvas({ spec }: { spec: GameSpec }) {
+export function GameCanvas({ spec }: { spec: TemplateSpec }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const specRef = useRef(spec);
@@ -43,7 +43,7 @@ export function GameCanvas({ spec }: { spec: GameSpec }) {
   useEffect(() => {
     const before = specRef.current;
     specRef.current = spec;
-    const board = (s: GameSpec) => (s.template === "match" ? `${s.rules.rows}x${s.rules.cols}x${s.rules.kinds}` : "");
+    const board = (s: TemplateSpec) => (s.template === "match" ? `${s.rules.rows}x${s.rules.cols}x${s.rules.kinds}` : "");
     if (before.template !== spec.template || board(before) !== board(spec)) {
       stateRef.current = initGame(spec, 1);
       setPhase("intro");
