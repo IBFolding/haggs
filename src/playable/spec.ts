@@ -1,0 +1,258 @@
+/**
+ * A Playable game is a spec, never code: a template name, the art for each
+ * slot, the numbers the template runs on, and the words on its cards. Claude
+ * writes specs and chat edits rewrite them, so everything that comes in is
+ * read through `readSpec`, which keeps the fields it knows, fills the ones it
+ * doesn't with the template's defaults, and clamps every number into a range
+ * the game can actually be played at. A spec that reads is always playable.
+ */
+
+export const TEMPLATES = ["runner", "collector", "match"] as const;
+export type Template = (typeof TEMPLATES)[number];
+
+export const SHAPES = ["circle", "square", "triangle", "diamond", "star"] as const;
+export type Shape = (typeof SHAPES)[number];
+
+/** One piece of art: drawn as a coloured shape until a picture is made for it. */
+export type Art = { prompt: string; color: string; shape: Shape; url?: string };
+
+export type Palette = { sky: string; ground: string; accent: string; text: string };
+export type Words = { intro: string; win: string; lose: string };
+
+type Base = { version: 1; title: string; pitch: string; palette: Palette; text: Words };
+
+export type RunnerRules = { speed: number; gravity: number; jump: number; spawnEvery: number; pickupEvery: number; lives: number; goal: "distance" | "score"; target: number };
+export type CollectorRules = { speed: number; hazards: number; hazardSpeed: number; target: number; seconds: number; lives: number };
+export type MatchRules = { cols: number; rows: number; kinds: number; moves: number; target: number };
+
+export type RunnerSpec = Base & { template: "runner"; art: { player: Art; hazard: Art; pickup: Art; background: Art }; rules: RunnerRules };
+export type CollectorSpec = Base & { template: "collector"; art: { player: Art; hazard: Art; pickup: Art; background: Art }; rules: CollectorRules };
+export type MatchSpec = Base & { template: "match"; art: { background: Art; tiles: Art[] }; rules: MatchRules };
+
+export type GameSpec = RunnerSpec | CollectorSpec | MatchSpec;
+
+/** [min, max] for every number, per template. Clamped into, never rejected. */
+export const RANGES = {
+  runner: { speed: [150, 700], gravity: [900, 3200], jump: [480, 1150], spawnEvery: [0.7, 4], pickupEvery: [0.6, 6], lives: [1, 5], target: [5, 2000] },
+  collector: { speed: [120, 520], hazards: [0, 8], hazardSpeed: [40, 360], target: [3, 60], seconds: [15, 180], lives: [1, 5] },
+  match: { cols: [5, 8], rows: [5, 9], kinds: [3, 6], moves: [5, 60], target: [100, 20000] },
+} as const satisfies Record<Template, Record<string, readonly [number, number]>>;
+
+/** Whole numbers stay whole: counts, lives, grid sizes. */
+const WHOLE = new Set(["lives", "hazards", "target", "seconds", "cols", "rows", "kinds", "moves"]);
+
+export const TEMPLATE_INFO: Record<Template, { name: string; genre: string; says: string; controls: string }> = {
+  runner: { name: "Runner", genre: "Endless runner", says: "Keep running, jump what's in the way, grab what you can.", controls: "Space, ↑ or tap to jump" },
+  collector: { name: "Collector", genre: "Top-down collector", says: "Gather enough before the clock runs out, and stay clear of what roams.", controls: "Arrows or WASD, or hold where to go" },
+  match: { name: "Match", genre: "Match-three puzzle", says: "Swap neighbours to line up three or more, and reach the score in the moves you have.", controls: "Click a tile, then a neighbour" },
+};
+
+const art = (prompt: string, color: string, shape: Shape): Art => ({ prompt, color, shape });
+
+export function defaultSpec(template: Template): GameSpec {
+  if (template === "runner") {
+    return {
+      version: 1, template, title: "Rooftop Dash", pitch: "A courier sprints across the city's rooftops at dusk.",
+      palette: { sky: "#1d2440", ground: "#2b2f3a", accent: "#35e48a", text: "#f5f5f4" },
+      text: { intro: "Deliver the parcel. Jump the vents, grab the stamps.", win: "Delivered on time.", lose: "The parcel is late." },
+      art: {
+        player: art("a courier in a green jacket running, side view", "#35e48a", "square"),
+        hazard: art("a rooftop air vent, side view", "#ff6b6b", "triangle"),
+        pickup: art("a golden postage stamp", "#f5c451", "star"),
+        background: art("city rooftops at dusk, purple sky, distant towers, side-scrolling game background", "#1d2440", "square"),
+      },
+      rules: { speed: 320, gravity: 1900, jump: 760, spawnEvery: 1.6, pickupEvery: 2.2, lives: 3, goal: "distance", target: 300 },
+    };
+  }
+  if (template === "collector") {
+    return {
+      version: 1, template, title: "Firefly Field", pitch: "Catch fireflies in a meadow before the night ends, dodging the wasps.",
+      palette: { sky: "#0f2a1f", ground: "#123323", accent: "#35e48a", text: "#f5f5f4" },
+      text: { intro: "Catch the fireflies. Mind the wasps.", win: "A jar full of light.", lose: "The night got away." },
+      art: {
+        player: art("a child with a glass jar, top-down view", "#7dd3fc", "circle"),
+        hazard: art("an angry wasp, top-down view", "#ff6b6b", "diamond"),
+        pickup: art("a glowing firefly, top-down view", "#f5c451", "star"),
+        background: art("a meadow at night seen from above, dark grass, soft moonlight, top-down game background", "#0f2a1f", "square"),
+      },
+      rules: { speed: 260, hazards: 3, hazardSpeed: 120, target: 12, seconds: 45, lives: 3 },
+    };
+  }
+  return {
+    version: 1, template, title: "Gem Garden", pitch: "Line up seeds to make a garden bloom.",
+    palette: { sky: "#1a1430", ground: "#241c40", accent: "#35e48a", text: "#f5f5f4" },
+    text: { intro: "Swap neighbours to line up three seeds.", win: "The garden is in bloom.", lose: "Out of moves." },
+    art: {
+      background: art("a soft overgrown garden wall, muted colours, puzzle game background", "#1a1430", "square"),
+      tiles: [
+        art("a red berry, game icon", "#ff6b6b", "circle"),
+        art("a blue flower, game icon", "#7dd3fc", "diamond"),
+        art("a yellow sun seed, game icon", "#f5c451", "star"),
+        art("a green leaf, game icon", "#35e48a", "triangle"),
+        art("a purple plum, game icon", "#c084fc", "square"),
+      ],
+    },
+    rules: { cols: 7, rows: 7, kinds: 5, moves: 20, target: 1500 },
+  };
+}
+
+// ─── reading ─────────────────────────────────────────────────────────────
+
+export class SpecError extends Error {}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const text = (v: unknown, fallback: string, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : fallback);
+const HEX = /^#[0-9a-f]{6}$/i;
+const color = (v: unknown, fallback: string) => (typeof v === "string" && HEX.test(v.trim()) ? v.trim().toLowerCase() : fallback);
+/** Only https pictures and the app's own kept media; never a script or data of any other kind. */
+const safeUrl = (v: unknown): string | undefined => {
+  if (typeof v !== "string") return undefined;
+  const u = v.trim();
+  if (/^https:\/\/[^\s"'<>]+$/.test(u) && u.length < 2000) return u;
+  if (/^\/api\/[a-z-]+\/[^\s"'<>]+$/.test(u) && u.length < 2000) return u;
+  if (/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(u) && u.length < 3_000_000) return u;
+  return undefined;
+};
+
+export function clamp(n: number, [lo, hi]: readonly [number, number], whole: boolean): number {
+  const v = Math.min(hi, Math.max(lo, n));
+  return whole ? Math.round(v) : Math.round(v * 100) / 100;
+}
+
+function readArt(v: unknown, fallback: Art): Art {
+  if (!isObj(v)) return { ...fallback };
+  const shape = SHAPES.includes(v.shape as Shape) ? (v.shape as Shape) : fallback.shape;
+  const url = safeUrl(v.url);
+  return { prompt: text(v.prompt, fallback.prompt, 400), color: color(v.color, fallback.color), shape, ...(url ? { url } : {}) };
+}
+
+function readRules<R extends object>(v: unknown, template: Template, fallback: R): R {
+  const ranges = RANGES[template] as Record<string, readonly [number, number]>;
+  const given = isObj(v) ? v : {};
+  const out: Record<string, unknown> = { ...(fallback as Record<string, unknown>) };
+  for (const [name, range] of Object.entries(ranges)) {
+    const n = Number(given[name]);
+    if (given[name] !== undefined && given[name] !== null && Number.isFinite(n)) out[name] = clamp(n, range, WHOLE.has(name));
+  }
+  if (template === "runner") {
+    if (given.goal === "distance" || given.goal === "score") out.goal = given.goal;
+    Object.assign(out, clearable(out as unknown as RunnerRules));
+  }
+  return out as R;
+}
+
+/** The lowest jump a runner can be played with: this high, and this far at its slowest. */
+export const MIN_JUMP = { height: 60, across: 140 } as const;
+
+/**
+ * Each number can be in range and the three together still make a jump too
+ * small to clear anything (slow, weak and heavy). Raise the jump first, then
+ * lighten gravity, until the jump clears MIN_JUMP.
+ */
+function clearable({ speed, gravity, jump }: RunnerRules): Pick<RunnerRules, "gravity" | "jump"> {
+  const [, most] = RANGES.runner.jump;
+  const needs = (g: number) => Math.max(Math.sqrt(2 * MIN_JUMP.height * g), (MIN_JUMP.across * g) / (2 * speed));
+  if (jump >= needs(gravity)) return { gravity, jump };
+  if (needs(gravity) <= most) return { gravity, jump: Math.ceil(needs(gravity)) };
+  const g = Math.min((most * most) / (2 * MIN_JUMP.height), (2 * most * speed) / MIN_JUMP.across);
+  return { gravity: Math.floor(Math.max(RANGES.runner.gravity[0], g)), jump: most };
+}
+
+/**
+ * Reads anything into a playable spec, or throws a SpecError saying why it
+ * can't. Only a missing or unknown template is fatal; everything else falls
+ * back to the template's default.
+ */
+export function readSpec(value: unknown): GameSpec {
+  if (!isObj(value)) throw new SpecError("That isn't a game spec.");
+  const template = value.template;
+  if (!TEMPLATES.includes(template as Template)) throw new SpecError(`A game needs a template: ${TEMPLATES.join(", ")}.`);
+  const base = defaultSpec(template as Template);
+  const palette = isObj(value.palette) ? value.palette : {};
+  const words = isObj(value.text) ? value.text : {};
+  const shared = {
+    version: 1 as const,
+    title: text(value.title, base.title, 60),
+    pitch: text(value.pitch, base.pitch, 280),
+    palette: { sky: color(palette.sky, base.palette.sky), ground: color(palette.ground, base.palette.ground), accent: color(palette.accent, base.palette.accent), text: color(palette.text, base.palette.text) },
+    text: { intro: text(words.intro, base.text.intro, 160), win: text(words.win, base.text.win, 120), lose: text(words.lose, base.text.lose, 120) },
+  };
+  const given = isObj(value.art) ? value.art : {};
+  if (base.template === "match") {
+    const rules = readRules(value.rules, "match", base.rules);
+    const offered = Array.isArray(given.tiles) ? given.tiles : [];
+    const tiles = Array.from({ length: rules.kinds }, (_, i) => readArt(offered[i], base.art.tiles[i % base.art.tiles.length]!));
+    // A sixth kind with no art of its own still needs a colour that isn't one of the others.
+    if (rules.kinds === 6 && !offered[5]) tiles[5] = { ...tiles[5]!, color: "#f97316", shape: "circle" };
+    return { ...shared, template: "match", art: { background: readArt(given.background, base.art.background), tiles }, rules };
+  }
+  const four = { player: readArt(given.player, base.art.player), hazard: readArt(given.hazard, base.art.hazard), pickup: readArt(given.pickup, base.art.pickup), background: readArt(given.background, base.art.background) };
+  if (base.template === "runner") return { ...shared, template: "runner", art: four, rules: readRules(value.rules, "runner", base.rules) };
+  return { ...shared, template: "collector", art: four, rules: readRules(value.rules, "collector", base.rules) };
+}
+
+/** The art slots a spec has, in the order the art panel lists them. */
+export type Slot = { key: string; label: string; kind: "sprite" | "background"; art: Art };
+
+export function slotsOf(spec: GameSpec): Slot[] {
+  if (spec.template === "match") {
+    return [
+      { key: "background", label: "Background", kind: "background", art: spec.art.background },
+      ...spec.art.tiles.map((t, i): Slot => ({ key: `tiles.${i}`, label: `Tile ${i + 1}`, kind: "sprite", art: t })),
+    ];
+  }
+  return [
+    { key: "player", label: "Player", kind: "sprite", art: spec.art.player },
+    { key: "pickup", label: "Pickup", kind: "sprite", art: spec.art.pickup },
+    { key: "hazard", label: "Hazard", kind: "sprite", art: spec.art.hazard },
+    { key: "background", label: "Background", kind: "background", art: spec.art.background },
+  ];
+}
+
+/** A copy of the spec with one slot's art changed. Unknown slots change nothing. */
+export function withArt(spec: GameSpec, key: string, change: { [K in keyof Art]?: Art[K] | undefined }): GameSpec {
+  const next = structuredClone(spec) as GameSpec;
+  const apply = (a: Art): Art => {
+    const merged = { ...a, ...change };
+    if (change.url === undefined && "url" in change) delete merged.url;
+    return readArt(merged, a);
+  };
+  if (next.template === "match") {
+    if (key === "background") next.art.background = apply(next.art.background);
+    const tile = /^tiles\.(\d)$/.exec(key);
+    if (tile && next.art.tiles[Number(tile[1])]) next.art.tiles[Number(tile[1])] = apply(next.art.tiles[Number(tile[1])]!);
+    return next;
+  }
+  if (key === "player" || key === "pickup" || key === "hazard" || key === "background") next.art[key] = apply(next.art[key]);
+  return next;
+}
+
+/** The spec without its pictures: what the server needs to price, make art or edit, and a small request. */
+export function bare(spec: GameSpec): GameSpec {
+  return readSpec(JSON.parse(JSON.stringify(spec, (k, v) => (k === "url" ? undefined : v))));
+}
+
+/** A copy of `after` with the art already made in `before` kept on every slot whose prompt is unchanged. */
+export function keepMadeArt(before: GameSpec, after: GameSpec): GameSpec {
+  const made = new Map(slotsOf(before).filter((s) => s.art.url).map((s) => [s.key, s.art]));
+  let spec = after;
+  for (const slot of slotsOf(after)) {
+    const old = made.get(slot.key);
+    if (old?.url && !slot.art.url && old.prompt === slot.art.prompt) spec = withArt(spec, slot.key, { url: old.url });
+  }
+  return spec;
+}
+
+/** The numbers as short chips for the spec panel: "Speed 320", "3 lives". */
+export function ruleChips(spec: GameSpec): string[] {
+  if (spec.template === "runner") {
+    const r = spec.rules;
+    return [`Speed ${r.speed}`, `Jump ${r.jump}`, `Gravity ${r.gravity}`, `Hazard every ${r.spawnEvery}s`, `${r.lives} ${r.lives === 1 ? "life" : "lives"}`, r.goal === "distance" ? `Run ${r.target} m` : `Score ${r.target}`];
+  }
+  if (spec.template === "collector") {
+    const r = spec.rules;
+    return [`Speed ${r.speed}`, `${r.hazards} hazards`, `Hazard speed ${r.hazardSpeed}`, `Collect ${r.target}`, `${r.seconds}s`, `${r.lives} ${r.lives === 1 ? "life" : "lives"}`];
+  }
+  const r = spec.rules;
+  return [`${r.cols}×${r.rows} grid`, `${r.kinds} kinds`, `${r.moves} moves`, `Score ${r.target}`];
+}

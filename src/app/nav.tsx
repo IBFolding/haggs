@@ -32,6 +32,7 @@ const ITEMS = [
   { label: "Workflows", href: "/workflows" },
   { label: "Gallery", href: "/gallery" },
   { label: "Academy", href: "/academy" },
+  { label: "Playable", href: "/playable" },
 ] as const;
 
 export type Place = (typeof ITEMS)[number]["label"] | "Home" | "Account";
