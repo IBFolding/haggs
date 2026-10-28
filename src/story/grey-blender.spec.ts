@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { blenderManifest, BLENDER_SCRIPT } from "./grey-blender";
-import { addLight, addProp, setAtmos, setLook, updateProp, type GreyScene } from "./grey-scene";
+import { blenderManifest, BLENDER_README, BLENDER_SCRIPT } from "./grey-blender";
+import { addLight, addProp, setAtmos, setLook, setPropModel, updateLight, updateProp, type GreyScene } from "./grey-scene";
+import { setKey } from "./grey-camera";
+import { defaultGrey } from "./grey";
 
 const built = (): GreyScene => {
   let s: GreyScene = { matte: { url: "/api/local/haggs-renders/matte.webm", at: 1, price: "x" }, backdrop: { url: "/api/local/uploads/room.png", name: "Room", scale: 2, x: 0.5, y: 0.5, blur: 0 } };
@@ -42,6 +44,57 @@ describe("blenderManifest", () => {
   });
 });
 
+describe("blenderManifest with a grey room camera and 3D parts", () => {
+  it("adds the camera, its keys in frames and the figures only when a grey frame is given", () => {
+    assert.equal(blenderManifest(built(), opts).camera, undefined);
+    let grey = { ...defaultGrey(["Ellis", "Rowan"]), cam: { angle: 20, distance: 5, height: 1.5, lens: 35 } };
+    grey = { ...grey, camKeys: setKey(setKey(undefined, 0, grey.cam), 6, { ...grey.cam, distance: 2 }) };
+    const m = blenderManifest(built(), { ...opts, grey });
+    assert.deepEqual(m.camera, { angle: 20, distance: 5, height: 1.5, lens: 35 });
+    assert.deepEqual(m.cameraKeys!.map((k) => [k.frame, k.distance]), [[1, 5], [145, 2]]);
+    assert.deepEqual(m.figures!.map((f) => f.label), ["Ellis", "Rowan"]);
+    assert.ok(m.notes.some((n) => /perspective camera/.test(n)));
+  });
+
+  it("a still grey camera has no keys", () => {
+    const m = blenderManifest(built(), { ...opts, grey: defaultGrey() });
+    assert.ok(m.camera);
+    assert.equal(m.cameraKeys, undefined);
+  });
+
+  it("a prop with a 3D model gets its model file in assets, and a light carries spot and power", () => {
+    let s = built();
+    s = setPropModel(s, s.props![0]!.id, { url: "/api/local/uploads/chair.glb", name: "chair.glb" });
+    s = updateLight(s, s.lights![0]!.id, { spot: true, power: 900 });
+    const m = blenderManifest(s, opts);
+    assert.match(m.props[0]!.model!, /^assets\/\d+-chair\.glb$/);
+    assert.equal(m.assets[m.props[0]!.model!], "/api/local/uploads/chair.glb");
+    assert.deepEqual([m.lights[0]!.spot, m.lights[0]!.power], [true, 900]);
+  });
+
+  it("power can be set back to automatic", () => {
+    let s = built();
+    s = updateLight(s, s.lights![0]!.id, { spot: true, power: 900 });
+    s = updateLight(s, s.lights![0]!.id, { power: Number.NaN });
+    assert.equal(s.lights![0]!.power, undefined);
+    assert.equal(s.lights![0]!.spot, true);
+    assert.equal("power" in blenderManifest(s, opts).lights[0]!, false);
+  });
+
+  it("the README tells you about the Grey Room camera only when there is one", () => {
+    assert.doesNotMatch(BLENDER_README(blenderManifest(built(), opts)), /GreyRoomCamera/);
+    assert.match(BLENDER_README(blenderManifest(built(), { ...opts, grey: defaultGrey() })), /GreyRoomCamera/);
+  });
+
+  it("ignores a model that isn't a 3D file, and clamps light power", () => {
+    let s = built();
+    s = setPropModel(s, s.props![0]!.id, { url: "/api/local/uploads/chair.png", name: "chair.png" });
+    assert.equal(s.props![0]!.model, undefined);
+    s = updateLight(s, s.lights![0]!.id, { power: 99999 });
+    assert.equal(s.lights![0]!.power, 5000);
+  });
+});
+
 describe("the Blender script", () => {
   it("is a script that reads scene.json, builds an orthographic camera and writes an mp4", () => {
     assert.match(BLENDER_SCRIPT, /import bpy/);
@@ -49,6 +102,8 @@ describe("the Blender script", () => {
     assert.match(BLENDER_SCRIPT, /ORTHO/);
     assert.match(BLENDER_SCRIPT, /FFMPEG/);
     assert.match(BLENDER_SCRIPT, /keyframe_insert/);
+    assert.match(BLENDER_SCRIPT, /GreyRoomCamera/);
+    assert.match(BLENDER_SCRIPT, /import_scene\.gltf/);
     assert.doesNotMatch(BLENDER_SCRIPT, /\$\{/, "no template leftovers");
   });
 });

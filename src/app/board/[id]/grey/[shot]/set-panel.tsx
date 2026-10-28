@@ -14,7 +14,7 @@ import type { BankItem } from "../../../../../story/bank";
 import { SetsPanel } from "./sets-panel";
 import { SurfacesPanel } from "./surfaces-panel";
 import type { SavedSet } from "../../../../../story/set-bank";
-import { addProp, propShadow, removeProp, shiftLayer, updateProp, type GreyScene } from "../../../../../story/grey-scene";
+import { MODEL_EXT, addProp, propShadow, removeProp, setPropModel, shiftLayer, updateProp, type GreyScene } from "../../../../../story/grey-scene";
 
 /** The Set step: where it happens, and what is standing in it. */
 /** How many frame-widths wide a picture must be to fill the whole frame, so a wide room in a tall frame doesn't leave bars. */
@@ -48,6 +48,7 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
 }) {
   const pick = useRef<HTMLInputElement>(null);
   const propPick = useRef<HTMLInputElement>(null);
+  const modelPick = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   // An upload finishes after the scene may have changed, so it builds on the scene as it is then.
@@ -68,6 +69,18 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
     const now = live.current;
     if (as === "backdrop") onChange({ ...now, backdrop: { url: r.url, name: file.name.replace(/\.[^.]+$/, ""), scale: await coverScale(r.url, vertical), x: 0.5, y: 0.5, blur: 0 } });
     else onChange(addProp(now, { name: file.name.replace(/\.[^.]+$/, ""), url: r.url }));
+  }
+
+  /** A 3D model for the Blender set. Only on your own computer: the Blender export reads files from the local media folder. */
+  async function uploadModel(file: File | undefined, id: string) {
+    if (!file) return;
+    if (!MODEL_EXT.test(file.name)) return setProblem("Add a glb, gltf, obj or fbx model.");
+    setBusy("model");
+    setProblem(null);
+    const r = await uploadFile(file);
+    setBusy(null);
+    if (!r.ok) return setProblem(r.reason);
+    onChange(setPropModel(live.current, id, { url: r.url, name: file.name }));
   }
 
   /** A prop from words: a picture of the object alone on white, then the white cut away. Two steps, each shown in the header. */
@@ -179,6 +192,14 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
               <button className={`pill${sel.behind ? " on" : ""}`} aria-pressed={sel.behind} onClick={() => onChange(updateProp(scene, sel.id, { behind: !sel.behind }))}>Behind the actor</button>
               <button className={`pill${sel.flip ? " on" : ""}`} aria-pressed={sel.flip === true} onClick={() => onChange(updateProp(scene, sel.id, { flip: !sel.flip }))}>Flip</button>
             </div>
+            {process.env.NEXT_PUBLIC_HOSTED !== "1" && (
+              <div className="gs-row">
+                <button className="pill" disabled={busy === "model"} onClick={() => modelPick.current?.click()}>{busy === "model" ? "Adding…" : sel.model ? "Change 3D model" : "Add a 3D model"}</button>
+                {sel.model && <button className="plain" onClick={() => onChange(setPropModel(scene, sel.id, null))}>Remove {sel.model.name}</button>}
+                <input ref={modelPick} type="file" accept=".glb,.gltf,.obj,.fbx" hidden onChange={(e) => { void uploadModel(e.target.files?.[0], sel.id); e.target.value = ""; }} />
+                <small className="gs-soft">For the Blender set only. The picture above is still what you see here.</small>
+              </div>
+            )}
           </div>
         )}
       </section>
