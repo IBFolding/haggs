@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { defaultKv } from "../../story/kv";
 import { mcpIdeaAsk, type SentGame } from "../../playable/claude";
-import { TEMPLATE_INFO, TEMPLATES, defaultSpec, ruleChips, type Shape, type Template } from "../../playable/spec";
+import { FEATURED, type Featured } from "../../playable/featured";
+import { TEMPLATE_INFO, TEMPLATES, defaultSpec, ruleChips, type GameSpec, type Shape, type Template } from "../../playable/spec";
 import { createGameStore, type GameSummary } from "../../playable/store";
 import { Nav, openKeys } from "../nav";
 import { gameFromIdea } from "./actions";
@@ -27,9 +28,9 @@ function ago(at: number): string {
   return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }
 
-/** A tiny picture of each template, drawn in CSS from its default art. */
-function Preview({ template }: { template: Template }) {
-  const spec = defaultSpec(template);
+/** A tiny picture of a game, drawn in CSS from its placeholder art. */
+function Preview({ spec }: { spec: GameSpec }) {
+  const template = spec.template;
   const swatch = (color: string, shape: Shape, style: React.CSSProperties = {}) => <i className={`pl-shape pl-${shape}`} style={{ background: color, ...style }} />;
   if (spec.template === "match") {
     return (
@@ -92,6 +93,11 @@ export function PlayableHome() {
     }
     const at = Date.now();
     const game = await store.create(answer.spec, [{ who: "you", text: idea.trim(), at }, { who: "claude", text: answer.said, at }]);
+    router.push(`/playable/${game.id}`);
+  };
+
+  const playFeatured = async (f: Featured) => {
+    const game = await store.create(structuredClone(f.spec), [{ who: "note", text: `Started from ${f.spec.title}, a featured game. Change anything by chatting.`, at: Date.now() }]);
     router.push(`/playable/${game.id}`);
   };
 
@@ -163,13 +169,29 @@ export function PlayableHome() {
           </section>
         ) : null}
 
+        <section className="pl-section" aria-label="Featured games">
+          <h2>Featured games</h2>
+          <p className="pl-sub">Ready to play. Playing one keeps a copy here that you can change by chatting.</p>
+          <div className="pl-grid">
+            {FEATURED.map((f) => (
+              <button key={f.id} className="pl-card pl-template" onClick={() => void playFeatured(f)}>
+                <Preview spec={f.spec} />
+                <span className="pl-eyebrow">{TEMPLATE_INFO[f.spec.template].genre}</span>
+                <strong>{f.spec.title}</strong>
+                <span className="pl-card-says">{f.spec.pitch}</span>
+                <span className="pl-mono">Play · {TEMPLATE_INFO[f.spec.template].controls}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="pl-section">
           <h2>Start from a template</h2>
           <p className="pl-sub">No key needed. Each one plays with placeholder shapes until you make its art.</p>
           <div className="pl-grid">
             {TEMPLATES.map((t) => (
               <button key={t} className="pl-card pl-template" onClick={() => void startFrom(t)}>
-                <Preview template={t} />
+                <Preview spec={defaultSpec(t)} />
                 <span className="pl-eyebrow">{TEMPLATE_INFO[t].genre}</span>
                 <strong>{defaultSpec(t).title}</strong>
                 <span className="pl-card-says">{TEMPLATE_INFO[t].says}</span>
