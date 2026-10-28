@@ -37,6 +37,9 @@ function shapeOf(url: string): Promise<ReturnType<typeof nearestRatio>> {
  * formats that sell them (product shot, poster, marketplace listing, social post, story). Choose several
  * audiences to get the same ad written for each.
  */
+/** Sample results from the ready-made apps, shown as the kind of thing this makes. */
+const AD_EXAMPLES = ["/quick/product-ad.webp", "/quick/swap-ad.webp", "/quick/poster.webp", "/quick/product-grid.webp", "/quick/flat-lay.webp", "/quick/mockups.webp", "/quick/ugc-hand.webp", "/quick/product-in-hand.webp", "/quick/product-sequence.webp", "/templates/product-hero.webp", "/samples/ad-kettle.jpg"];
+
 export function Ads() {
   const brands = useMemo(() => createBrandStore(defaultKv()), []);
   const products = useMemo(() => createProductStore(defaultKv()), []);
@@ -58,6 +61,7 @@ export function Ads() {
   const [ready, setReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState("Loading draft…");
   const [remakeOpen, setRemakeOpen] = useState(false);
+  const urlRef = useRef<HTMLInputElement>(null);
   const writes = useRef(Promise.resolve());
   useEffect(() => {
     void Promise.all([brands.list(), products.list(), idbKv().get<{kit:BrandKit|null;address:string;chosen:string[];formats:string[];audiences:string;draft:typeof draft;source:string|null;again:typeof again;made:Made[];remade:typeof remade}>("ads:draft:v1")]).then(([k,p,d]) => {
@@ -185,41 +189,66 @@ export function Ads() {
       <div className="canvas">
         <div className="swap ads-studio">
           <ModeTabs group="Photos" current="/ads" canEdit={surfaceAvailable("Edit")} />
-          <header className="swap-head">
-            <h1>Ads</h1>
-            <p>Choose a brand and product, then formats and audiences. Review the batch beside your inputs before generating. You can start from scratch or use a sample.</p>
-          </header>
+          {!kit && (
+            <section className="ad-start" aria-label="Start with your brand">
+              <span className="eyebrow">Ads</span>
+              <h1>Ads that look like your brand.</h1>
+              <p>Enter your website. haggs reads your name, logo, colours and tone, then makes a batch of ads for your products, up to {MAX_BATCH} at a time.</p>
+              <form className="ad-url" onSubmit={(e) => { e.preventDefault(); if (address.trim().length >= 3) void read(); }}>
+                <span aria-hidden>◍</span>
+                <input ref={urlRef} aria-label="Website address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="www.yourwebsite.com" disabled={!ready || busy !== null} />
+                <button className="fire" disabled={!ready || busy !== null || address.trim().length < 3}>{busy ?? "Read my brand"} <span className="cost">free</span></button>
+              </form>
+              <div className="ad-alt">
+                <button className="plain" disabled={!ready || busy !== null} onClick={() => void ownBrand()}>Create a brand by hand</button>
+                {kits.length > 0 && <span className="muted">or open one of yours:</span>}
+                {kits.map((k) => <button key={k.id} className="pill" onClick={() => setKit(k)}>{k.name}</button>)}
+              </div>
+              <div className="ad-alt">
+                <span className="muted">Try a sample:</span>
+                {SAMPLES.map((x) => <button key={x.id} className="pill" disabled={!ready || busy !== null} onClick={() => void useSample(x.id)}>{x.label}</button>)}
+              </div>
+              {problem && <p className="library-error" role="alert">{problem}</p>}
 
-          <div className="ads-workbench"><div className="ads-inputs"><fieldset disabled={!ready || busy !== null} className="cm-authoring">
-          <div className="cm-row" aria-label="Samples">
-            <span className="muted">Try a sample:</span>
-            {SAMPLES.map((x) => <button key={x.id} className="pill" onClick={() => void useSample(x.id)}>{x.label}</button>)}
-          </div>
+              <div className="ad-strip" aria-label="Examples from the ready-made apps">
+                <div className="ad-strip-row" aria-hidden>
+                  {[...AD_EXAMPLES, ...AD_EXAMPLES].map((src, i) => <img key={i} src={src} alt="" loading="lazy" />)}
+                </div>
+              </div>
 
-          <h2 className="ads-h">1. The brand</h2>
-          <p className="wf-small">Read a website, select a saved brand, or write your own.</p>
-          <button className="pill" onClick={() => void ownBrand()}>Create a brand manually</button>
-          <div className="cm-row">
-            <input aria-label="Website address" className="ads-url" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="kiln.example" />
-            <button className="pill" disabled={busy !== null || address.trim().length < 3} onClick={() => void read()}>Read the site <span className="cost">free</span></button>
-          </div>
-          {kits.length > 0 && (
-            <div className="cm-cast" aria-label="Your brands">
-              {kits.map((k) => <button key={k.id} className={kit?.id === k.id ? "on" : ""} onClick={() => setKit(k)}><span>{k.name}</span></button>)}
-            </div>
+              <span className="eyebrow muted">Start with a tool</span>
+              <div className="ad-tools">
+                <button className="ad-tool" onClick={() => urlRef.current?.focus()}>
+                  <video src="/templates/product-placement.mp4" muted loop autoPlay playsInline preload="metadata" />
+                  <span><b>Make a batch of ads</b><small>Your products in every format, for every audience, in your colours.</small><em>Start with your website</em></span>
+                </button>
+                <button className="ad-tool" onClick={() => { setRemakeOpen(true); setTimeout(() => document.querySelector(".ads-remake")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }}>
+                  <video src="/templates/product-orbit.mp4" muted loop autoPlay playsInline preload="metadata" />
+                  <span><b>Remake an ad that works</b><small>The same product and layout, for new audiences and in other languages.</small><em>Add an ad</em></span>
+                </button>
+              </div>
+            </section>
           )}
+
           {kit && (
+          <div className="ads-workbench"><div className="ads-inputs"><fieldset disabled={!ready || busy !== null} className="cm-authoring">
+          <div className="ad-brand">
+            {kit.logo ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="ads-logo" src={kit.logo} alt={`${kit.name} logo`} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="ad-brand-mono" aria-hidden>{kit.name.slice(0, 1)}</span>}
+            <span><b>{kit.name}</b><small>{kit.about || "No line yet"}</small></span>
+            <span className="ads-swatches" aria-hidden>{kit.colors.map((c) => <i key={c} style={{ background: c }} title={c} />)}</span>
+            <button className="plain" onClick={() => setKit(null)}>Use another brand</button>
+          </div>
+          <details className="ad-brand-edit">
+            <summary>Edit the brand</summary>
             <div className="ac-form">
               <label className="wf-field"><span>Name</span><input value={kit.name} maxLength={60} onChange={(e) => setKit({ ...kit, name: e.target.value })} onBlur={() => void saveKit(kit)} /></label>
               <label className="wf-field"><span>What it sells, in a line</span><textarea rows={2} value={kit.about} maxLength={300} onChange={(e) => setKit({ ...kit, about: e.target.value })} onBlur={() => void saveKit(kit)} /></label>
               <label className="wf-field"><span>Tone</span><input value={kit.tone} maxLength={120} placeholder="warm, handmade, a little playful" onChange={(e) => setKit({ ...kit, tone: e.target.value })} onBlur={() => void saveKit(kit)} /></label>
               <label className="wf-field"><span>Colours (comma separated)</span><input value={kit.colors.join(", ")} onChange={(e) => setKit({ ...kit, colors: e.target.value.split(/[\s,]+/).filter(Boolean).slice(0, 5) })} onBlur={() => void saveKit(kit)} /></label>
-              <div className="ads-swatches" aria-hidden>{kit.colors.map((c) => <i key={c} style={{ background: c }} title={c} />)}</div>
-              {kit.logo && /* eslint-disable-next-line @next/next/no-img-element */ <img className="ads-logo" src={kit.logo} alt={`${kit.name} logo`} onError={(e) => { e.currentTarget.style.display = "none"; }} />}
             </div>
-          )}
+          </details>
 
-          <h2 className="ads-h">2. The products</h2>
+          <h2 className="ads-h">1. The products</h2>
           {list.length > 0 && (
             <div className="cm-cast" aria-label="Your products">
               {list.map((p) => (
@@ -241,7 +270,7 @@ export function Ads() {
             </div>
           </div>
 
-          <h2 className="ads-h">3. The ads</h2>
+          <h2 className="ads-h">2. The ads</h2>
           <div className="cm-cast" aria-label="Formats">
             {AD_FORMATS.map((f) => <button key={f.id} className={formats.includes(f.id) ? "on" : ""} aria-pressed={formats.includes(f.id)} onClick={() => toggle(setFormats, f.id)}><span>{f.name} <small>{f.ratio}</small></span></button>)}
           </div>
@@ -260,6 +289,7 @@ export function Ads() {
           {problem && <p className="library-error" role="alert">{problem}</p>}
 
           </aside></div>
+          )}
 
           {made.length > 0 && (
             <ul className="ads-grid" aria-label="Your ads">
@@ -275,7 +305,7 @@ export function Ads() {
           )}
 
           <details className="ads-remake" open={remakeOpen} onToggle={(e) => setRemakeOpen(e.currentTarget.open)}><summary>Remake an existing ad · optional</summary>
-          <h2 className="ads-h">4. Remake an ad</h2>
+          <h2 className="ads-h">Remake an ad</h2>
           <p className="muted">Have an ad that works? Add it (or press Remake this on one above) and get it back for other audiences and in other languages, with the same product and layout.</p>
           <div className="cm-row">
             <label className="pill">{source ? "Change the ad" : "Add an ad"}<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addSource(f); }} /></label>
