@@ -216,12 +216,12 @@ export function Marketing() {
             <div className="ms-grid">
               {shown.map((t) => (
                 <button key={t.id} className={`ms-tile${d.templateId === t.id ? " on" : ""}`} onClick={() => pick(t)} aria-pressed={d.templateId === t.id}>
-                  <span className="ms-art" style={{ aspectRatio: t.ratio.replace(":", " / ") }}><TemplateArt t={t} kit={kit} /></span>
+                  <span className="ms-art" style={{ aspectRatio: t.ratio.replace(":", " / ") }}><TemplateArt t={t} kit={kit} />{t.madeWith && <i className="ms-made">Sample made with {t.madeWith}</i>}</span>
                   <span className="ms-meta"><small>{MODES.find((m) => m.id === t.mode)?.label} · {t.makes === "video" ? "Video" : "Picture"}{t.app ? " · app" : ""}</small><b>{t.name}</b></span>
                 </button>
               ))}
             </div>
-            <p className="wf-small">Templates are haggs&rsquo;s own directions for open models. Tiles with a picture show a sample from our library; the rest are drawn in your brand&rsquo;s colours until you make one.</p>
+            <p className="wf-small">Templates are haggs&rsquo;s own directions for open models. Tiles with a picture show a sample: from our own library, or made with ChatGPT where the tile says so. The rest are drawn in your brand&rsquo;s colours until you make one.</p>
           </section>
         </div>
         <SiteFooter />

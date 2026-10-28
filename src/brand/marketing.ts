@@ -29,6 +29,8 @@ export type MarketingTemplate = {
   direction: string;
   /** A sample from our own library, or none (the tile is then drawn in the brand's colours). */
   sample?: string;
+  /** Who made the sample when it was not haggs: shown on the tile, so a sample never passes for our own output. */
+  madeWith?: "ChatGPT";
   /** A ready-made app that does this job end to end; the template opens it. */
   app?: string;
   /** Needs a person (a saved character or a photo). */
@@ -38,12 +40,12 @@ export type MarketingTemplate = {
 export const TEMPLATES: MarketingTemplate[] = [
   { id: "ugc-hold", mode: "ugc", name: "Holding it up", makes: "image", ratio: "9:16", person: true, sample: "/quick/ugc-hand.webp", app: "ugc-hand", direction: "Phone-camera selfie of a person holding the product up to the lens, natural window light, candid smile, slightly imperfect framing." },
   { id: "ugc-talk", mode: "ugc", name: "Talking to camera", makes: "video", ratio: "9:16", person: true, sample: "/templates/ugc-talking.mp4", direction: "A person talks to a phone camera about the product, holding it in frame, casual home setting, handheld, natural light." },
-  { id: "ugc-unbox", mode: "ugc", name: "Unboxing", makes: "image", ratio: "9:16", person: true, direction: "Top-down phone shot of hands opening a box and lifting the product out, tissue paper, a kitchen table, warm morning light." },
-  { id: "ugc-mirror", mode: "ugc", name: "Mirror selfie", makes: "image", ratio: "9:16", person: true, direction: "Mirror selfie of a person using the product, phone visible, bedroom or bathroom mirror, soft daylight, everyday and real." },
-  { id: "ugc-before-after", mode: "ugc", name: "Before and after", makes: "image", ratio: "4:5", person: true, direction: "Split frame, left before and right after using the product, the same person and pose, the same light, a clear honest difference." },
+  { id: "ugc-unbox", mode: "ugc", name: "Unboxing", makes: "image", ratio: "9:16", sample: "/marketing/ugc-unbox.webp", madeWith: "ChatGPT", person: true, direction: "Top-down phone shot of hands opening a box and lifting the product out, tissue paper, a kitchen table, warm morning light." },
+  { id: "ugc-mirror", mode: "ugc", name: "Mirror selfie", makes: "image", ratio: "9:16", sample: "/marketing/ugc-mirror.webp", madeWith: "ChatGPT", person: true, direction: "Mirror selfie of a person using the product, phone visible, bedroom or bathroom mirror, soft daylight, everyday and real." },
+  { id: "ugc-before-after", mode: "ugc", name: "Before and after", makes: "image", ratio: "4:5", sample: "/marketing/ugc-before-after.webp", madeWith: "ChatGPT", person: true, direction: "Split frame, left before and right after using the product, the same person and pose, the same light, a clear honest difference." },
   { id: "shot-hero", mode: "product", name: "Studio hero", makes: "image", ratio: "4:5", sample: "/templates/product-hero.webp", direction: "Premium studio photograph, the product alone as the hero, soft directional key light, a gentle gradient backdrop in the brand colours, shallow depth of field." },
-  { id: "shot-ice", mode: "product", name: "On ice", makes: "image", ratio: "4:5", direction: "The product resting on crushed ice with cold condensation beading on it, crisp backlight, frosty blue shadows, macro detail." },
-  { id: "shot-splash", mode: "product", name: "Splash", makes: "image", ratio: "4:5", direction: "The product caught mid-splash, droplets frozen in the air around it, high-speed flash, a clean coloured backdrop." },
+  { id: "shot-ice", mode: "product", name: "On ice", makes: "image", ratio: "4:5", sample: "/marketing/shot-ice.webp", madeWith: "ChatGPT", direction: "The product resting on crushed ice with cold condensation beading on it, crisp backlight, frosty blue shadows, macro detail." },
+  { id: "shot-splash", mode: "product", name: "Splash", makes: "image", ratio: "4:5", sample: "/marketing/shot-splash.webp", madeWith: "ChatGPT", direction: "The product caught mid-splash, droplets frozen in the air around it, high-speed flash, a clean coloured backdrop." },
   { id: "shot-pedestal", mode: "product", name: "On a pedestal", makes: "image", ratio: "1:1", direction: "The product on a stone pedestal, hard sunlight casting a long graphic shadow, a plain wall in the brand colour." },
   { id: "shot-nature", mode: "product", name: "In nature", makes: "image", ratio: "4:5", direction: "The product placed on moss and stones in a forest clearing, dappled sunlight, shallow depth of field, a calm natural mood." },
   { id: "shot-hand", mode: "product", name: "In a hand", makes: "image", ratio: "4:5", person: true, sample: "/quick/product-in-hand.webp", app: "product-in-hand", direction: "A hand holding the product toward the camera, the product sharp and the background soft, natural light." },
