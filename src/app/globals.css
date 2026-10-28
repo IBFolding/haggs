@@ -4267,3 +4267,8 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 @media (max-width: 760px) { .vk-body { grid-template-columns: 1fr; } .vk-body nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); } .vk-cols { grid-template-columns: 1fr; } .vk-modal footer { flex-wrap: wrap; } .vk-era-nav span { display: none; } }
 .vk-mark { position: absolute; right: 8px; bottom: 8px; padding: 3px 8px; border-radius: 999px; background: rgba(8, 8, 10, .75); color: #fff; font: 700 12px var(--ui); font-style: normal; }
 .vk-thumb .vk-mark { display: none; }
+.vk-group + .vk-group { margin-top: 18px; }
+.vk-group h4 { margin: 0 0 10px; font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
+.vk-tile .m-static img { animation: none; }
+.dock .vk-bar, .sh-look .vk-bar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ed-side .vk-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
