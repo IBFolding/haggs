@@ -71,6 +71,11 @@ const format = (values: readonly string[]): SettingFields["x"] => ({
   input: "output_format",
 });
 
+/* Pro controls. Each is on a card only where the endpoint's published schema declares it (checked 2026-10-27). */
+const seedField = (): SettingFields["x"] => ({ type: "seed", label: "Seed", default: "", input: "seed", advanced: true });
+const negativeField = (): SettingFields["x"] => ({ type: "text", label: "Negative prompt", default: "", max: 500, input: "negative_prompt", advanced: true });
+const guidanceField = (min: number, max: number, fallback: number, input: string, step: number): SettingFields["x"] => ({ type: "range", label: "CFG", min, max, default: fallback, step, input, advanced: true });
+
 const aspect = (values: readonly string[], fallback: string): SettingFields["x"] => ({
   type: "enum",
   label: "Aspect",
@@ -97,7 +102,8 @@ const seconds = (values: readonly string[], fallback: string): SettingFields["x"
 /** fal stays built but is switched off until it is rolled out (NEXT_PUBLIC_ENABLE_FAL=1), so nobody is asked for a key it can't use yet. */
 export const FAL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FAL === "1";
 
-const ALL_MODELS: readonly ModelCard[] = [
+/** Every card, including fal ones that are off unless NEXT_PUBLIC_ENABLE_FAL is set. */
+export const ALL_MODELS: readonly ModelCard[] = [
   /* ── Comfy Router ──────────────────────────────────────────────────────
      Settings below are transcribed from each model's published Router schema
      at docs.comfy.org/router-schemas/<provider>/<model>.json, not assumed. */
@@ -111,7 +117,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     capability: "text-to-video",
     // One first frame, or up to nine cast and place references.
     inputImages: 9,
-    settings: {
+    settings: { seed: seedField(),
       duration: { type: "range", label: "Duration", min: 4, max: 15, default: 6, unit: "s" },
       resolution: { type: "enum", label: "Resolution", values: ["768P", "2K"], default: "768P" },
       ratio: aspect(["16:9", "9:16", "1:1"], "16:9"),
@@ -126,7 +132,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     badge: "premium",
     capability: "text-to-image",
     inputImages: 4,
-    settings: {
+    settings: { seed: seedField(),
       aspectRatio: aspect(["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], "auto"),
       resolution: { type: "enum", label: "Resolution", values: ["1k", "2k", "4k"], default: "1k" },
       safetyTolerance: { type: "range", label: "Safety", min: 0, max: 4, default: 2, input: "safety_tolerance" },
@@ -298,7 +304,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     badge: "fast",
     capability: "text-to-image",
     inputImages: 0,
-    settings: {
+    settings: { seed: seedField(),
       aspectRatio: aspect(
         ["auto", "21:9", "16:9", "3:2", "4:3", "5:4", "1:1", "4:5", "3:4", "2:3", "9:16"],
         "1:1",
@@ -316,7 +322,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     badge: "premium",
     capability: "text-to-image",
     inputImages: 0,
-    settings: { imageSize: imageSize(), outputFormat: format(["jpeg", "png"]) },
+    settings: { seed: seedField(), imageSize: imageSize(), outputFormat: format(["jpeg", "png"]) },
   },
   {
     provider: "fal",
@@ -325,7 +331,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     blurb: "Widely used general-purpose workhorse",
     capability: "text-to-image",
     inputImages: 0,
-    settings: { imageSize: imageSize(), count: count(4), outputFormat: format(["jpeg", "png"]) },
+    settings: { seed: seedField(), guidance: guidanceField(1, 20, 3.5, "guidance_scale", 0.5), imageSize: imageSize(), count: count(4), outputFormat: format(["jpeg", "png"]) },
   },
   {
     provider: "fal",
@@ -335,7 +341,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     badge: "fast",
     capability: "text-to-image",
     inputImages: 0,
-    settings: { imageSize: imageSize(), count: count(4), outputFormat: format(["jpeg", "png"]) },
+    settings: { seed: seedField(), guidance: guidanceField(1, 20, 3.5, "guidance_scale", 0.5), imageSize: imageSize(), count: count(4), outputFormat: format(["jpeg", "png"]) },
   },
   {
     provider: "fal",
@@ -345,7 +351,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     badge: "fast",
     capability: "text-to-image",
     inputImages: 0,
-    settings: {
+    settings: { seed: seedField(),
       imageSize: imageSize(),
       count: count(4),
       outputFormat: format(["jpeg", "png", "webp"]),
@@ -358,7 +364,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     blurb: "Edit an image with an instruction, keeping the rest",
     capability: "image-edit",
     inputImages: 1,
-    settings: {
+    settings: { seed: seedField(), guidance: guidanceField(1, 20, 3.5, "guidance_scale", 0.5),
       aspectRatio: aspect(
         ["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"],
         "1:1",
@@ -375,7 +381,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     badge: "premium",
     capability: "text-to-video",
     inputImages: 0,
-    settings: {
+    settings: { negative: negativeField(), cfg: guidanceField(0, 1, 0.5, "cfg_scale", 0.05),
       aspectRatio: aspect(["16:9", "9:16", "1:1"], "16:9"),
       duration: seconds(["3", "4", "5", "6", "7", "8", "9", "10"], "5"),
       generateAudio: audio(),
@@ -390,7 +396,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     capability: "image-to-video",
     inputImages: 1,
     // No aspect here on purpose: the endpoint takes its framing from the image.
-    settings: {
+    settings: { negative: negativeField(), cfg: guidanceField(0, 1, 0.5, "cfg_scale", 0.05),
       duration: seconds(["3", "4", "5", "6", "7", "8", "9", "10"], "5"),
       generateAudio: audio(),
     },
@@ -403,7 +409,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     badge: "new",
     capability: "text-to-video",
     inputImages: 0,
-    settings: {
+    settings: { negative: negativeField(), seed: seedField(),
       aspectRatio: aspect(["16:9", "9:16"], "16:9"),
       resolution: { type: "enum", label: "Resolution", values: ["720p", "1080p", "4k"], default: "720p" },
       duration: seconds(["4s", "6s", "8s"], "8s"),
@@ -417,7 +423,7 @@ const ALL_MODELS: readonly ModelCard[] = [
     blurb: "Fast, controllable video at a low rate",
     capability: "text-to-video",
     inputImages: 0,
-    settings: {
+    settings: { seed: seedField(),
       aspectRatio: aspect(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], "16:9"),
       resolution: { type: "enum", label: "Resolution", values: ["480p", "720p", "1080p"], default: "720p" },
       duration: seconds(["3", "4", "5", "6", "7", "8", "9", "10"], "5"),

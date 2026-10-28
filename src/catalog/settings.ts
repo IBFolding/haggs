@@ -15,12 +15,24 @@
  * and Kling but `image_size` on every FLUX. Sending the wrong one is silent —
  * the control appears to work and changes nothing.
  */
-type Wire = { label: string; input?: string };
+type Wire = {
+  label: string;
+  input?: string;
+  /** A Pro control: shown only in Pro, and sent only when it differs from its default, so a Simple run is unchanged. */
+  advanced?: boolean;
+};
 
 export type SettingField =
   | ({ type: "enum"; values: readonly string[]; default: string } & Wire)
   | ({ type: "range"; min: number; max: number; default: number; step?: number; unit?: string } & Wire)
-  | ({ type: "boolean"; default: boolean } & Wire);
+  | ({ type: "boolean"; default: boolean } & Wire)
+  /** Free text, such as a negative prompt. Empty means not sent. */
+  | ({ type: "text"; default: ""; max: number } & Wire)
+  /** A whole number that repeats a result. Empty means a new one each run. */
+  | ({ type: "seed"; default: "" } & Wire);
+
+/** The largest seed every endpoint here accepts. */
+export const MAX_SEED = 4294967295;
 
 export type Settings = Record<string, string | number | boolean>;
 
@@ -64,6 +76,17 @@ export function coerceSettings(fields: SettingFields, held: Record<string, unkno
       continue;
     }
 
+    if (field.type === "text") {
+      out[key] = typeof value === "string" ? value.trim().slice(0, field.max) : "";
+      continue;
+    }
+
+    if (field.type === "seed") {
+      const n = typeof value === "number" ? value : typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value.trim()) : NaN;
+      out[key] = Number.isInteger(n) && n >= 0 && n <= MAX_SEED ? n : "";
+      continue;
+    }
+
     out[key] = typeof value === "boolean" ? value : field.default;
   }
 
@@ -82,6 +105,8 @@ export function toWireSettings(
   const wire: Record<string, unknown> = {};
   const settings = coerceSettings(fields, held);
   for (const [key, field] of Object.entries(fields)) {
+    // Pro controls go only when set, so a run that never touched them sends exactly what it did before.
+    if (field.advanced && (settings[key] === "" || settings[key] === field.default)) continue;
     wire[field.input ?? key] = settings[key];
   }
   return wire;
