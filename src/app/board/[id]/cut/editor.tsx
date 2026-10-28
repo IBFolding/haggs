@@ -639,6 +639,22 @@ export function Editor({ id, boardId, classic = false }: { id: string; boardId?:
         </div>
       ) : (
         <div className="ed" data-tools-collapsed={toolsCollapsed} data-view={classic ? "classic" : mode}>
+          <aside className="ed-library" aria-label="Shots in this cut">
+            <span className="eyebrow muted">Shots</span>
+            <ol>
+              {cut.clips.map((c, i) => (
+                <li key={c.shotId}>
+                  <button aria-current={i === idxHere ? "true" : undefined} onClick={() => jump(i)} title={c.heading || `Shot ${c.index + 1}`}>
+                    {c.kind === "video" ? <video src={`${c.url}#t=0.3`} muted playsInline preload="metadata" /> : <img src={c.url} alt="" loading="lazy" />}
+                    <span><b>{c.heading || `Shot ${c.index + 1}`}</b><small>{c.kind === "video" ? "Video" : "Still"} · {c.seconds.toFixed(1)} s</small></span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+            {cut.skipped.length > 0 && <small className="ed-library-note">{cut.skipped.length} shot{cut.skipped.length === 1 ? "" : "s"} not shot yet</small>}
+            <Link className="ph-ghost" href={`/board/${id}`}>+ Make a new shot</Link>
+          </aside>
+
           <section className="ed-stage-area" aria-label="Preview">
             <div className={`ed-view${fullscreen ? " full" : ""}`} ref={viewRef} onClick={() => fullscreen && setPlaying((p) => !p)}>
               <div className={`stage${vertical ? " vertical" : ""}`} data-fx={here?.clip.fx}>

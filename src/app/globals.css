@@ -3798,3 +3798,27 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .models-room li span { font-size: 13px; color: var(--text-2); line-height: 1.4; }
 .models-room li small { font: 500 10.5px var(--mono); color: var(--text-3); }
 @media (max-width: 900px) { .learn { grid-template-columns: 1fr; gap: 18px; padding: 20px 16px 60px; } .learn-rail { position: static; } .learn-rail nav { grid-auto-flow: column; overflow-x: auto; } .learn-follow { display: none; } .ac-lesson-body { padding-left: 20px; } }
+
+/* ─── Rebuild 6: project bar and editor, matched to the prototype ──────── */
+.ptabs-list a i.done { color: var(--volt); }
+.ptabs-list a[aria-current="page"] i.done { color: var(--bg); }
+.ptabs-next { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; background: var(--volt); color: var(--volt-ink); border-radius: 999px; padding: 10px 20px; font: 800 14px var(--ui); text-decoration: none; box-shadow: 0 0 30px rgba(53, 228, 138, .22); }
+.ptabs-next small { font: 700 10px var(--mono); letter-spacing: .1em; opacity: .65; text-transform: uppercase; }
+.ptabs-next:hover { filter: brightness(1.06); }
+
+@media (min-width: 1181px) {
+  .ed { grid-template-columns: 210px minmax(0, 1fr) 400px; grid-template-areas: "lib stage side" "time time time"; }
+  .ed[data-tools-collapsed="true"] { grid-template-columns: 210px minmax(0, 1fr) 48px; }
+}
+.ed-library { grid-area: lib; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 12px; border-right: 1px solid var(--line); background: var(--surface-2); }
+.ed-library ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ed-library li button { width: 100%; display: flex; gap: 8px; align-items: center; padding: 6px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.ed-library li button:hover { border-color: var(--line); }
+.ed-library li button[aria-current="true"] { border-color: var(--volt); background: color-mix(in oklch, var(--volt) 8%, transparent); }
+.ed-library img, .ed-library video { flex: none; width: 54px; height: 34px; object-fit: cover; border-radius: 6px; background: #000; }
+.ed-library span { display: grid; min-width: 0; }
+.ed-library b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-library small { font: 500 10.5px var(--mono); color: var(--text-3); }
+.ed-library-note { color: var(--premium); font-size: 12px; }
+.ed-library .ph-ghost { margin-top: auto; font-size: 13px; }
+@media (max-width: 1180px) { .ed-library { display: none; } }
