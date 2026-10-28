@@ -257,7 +257,7 @@ export function MixLab({ onLab }: Props) {
   useEffect(() => {
     onLab({ done: checked && result.ok, checks: [{ label: "Words clearly over the music", ok: mix.voice - mix.music >= 6 }, { label: "Effects under the voice", ok: mix.fx <= mix.voice }, { label: "Check the mix", ok: checked && result.ok }] });
   }, [checked, result.ok, mix, onLab]);
-  const rows = [["voice", "Voice", "#7dd3fc"], ["music", "Music", "#d4f83a"], ["fx", "Effects", "#f5a524"]] as const;
+  const rows = [["voice", "Voice", "#7dd3fc"], ["music", "Music", "#35e48a"], ["fx", "Effects", "#f5a524"]] as const;
   return (
     <div className="lab">
       <div className="lab-col wide">

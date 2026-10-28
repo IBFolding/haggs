@@ -103,7 +103,7 @@ export function LessonPlayer({ index }: { index: number }) {
           </footer>
         </div>
       </div>
-      {burst && <div className="ac-burst" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ "--a": `${(i / 28) * 360}deg`, "--d": `${120 + (i % 5) * 36}px`, "--c": ["#d4f83a", "#7dd3fc", "#f5a524", "#c4a7ff"][i % 4] } as React.CSSProperties} />)}</div>}
+      {burst && <div className="ac-burst" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ "--a": `${(i / 28) * 360}deg`, "--d": `${120 + (i % 5) * 36}px`, "--c": ["#35e48a", "#7dd3fc", "#f5a524", "#c4a7ff"][i % 4] } as React.CSSProperties} />)}</div>}
     </div>
   );
 }

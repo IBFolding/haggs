@@ -8,7 +8,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
         <div style={{ maxWidth: 420, padding: 24 }}>
           <h1 style={{ fontSize: 24 }}>haggs hit a problem.</h1>
           <p style={{ color: "#aaa", lineHeight: 1.6 }}>Your projects are safe in this browser. Try again, or come back in a minute.</p>
-          <button onClick={reset} style={{ padding: "10px 18px", borderRadius: 999, border: 0, background: "#d4f83a", color: "#0a0a0a", fontWeight: 700, cursor: "pointer" }}>Try again</button>
+          <button onClick={reset} style={{ padding: "10px 18px", borderRadius: 999, border: 0, background: "#35e48a", color: "#0a0a0a", fontWeight: 700, cursor: "pointer" }}>Try again</button>
         </div>
       </body>
     </html>

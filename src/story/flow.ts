@@ -17,7 +17,7 @@ const PLOT_COLORS = ["#7dd3fc", "#f5c451", "#f9a8d4", "#a78bfa", "#34d399", "#fb
 
 export function lanes(project: Project): Lane[] {
   return [
-    { id: null, name: "Main story", color: "#d4f83a" },
+    { id: null, name: "Main story", color: "#35e48a" },
     ...project.threads.filter((t) => t.kind === "plot").map((t) => ({ id: t.id, name: t.name, color: t.color })),
   ];
 }

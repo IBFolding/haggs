@@ -174,13 +174,13 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
           <svg ref={plan} className="gr-plan" viewBox="0 0 300 300" onPointerMove={onMove} onPointerUp={() => setDrag(null)} onPointerLeave={() => setDrag(null)} aria-label="The room from above. Drag the camera and the figures.">
             <rect x="0" y="0" width="300" height="300" rx="14" fill="#161618" />
             <rect x={toPlan(-ROOM, ROOM).x} y={toPlan(-ROOM, ROOM).y} width={toPlan(ROOM, 0).x - toPlan(-ROOM, 0).x} height={toPlan(0, -ROOM).y - toPlan(0, ROOM).y} fill="none" stroke="#ffffff22" strokeDasharray="4 4" />
-            <path d={`M ${camP.x} ${camP.y} L ${toPlan(0, 0).x - 40 * Math.cos(a)} ${toPlan(0, 0).y - 40 * Math.sin(a)} L ${toPlan(0, 0).x + 40 * Math.cos(a)} ${toPlan(0, 0).y + 40 * Math.sin(a)} Z`} fill="#d4f83a" opacity=".12" />
+            <path d={`M ${camP.x} ${camP.y} L ${toPlan(0, 0).x - 40 * Math.cos(a)} ${toPlan(0, 0).y - 40 * Math.sin(a)} L ${toPlan(0, 0).x + 40 * Math.cos(a)} ${toPlan(0, 0).y + 40 * Math.sin(a)} Z`} fill="#35e48a" opacity=".12" />
             {grey.subjects.map((s) => {
               const p = toPlan(s.x, s.z);
               return <g key={s.id} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setDrag({ kind: "sub", id: s.id }); }} style={{ cursor: "grab" }}><circle cx={p.x} cy={p.y} r="11" fill="#c8c8cc" /><text x={p.x} y={p.y + 24} fontSize="11" textAnchor="middle" fill="#aaa">{s.label}</text></g>;
             })}
             <g onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setDrag({ kind: "cam" }); }} style={{ cursor: "grab" }} transform={`translate(${camP.x} ${camP.y}) rotate(${grey.cam.angle})`}>
-              <path d="M0 -13 L11 11 L-11 11 Z" fill="#d4f83a" />
+              <path d="M0 -13 L11 11 L-11 11 Z" fill="#35e48a" />
             </g>
           </svg>
           <p className="gr-hint">{describeGrey(grey)}</p>
