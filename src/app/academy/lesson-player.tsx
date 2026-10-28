@@ -58,7 +58,20 @@ export function LessonPlayer({ index }: { index: number }) {
             <small>Lesson {index + 1} of {LESSONS.length} · about {lesson.minutes} min</small>
             <h1>{lesson.title}</h1>
             <p>{lesson.goal}</p>
+            {lesson.why && <p className="ac-why">{lesson.why}</p>}
           </div>
+
+          {lesson.techs && (
+            <ul className="ac-techs" aria-label="Techniques">
+              {lesson.techs.map((t) => (
+                <li key={t.do}>
+                  <p className="do"><i>Do</i>{t.do}</p>
+                  <p className="avoid"><i>Avoid</i>{t.avoid}</p>
+                  <small>{t.why}</small>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="ac-grid">
             <aside className="ac-steps" aria-label="Steps">
