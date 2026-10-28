@@ -274,3 +274,83 @@ export function LookBar({ value, onChange, video }: { value: LookChoice; onChang
     </>
   );
 }
+
+/** The animation a named move plays on a still, read from its name: in, out, left, right, up, down, around, shake. */
+export function moveClass(id: string): string {
+  if (/dolly-zoom|yoyo/.test(id)) return "m-dolly-zoom";
+  if (/handheld|wiggle|bts|head-tracking|snorricam|shake|glam/.test(id)) return "m-handheld-follow";
+  if (/orbit|arc-|lazy|rotation|bullet/.test(id)) return "m-orbit";
+  if (/whip/.test(id)) return "m-pan-right";
+  if (/hyperlapse|double-dolly|through/.test(id)) return "m-push-in";
+  if (/left/.test(id)) return "m-pan-left";
+  if (/right/.test(id)) return "m-pan-right";
+  if (/crane-up|jib-up|incline|aerial|hero|crane-over/.test(id)) return "m-crane-up";
+  if (/tilt-up/.test(id)) return "m-tilt-up";
+  if (/tilt-down|crane-down|jib-down/.test(id)) return "m-tilt-down";
+  if (/-out\b|-out-|out$/.test(id)) return "m-pull-out";
+  if (/-in\b|-in-|in$|push|whip/.test(id)) return "m-push-in";
+  return "m-static";
+}
+
+/** A named move shown on the sample still. */
+export function MovePreview({ id }: { id: string }) {
+  const kind = moveClass(id);
+  return <><Photo treat={{}} className={`vk-move ${kind}`} /><i className="vk-mark" aria-hidden>{MOVE_MARK[kind.slice(2)]}</i></>;
+}
+
+/** A crop of the sample portrait, for shot sizes. */
+export function CropPreview({ at, zoom }: { at: string; zoom: number }) {
+  return <Photo treat={{}} className="vk-crop" style={{ "--at": at, "--zoom": zoom } as CSSProperties} />;
+}
+
+/** A line drawing on the dark tile. */
+export function Drawing({ wide, children }: { wide?: boolean; children: ReactNode }) {
+  return <span className={`vk-draw${wide ? " wide" : ""}`}><svg viewBox={wide ? "0 0 96 64" : "0 0 64 64"} aria-hidden>{children}</svg></span>;
+}
+
+export { Wedge, FRAMES };
+
+export type PickerTab = { id: string; label: string; says: string; value: string; onPick: (id: string) => void; groups: { name?: string; options: { id: string; label: string; visual: ReactNode }[] }[] };
+
+/** The same picker, for any set of tabs: a side menu, tiles by group, Reset, and a note in the footer. */
+export function PickerShell({ title, tabs, start, note, onClose }: { title: string; tabs: PickerTab[]; start: string; note: ReactNode; onClose: () => void }) {
+  const [at, setAt] = useState(start);
+  const tab = tabs.find((t) => t.id === at) ?? tabs[0]!;
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [onClose]);
+  return (
+    <div className="vk-scrim" onClick={onClose}>
+      <div className="vk-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+        <header>
+          <h2>{title}</h2>
+          <button className="vk-reset" disabled={!tab.value} onClick={() => tab.onPick("")}>Reset</button>
+          <button className="vk-x" aria-label="Close" onClick={onClose}>×</button>
+        </header>
+        <div className="vk-body">
+          <nav aria-label={title}>
+            {tabs.map((t) => <button key={t.id} className={t.id === tab.id ? "on" : ""} onClick={() => setAt(t.id)}>{t.label}{t.value && <i aria-label="set" />}</button>)}
+          </nav>
+          <div className="vk-pane">
+            <p className="vk-says"><b>{tab.label}</b>{tab.says}</p>
+            {tab.groups.map((g, gi) => (
+              <section key={g.name ?? gi} className="vk-group">
+                {g.name && <h4>{g.name}</h4>}
+                <div className="vk-grid">
+                  {gi === 0 && <Tile on={!tab.value} onClick={() => tab.onPick("")} label="Any"><Any /></Tile>}
+                  {g.options.map((o) => <Tile key={o.id} on={tab.value === o.id} onClick={() => tab.onPick(o.id)} label={o.label}>{o.visual}</Tile>)}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+        <footer>
+          <p>{note}</p>
+          <button className="fire" onClick={onClose}>Done</button>
+        </footer>
+      </div>
+    </div>
+  );
+}

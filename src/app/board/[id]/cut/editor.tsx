@@ -26,7 +26,8 @@ import { fcpxml } from "../../../../story/fcpxml";
 import { needsApproval, tidy } from "../../../../story/grey";
 import { GreyRoom, GreySequence } from "./grey";
 import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
-import { moveShot, newShot, type Shot } from "../../../../story/model";
+import { moveShot, newShot, setLook, type Shot } from "../../../../story/model";
+import { LookBar } from "../../../look-picker";
 import { bridgeFrames, bridgingShot } from "../../../../story/bridge";
 import { cloudEstimate } from "../../../../providers/cloud-price";
 import { frameAt, makeCard, makeTitle } from "../../../cut-actions";
@@ -838,7 +839,10 @@ export function Editor({ id, boardId, classic = false }: { id: string; boardId?:
                         <button className="pill" disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)} title="A shot between this one and the next: it starts on this shot's last frame and ends on the next one's first" onClick={() => void expand(shot.id, "bridge")}>{expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · ${creditsText(expandPrice)}`}</button>
                         <button className="pill" disabled={expanding !== null} title="Carry this shot on from its last frame" onClick={() => void expand(shot.id, "extend")}>{expanding === `${shot.id}:extend` ? "Extending…" : `Extend · ${creditsText(expandPrice)}`}</button>
                       </div>
-                      </Section><Section name="Continuity" classic={classic}><ContinuityPanel key={shot.id} project={project} shot={shot} onShot={onShot} /></Section><Section name="More" classic={classic}>
+                      </Section><Section name="Continuity" classic={classic}><ContinuityPanel key={shot.id} project={project} shot={shot} onShot={onShot} /></Section><Section name="Look" classic={classic}>
+                        <LookBar value={shot.look ?? {}} video onChange={(look) => onShot(shot.id, (s2) => setLook(s2, look))} />
+                        <p className="takes-note">Its words go into this shot&rsquo;s prompt. Roll again to get a take with it; the takes you have stay.</p>
+                      </Section><Section name="More" classic={classic}>
                         <Link hidden={!advanced} className="pill" href={`/board/${project.id}/grey/${shot.id}${boardId ? `?b=${boardId}` : ""}`} title="Cut out the actor, build a new set around them, place props and lights, then render a new take">Open in Grey Room</Link>
                         <button className="pill on" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
                       </Section>

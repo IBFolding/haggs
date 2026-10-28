@@ -10,7 +10,7 @@ import { getModelCard, MODELS } from "../../catalog/models";
 import { coerceSettings } from "../../catalog/settings";
 import { hashPrompt, promptFor, staleShots } from "../../story/assemble";
 import { defaultKv } from "../../story/kv";
-import { moveShot, newShot, type Project, type Shot } from "../../story/model";
+import { moveShot, newShot, setLook, type Project, type Shot } from "../../story/model";
 import { commit, view } from "../../story/boards";
 import { createProjectStore } from "../../story/store";
 import { createSaveQueue } from "../../story/use-autosave";
@@ -26,6 +26,7 @@ import { ProjectTabs } from "../project-tabs";
 import { animatePlan, picturePlan, readyToAnimate } from "../../story/animate-all";
 import { makeStill } from "../series-actions";
 import { AnimateAll } from "./animate-all";
+import { LookBar } from "../look-picker";
 import { UploadImage } from "./upload-image";
 import { attachUploadedStill } from "../../story/upload-still";
 import { creditsText } from "../../story/price-text";
@@ -324,6 +325,16 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
       {shot && (
         <div className="dock">
           <div className="composer">
+            <LookBar
+              value={shot.look ?? {}}
+              video
+              onChange={(look) =>
+                edit((current) => ({
+                  ...current,
+                  shots: current.shots.map((s) => (s.id === shot.id ? setLook(s, look) : s)),
+                }))
+              }
+            />
             <div className="composer-top">
               <div className="inspect">
                 <input
