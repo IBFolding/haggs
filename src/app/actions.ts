@@ -1,5 +1,6 @@
 "use server";
 
+import { partnerRefusal } from "../server/open-only";
 import { hosted, isBlobUrl, putBlob } from "../server/blob";
 import { comfyAccess, charged, readKey as platformReadKey, type Access } from "../server/platform";
 import { inlineLocal, localUrl } from "../server/local-media";
@@ -241,6 +242,8 @@ export async function run(
   lastFrame?: string,
 ): Promise<RunResult> {
   if (!prompt.trim()) return { ok: false, reason: "Describe something first." };
+  // Every model on this path is a partner API (Comfy Router or fal).
+  { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
 
   const card = getModelCard(modelId);
   const wanted = card.provider === "comfy" ? COMFY_COOKIE : KEY_COOKIE;
@@ -413,6 +416,7 @@ export async function quoteEdit(request: EditRequest): Promise<number> {
 
 /** Runs one edit on Comfy Cloud and keeps the result. Never retried automatically. */
 export async function runEdit(request: EditRequest): Promise<EditResult> {
+  { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
   const jar = await cookies();
   const own = keyIn(jar, COMFY_COOKIE);
   if (own) return runEditWith(own, request);
@@ -470,6 +474,7 @@ export async function quoteLine(text: string): Promise<number> {
 
 /** Speaks one voice-over line with ElevenLabs on Comfy Cloud and keeps the MP3. Never retried automatically. */
 export async function speakLine(text: string, voice: string, expressive = false): Promise<SpokenLine> {
+  { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
   if (!(VOICES as readonly string[]).includes(voice)) return { ok: false, reason: "Pick a voice from the list." };
   const own = keyIn(await cookies(), COMFY_COOKIE);
   if (own) return speakWith(own, text, voice, expressive);
@@ -498,6 +503,7 @@ export async function quoteEffect(seconds: number): Promise<number> {
 
 /** Makes a sound effect from words with ElevenLabs Sound Effects on Comfy Cloud. Never retried automatically. */
 export async function makeEffect(text: string, seconds: number): Promise<MadeEffect> {
+  { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
   const own = keyIn(await cookies(), COMFY_COOKIE);
   if (own) return effectWith(own, text, seconds);
   const acc = await comfyAccess(await quoteEffect(seconds), "Sound effect", "Add a Comfy key to make sound effects.");
@@ -526,6 +532,7 @@ export async function quoteMusic(seconds: number): Promise<number> {
 
 /** Makes music from words with Sonilo on Comfy Cloud. Never retried automatically. */
 export async function makeMusic(text: string, seconds: number): Promise<MadeMusic> {
+  { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
   const own = keyIn(await cookies(), COMFY_COOKIE);
   if (own) return musicWith(own, text, seconds);
   const acc = await comfyAccess(await quoteMusic(seconds), "Music", "Add a Comfy key to make music.");

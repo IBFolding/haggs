@@ -39,6 +39,7 @@ import type { Layout } from "../story/workspace";
 import { RunTile } from "./run-tile";
 import { SaveToProject } from "./save-to-project";
 import { SettingsRail } from "./settings-rail";
+import { usePrefs } from "./prefs";
 import { creditsText } from "../story/price-text";
 
 /** In-flight work only. Anything finished is a Run and lives in storage. */
@@ -255,6 +256,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   };
 
   const card = useMemo(() => getModelCard(modelId), [modelId]);
+  const { pro, openOnly } = usePrefs();
+  const hasPro = Object.values(card.settings).some((f) => f.advanced);
   const rate = rateMap[modelId];
   const workItems = useMemo<(WorkItem & { kind: "image" | "video" })[]>(
     () => [
@@ -545,7 +548,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             <button className="mini-say" onClick={() => chooseMini(false)} title="Open the box">
               {prompt.trim() || "Describe the scene you imagine"}
             </button>
-            <button className="fire" onClick={() => void fire()} disabled={busy || !prompt.trim() || needsImage} title={needsImage ? "Attach an image first" : undefined}>
+            <button className="fire" onClick={() => void fire()} disabled={busy || openOnly || !prompt.trim() || needsImage} title={openOnly ? "Open weights only is on: these models are partner APIs" : needsImage ? "Attach an image first" : undefined}>
               {busy ? "Generating…" : "Generate"}
               <span className="cost">{costLabel}</span>
             </button>
@@ -705,6 +708,19 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </p>
           )}
 
+          {pro && hasPro && (
+            <div className="composer-pro" onClick={(e) => e.stopPropagation()}>
+              <span className="composer-pro-tag">Pro</span>
+              <SettingsRail
+                only="advanced"
+                fields={card.settings}
+                settings={settings}
+                onChange={(key, value) => setSettings((held) => ({ ...held, [key]: value }))}
+              />
+            </div>
+          )}
+          {pro && !hasPro && <p className="composer-pro-none">{card.name} has no seed, negative prompt or CFG to set.</p>}
+
           <div className="composer-bottom">
             <button
               className="pill on"
@@ -723,11 +739,17 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               onChange={(key, value) => setSettings((held) => ({ ...held, [key]: value }))}
             />
 
+            {openOnly && (
+              <span className="open-stop" role="status">
+                Open weights only is on. These models are partner APIs. <Link href="/workflows">Use an open-weights app</Link>
+              </span>
+            )}
+
             <button
               className="fire"
               onClick={() => void fire()}
-              disabled={busy || !prompt.trim() || needsImage}
-              title={needsImage ? "Attach an image first" : undefined}
+              disabled={busy || openOnly || !prompt.trim() || needsImage}
+              title={openOnly ? "Open weights only is on: these models are partner APIs" : needsImage ? "Attach an image first" : undefined}
             >
               {busy ? "Generating…" : "Generate"}
               <span className="cost">{costLabel}</span>

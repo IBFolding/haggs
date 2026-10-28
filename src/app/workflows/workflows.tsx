@@ -7,6 +7,7 @@ import type { Entry } from "../../server/comfy-library";
 import { Nav, openKeys } from "../nav";
 import { SWAP_THUMB } from "../swap/thumb";
 import { GROUPS, QUICK_APPS, isOpenApp } from "../../comfy/quick";
+import { usePrefs } from "../prefs";
 import { createAppStore, type SavedApp } from "../../story/apps";
 import { defaultKv } from "../../story/kv";
 import { listWorkflows, type Listing } from "../workflow-actions";
@@ -24,6 +25,7 @@ const SHELVES = ["Featured", "Video", "Image", "Character & Fashion", "Product &
 const FEATURED = ["api_higgsfield_genjutsu_motion_transfer", "template_seedance2_0_viral_videos_character_swap", "video_wan21_scail2_character_replacement", "video_minimax_h3_r2v", "api_bria_video_replace_background"];
 
 export function Workflows() {
+  const { openOnly } = usePrefs();
   const {favorites,ready:favoriteReady,error:favoriteError,toggle:toggleFavorite}=useWorkflowFavorites();
   const [onlyFavorites,setOnlyFavorites]=useState(false);
   const [listing, setListing] = useState<Listing | null>(null);
@@ -95,13 +97,14 @@ export function Workflows() {
 
           {!hunt && (tab === "Quick start" || onlyFavorites) && (
             <section className="quick" aria-label="Ready-made apps">
-              <div className="quick-tabs" role="tablist" aria-label="Kind of job">
+              {openOnly && <p className="wf-note">Open weights only is on: these are the apps that run without any partner model. Library workflows that call one are refused when you run them.</p>}
+              {!openOnly && <div className="quick-tabs" role="tablist" aria-label="Kind of job">
                 {GROUPS.map((g) => (
                   <button key={g} role="tab" aria-selected={group === g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{g}</button>
                 ))}
-              </div>
+              </div>}
               <div className="quick-row">
-                {QUICK_APPS.filter((a) => onlyFavorites ? favorites.includes(`quick:${a.id}`) : a.group === group).map((a) => (
+                {QUICK_APPS.filter((a) => openOnly ? isOpenApp(a) && (!onlyFavorites || favorites.includes(`quick:${a.id}`)) : onlyFavorites ? favorites.includes(`quick:${a.id}`) : a.group === group).map((a) => (
                   <div key={a.id} className="wf-favorite-card"><Link className="quick-card pic" href={`/workflows/build?quick=${a.id}`}>
                     <span className="qc-pic" style={{ backgroundImage: `url(/quick/${a.id}.webp)` }} role="img" aria-label={`A sample of ${a.name}`} />
                     <b>{a.name}</b>
@@ -109,7 +112,7 @@ export function Workflows() {
                     <small>{isOpenApp(a) ? "Open weights" : a.makes === "video" ? "Video" : "Picture"}</small>
                   </Link><Favorite name={a.name} active={favorites.includes(`quick:${a.id}`)} disabled={!favoriteReady} onClick={()=>toggleFavorite(`quick:${a.id}`)}/></div>
                 ))}
-                {!onlyFavorites && group === "Swap and faces" && (
+                {!openOnly && !onlyFavorites && group === "Swap and faces" && (
                   <Link className="quick-card swap pic" href="/swap">
                     <span className="qc-pic" style={{ backgroundImage: `url(${SWAP_THUMB})` }} role="img" aria-label="A sample of swapping a character" />
                     <b>Swap a character</b>

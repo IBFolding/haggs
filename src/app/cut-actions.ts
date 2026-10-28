@@ -1,5 +1,6 @@
 "use server";
 
+import { partnerRefusal } from "../server/open-only";
 import { extractTerminalFrame } from "../server/terminal-frame";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
@@ -75,6 +76,7 @@ export type Reshot = { ok: true; url: string; source: string; usd: number } | { 
 
 /** The same scene from a new angle: a frame of the shot is the reference for a FLUX 3 still. Never retried automatically. */
 export async function reshoot(url: string, at: number, kind: "image" | "video", move: Camera, beat: string): Promise<Reshot> {
+  { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
   const own = keyIn(await cookies(), COMFY_COOKIE);
   if (own) return reshootWith(own, url, at, kind, move, beat);
   const acc = await comfyAccess(0.1001, "Reshoot", "Add a Comfy key to reshoot.");
