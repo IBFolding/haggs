@@ -4076,3 +4076,33 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .cx-scroll > * { min-width: 0; }
 .cx-builder { min-width: 0; }
 .cx-swatches .chip-own { box-sizing: border-box; max-width: 100%; }
+
+/* ─── Ads, rebuilt: one website box first, tools and examples, then the workbench ─── */
+.ad-start { display: grid; gap: 14px; justify-items: center; text-align: center; padding: 30px 0 10px; }
+.ad-start h1 { margin: 6px 0 0; font-size: clamp(38px, 5vw, 72px); line-height: .95; letter-spacing: -.045em; font-weight: 800; }
+.ad-start > p { margin: 0; max-width: 60ch; color: var(--text-2); font-size: 16px; line-height: 1.5; }
+.ad-url { display: flex; align-items: center; gap: 10px; width: min(620px, 100%); padding: 8px 8px 8px 16px; border: 1px solid var(--line-hot); border-radius: 999px; background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: 0 20px 50px rgba(0, 0, 0, .5); }
+.ad-url span { color: var(--text-3); }
+.ad-url input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: 400 17px var(--ui); }
+.ad-url .fire { margin-left: 0; }
+.ad-alt { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; font-size: 13px; }
+.ad-strip { width: 100%; overflow: hidden; margin: 10px 0; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.ad-strip-row { display: flex; gap: 10px; width: max-content; animation: lmarq 60s linear infinite; }
+.ad-strip-row img { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
+.ad-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; width: 100%; }
+.ad-tool { position: relative; display: grid; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #000; padding: 0; color: #fff; cursor: pointer; text-align: center; transition: transform .2s, border-color .2s; }
+.ad-tool:hover { transform: translateY(-4px); border-color: var(--line-hot); }
+.ad-tool video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .55; }
+.ad-tool span { position: relative; align-self: end; display: grid; gap: 4px; justify-items: center; padding: 18px; background: linear-gradient(transparent, rgba(0, 0, 0, .8)); }
+.ad-tool b { font: 800 22px var(--ui); letter-spacing: -.02em; }
+.ad-tool small { font-size: 13.5px; color: #d6d6da; }
+.ad-tool em { margin-top: 6px; padding: 7px 14px; border-radius: 999px; background: var(--volt); color: var(--volt-ink); font: 800 13px var(--ui); font-style: normal; }
+.ad-brand { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(180deg, #1a1a1d, #141416); }
+.ad-brand .ads-logo { width: 44px; height: 44px; object-fit: contain; border-radius: 10px; background: #fff; margin: 0; }
+.ad-brand-mono { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-3); font: 800 20px var(--ui); }
+.ad-brand > span:nth-child(2) { display: grid; flex: 1; min-width: 0; }
+.ad-brand b { font-size: 15px; }
+.ad-brand small { color: var(--text-2); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-brand .ads-swatches { display: flex; gap: 4px; }
+.ad-brand-edit summary { font: 700 13px var(--ui); color: var(--text-2); cursor: pointer; margin: 4px 0 8px; }
+@media (prefers-reduced-motion: reduce) { .ad-strip-row { animation: none; } }
