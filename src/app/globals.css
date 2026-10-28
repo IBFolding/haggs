@@ -3498,3 +3498,17 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .cell, .wf-tile, .quick-card, .wf-favorite-card { border-radius: 14px; border: 1px solid var(--line); background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.45); transition: transform .2s, border-color .2s; }
 .cell:hover, .wf-tile:hover, .quick-card:hover, .wf-favorite-card:hover { transform: translateY(-3px); border-color: var(--line-hot); }
 .cell-tag, .square-tag { font: 500 10px var(--mono); letter-spacing: .08em; }
+
+/* ─── UI overhaul phase 5: Academy ─────────────────────────────────────── */
+.ac-title h1, .academy h1 { font-size: clamp(36px, 4.5vw, 64px); line-height: .95; letter-spacing: -.045em; font-weight: 800; }
+.ac-why { color: var(--text-2); font-size: 17px; line-height: 1.55; max-width: 68ch; margin: 12px 0 0; }
+.ac-techs { list-style: none; margin: 0 0 22px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.ac-techs li { border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 8px; align-content: start; background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.45); }
+.ac-techs p { margin: 0; font-size: 14px; line-height: 1.45; display: grid; grid-template-columns: 52px 1fr; gap: 8px; }
+.ac-techs i { font: 500 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; font-style: normal; padding-top: 3px; }
+.ac-techs .do i { color: var(--volt); }
+.ac-techs .avoid { color: var(--text-2); }
+.ac-techs .avoid i { color: #ff7a90; }
+.ac-techs small { color: var(--text-3); font-size: 13px; line-height: 1.45; border-top: 1px dashed var(--line); padding-top: 8px; }
+.academy-lesson { border-radius: 16px; background: linear-gradient(180deg, #1a1a1d, #141416); transition: transform .2s, border-color .2s; }
+.academy-lesson:hover { transform: translateY(-2px); border-color: var(--line-hot); }

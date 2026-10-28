@@ -29,3 +29,11 @@ test("progress is kept, can be undone, and the certificate opens only when all s
   await p.mark("not-a-lesson", true);
   assert.equal((await p.done()).length, 6);
 });
+
+test("every lesson explains why it matters and carries do and avoid techniques", () => {
+  for (const l of LESSONS) {
+    assert.ok(l.why && l.why.length > 40, l.id);
+    assert.ok(l.techs && l.techs.length === 3, l.id);
+    for (const t of l.techs!) assert.ok(t.do && t.avoid && t.why, l.id);
+  }
+});
