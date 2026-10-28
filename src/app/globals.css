@@ -4160,3 +4160,35 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .cm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .cm-actions .fire { margin-left: 0; }
 @media (max-width: 1280px) { .cm-main { grid-template-columns: 1fr; } .cm-main .cm-preview { position: static; max-height: none; order: -1; } }
+
+/* ─── Ads, round two: the workbench on the builder, the batch laid out at its real shapes, how it works ─── */
+.ad-how { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; text-align: left; }
+.ad-how li { display: grid; gap: 6px; align-content: start; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg, #1a1a1d, #141416); box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+.ad-how i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--volt); color: var(--volt-ink); font: 700 12px var(--mono); font-style: normal; }
+.ad-how b { font: 800 16px var(--ui); letter-spacing: -.01em; }
+.ad-how small { color: var(--text-2); font-size: 13px; line-height: 1.45; }
+.ad-cx .ad-brand { padding: 10px; background: var(--bg); }
+.ad-cx .ad-brand .ads-swatches i { width: 18px; height: 18px; border-radius: 5px; }
+.ad-switch { justify-self: start; font-size: 12.5px; }
+.ad-add { display: grid; gap: 8px; margin-top: 10px; }
+.ad-add textarea, .ad-add > input { width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+.ad-shapes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ad-shapes button { display: grid; justify-items: center; align-content: end; gap: 3px; padding: 10px 6px; border: 1px solid var(--line); border-radius: 12px; background: none; color: var(--text-2); font: inherit; cursor: pointer; }
+.ad-shapes i { height: 42px; max-width: 72px; border: 1.5px solid currentColor; border-radius: 4px; }
+.ad-shapes b { font-size: 11.5px; text-align: center; line-height: 1.15; }
+.ad-shapes small { font: 500 10.5px var(--mono); color: var(--text-3); }
+.ad-shapes button.on { border-color: var(--volt); color: var(--volt); background: rgba(53, 228, 138, .08); }
+.ad-plan-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.ad-wall { list-style: none; margin: 0; padding: 0; columns: 4 200px; column-gap: 14px; }
+.ad-wall li { break-inside: avoid; display: grid; gap: 6px; margin-bottom: 16px; }
+.ad-wall small { color: var(--text-2); font-size: 12px; }
+.ad-tile { position: relative; width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+.ad-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ad-tile.plan img { width: 62%; height: 62%; object-fit: contain; filter: drop-shadow(0 12px 22px rgba(0,0,0,.45)); }
+.ad-tile em { position: absolute; top: 8px; left: 8px; padding: 3px 9px; border-radius: 999px; background: rgba(8, 8, 10, .72); color: var(--text-2); font: 600 11px var(--ui); font-style: normal; }
+.ad-tile-mono { font: 800 48px var(--ui); color: rgba(255,255,255,.85); text-shadow: 0 6px 20px rgba(0,0,0,.4); }
+.ad-tile-wait { padding: 12px; color: var(--text-2); font-size: 13px; text-align: center; }
+.ad-tile-acts { display: flex; gap: 10px; align-items: center; font-size: 12.5px; }
+.ad-cx + .ads-remake, .ads-studio .ads-remake { margin-top: 28px; }
+.ad-views { margin: 4px 0 18px; }
+.ad-wall .ad-tile .ad-tile-wait { position: absolute; inset: 0; display: grid; place-items: center; }
