@@ -477,16 +477,19 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
       <Nav current={surface === "Video" ? "Video" : "Photos"} />
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
-      <div className="canvas" onClick={() => setPicking(false)}>
-        {/* The tabs sit in the same place on every page; anything else goes under them. */}
+      {/* The tabs sit in the same bar on every page, with how to show your pictures on the right. */}
+      <div className="mode-bar">
         {surface === "Video" && <ModeTabs group="Video" current="/video" />}
         {surface !== "Video" && <ModeTabs group="Photos" current={surface === "Edit" ? "/edit" : "/photos"} canEdit={surfaceAvailable("Edit")} />}
-        <AcademyNudge />
-        {surface !== "Video" && <MakeBanner />}
         <div className="view-toggle" role="tablist" aria-label="How to show your pictures">
             <button role="tab" aria-selected={view === "grid"} onClick={() => chooseView("grid")}>Grid</button>
             <button role="tab" aria-selected={view === "workspace"} onClick={() => chooseView("workspace")}>Workspace</button>
         </div>
+      </div>
+
+      <div className="canvas" onClick={() => setPicking(false)}>
+        <AcademyNudge />
+        {surface !== "Video" && <MakeBanner />}
         {view === "workspace" ? (
           <Workspace
             storeKey={`workspace/${surface}`}
