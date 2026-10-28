@@ -122,6 +122,11 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
           </Link>
         ))}
       </nav>
+      {board.shots[0] && (
+        <Link className="ptabs-grey" href={`/board/${project.id}/grey/${board.shots[0].id}?b=${encodeURIComponent(board.id)}`}>
+          ◐ Grey room
+        </Link>
+      )}
     </div>
   );
 }
