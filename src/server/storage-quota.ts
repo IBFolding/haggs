@@ -10,7 +10,13 @@ function db(){
  if(!url||!key||!secret)throw Error('Cloud storage accounting is not configured. No upload was started.');
  return {client:createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}}),secret};
 }
+/** Explicit operator grant; independent of Stripe and generation credits. */
+export function ownerStorageBytes(email:string,owners:string|undefined):number {
+ return (owners??'').split(',').some(owner=>owner.trim().toLowerCase()===email.trim().toLowerCase() && owner.trim()!=='') ? 30_000_000_000 : 0;
+}
 export async function storageAllowance(user:User):Promise<number>{
+ const owner=ownerStorageBytes(user.email,process.env.HAGGS_STORAGE_OWNER_EMAILS);
+ if(owner)return owner;
  const stripe=stripeFromEnv();if(!stripe)return 0;
  const plan=await status(stripe,process.env,user);
  return ['active','trialing'].includes(plan.status)?bytesForPlan(plan.plan):0;

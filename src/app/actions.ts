@@ -1,4 +1,5 @@
 "use server";
+import { checkGenerationStorage } from "../server/generation-storage";
 
 import { partnerRefusal } from "../server/open-only";
 import { hosted, isBlobUrl, putBlob } from "../server/blob";
@@ -279,9 +280,9 @@ export async function run(
   async function generate(key: string): Promise<RunResult> {
     const provider: Provider =
       cloudDef
-        ? createCloudModelProvider({ apiKey: key, keep: keepRender, modelId: card.id, timeoutMs: 20 * 60_000 })
+        ? createCloudModelProvider({ apiKey: key, keep: keepRender, beforeRun: checkGenerationStorage, modelId: card.id, timeoutMs: 20 * 60_000 })
         : useCloud(card.id)
-        ? createCloudProvider({ apiKey: key, keep: keepRender })
+        ? createCloudProvider({ apiKey: key, keep: keepRender, beforeRun: checkGenerationStorage })
         : card.provider === "comfy"
         ? createComfyProvider({
             apiKey: key,
@@ -443,7 +444,7 @@ export async function runEdit(request: EditRequest): Promise<EditResult> {
 async function runEditWith(key: string, request: EditRequest): Promise<EditResult> {
   const jar = await cookies();
   // Video edits (Kling, Aleph, Genjutsu) can queue and run for a quarter of an hour or more.
-  const cloud = createCloudRunner({ apiKey: key, keep: keepRender, timeoutMs: 45 * 60_000 });
+  const cloud = createCloudRunner({ apiKey: key, keep: keepRender, beforeRun: checkGenerationStorage, timeoutMs: 45 * 60_000 });
   const up = async (url: string) => {
     const { bytes, mime } = await bytesOf(url);
     return cloud.uploadBytes(bytes, mime);
@@ -500,7 +501,7 @@ export async function speakLine(text: string, voice: string, expressive = false)
 
 async function speakWith(key: string, text: string, voice: string, expressive: boolean): Promise<SpokenLine> {
   try {
-    const cloud = createCloudRunner({ apiKey: key, keep: keepRender });
+    const cloud = createCloudRunner({ apiKey: key, keep: keepRender, beforeRun: checkGenerationStorage });
     const result = await cloud.run(speechWorkflow({ text, voice, ...(expressive ? { model: "eleven_v3" as const, stability: 0 } : {}), seed: Math.floor(Math.random() * 2_000_000_000) }));
     if (result.kind !== "audio") throw new Error("The voice came back without sound. Check your Comfy jobs.");
     return { ok: true, url: result.url, usd: await quoteLine(text) };
@@ -528,7 +529,7 @@ export async function makeEffect(text: string, seconds: number): Promise<MadeEff
 
 async function effectWith(key: string, text: string, seconds: number): Promise<MadeEffect> {
   try {
-    const cloud = createCloudRunner({ apiKey: key, keep: keepRender });
+    const cloud = createCloudRunner({ apiKey: key, keep: keepRender, beforeRun: checkGenerationStorage });
     const result = await cloud.run(soundEffectWorkflow({ text, seconds }));
     if (result.kind !== "audio") throw new Error("The effect came back without sound. Check your Comfy jobs.");
     return { ok: true, url: result.url, usd: await quoteEffect(seconds) };
@@ -557,7 +558,7 @@ export async function makeMusic(text: string, seconds: number): Promise<MadeMusi
 
 async function musicWith(key: string, text: string, seconds: number): Promise<MadeMusic> {
   try {
-    const cloud = createCloudRunner({ apiKey: key, keep: keepRender, timeoutMs: 10 * 60_000 });
+    const cloud = createCloudRunner({ apiKey: key, keep: keepRender, beforeRun: checkGenerationStorage, timeoutMs: 10 * 60_000 });
     const result = await cloud.run(musicWorkflow({ text, seconds }));
     if (result.kind !== "audio") throw new Error("The music came back without sound. Check your Comfy jobs.");
     return { ok: true, url: result.url, usd: await quoteMusic(seconds) };

@@ -115,3 +115,10 @@ test("a last frame makes MiniMax end on a picture, so a new shot can bridge two 
   assert.deepEqual(w["3"], { class_type: "LoadImage", inputs: { image: "start-of-b.png" } });
   assert.throws(() => minimaxWorkflow({ prompt: "x x x x", seconds: 4, lastFrame: "b.png", seed: 1 }), /first frame/);
 });
+
+test('storage preflight refuses media generation before any provider request',async()=>{
+ let requests=0;
+ const runner=createCloudRunner({apiKey:'test',beforeRun:async()=>{throw new Error('no storage');},fetch:async()=>{requests++;throw Error('must not call');},keep:async()=>''});
+ await assert.rejects(runner.run({}),/no storage/);
+ assert.equal(requests,0);
+});
