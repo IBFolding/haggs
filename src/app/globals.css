@@ -4610,3 +4610,13 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ac-cover { flex: none; width: 76px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
 .lab-mood-pic { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; margin-bottom: 6px; }
 @media (max-width: 760px) { .ac-hero { grid-template-columns: 1fr; } .ac-cover { width: 56px; height: 40px; } }
+/* A product's photo: add, make or use the sample */
+.pp { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; align-items: center; margin-top: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); flex: 1 1 100%; }
+.pp-pic { width: 84px; height: 84px; border-radius: 10px; overflow: hidden; background: #0f0f11; display: grid; place-items: center; }
+.pp-pic img { width: 100%; height: 100%; object-fit: cover; }
+.pp-pic i { font: 800 28px var(--ui); font-style: normal; color: var(--volt); }
+.pp-side { display: grid; gap: 6px; min-width: 0; }
+.pp-side b { font-size: 14px; }
+.pp-side small { color: var(--text-3); font-size: 12px; }
+.cm-noimg { position: relative; }
+.pp-none { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); padding: 1px 6px; border-radius: 999px; background: rgba(8, 8, 10, .8); color: var(--text-3); font: 600 9.5px var(--ui); font-style: normal; white-space: nowrap; }

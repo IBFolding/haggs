@@ -19,6 +19,7 @@ import { shrinkAll, shrinkPicture } from "../shrink";
 import { SiteFooter } from "../site-footer";
 import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
+import { ProductPhoto } from "../product-photo";
 
 const PRICE = 0.07;
 const HANDOFF_KEY = "haggs.handoff";
@@ -177,6 +178,7 @@ export function Marketing() {
             <div className="ms-pop" aria-label="Pick a product">
               <button className={!product ? "on" : ""} onClick={() => { set({ productId: null }); setSlot(null); }}><span className="ms-plus">∅</span><small>None</small></button>
               {products.map((p) => <button key={p.id} className={product?.id === p.id ? "on" : ""} onClick={() => { set({ productId: p.id }); setSlot(null); }}>{p.picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.picture} alt="" /> : <span className="ms-plus">{p.name.slice(0, 1)}</span>}<small>{p.name}</small></button>)}
+              {product && <ProductPhoto key={product.id} product={product} onPicture={async (url) => { await createProductStore(defaultKv()).save({ ...product, picture: url }); setProducts(await createProductStore(defaultKv()).list()); }} />}
               <form className="ms-pop-new" onSubmit={(e) => { e.preventDefault(); if (newProduct.name.trim()) void addProduct(); }}>
                 <input value={newProduct.name} maxLength={60} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} placeholder="New product: Ember mug" aria-label="Product name" />
                 <input value={newProduct.words} maxLength={300} onChange={(e) => setNewProduct({ ...newProduct, words: e.target.value })} placeholder="What it looks like" aria-label="What it looks like" />

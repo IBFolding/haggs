@@ -6,8 +6,8 @@ import { APERTURES, FOCALS, lookPhrase, rowsFor, type LookChoice, type LookOptio
 
 /**
  * The look, picked by sight. A bar of cards (one per choice: camera, framing, move, light, film, era, look, grade)
- * sits over the prompt; each opens a picker of visual samples. Light, look, era and four framings are pictures made with
- * ChatGPT (see LOOK_PHOTOS); film and grade are our own sample photos with the treatment drawn on them in the browser;
+ * sits over the prompt; each opens a picker of visual samples. Light, look, era, four framings and the camera bodies are
+ * pictures made with ChatGPT (see LOOK_PHOTOS, CAMERA_PHOTOS); film and grade are our own sample photos with the treatment drawn on them in the browser;
  * the camera is drawn. They show the idea, not the result: the model makes its own picture from the words, which are
  * always shown.
  */
@@ -107,6 +107,8 @@ function Photo({ treat, className = "", style }: { treat: Treat; className?: str
   );
 }
 
+/** Camera bodies with a photo (made with ChatGPT); the rest stay drawn. */
+const CAMERA_PHOTOS = ["large-format", "super-35", "16mm", "handheld", "phone", "drone"];
 const CAMERAS: Record<string, ReactNode> = {
   "large-format": <><rect x="14" y="18" width="20" height="28" rx="2" /><path d="M34 22 L52 16 V48 L34 42 Z" /><circle cx="56" cy="32" r="6" /></>,
   "super-35": <><rect x="10" y="20" width="34" height="24" rx="3" /><rect x="44" y="25" width="10" height="14" /><path d="M54 22 L64 18 V46 L54 42 Z" /><rect x="16" y="14" width="16" height="6" rx="1" /></>,
@@ -127,7 +129,7 @@ const MOVE_MARK: Record<string, string> = { static: "■", "push-in": "⤢ in", 
 
 /** The picture for one option of one row. */
 function Visual({ row, option }: { row: LookRow["id"]; option: LookOption }) {
-  if (row === "camera") return <span className="vk-draw"><svg viewBox="0 0 64 64" aria-hidden>{CAMERAS[option.id]}</svg></span>;
+  if (row === "camera") return CAMERA_PHOTOS.includes(option.id) ? <Photo treat={{ src: `/looks/camera-${option.id}.webp` }} /> : <span className="vk-draw"><svg viewBox="0 0 64 64" aria-hidden>{CAMERAS[option.id]}</svg></span>;
   if (row === "framing") {
     const crop = CROP[option.id];
     if (crop) return <Photo treat={{}} className="vk-crop" style={{ "--at": crop.at, "--zoom": crop.zoom } as CSSProperties} />;
@@ -259,7 +261,7 @@ export function LookPicker({ value, onChange, video, start, onClose }: { value: 
           </div>
         </div>
         <footer>
-          <p>{words ? <>Adds to your prompt: <span>{words}</span></> : "Pick anything and its words go after your prompt. Samples show the idea (light, look, era and some framings were made with ChatGPT); the model makes its own picture."}</p>
+          <p>{words ? <>Adds to your prompt: <span>{words}</span></> : "Pick anything and its words go after your prompt. Samples show the idea (cameras, light, look, era and some framings were made with ChatGPT); the model makes its own picture."}</p>
           <button className="fire" onClick={onClose}>Done</button>
         </footer>
       </div>
@@ -311,6 +313,11 @@ export function moveClass(id: string): string {
 export function MovePreview({ id }: { id: string }) {
   const kind = moveClass(id);
   return <><Photo treat={{}} className={`vk-move ${kind}`} /><i className="vk-mark" aria-hidden>{MOVE_MARK[kind.slice(2)]}</i></>;
+}
+
+/** A picture on a tile, for pages that bring their own (the shot sheet's angles and sizes). */
+export function StillPreview({ src }: { src: string }) {
+  return <Photo treat={{ src }} />;
 }
 
 /** A crop of the sample portrait, for shot sizes. */

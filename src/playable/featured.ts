@@ -1,5 +1,7 @@
+import { BRAMBLE_RUN } from "./showcase/bramble-run";
 import { COMET_MARKET } from "./showcase/comet-market";
 import { LANTERN_MOTH } from "./showcase/lantern-moth";
+import { NOODLE_PATCH } from "./showcase/noodle-patch";
 import { SPROUT_SWARM } from "./showcase/sprout-swarm";
 import { STARLIGHT_SALVAGE } from "./showcase/starlight-salvage";
 import type { Asset, CodeSpec, GameSpec, Shape } from "./spec";
@@ -31,6 +33,53 @@ const WRITTEN: { id: string; spec: CodeSpec }[] = [
         ],
       },
       code: SPROUT_SWARM,
+    },
+  },
+  {
+    id: "noodle-patch",
+    spec: {
+      version: 2, template: "code", title: "Noodle Patch", genre: "Simulation", aspect: "16:9", three: false, touch: "tap",
+      pitch: "Grow the ingredients out back, then run the ramen stall out front: read each order, build the bowl and serve it before your customer gives up. Three days, an upgrade after each.",
+      controls: "Click or tap to plant, harvest, build bowls and serve",
+      palette: { sky: "#ffd8a8", ground: "#cde7a8", accent: "#c8443a", text: "#3b2a2a" },
+      art: {
+        assets: [
+          asset("wheat", "Noodles", "sprite", "🌾", "a bundle of golden wheat that becomes fresh ramen noodles, cosy hand-painted cartoon style", "#f2c94c", "star"),
+          asset("scallion", "Scallion", "sprite", "🌿", "a fresh green scallion bunch, cosy hand-painted cartoon style", "#6fcf5b", "triangle"),
+          asset("mushroom", "Mushroom", "sprite", "🍄", "a plump brown shiitake mushroom, cosy hand-painted cartoon style", "#c08a5a", "circle"),
+          asset("egg", "Egg", "sprite", "🥚", "a soft-boiled ramen egg cut in half with a jammy yolk, cosy hand-painted cartoon style", "#ffe9b0", "circle"),
+          asset("hen", "Hen", "sprite", "🐔", "a round cheerful farm hen, cosy hand-painted cartoon style", "#ffffff", "circle"),
+          asset("bowl", "Ramen bowl", "sprite", "🍜", "a big red ramen bowl full of steaming broth, seen slightly from above, cosy hand-painted cartoon style", "#c8443a", "circle"),
+          asset("coin", "Coin", "sprite", "🪙", "a shiny gold coin with a noodle swirl stamped on it, game icon", "#ffd34d", "circle"),
+          asset("cat", "Cat", "sprite", "🐱", "a hungry cartoon cat customer leaning on a counter, cosy hand-painted style", "#f2a65a", "circle"),
+          asset("dog", "Dog", "sprite", "🐶", "a happy cartoon dog customer with a napkin, cosy hand-painted style", "#c8a07a", "circle"),
+          asset("fox", "Fox", "sprite", "🦊", "a clever cartoon fox customer in a scarf, cosy hand-painted style", "#e07a3f", "circle"),
+          asset("panda", "Panda", "sprite", "🐼", "a sleepy cartoon panda customer holding chopsticks, cosy hand-painted style", "#ffffff", "circle"),
+          asset("farm", "Farm", "background", "🌄", "a cosy little farm at golden hour with rolling green hills and a wooden ramen stall, wide game backdrop, hand-painted", "#ffd8a8", "square"),
+        ],
+      },
+      code: NOODLE_PATCH,
+    },
+  },
+  {
+    id: "bramble-run",
+    spec: {
+      version: 2, template: "code", title: "Bramble Run", genre: "Platformer", aspect: "16:9", three: false, touch: "tap",
+      pitch: "A hedgehog courier has parcels to deliver across Clover Meadow and the Dusk Thicket. Run, jump, bounce off bugs, grab the feather to glide, and reach the delivery gate.",
+      controls: "← → run · Space jump (hold for higher) · touch: hold a side, tap the middle",
+      palette: { sky: "#8fd3ff", ground: "#9b6a3f", accent: "#ffd34d", text: "#ffffff" },
+      art: {
+        assets: [
+          asset("hero", "Hedgehog courier", "sprite", "🦔", "a small hedgehog courier with a tiny satchel, side view facing left, bright cartoon platformer style", "#c98a5a", "circle"),
+          asset("beetle", "Beetle", "sprite", "🪲", "a round red-shelled beetle walking, side view facing left, bright cartoon platformer style", "#e2463c", "circle"),
+          asset("bee", "Bee", "sprite", "🐝", "a chubby buzzing bee, side view facing left, bright cartoon platformer style", "#ffd34d", "circle"),
+          asset("acorn", "Acorn", "sprite", "🌰", "a shiny acorn collectible, game pickup icon", "#c98a3b", "circle"),
+          asset("feather", "Feather", "sprite", "🪶", "a soft white glider feather power-up with a faint glow, game pickup icon", "#ffffff", "diamond"),
+          asset("meadow", "Clover Meadow", "background", "🌼", "a sunny meadow with rolling hills, clover and distant trees, wide side-scrolling platformer backdrop, bright cartoon style", "#8fd3ff", "square"),
+          asset("dusk", "Dusk Thicket", "background", "🌲", "a purple dusk forest with tall dark pines and a low orange sky, wide side-scrolling platformer backdrop, bright cartoon style", "#2d2156", "square"),
+        ],
+      },
+      code: BRAMBLE_RUN,
     },
   },
   {
