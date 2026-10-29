@@ -19,6 +19,7 @@ import { Nav } from "../nav";
 import { useStartProject } from "../start-project";
 import { RecoverPanel } from "./recover-panel";
 import { RunTile } from "../run-tile";
+import { ShareToExplore } from "../explore/share";
 import { SaveToProject } from "../save-to-project";
 import { SiteFooter } from "../site-footer";
 import { totalText } from "../../story/price-text";
@@ -201,6 +202,7 @@ export function Gallery() {
                   onSave={isPicture(run) ? () => setSaving(run) : undefined as never}
                 onStart={isPicture(run) ? () => void startProject(run) : undefined as never}
                 />
+                {isPicture(run) && <ShareToExplore run={run} />}
                 {run.kind === "audio" && <p className="wf-small">To use this sound in a project, download it, then <Link href="/editor">open the editor</Link> and add it under Sound.</p>}
                 <select className="folder-pick" aria-label="Move to folder" value={run.folder ?? ""} onChange={(e) => {
                   const v = e.target.value;
