@@ -3579,6 +3579,7 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ph-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .ph-photo { aspect-ratio: 3 / 4; border-radius: 8px; background: #000 center / cover; border: 1px solid var(--line); cursor: pointer; padding: 0; transition: transform .2s, border-color .2s; }
 .ph-photo:hover { transform: translateY(-3px); border-color: var(--volt); }
+.ph-photo.ph-game { aspect-ratio: 1; display: block; }
 .ph-ref { position: relative; }
 .ph-ref-pic { display: grid; place-items: center; aspect-ratio: 16 / 9; border-radius: 10px; background: #000 center / cover; border: 1px solid var(--line); text-decoration: none; color: var(--text); }
 .ph-ref-pic span { background: rgba(10, 10, 11, .75); padding: 6px 12px; border-radius: 999px; font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .04em; }

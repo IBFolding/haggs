@@ -32,6 +32,13 @@ const SAMPLE_PHOTOS = [
   { src: "/samples/street.jpg", says: "A city street at night" },
 ];
 
+/** Three of Playable's featured games, by their cover pictures. */
+const PLAYABLE_SAMPLES = [
+  { src: "/playable/covers/sprout-swarm.webp", title: "Sprout Swarm" },
+  { src: "/playable/covers/noodle-patch.webp", title: "Noodle Patch" },
+  { src: "/playable/covers/bramble-run.webp", title: "Bramble Run" },
+];
+
 const HIDE_SAMPLE = "haggs.home.hide-sample";
 
 function ago(at: number): string {
@@ -296,6 +303,15 @@ export function Library() {
               <span className="eyebrow">From a workflow</span>
               <p>{QUICK_APPS.length} ready-made apps: swap a person, relight, try on, make an ad. Each result goes into your project.</p>
               <Link className="ph-ghost" href="/workflows">Browse apps →</Link>
+            </section>
+
+            <section className="ph-card">
+              <span className="eyebrow">From a game idea</span>
+              <p>Describe a small game and Claude writes the whole thing. Play it right here, change it by chatting, then make its art on Comfy.</p>
+              <div className="ph-photos">
+                {PLAYABLE_SAMPLES.map((g) => <Link key={g.src} className="ph-photo ph-game" href="/playable" style={{ backgroundImage: `url(${g.src})` }} title={`Play ${g.title}`} aria-label={`Play ${g.title} on Playable`} />)}
+              </div>
+              <Link className="ph-go" href="/playable">Make a game →</Link>
             </section>
 
             <section className="ph-card ph-hot">
