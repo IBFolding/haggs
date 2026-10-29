@@ -7,7 +7,11 @@ import { promisify } from "node:util";
 import sharp from "sharp";
 
 import { bridgeAllowed } from "../../../../server/bridge-guard";
-import { hosted } from "../../../../server/blob";
+import { verifyUser } from "../../../../server/auth";
+import { allow, caller } from "../../../../server/limit";
+import { stageGreyFiles } from "../../../../server/grey-hosted";
+import { readRendered } from "../../../../server/render-hosted";
+import { hosted, putBlob } from "../../../../server/blob";
 import { ffmpegBin } from "../../../../server/ffmpeg";
 import { localFile } from "../../../../server/local-media";
 import { frameOf } from "../../../../story/cut";
@@ -34,11 +38,21 @@ async function contact(path: string, p: Prop, size: { w: number; h: number }, as
 
 /**
  * Draft render of a Grey Room scene: the same composite the preview shows,
- * made with ffmpeg on this machine. Free; development only, like Render MP4.
+ * made with ffmpeg, staged from account storage on hosted deployments.
  */
 export async function POST(request: Request) {
-  if (hosted() || !bridgeAllowed(request)) return new Response("Not found", { status: 404 });
-  const root = process.env.HAGGS_LOCAL_MEDIA;
+  const online = hosted();
+  if (!online && !bridgeAllowed(request)) return new Response("Not found", { status: 404 });
+  if (online) {
+    const origin = request.headers.get("origin");
+    try { if (!origin || new URL(origin).host !== request.headers.get("host")) return Response.json({ ok: false, reason: "Not allowed." }, { status: 403 }); }
+    catch { return Response.json({ ok: false, reason: "Not allowed." }, { status: 403 }); }
+    const who = await verifyUser(request);
+    if (!who) return Response.json({ ok: false, reason: "Sign in to render here." }, { status: 401 });
+    if (!allow(`render:${caller(request, who.id)}`, 12, 3_600_000)) return Response.json({ ok: false, reason: "Too many renders. Try again later." }, { status: 429 });
+  }
+  const scratch = online ? await mkdtemp(join(tmpdir(), "haggs-grey-hosted-")) : null;
+  const root = scratch ?? process.env.HAGGS_LOCAL_MEDIA;
   if (!root) return Response.json({ ok: false, reason: "Set HAGGS_LOCAL_MEDIA so the render has somewhere to be kept." }, { status: 400 });
   const body = (await request.json().catch(() => null)) as { scene?: unknown; footage?: unknown; seconds?: unknown; aspect?: unknown; name?: unknown } | null;
   const footage = typeof body?.footage === "string" ? body.footage : "";
@@ -47,8 +61,14 @@ export async function POST(request: Request) {
   const scene = normalizeScene(body?.scene as never);
   let work: string | null = null;
   try {
-    // Every file must really be in the media folder.
+    const staged = online ? await stageGreyFiles(scene, footage, root) : null;
+    // Every file must be an explicitly staged store asset or a validated local file.
     const file = (url: string) => {
+      if (staged) {
+        const path = staged.get(url);
+        if (!path) throw new Error("A file was not staged for this render.");
+        return path;
+      }
       if (!url.startsWith("/api/local/")) throw new Error("The draft render only reads files in your media folder.");
       const found = localFile(root, url.slice("/api/local/".length).split("/").map(decodeURIComponent), process.env.NODE_ENV);
       if (!found) throw new Error(`A file in this scene isn't in the media folder: ${url.split("/").at(-1)}`);
@@ -105,11 +125,13 @@ export async function POST(request: Request) {
     const out = join(root, "haggs-renders", name);
     const args = ["-y", "-v", "error", ...plan.inputs.flatMap((input, i) => [...input.args, "-i", paths[i]!]), "-filter_complex", plan.filter, "-map", "[out]", "-map", `${plan.audioFrom}:a?`, "-t", String(seconds), "-c:v", "libx264", "-crf", "17", "-pix_fmt", "yuv420p", "-c:a", "aac", out];
     await run(ffmpegBin(), args, { maxBuffer: 8 * 1024 * 1024 });
-    return Response.json({ ok: true, url: `/api/local/haggs-renders/${encodeURIComponent(name)}`, notes: plan.notes });
+    const url = online ? await putBlob(await readRendered(out), "mp4", "renders") : `/api/local/haggs-renders/${encodeURIComponent(name)}`;
+    return Response.json({ ok: true, url, notes: plan.notes });
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : "The draft render failed.";
     return Response.json({ ok: false, reason: message.split("\n")[0]!.slice(0, 300) }, { status: 400 });
   } finally {
     if (work) await rm(work, { recursive: true, force: true });
+    if (scratch) await rm(scratch, { recursive: true, force: true });
   }
 }
