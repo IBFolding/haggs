@@ -212,3 +212,6 @@ textarea.pl-json:focus { outline: none; border-color: var(--volt); }
 .pl-preview-badge { position: absolute; left: 10px; top: 10px; padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font: 600 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
 @keyframes pl-bob { 50% { transform: translateY(-6px) rotate(-4deg); } }
 @media (max-width: 520px) { .pl-composer-bar > .pl-go { width: 100%; } .pl-composer-bar .pl-switches { width: 100%; } }
+.pl-cover { position: relative; overflow: hidden; padding: 0; height: auto; aspect-ratio: 16 / 10; }
+.pl-cover img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+.pl-card:hover .pl-cover img { transform: scale(1.04); }

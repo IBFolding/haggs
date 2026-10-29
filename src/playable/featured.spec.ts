@@ -67,3 +67,9 @@ test("featured code games carry an emoji for every asset, and their scripts pars
   }
   assert.doesNotThrow(() => new Function(KIT_SOURCE));
 });
+
+test("every featured cover points at a picture that is in public/", async () => {
+  const { existsSync } = await import("node:fs");
+  for (const f of FEATURED) if (f.cover) assert.ok(existsSync(`public${f.cover}`), f.cover);
+  assert.ok(FEATURED.every((f) => f.cover), "every featured game has a cover");
+});
