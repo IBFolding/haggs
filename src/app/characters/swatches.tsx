@@ -1,5 +1,6 @@
 "use client";
 
+import { HEIGHT_SCALE, TRAIT_PICTURES_BY, traitPicture } from "../../characters/trait-pictures";
 import { isCustom } from "../../story/chip-row";
 
 /** What each colour choice looks like, so skin, hair and eyes are picked by sight, not by name. */
@@ -26,6 +27,48 @@ export function SwatchRow({ id, label, options, value, onChange }: { id: string;
           <small>{o}</small>
         </button>
       ))}
+      <input className={`chip-own${custom ? " on" : ""}`} aria-label={`${label}, in your own words`} placeholder="your own" maxLength={60} value={custom ? value : ""} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+/** One trait picked by picture: the same person shown each way, with a box for your own words. */
+export function PictureRow({ id, label, options, value, onChange }: { id: string; label: string; options: readonly string[]; value: string; onChange: (v: string) => void }) {
+  const custom = isCustom(options, value);
+  return (
+    <div className="cx-pics" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button key={o} role="radio" aria-checked={value === o} aria-label={o} title={`${o} · ${TRAIT_PICTURES_BY}`} className={value === o ? "on" : ""} onClick={() => onChange(o)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={traitPicture(id, o)} alt="" loading="lazy" />
+          <small>{o}</small>
+        </button>
+      ))}
+      <input className={`chip-own${custom ? " on" : ""}`} aria-label={`${label}, in your own words`} placeholder="your own" maxLength={60} value={custom ? value : ""} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+/** Height, drawn: a figure beside the same doorway, so the choices read against each other. */
+export function HeightRow({ label, options, value, onChange }: { label: string; options: readonly string[]; value: string; onChange: (v: string) => void }) {
+  const custom = isCustom(options, value);
+  return (
+    <div className="cx-pics cx-heights" role="radiogroup" aria-label={label}>
+      {options.map((o) => {
+        const k = HEIGHT_SCALE[o] ?? 0.82;
+        const top = 92 - 80 * k;
+        return (
+          <button key={o} role="radio" aria-checked={value === o} aria-label={o} title={o} className={value === o ? "on" : ""} onClick={() => onChange(o)}>
+            <svg viewBox="0 0 64 96" aria-hidden>
+              <path className="cx-door" d="M38 92 V12 H58 V92" />
+              <circle className="cx-fig" cx="20" cy={top + 6 * k} r={6 * k} />
+              <path className="cx-fig" d={`M20 ${top + 12 * k} V${top + 52 * k} M20 ${top + 52 * k} L${20 - 7 * k} 92 M20 ${top + 52 * k} L${20 + 7 * k} 92 M${20 - 11 * k} ${top + 24 * k} L${20 + 11 * k} ${top + 24 * k}`} />
+              <path className="cx-floor" d="M2 92 H62" />
+            </svg>
+            <small>{o}</small>
+          </button>
+        );
+      })}
       <input className={`chip-own${custom ? " on" : ""}`} aria-label={`${label}, in your own words`} placeholder="your own" maxLength={60} value={custom ? value : ""} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
