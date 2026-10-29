@@ -21,7 +21,9 @@ import { z } from "zod";
 import { cameraMoves } from "../src/sheets/camera";
 import { FORMATS, formatById } from "../src/sheets/formats";
 import { fixCell, normalizeSheets, promptRows, qaSheet, sheetsView, type Sheets } from "../src/sheets/sheets";
-import { bridgeRoot, inbox, listSnapshots, propose, readSnapshot } from "../src/server/bridge";
+import { bridgeRoot } from "../src/server/bridge";
+import { createAgentStore } from "../src/server/agent-remote";
+import { loadEnvFile } from "node:process";
 import { checkPlan } from "../src/comfy/canvas";
 import { FORMATS as SERIES_FORMATS, validateSeries } from "../src/series/series";
 import { indexOf } from "../src/server/comfy-library";
@@ -34,15 +36,17 @@ import { applyDraft, validateDraft } from "../src/writer/draft";
 import { applyBreakdown, validateBreakdown } from "../src/writer/breakdown";
 import { applyFill, type Fill } from "../src/writer/fill";
 
+try { loadEnvFile(join(dirname(fileURLToPath(import.meta.url)), "../.env.local")); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
 const root = bridgeRoot(join(dirname(fileURLToPath(import.meta.url)), ".."));
+const store = createAgentStore(root);
 const server = new McpServer({ name: "haggs", version: "1.0.0" });
 
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 1) }] });
 const fail = (message: string) => ({ isError: true, content: [{ type: "text" as const, text: message }] });
 
 async function load(project: string) {
-  const snap = await readSnapshot(root, project);
-  if (!snap) throw new Error(`No snapshot for project ${project}. Open it in haggs (npm run dev) so the app can share it, then try again.`);
+  const snap = await store.load(project);
+  if (!snap) throw new Error(`No snapshot for project ${project}. Open it in haggs while signed in (or npm run dev for local mode) so it syncs, then try again.`);
   return snap;
 }
 
@@ -61,11 +65,11 @@ server.registerTool(
   "haggs_list_projects",
   { description: "List the haggs projects the app has shared, newest first, with their boards.", inputSchema: {}, annotations: readOnly },
   async () => {
-    const list = await listSnapshots(root);
+    const list = await store.list();
     if (!list.length) return text("No projects shared yet. Start haggs with npm run dev and open a project.");
     const out = [];
     for (const item of list) {
-      const snap = await readSnapshot(root, item.id);
+      const snap = await store.load(item.id);
       out.push({ id: item.id, name: item.name, boards: (snap?.project.boards ?? []).map((b) => ({ id: b.id, name: b.name, shots: b.shots.length })), hasSheets: Boolean(snap?.sheets) });
     }
     return text(out);
@@ -161,7 +165,7 @@ server.registerTool(
       if (!f) return fail(`There is no format "${format}". Call haggs_list_formats.`);
       const checked = validateDraft(draft);
       const { sheets, problems } = applyDraft(checked, f);
-      const item = await propose(root, project, { kind: "draft", summary, payload: checked, formatId: format, ...(board ? { boardId: board } : {}) });
+      const item = await store.propose(project, { kind: "draft", summary, payload: checked, formatId: format, ...(board ? { boardId: board } : {}) });
       return text({ sent: item.id, scenes: sheets.script.length, beats: sheets.story.length, shots: sheets.shots.length, problems, next: "The person reviews it in haggs and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -195,7 +199,7 @@ server.registerTool(
       if (!sh) return fail("This project has no script yet. Upload one in haggs, or propose a whole draft with haggs_propose_draft.");
       const checked = validateBreakdown(breakdown);
       const { sheets, problems } = applyBreakdown(sh, checked);
-      const item = await propose(root, project, { kind: "breakdown", summary, payload: checked, ...(board ? { boardId: board } : {}) });
+      const item = await store.propose(project, { kind: "breakdown", summary, payload: checked, ...(board ? { boardId: board } : {}) });
       return text({ sent: item.id, beats: sheets.story.length, shots: sheets.shots.length, problems, next: "The person reviews it in haggs and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -226,7 +230,7 @@ server.registerTool(
         ...characters.filter((c) => !snap.sheets!.characters.some((x) => x.id === c.name.trim().toUpperCase())).map((c) => c.name),
         ...locations.filter((l) => !snap.sheets!.locations.some((x) => x.id === l.name.trim().toUpperCase())).map((l) => l.name),
       ];
-      const item = await propose(root, project, { kind: "fill", summary, payload: fill });
+      const item = await store.propose(project, { kind: "fill", summary, payload: fill });
       return text({ sent: item.id, wouldFill: changed, notOnTheSheet: unknown });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -263,7 +267,7 @@ server.registerTool(
         }
       });
       if (!kept.length) return fail(`No edit could be made:\n${refused.join("\n")}`);
-      const item = await propose(root, project, { kind: "edits", summary, payload: kept, ...(board ? { boardId: board } : {}) });
+      const item = await store.propose(project, { kind: "edits", summary, payload: kept, ...(board ? { boardId: board } : {}) });
       return text({ sent: item.id, edits: kept.length, refused });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -306,7 +310,7 @@ server.registerTool(
       const checked = validateBoardProposal(board);
       const { board: made } = applyBoardProposal(snap.project, checked);
       const seconds = made.shots.reduce((n, s) => n + (s.seconds ?? 0), 0);
-      const item = await propose(root, project, { kind: "board", summary, payload: checked });
+      const item = await store.propose(project, { kind: "board", summary, payload: checked });
       return text({ sent: item.id, shots: made.shots.length, seconds, empty: made.shots.filter((s) => !s.render).length, next: "The person opens the project's Sheets and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -332,7 +336,7 @@ server.registerTool(
       const snap = await load(project);
       const checked = validateTakes({ board, takes });
       const { added } = applyTakes(snap.project, checked);
-      const item = await propose(root, project, { kind: "takes", summary, payload: checked, boardId: board });
+      const item = await store.propose(project, { kind: "takes", summary, payload: checked, boardId: board });
       return text({ sent: item.id, newTakes: added, next: "The person opens the project's Sheets and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -357,7 +361,7 @@ server.registerTool(
       const snap = await load(project);
       const checked = validateVoices({ board, lines });
       const { added } = applyVoices(snap.project, checked);
-      const item = await propose(root, project, { kind: "voices", summary, payload: checked, boardId: board });
+      const item = await store.propose(project, { kind: "voices", summary, payload: checked, boardId: board });
       return text({ sent: item.id, newLines: added, next: "The person opens the project's Sheets and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -368,7 +372,7 @@ server.registerTool(
 server.registerTool(
   "haggs_inbox",
   { description: "See what is waiting in a project's inbox, not yet applied or dismissed by the person.", inputSchema: { project: z.string() }, annotations: readOnly },
-  async ({ project }) => text((await inbox(root, project)).map((i) => ({ id: i.id, kind: i.kind, summary: i.summary, board: i.boardId, at: new Date(i.at).toISOString() }))),
+  async ({ project }) => text((await store.inbox(project)).map((i) => ({ id: i.id, kind: i.kind, summary: i.summary, board: i.boardId, at: new Date(i.at).toISOString() }))),
 );
 
 server.registerTool(
@@ -410,7 +414,7 @@ server.registerTool(
   async ({ summary, name, steps }) => {
     try {
       const plan = checkPlan({ name, steps });
-      const item = await propose(root, "canvas", { kind: "canvas", summary, payload: plan });
+      const item = await store.propose("canvas", { kind: "canvas", summary, payload: plan });
       return text({ sent: item.id, steps: plan.steps.length, next: "The person opens Workflows → Build your own and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -434,7 +438,7 @@ server.registerTool(
   async ({ summary, format, title, episodes }) => {
     try {
       const series = validateSeries({ title, episodes });
-      const item = await propose(root, "series", { kind: "series", summary, payload: { format, series }, formatId: format });
+      const item = await store.propose("series", { kind: "series", summary, payload: { format, series }, formatId: format });
       return text({ sent: item.id, formats: SERIES_FORMATS.map((f) => f.id), episodes: series.episodes.length, shots: series.episodes.reduce((n, e) => n + e.shots.length, 0), next: "The person opens Video → Series and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
@@ -473,7 +477,7 @@ server.registerTool(
   async ({ summary, game, spec }) => {
     try {
       const read = readGameReply(spec);
-      const item = await propose(root, "playable", { kind: "game", summary, payload: { spec: bare(read.spec), said: read.said, ...(game ? { game } : {}) } });
+      const item = await store.propose("playable", { kind: "game", summary, payload: { spec: bare(read.spec), said: read.said, ...(game ? { game } : {}) } });
       return text({ sent: item.id, title: read.spec.title, template: read.spec.template, rules: ruleChips(read.spec), next: game ? "The person presses Apply in that game's studio on Playable." : "The person presses Apply under From Claude on Playable." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));

@@ -1,4 +1,5 @@
 "use client";
+import { useAgentInbox } from "../agent-inbox";
 
 import { galleryAudio } from "../gallery-log";
 import { ExtrasRow } from "../bank-picker";
@@ -9,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createCharacterStore, identityLock, type Character } from "../../characters/character";
 import { editEstimate, VOICES } from "../../providers/cloud-edits";
-import { FORMATS, FORMAT_SAMPLES, PRESETS, buildSeries, pictureWords, type FormatId, type Series } from "../../series/series";
+import { FORMATS, validateSeries, FORMAT_SAMPLES, PRESETS, buildSeries, pictureWords, type FormatId, type Series } from "../../series/series";
 import { defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
 import { looksTooBig, shrinkAll } from "../shrink";
@@ -67,7 +68,8 @@ export function SeriesMaker() {
   const [spoken, setSpoken] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [sent, setSent] = useState<Sent[]>([]);
+  const agentInbox = useAgentInbox("series");
+  const sent = agentInbox.items.filter((i) => i.kind === "series") as Sent[];
   const stop = useRef(false);
   // The latest of each, readable inside a long run where state would still be last render's.
   const pics = useRef<Record<string, string>>({});
@@ -79,15 +81,6 @@ export function SeriesMaker() {
     void characters.list().then((all) => { setCast(all); const pick = readPick(window.location.search); if (pick?.kind === "character" && all.some((c) => c.id === pick.id)) setWho(pick.id); });
   }, [characters]);
 
-  // What Claude has sent over MCP, waiting to be applied. The bridge only exists on your own computer.
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    let live = true;
-    const look = () => fetch("/api/bridge/inbox?project=series").then((r) => (r.ok ? r.json() : null)).then((b: { items?: (Sent & { kind: string })[] } | null) => live && b?.items && setSent(b.items.filter((i) => i.kind === "series"))).catch(() => undefined);
-    void look();
-    const t = setInterval(look, 4000);
-    return () => { live = false; clearInterval(t); };
-  }, []);
 
   const person = cast.find((c) => c.id === who) ?? null;
   const looks = useStyles();
@@ -155,10 +148,14 @@ export function SeriesMaker() {
   }
 
   function applySent(i: Sent) {
-    void fetch(`/api/bridge/inbox?project=series&id=${encodeURIComponent(i.id)}`, { method: "DELETE" }).catch(() => undefined);
-    setSent((all) => all.filter((x) => x.id !== i.id));
+    let checked: Series;
+    try {
+      if (!i.payload || !FORMATS.some((f) => f.id === i.payload.format)) throw new Error("Unknown series format.");
+      checked = validateSeries(i.payload.series);
+    } catch (e) { setError(e instanceof Error ? e.message : "Invalid series."); return; }
+    void agentInbox.drop(i.id);
     setFormat(i.payload.format);
-    setSeries(i.payload.series);
+    setSeries(checked);
     setPictures({}); pics.current = {}; clipsRef.current = {}; spokenRef.current = {};
   }
 
