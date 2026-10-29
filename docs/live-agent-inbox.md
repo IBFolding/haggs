@@ -24,3 +24,5 @@ No existing tables, Stripe settings, credit grants, storage policies or older mi
 The existing hosted /api/bridge/inbox endpoint was checked on 2026-10-29 and returned HTTP 404. The reported cross-board issue was therefore in the local inbox workflow before this change enables the account inbox.
 
 Local verification: npm test passed all 968 tests; tsc --noEmit -p . passed. Regression tests cover target-board isolation, preservation of unsaved profile fields on same-user auth updates, and legacy Creator allowance (3,120 at a 20% cut) versus fixed Creator allowance (2,400). No financial transaction or paid generation was performed.
+
+Preview configuration: the initial preview lacked Supabase public settings. Added NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY only for Preview branch live-agent-inbox. Production settings and server secrets were not changed. Authenticated preview testing is still pending.
