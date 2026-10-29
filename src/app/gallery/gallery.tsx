@@ -244,7 +244,7 @@ export function Gallery() {
               ))}
             </div>
             <input type="search" className="gallery-search" aria-label="Search your work" placeholder={scope === "Scripts" ? "Search titles, loglines and cast" : "Search prompts and models"} value={query} onChange={(e) => setQuery(e.target.value)} />
-            <button className="gl-ghost" onClick={() => void findSounds()}>Find sounds in my projects</button>
+            {scope !== "Scripts" && <button className="gl-ghost" onClick={() => void findSounds()}>Find sounds in my projects</button>}
           </div>
           {finding && <p className="gallery-note" role="status">{finding}</p>}
 

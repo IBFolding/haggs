@@ -32,6 +32,8 @@ test("a Final Draft script reads into the same scenes, speakers and lines as a t
   assert.equal(play.scenes[0]!.dialogue[0]!.parenthetical, "daring");
   assert.match(play.scenes[0]!.action, /Wind\./);
   assert.deepEqual(play.characters.map((c) => c.name).sort(), ["JONAH", "NIA"]);
+  // Final Draft and most PDFs split place and time with a spaced hyphen.
+  assert.deepEqual(play.scenes.map((s) => [s.place, s.time]), [["ROOFTOP", "NIGHT"], ["LIFT", "CONTINUOUS"]]);
 });
 
 test("a file that isn't Final Draft, or has no script in it, is refused with a reason", () => {
