@@ -4480,3 +4480,49 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .acct-ledger em.plus { color: var(--volt); }
 .acct-out { justify-content: flex-end; }
 @media (max-width: 860px) { .acct-grid { grid-template-columns: 1fr; } }
+/* ─── Header, refined ───────────────────────────────────────────────
+   Desktop: one calm row. The places, then the tools (the two switches as
+   one capsule, what's running, credits, keys, the tour), then Ask Haggy and
+   you. Phones: the places are already in the bottom bar, so the top is the
+   logo, Ask Haggy and you, with the tools in a slim strip under it that
+   scrolls sideways. Nothing is hidden at any width. */
+.nav { flex-wrap: nowrap; gap: 14px; padding: 8px 20px; min-height: 60px; overflow: visible; }
+.nav-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
+.nav-modes { margin-left: 0; order: 0; width: auto; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; }
+.nav-open { border: 0; height: 28px; padding: 0 12px; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; }
+.nav-seg { border: 0; padding: 0; gap: 2px; }
+.nav-seg button { height: 28px; padding: 0 12px; font-size: 12.5px; }
+.nav-modes .nav-help { width: 28px; height: 28px; border: 0; }
+.act-btn, .credit-chip, .key-state { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; white-space: nowrap; }
+.nav-help { width: 34px; height: 34px; flex: none; display: inline-grid; place-items: center; padding: 0; }
+.nav-tour b { display: none; }
+.nav-right { margin-left: 0; display: flex; align-items: center; gap: 10px; padding-left: 14px; border-left: 1px solid var(--line); }
+.nav-ask { height: 36px; padding: 0 18px; }
+.nav-account { width: 34px; height: 34px; }
+@media (max-width: 1320px) { .nav-items { gap: 16px; } .nav-tip { display: none; } }
+.nav-tools > *, .nav-right > * { flex: none; }
+.nav-signin { white-space: nowrap; }
+/* Most desktops: the tools take a second row rather than squeezing. */
+@media (max-width: 1520px) and (min-width: 861px) {
+  .nav { flex-wrap: wrap; row-gap: 6px; padding-bottom: 6px; }
+  .nav-tools { order: 3; flex-basis: 100%; margin-left: 0; padding-top: 6px; border-top: 1px solid var(--line); }
+  .nav-right { margin-left: auto; }
+}
+@media (max-width: 860px) {
+  .nav { flex-wrap: wrap; gap: 8px; padding: 8px 14px 0; overflow: visible; }
+  .nav .logo { font-size: 23px; margin-right: auto; }
+  .nav-right { order: 1; margin-left: auto; padding-left: 0; border-left: 0; gap: 8px; }
+  .nav-ask { height: 34px; padding: 0 14px; font-size: 13px; }
+  .nav-tools { order: 2; flex-basis: calc(100% + 28px); margin: 0 -14px; padding: 7px 14px 8px; gap: 6px; overflow-x: auto; scrollbar-width: none; border-top: 1px solid var(--line); }
+  .nav-tools::-webkit-scrollbar { display: none; }
+  .nav-tools > * { flex: none; }
+  .act-btn, .credit-chip, .key-state { height: 32px; font-size: 12px; }
+  .nav-open { height: 26px; padding: 0 10px; }
+  .nav-seg button { height: 26px; padding: 0 10px; font-size: 12px; }
+  .nav-modes .nav-help { width: 26px; height: 26px; }
+  .nav-tour { width: auto; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12px; }
+  .nav-tour span { display: none; }
+  .nav-tour b { display: inline; font-weight: 700; }
+  /* Pop-overs from the strip open over the page, not clipped by it. */
+  .nav-explain, .act-pop { position: fixed; left: 12px; right: 12px; top: 108px; width: auto; }
+}

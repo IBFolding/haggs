@@ -1,5 +1,5 @@
 import type { Kv } from "../story/kv";
-import { readSpec, type GameSpec, type Template } from "./spec";
+import { readSpec, slotsOf, type GameSpec } from "./spec";
 
 /**
  * Saved games, one record per key with a separate index, like projects. The
@@ -17,14 +17,14 @@ export type ChatLine = { who: "you" | "claude" | "note"; text: string; at: numbe
 
 export type SavedGame = { id: string; createdAt: number; updatedAt: number; spec: GameSpec; history: GameSpec[]; chat: ChatLine[] };
 
-export type GameSummary = { id: string; title: string; template: Template; accent: string; cover?: string; updatedAt: number };
+export type GameSummary = { id: string; title: string; template: GameSpec["template"]; accent: string; cover?: string; updatedAt: number };
 
 const summaryOf = (g: SavedGame): GameSummary => ({
   id: g.id,
   title: g.spec.title,
   template: g.spec.template,
   accent: g.spec.palette.accent,
-  ...(g.spec.art.background.url ? { cover: g.spec.art.background.url } : {}),
+  ...((cover) => (cover ? { cover } : {}))(slotsOf(g.spec).find((s) => s.kind === "background" && s.art.url)?.art.url),
   updatedAt: g.updatedAt,
 });
 

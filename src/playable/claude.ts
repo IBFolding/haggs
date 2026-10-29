@@ -116,7 +116,7 @@ export function mcpIdeaAsk(idea: string): string {
 
 export function mcpEditAsk(game: string, spec: GameSpec, message: string): string {
   return [
-    `Use haggs_playable_guide, then haggs_propose_game with game "${game}", to change this haggs Playable game. Keep everything the player didn't ask to change. The player says: ${message.trim()}`,
+    `Use haggs_playable_guide${spec.template === "code" ? ` with code: true${spec.three ? " and 3d: true" : ""}` : ""}, then haggs_propose_game with game "${game}", to change this haggs Playable game. Keep everything the player didn't ask to change. The player says: ${message.trim()}`,
     "The game as it is now:",
     JSON.stringify(forClaude(spec)),
   ].join("\n\n");
