@@ -11,6 +11,11 @@ export type Lesson = { id: string; title: string; minutes: number; goal: string;
 /** One technique: what to do, what to avoid, and why it works. */
 export type Technique = { do: string; avoid: string; why: string };
 
+/** A cover for each lesson and one for the Academy, made with ChatGPT (original scenes, no text). */
+export const lessonCover = (id: string) => `/academy/lesson-${id}.webp`;
+export const ACADEMY_HERO = "/academy/academy-hero.webp";
+export const COVERS_BY = "Pictures made with ChatGPT";
+
 export const LESSONS: Lesson[] = [
   {
     id: "first-video", title: "Your first video", minutes: 1, goal: "Turn one photo into a moving clip.",

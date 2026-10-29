@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { MOODS, MOVES, TRAITS, angleName, characterLine, hooks, locked, mixCheck, moodRight, scorePrompt, sideOf, type MoveId } from "../../academy/labs";
+import { MOODS, MOVES, moodPicture, TRAITS, angleName, characterLine, hooks, locked, mixCheck, moodRight, scorePrompt, sideOf, type MoveId } from "../../academy/labs";
 import { FORMATS } from "../../sheets/formats";
 
 /**
@@ -48,6 +48,8 @@ export function MoveLab({ onLab }: Props) {
             const ok = pick ? moodRight(m.id, pick) : null;
             return (
               <li key={m.id} className={ok === null ? "" : ok ? "ok" : "no"}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="lab-mood-pic" src={moodPicture(m.id)} alt="" loading="lazy" />
                 <p>{m.scene}</p>
                 <div className="lab-chips small">
                   {MOVES.map((mv) => <button key={mv.id} className={pick === mv.id ? "on" : ""} onClick={() => setPicks((p) => ({ ...p, [m.id]: mv.id }))}>{mv.name}</button>)}

@@ -54,6 +54,9 @@ export const MOODS: { id: string; scene: string; best: MoveId[]; why: string }[]
   { id: "lonely", scene: "A man sits on an empty platform after the last train.", best: ["pull", "still"], why: "Moving away, or holding still, makes the space feel big." },
 ];
 
+/** A picture of each scene in the "which move fits?" lab, made with ChatGPT. */
+export const moodPicture = (id: string) => `/academy/mood-${id}.webp`;
+
 export const moodRight = (moodId: string, move: MoveId) => MOODS.find((m) => m.id === moodId)?.best.includes(move) ?? false;
 
 /* Lesson 3: move the camera */

@@ -4604,6 +4604,12 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .cx-pics.wide { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 .cx-pics.wide img { aspect-ratio: 4 / 3; }
 
+/* Academy: lesson covers, the header picture, and the lab's scenes */
+.ac-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 380px); gap: 24px; align-items: center; }
+.ac-hero-pic { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 18px; border: 1px solid var(--line); }
+.ac-cover { flex: none; width: 76px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.lab-mood-pic { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; margin-bottom: 6px; }
+@media (max-width: 760px) { .ac-hero { grid-template-columns: 1fr; } .ac-cover { width: 56px; height: 40px; } }
 /* A product's photo: add, make or use the sample */
 .pp { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; align-items: center; margin-top: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); flex: 1 1 100%; }
 .pp-pic { width: 84px; height: 84px; border-radius: 10px; overflow: hidden; background: #0f0f11; display: grid; place-items: center; }
