@@ -106,7 +106,7 @@ test("games sent over MCP are read and clamped; anything else in the inbox is le
     { id: "4", kind: "game", payload: { spec: defaultSpec("match") } },
   ]);
   assert.deepEqual(sent.map((s) => [s.id, s.game ?? null]), [["1", "g1"], ["4", null]]);
-  assert.equal((sent[0]!.spec.rules as { speed: number }).speed, RANGES.runner.speed[1]);
+  assert.equal(((sent[0]!.spec as { rules: { speed: number } }).rules).speed, RANGES.runner.speed[1]);
   assert.equal(sent[0]!.said, "Made it.");
   assert.equal(sent[1]!.summary, defaultSpec("match").title);
   assert.deepEqual(readSent("nope"), []);

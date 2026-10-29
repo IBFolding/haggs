@@ -1,4 +1,4 @@
-import type { Art, GameSpec, Shape } from "./spec";
+import type { Art, TemplateSpec as GameSpec, Shape } from "./spec";
 import type { GameState } from "./templates";
 import type { CollectorState } from "./templates/collector";
 import type { Cell, MatchState } from "./templates/match";

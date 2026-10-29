@@ -5,20 +5,33 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { defaultKv } from "../../story/kv";
-import { mcpIdeaAsk, type SentGame } from "../../playable/claude";
+import { type SentGame } from "../../playable/claude";
+import { GENRES, mcpCodeAsk, readCodeReply, type Quality } from "../../playable/code";
 import { FEATURED, type Featured } from "../../playable/featured";
-import { TEMPLATE_INFO, TEMPLATES, defaultSpec, ruleChips, type GameSpec, type Shape, type Template } from "../../playable/spec";
+import { TEMPLATE_INFO, TEMPLATES, controlsOf, defaultSpec, genreOf, ruleChips, withArt, type GameSpec, type Shape, type Template, type TemplateSpec } from "../../playable/spec";
 import { createGameStore, type GameSummary } from "../../playable/store";
 import { Nav, openKeys } from "../nav";
-import { gameFromIdea } from "./actions";
+import { BankPicker } from "../bank-picker";
+import { QualitySwitch } from "./quality-switch";
+import { pictureFile } from "./picture-file";
 import { McpAsk, useSentGames } from "./sent";
+import { writeGame } from "./write";
 
 const IDEAS = [
-  "A snail racing across a rainy garden, hopping over puddles and picking up clover",
-  "A lighthouse keeper's cat catching glowing fish on a dark beach while crabs scuttle about",
-  "A bakery puzzle: line up croissants, buns and tarts before the morning rush",
-  "A paper boat drifting down a city gutter, dodging leaves and collecting bottle caps",
+  "Garden gnomes hold the vegetable patch against waves of snails: build and upgrade defences between waves",
+  "A tiny ship clears asteroid fields to rescue stranded robots, with power-ups and a boss at the end",
+  "A sock escapes a washing machine: a platformer through the spin cycle, the lint trap and the drain",
+  "Gather a parade of penguins, pick the right gates to grow the crowd, and smash through the ice wall",
 ];
+
+/** A picture the player brings to a new game: Claude names an asset after it, and the art follows it. */
+type Reference = { id: string; label: string; image: string };
+const slug = (name: string, taken: Set<string>) => {
+  const base = `ref-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "picture"}`;
+  let id = base;
+  for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+  return id;
+};
 
 function ago(at: number): string {
   const minutes = Math.round(Math.max(0, Date.now() - at) / 60000);
@@ -28,8 +41,23 @@ function ago(at: number): string {
   return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }
 
-/** A tiny picture of a game, drawn in CSS from its placeholder art. */
+/** A tiny picture of a game: a code game shows its cast as emoji over its colours; a template game its placeholder shapes. */
 function Preview({ spec }: { spec: GameSpec }) {
+  if (spec.template === "code") {
+    const cast = spec.art.assets.filter((a) => a.kind === "sprite" && a.emoji).slice(0, 5);
+    const place = spec.art.assets.find((a) => a.kind === "background" && a.emoji);
+    return (
+      <div className="pl-preview pl-preview-code" style={{ background: `radial-gradient(120% 90% at 50% 0%, ${spec.palette.ground}, ${spec.palette.sky})` }}>
+        {place ? <span className="pl-preview-place" aria-hidden>{place.emoji}</span> : null}
+        {cast.map((a, i) => <span key={a.id} className="pl-preview-emoji" style={{ left: `${12 + i * 19}%`, top: `${30 + ((i * 37) % 40)}%`, fontSize: i === 0 ? 42 : 30 }} aria-hidden>{a.emoji}</span>)}
+        <span className="pl-preview-badge">{spec.three ? "3D · Claude" : "Written by Claude"}</span>
+      </div>
+    );
+  }
+  return <TemplatePreview spec={spec} />;
+}
+
+function TemplatePreview({ spec }: { spec: TemplateSpec }) {
   const template = spec.template;
   const swatch = (color: string, shape: Shape, style: React.CSSProperties = {}) => <i className={`pl-shape pl-${shape}`} style={{ background: color, ...style }} />;
   if (spec.template === "match") {
@@ -58,6 +86,13 @@ export function PlayableHome() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<{ text: string; needsKey?: boolean } | null>(null);
   const [ask, setAsk] = useState<string | null>(null);
+  const [genre, setGenre] = useState<string | null>(null);
+  const [quality, setQuality] = useState<Quality>("quality");
+  const [three, setThree] = useState(false);
+  const [lines, setLines] = useState(0);
+  const [refs, setRefs] = useState<Reference[]>([]);
+  const [picking, setPicking] = useState(false);
+  const addRef = (label: string, image: string) => setRefs((all) => (all.length >= 8 ? all : [...all, { id: slug(label, new Set(all.map((r) => r.id))), label, image }]));
   const { sent, drop } = useSentGames();
   const fresh = sent.filter((s) => !s.game);
 
@@ -82,17 +117,31 @@ export function PlayableHome() {
     setBusy(true);
     setProblem(null);
     setAsk(null);
-    const answer = await gameFromIdea(idea).catch(() => ({ ok: false as const, reason: "Claude couldn't be reached. Try again." }));
-    if (!answer.ok) {
-      const needsKey = "needsKey" in answer && Boolean(answer.needsKey);
-      setProblem({ text: answer.reason, ...(needsKey ? { needsKey: true } : {}) });
+    setLines(0);
+    const brief = { idea, ...(genre ? { genre } : {}), three };
+    const written = await writeGame({ mode: "idea", quality, ...brief, references: refs.map(({ id, label }) => ({ id, label })) }, setLines);
+    let made: { spec: GameSpec; said: string } | null = null;
+    let reason = written.ok ? "" : written.reason;
+    if (written.ok) {
+      try {
+        made = readCodeReply(written.text, { three });
+      } catch (caught) {
+        reason = caught instanceof Error ? caught.message : "Claude's reply couldn't be read.";
+      }
+    }
+    if (!made) {
+      const needsKey = !written.ok && Boolean(written.needsKey);
+      setProblem({ text: reason, ...(needsKey ? { needsKey: true } : {}) });
       // On your own computer the connected Claude can make it over MCP instead, and send it here.
-      if (needsKey && process.env.NODE_ENV !== "production") setAsk(mcpIdeaAsk(idea));
+      if (needsKey && process.env.NODE_ENV !== "production") setAsk(mcpCodeAsk(brief));
       setBusy(false);
       return;
     }
+    // The pictures you brought go on the assets Claude named after them.
+    let spec = made.spec;
+    for (const r of refs) spec = withArt(spec, `assets.${r.id}`, { ref: r.image });
     const at = Date.now();
-    const game = await store.create(answer.spec, [{ who: "you", text: idea.trim(), at }, { who: "claude", text: answer.said, at }]);
+    const game = await store.create(spec, [{ who: "you", text: idea.trim(), at }, { who: "claude", text: made.said, at }]);
     router.push(`/playable/${game.id}`);
   };
 
@@ -120,7 +169,7 @@ export function PlayableHome() {
         <section className="pl-hero">
           <span className="pl-eyebrow">Playable · beta</span>
           <h1>Describe a game.<br /><em>Play it.</em></h1>
-          <p>Say what it&apos;s about and get a small game you can play right here. Change it by chatting, then make its art on Comfy, with the price shown before anything runs.</p>
+          <p>Say what it&apos;s about and Claude writes the whole game: rules, levels and every picture it needs. Play it right here, change it by chatting, then make its art on Comfy, with the price shown before anything runs.</p>
           <div className="pl-composer">
             <textarea
               value={idea}
@@ -128,13 +177,32 @@ export function PlayableHome() {
               onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void make(); }}
               placeholder="A fox collecting acorns in an autumn forest, avoiding hunters' traps…"
               rows={3}
-              maxLength={2000}
+              maxLength={3000}
               aria-label="Your game idea"
             />
+            {refs.length ? (
+              <div className="pl-refs">
+                {refs.map((r) => (
+                  <span key={r.id} className="pl-ref-chip"><img src={r.image} alt="" />{r.label}<button className="pl-plain" aria-label={`Remove ${r.label}`} onClick={() => setRefs((all) => all.filter((x) => x.id !== r.id))}>×</button></span>
+                ))}
+              </div>
+            ) : null}
             <div className="pl-composer-bar">
-              <span className="pl-mono">Claude on your key · no credits</span>
-              <button className="pl-go" onClick={() => void make()} disabled={busy || idea.trim().length < 4}>{busy ? "Designing…" : "Make game"}</button>
+              <div className="pl-switches">
+                <button className="pl-plain" onClick={() => setPicking(true)}>Add reference</button>
+                <label className="pl-plain pl-upload">
+                  Upload
+                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void pictureFile(f, "sprite").then((img) => addRef(f.name.replace(/\.[a-z]+$/i, ""), img), (err: unknown) => setProblem({ text: err instanceof Error ? err.message : "That picture couldn't be used." })); }} />
+                </label>
+                <QualitySwitch value={quality} onChange={setQuality} />
+                <button className="pl-chip" aria-pressed={three} onClick={() => setThree((v) => !v)} title="three.js, with your art on simple 3D shapes">3D · beta</button>
+              </div>
+              <button className="pl-go" onClick={() => void make()} disabled={busy || idea.trim().length < 4}>{busy ? (lines ? `Writing… ${lines} lines` : "Designing…") : "Make game"}</button>
             </div>
+            <span className="pl-mono">Claude writes it on your key · art is priced before you make it{busy ? " · this takes a minute or two" : ""}</span>
+          </div>
+          <div className="pl-ideas" role="group" aria-label="Genre">
+            {GENRES.map((g) => <button key={g} className="pl-chip" aria-pressed={genre === g} onClick={() => setGenre((v) => (v === g ? null : g))}>{g}</button>)}
           </div>
           <div className="pl-ideas">
             {IDEAS.map((text) => <button key={text} className="pl-chip" onClick={() => setIdea(text)}>{text}</button>)}
@@ -146,6 +214,19 @@ export function PlayableHome() {
             </p>
           ) : null}
           {ask ? <McpAsk text={ask} /> : null}
+          {picking ? (
+            <BankPicker
+              kinds={["character", "place", "accessory"]}
+              label="A picture for your game"
+              allowPhotoBuild={false}
+              onClose={() => setPicking(false)}
+              onPick={(item) => {
+                setPicking(false);
+                if (!item.image) return setProblem({ text: `${item.name} has no picture yet. Make one first, or upload a picture.` });
+                addRef(item.name, item.image);
+              }}
+            />
+          ) : null}
         </section>
 
         {fresh.length > 0 ? (
@@ -155,7 +236,7 @@ export function PlayableHome() {
             <div className="pl-grid">
               {fresh.map((s) => (
                 <div key={s.id} className="pl-card pl-sent">
-                  <span className="pl-eyebrow">{TEMPLATE_INFO[s.spec.template].genre}</span>
+                  <span className="pl-eyebrow">{genreOf(s.spec)}</span>
                   <strong>{s.spec.title}</strong>
                   <span className="pl-card-says">{s.summary}</span>
                   <span className="pl-mono">{ruleChips(s.spec).slice(0, 3).join(" · ")}</span>
@@ -176,17 +257,17 @@ export function PlayableHome() {
             {FEATURED.map((f) => (
               <button key={f.id} className="pl-card pl-template" onClick={() => void playFeatured(f)}>
                 <Preview spec={f.spec} />
-                <span className="pl-eyebrow">{TEMPLATE_INFO[f.spec.template].genre}</span>
+                <span className="pl-eyebrow">{genreOf(f.spec)}</span>
                 <strong>{f.spec.title}</strong>
                 <span className="pl-card-says">{f.spec.pitch}</span>
-                <span className="pl-mono">Play · {TEMPLATE_INFO[f.spec.template].controls}</span>
+                <span className="pl-mono">Play · {controlsOf(f.spec)}</span>
               </button>
             ))}
           </div>
         </section>
 
         <section className="pl-section">
-          <h2>Start from a template</h2>
+          <h2>Quick start</h2>
           <p className="pl-sub">No key needed. Each one plays with placeholder shapes until you make its art.</p>
           <div className="pl-grid">
             {TEMPLATES.map((t) => (
@@ -214,7 +295,7 @@ export function PlayableHome() {
                     <Link href={`/playable/${g.id}`} className="pl-saved-name">{g.title}</Link>
                     <button className="pl-plain" onClick={() => void remove(g)}>Delete</button>
                   </div>
-                  <span className="pl-mono">{TEMPLATE_INFO[g.template].name} · {ago(g.updatedAt)}</span>
+                  <span className="pl-mono">{g.template === "code" ? "Written by Claude" : TEMPLATE_INFO[g.template].name} · {ago(g.updatedAt)}</span>
                 </div>
               ))}
             </div>
