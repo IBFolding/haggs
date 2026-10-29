@@ -1,4 +1,5 @@
 "use server";
+import { generationFailure } from "../providers/action-error";
 import { checkGenerationStorage } from "../server/generation-storage";
 
 import { partnerRefusal } from "../server/open-only";
@@ -309,15 +310,7 @@ export async function run(
       }
       return { ok: true as const, shots: await keepShots(result.assets), usd: result.usd };
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : String(caught);
-      // A 401 here is almost always a bad key, and saying so beats a raw dump.
-      if (/401|unauthor|invalid cred/i.test(message)) {
-        return { ok: false as const, reason: `That key was rejected by ${card.provider}.`, needsKey: true };
-      }
-      if (/insufficient_credits|402/i.test(message)) {
-        return { ok: false as const, reason: "Your Comfy workspace is out of credits.", needsKey: true };
-      }
-      return { ok: false as const, reason: message };
+      return generationFailure(caught, card.provider);
     }
   }
 }

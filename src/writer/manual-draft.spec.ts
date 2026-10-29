@@ -19,3 +19,9 @@ test("incomplete, malformed and oversized replies cannot apply", () => {
   assert.throws(() => readManualDraft(JSON.stringify({ ...reply, beats: null }), format), /beats/);
   assert.throws(() => readManualDraft("x".repeat(1_000_001), format), /too large/);
 });
+
+test("nested malformed fields are rejected before applying a manual draft", () => {
+  for (const bad of [null, 5, {}, []]) {
+    assert.throws(() => readManualDraft(JSON.stringify({ ...reply, shots: [{ ...reply.shots[0], dialogue: bad }] }), format), /shots/);
+  }
+});
