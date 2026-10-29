@@ -110,7 +110,7 @@ export function Ads() {
     setProblem(null);
     setKit(await brands.save(sample.brand));
     setKits(await brands.list());
-    const p = await products.save({ ...sample.product, picture: null, price: "" });
+    const p = await products.save({ name: sample.product.name, words: sample.product.words, picture: sample.product.picture ?? null, price: "" });
     setList(await products.list());
     setChosen([p.id]);
     setFormats(sample.formats);

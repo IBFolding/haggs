@@ -22,6 +22,19 @@ export const LOOKS = [
 ] as const;
 export type LookId = (typeof LOOKS)[number]["id"];
 
+/** A picture of each look (the same rooftop scene in every style), made with ChatGPT, so a look can be picked by sight. */
+export const LOOK_SAMPLES: Partial<Record<LookId, string>> = {
+  ink: "/samples/comic-look-ink.webp",
+  manga: "/samples/comic-look-manga.webp",
+  vector: "/samples/comic-look-vector.webp",
+  noir: "/samples/comic-look-noir.webp",
+  ligne: "/samples/comic-look-ligne.webp",
+  story: "/samples/comic-look-story.webp",
+};
+/** A cover for each starter story, made with ChatGPT. */
+export const STARTER_COVERS: Record<string, string> = { spark: "/samples/comic-starter-spark.webp", heist: "/samples/comic-starter-heist.webp" };
+export const SAMPLES_MADE_WITH = "Sample made with ChatGPT";
+
 export const LAYOUTS = [
   { id: "strip", name: "Strip", says: "Three across, like a newspaper.", columns: 3 },
   { id: "page", name: "Page", says: "Two across, a full comic page.", columns: 2 },
