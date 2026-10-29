@@ -1,4 +1,5 @@
 "use server";
+import { checkGenerationStorage } from "../server/generation-storage";
 
 import { partnerRefusal } from "../server/open-only";
 import { isBlobUrl } from "../server/blob";
@@ -48,7 +49,7 @@ export async function makeStill(prompt: string, ratio: StillRatio, references: s
 
 async function stillWith(key: string, prompt: string, ratio: StillRatio, references: string[], finish: string): Promise<MadeStill> {
   try {
-    const cloud = createCloudRunner({ apiKey: key, keep: keepResult });
+    const cloud = createCloudRunner({ apiKey: key, keep: keepResult, beforeRun: checkGenerationStorage });
     const { readFile } = await import("node:fs/promises");
     const { localFile } = await import("../server/local-media");
     const uploaded: string[] = [];

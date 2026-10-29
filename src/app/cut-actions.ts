@@ -1,4 +1,5 @@
 "use server";
+import { checkGenerationStorage } from "../server/generation-storage";
 
 import { partnerRefusal } from "../server/open-only";
 import { extractTerminalFrame } from "../server/terminal-frame";
@@ -91,7 +92,7 @@ async function reshootWith(key: string, url: string, at: number, kind: "image" |
     const prompt = reshootPrompt({ az: Number(move.az) || 0, el: Number(move.el) || 0, zoom: Number(move.zoom) || 0 }, beat);
     const picture = await readMedia(frame.url).catch(() => null);
     if (!picture) return { ok: false, reason: "That shot's picture couldn't be read." };
-    const cloud = createCloudRunner({ apiKey: key, keep: keepResult });
+    const cloud = createCloudRunner({ apiKey: key, keep: keepResult, beforeRun: checkGenerationStorage });
     const uploaded = await cloud.uploadBytes(picture.bytes, picture.mime);
     const result = await cloud.run(flux3Workflow({ prompt, references: [uploaded], ratio: "16:9", resolution: "1.5K", seed: Math.floor(Math.random() * 2_000_000_000) }));
     return { ok: true, url: result.url, source: frame.url, usd: 0.1001 };

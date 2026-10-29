@@ -12,3 +12,12 @@ test('stale holds are counted when their upload landed and released when it did 
  assert.deepEqual(finished,[['landed','https://x.public.blob.vercel-storage.com/a.mp4',7],['lost',null,undefined]]);
  assert.equal(uploadFolder('u1','r1'),'haggs/u-u1/uploads/r1/');
 });
+
+import {ownerStorageBytes} from './storage-quota';
+test('operator storage applies only to explicitly configured exact email addresses',()=>{
+ assert.equal(ownerStorageBytes('FCKTHEF3D@gmail.com',' fckthef3d@gmail.com '),30_000_000_000);
+ assert.equal(ownerStorageBytes('other@gmail.com','fckthef3d@gmail.com'),0);
+ assert.equal(ownerStorageBytes('fckthef3d@gmail.com.evil','fckthef3d@gmail.com'),0);
+ assert.equal(ownerStorageBytes('',''),0);
+ assert.equal(ownerStorageBytes('fckthef3d@gmail.com',undefined),0);
+});

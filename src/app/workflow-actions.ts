@@ -1,4 +1,5 @@
 "use server";
+import { checkGenerationStorage } from "../server/generation-storage";
 
 import { isBlobUrl } from "../server/blob";
 import { charged, comfyAccess, readKey as platformReadKey } from "../server/platform";
@@ -210,7 +211,7 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
       if (local.problems.length) return { ok: false, reason: `Your ComfyUI can't run this yet: ${local.problems[0]}` };
       prompt = local.prompt;
     }
-    const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key!, keep: keepResult, timeoutMs: 40 * 60_000 });
+    const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key!, keep: keepResult, beforeRun: checkGenerationStorage, timeoutMs: 40 * 60_000 });
     const uploaded: Values = {};
     // An empty choice leaves that input out of the run, with the wire it fed.
     const skipped = Object.entries(files).filter(([, v]) => v === "").map(([k]) => k);
