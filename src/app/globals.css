@@ -4680,3 +4680,26 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .sh-next { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 22px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .sh-next p { margin: 0; font-size: 13px; color: var(--text-2); line-height: 1.5; flex: 1 1 320px; }
 .sh-next .fire { margin-left: 0; }
+
+/* The Gallery's Scripts shelf: one card a project. */
+.gl-scripts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.gl-script { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.gl-script-pic { position: relative; display: block; border-radius: 10px; overflow: hidden; aspect-ratio: 3 / 4; background: var(--surface-2); }
+.gl-script-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gl-script-pic img.stock { opacity: .55; }
+.gl-script-pic span { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 999px; background: rgba(8, 8, 10, .8); color: var(--text-2); font: 600 10px var(--mono); }
+.gl-script-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.gl-script-body b { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; }
+.gl-script-body small { color: var(--text-3); font-size: 11.5px; }
+.gl-script-body p { margin: 0; font-size: 12.5px; color: var(--text-2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.gl-script-body p.gl-script-meta { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); -webkit-line-clamp: unset; }
+.gl-script-body .cm-row { margin-top: auto; padding-top: 6px; }
+.sh-byhand { border: 1px solid var(--line-hot); border-radius: 12px; background: var(--surface); padding: 14px 16px; margin-bottom: 14px; }
+.sh-byhand ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
+.sh-byhand li { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.sh-byhand li b { color: var(--text); }
+.sh-byhand li .pill, .sh-byhand li .fire { margin: 6px 0 0; display: inline-flex; }
+.sh-byhand li .pill { margin-left: 8px; }
+.sh-byhand textarea { display: block; width: 100%; margin-top: 6px; font-family: var(--mono); font-size: 12px; }
+.sh-byhand a { color: var(--volt); }
+.sh-byhand > .sh-meta { margin-top: 12px; }

@@ -23,7 +23,7 @@ import { applyTakes, applyVoices, validateTakes, validateVoices } from "../../..
 import { formatById, type Format } from "../../../../sheets/formats";
 import { readScriptFile, SCRIPT_ACCEPT } from "../../../../sheets/import";
 import { fixAll, fixesFor } from "../../../../sheets/fixes";
-import { applyBreakdown, breakdownRequest } from "../../../../writer/breakdown";
+import { applyBreakdown, breakdownRequest, byHandPrompt, readReply, validateBreakdown } from "../../../../writer/breakdown";
 import { StartScreen, type UploadOptions } from "./start";
 import { Nav, openKeys } from "../../../nav";
 import { PROJECT_SAVED } from "../../../agent";
@@ -251,7 +251,36 @@ function FillButton({ sheets, onFilled, onProblem }: { sheets: Sheets; onFilled:
   );
 }
 
-type Proposal = { id: string; kind: "draft" | "fill" | "edits" | "board" | "takes" | "voices"; summary: string; payload: unknown; boardId?: string; formatId?: string; at: number };
+/**
+ * The breakdown without a key: the same request haggs would send, copied for the person to paste into Claude or
+ * ChatGPT, and the JSON reply pasted back. With the haggs MCP connected, Claude Code can send it straight to the inbox.
+ */
+function ByHand({ prompt, onCopied, onReply }: { prompt: string; onCopied: () => void; onReply: (raw: string) => boolean }) {
+  const [reply, setReply] = useState("");
+  return (
+    <div className="sh-byhand">
+      <ol>
+        <li>
+          <b>Copy the request.</b> It holds the instructions and every scene.
+          <button className="pill on" onClick={() => void navigator.clipboard?.writeText(prompt).then(onCopied, () => undefined)}>Copy the request</button>
+        </li>
+        <li>
+          <b>Paste it into</b> <a href="https://claude.ai/new" target="_blank" rel="noreferrer">Claude</a> or <a href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPT</a>. It answers with JSON.
+        </li>
+        <li>
+          <b>Paste the reply here.</b>
+          <textarea rows={4} value={reply} placeholder='{"logline": "…", "characters": […], …}' onChange={(e) => setReply(e.target.value)} />
+          <button className="fire" disabled={reply.trim().length < 20} onClick={() => { if (onReply(reply)) setReply(""); }}>Use this breakdown</button>
+        </li>
+      </ol>
+      {process.env.NODE_ENV !== "production" && (
+        <p className="sh-meta">Using Claude Code or Claude Desktop with the haggs MCP? Ask it to “break down this board’s script with haggs_propose_breakdown”. It arrives here, From Claude, for you to Apply.</p>
+      )}
+    </div>
+  );
+}
+
+type Proposal = { id: string; kind: "draft" | "breakdown" | "fill" | "edits" | "board" | "takes" | "voices"; summary: string; payload: unknown; boardId?: string; formatId?: string; at: number };
 
 /** Polls the local bridge for what Claude has sent this project over MCP. Development only. */
 function useInbox(projectId: string) {
@@ -282,7 +311,7 @@ function useInbox(projectId: string) {
   return { items, drop };
 }
 
-const KIND: Record<Proposal["kind"], string> = { draft: "A draft", fill: "Looks and locks", edits: "Sheet edits", board: "A new board", takes: "New takes", voices: "Voice-over lines" };
+const KIND: Record<Proposal["kind"], string> = { draft: "A draft", breakdown: "A breakdown of the script", fill: "Looks and locks", edits: "Sheet edits", board: "A new board", takes: "New takes", voices: "Voice-over lines" };
 
 /** Carries every board's beats and shots, and the locks already written, onto freshly uploaded sheets. */
 function keepWork(next: Sheets, before: Sheets): Sheets {
@@ -318,6 +347,8 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
   const [notice, setNotice] = useState<string | null>(null);
   const [setup] = useState({ title: "", seconds: 60, format: "16:9" });
   const [breaking, setBreaking] = useState(false);
+  const [byHand, setByHand] = useState(false);
+  const [breakFormat, setBreakFormat] = useState<Format | undefined>(undefined);
   const [reading, setReading] = useState<string[]>([]);
   const [sendAnyway, setSendAnyway] = useState(false);
   const scripts = useRef<HTMLInputElement>(null);
@@ -472,6 +503,13 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
           return putSheetsView(base, target, made);
         });
         setNotice(`Applied Claude's draft: ${made.script.length} scenes, ${made.story.length} beats, ${made.shots.length} shots.${problems.length ? ` Fixed on the way in: ${problems.join(" ")}` : ""}`);
+      } else if (item.kind === "breakdown") {
+        if (!all) throw new Error("There is no script to break down yet.");
+        const sent = validateBreakdown(item.payload);
+        if (sheets?.story.length && !window.confirm("Use Claude's breakdown? It replaces this board's beats and shots. Locks and looks you wrote are kept.")) return;
+        act((x) => applyBreakdown(x, sent).sheets);
+        setTab("story");
+        setNotice(`Applied Claude's breakdown: ${sent.beats.length} beats and ${sent.shots.length} shots. Your script wasn't changed.`);
       } else if (item.kind === "fill") {
         if (!all) throw new Error("There are no sheets to fill yet.");
         setAll((current) => {
@@ -535,6 +573,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
       setNotice(
         `Read ${parsed.length} script${parsed.length > 1 ? "s" : ""}: ${next.script.length} scenes, ${next.characters.length} speaking characters, ${next.locations.length} places. Nothing left this browser.`,
       );
+      if (from) setBreakFormat(from.format);
       if (from?.breakdown) {
         const base = normalizeSheets(merged, project?.boards?.[0]?.id ?? "main");
         void breakItDown(sheetsView(base, bid, { title: board?.name ?? base.title }), from.format);
@@ -554,9 +593,9 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
     const result = await breakDown(breakdownRequest(current, format));
     setBreaking(false);
     if (!result.ok) {
-      if ("needsKey" in result && result.needsKey) openKeys();
-      setNotice(null);
-      setError(result.reason);
+      if ("needsKey" in result && result.needsKey) setByHand(true);
+      setNotice(`The script is on the sheets: ${current.script.length} scenes. Break it down once Claude can be reached, or tick scenes and make beats from them yourself.`);
+      setError("needsKey" in result && result.needsKey ? "There's no Claude key here, so haggs can't call Claude for you. Add one in Keys, or do it yourself in Claude or ChatGPT below: copy the request, paste the reply." : result.reason);
       return;
     }
     const { problems } = applyBreakdown(current, result.draft);
@@ -646,7 +685,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
         <Nav current="Projects" />
         {tabs}
         <div className="canvas">
-          <div className="sh-start">{claude.items.length > 0 && (
+          {claude.items.length > 0 && <div className="sh-start">{(
             <div className="inbox" role="region" aria-label="From Claude">
               {claude.items.map((item) => (
                 <div key={item.id} className="inbox-item">
@@ -657,7 +696,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                 </div>
               ))}
             </div>
-          )}</div>
+          )}</div>}
           <StartScreen
             projectName={project.name}
             boardHref={`/board/${id}?b=${encodeURIComponent(bid)}`}
@@ -735,7 +774,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                   <button key={t} className={j ? "sub" : undefined} aria-current={tab === t ? "page" : undefined} onClick={() => go(t)}>
                     {j ? <span className="sh-step sub" aria-hidden /> : <span className={`sh-step${done[n] ? " done" : ""}`}>{done[n] ? "✓" : n + 1}</span>}
                     <span>
-                      <b>{j || step.tabs.length === 1 ? s.label : step.label}</b>
+                      <b>{j ? s.label : step.label}</b>
                       <small className={t === "qa" && errors ? "bad" : undefined}>
                         {t === "qa" ? (errors ? `${errors} to fix` : qa.length ? `${qa.length} to review` : "All clear") : j || step.tabs.length === 1 ? `${count[t]}` : `${s.label} · ${count[t]}`}
                       </small>
@@ -786,11 +825,34 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                 >
                   Make one beat from {picked.length || "selected"} scene{picked.length === 1 ? "" : "s"}
                 </button>
-                <button className="pill" onClick={() => setReading(reading.length ? [] : sheets.script.map((x) => x.id))}>{reading.length ? "Fold the scenes" : "Read every scene"}</button>
-                <button className="pill on" disabled={breaking} onClick={() => void breakItDown(sheets)} title="Claude maps the scenes onto beats and fills the cast, places and a first shot list. Your script isn't changed.">
+                <button className="pill" onClick={() => setReading(reading.length === sheets.script.length ? [] : sheets.script.map((x) => x.id))}>{reading.length === sheets.script.length ? "Fold the scenes" : "Read every scene"}</button>
+                <button className="pill on" disabled={breaking} onClick={() => void breakItDown(sheets, breakFormat)} title="Claude maps the scenes onto beats and fills the cast, places and a first shot list. Your script isn't changed.">
                   {breaking ? "Breaking it down…" : sheets.story.length ? "Break it down again" : "Break it down for me"}
                 </button>
+                <button className="pill" aria-expanded={byHand} onClick={() => setByHand((v) => !v)}>No key? Use Claude or ChatGPT</button>
               </div>
+              {byHand && (
+                <ByHand
+                  prompt={byHandPrompt(breakdownRequest(sheets, breakFormat))}
+                  onCopied={() => setNotice("Copied. Paste it into Claude or ChatGPT, then paste the reply back here.")}
+                  onReply={(raw) => {
+                    try {
+                      const reply = validateBreakdown(readReply(raw));
+                      if (sheets.story.length && !window.confirm("Use this breakdown? It replaces this board's beats and shots. Locks and looks you wrote are kept.")) return false;
+                      const { problems } = applyBreakdown(sheets, reply);
+                      act((x) => applyBreakdown(x, reply).sheets);
+                      setByHand(false);
+                      setTab("story");
+                      setError(null);
+                      setNotice(`Broken down: ${reply.beats.length} beats and ${reply.shots.length} shots from the reply you pasted. Your script wasn't changed.${problems.length ? ` Fixed on the way in: ${problems.join(" ")}` : ""}`);
+                      return true;
+                    } catch (caught) {
+                      setError(caught instanceof Error ? caught.message : "That reply couldn't be read.");
+                      return false;
+                    }
+                  }}
+                />
+              )}
               {sheets.sources.map((src) => (
                 <div key={src.episode}>
                   <h3 className="sh-ep">Episode {src.episode}{src.title && ` · ${src.title}`}</h3>
@@ -817,7 +879,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                           <button className="pill" onClick={() => { act((x) => addBeat(x, { sceneIds: [s.id] })); setNotice(`Beat added: ${s.heading}`); }}>
                             Add as beat
                           </button>
-                          <button className="plain" onClick={() => setReading((r) => (r.includes(s.id) ? r.filter((x) => x !== s.id) : [...r, s.id]))}>{reading.includes(s.id) ? "Fold" : "Read"}</button>
+                          <button className="pill" onClick={() => setReading((r) => (r.includes(s.id) ? r.filter((x) => x !== s.id) : [...r, s.id]))}>{reading.includes(s.id) ? "Fold" : "Read"}</button>
                         </div>
                       </article>
                     ))}

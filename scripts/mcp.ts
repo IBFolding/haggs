@@ -31,6 +31,7 @@ import { GAME_GUIDE, GAME_SCHEMA, forClaude, readGameReply } from "../src/playab
 import { codeGuide } from "../src/playable/code";
 import { TEMPLATES, bare, defaultSpec, ruleChips } from "../src/playable/spec";
 import { applyDraft, validateDraft } from "../src/writer/draft";
+import { applyBreakdown, validateBreakdown } from "../src/writer/breakdown";
 import { applyFill, type Fill } from "../src/writer/fill";
 
 const root = bridgeRoot(join(dirname(fileURLToPath(import.meta.url)), ".."));
@@ -92,7 +93,7 @@ server.registerTool(
         style: sh.style,
         withheld: sh.rules.filter(Boolean),
         sources: sh.sources,
-        scenes: sh.script.map((s) => ({ id: s.id, heading: s.heading, act: s.act, lines: `${s.from}-${s.to}`, speakers: s.characters, opens: s.action.slice(0, 160) })),
+        scenes: sh.script.map((s, i) => ({ n: i + 1, id: s.id, heading: s.heading, act: s.act, lines: `${s.from}-${s.to}`, speakers: s.characters, opens: s.action.slice(0, 160) })),
         characters: [...sh.characters].sort((a, b) => b.lines - a.lines).map((c) => ({ id: c.id, lines: c.lines, scenes: c.scenes.length, age: c.age, look: c.look, wardrobe: c.wardrobe, voice: c.voice, lock: c.lock, never: c.never, references: c.refs?.length ?? 0 })),
         places: sh.locations.map((l) => ({ id: l.id, setting: l.setting, scenes: l.scenes.length, look: l.look, light: l.light, lock: l.lock })),
         beats: sh.story.map((b) => ({ id: b.id, title: b.title, scenes: b.sceneIds, source: b.source, feeling: b.feeling, withhold: b.withhold })),
@@ -162,6 +163,40 @@ server.registerTool(
       const { sheets, problems } = applyDraft(checked, f);
       const item = await propose(root, project, { kind: "draft", summary, payload: checked, formatId: format, ...(board ? { boardId: board } : {}) });
       return text({ sent: item.id, scenes: sheets.script.length, beats: sheets.story.length, shots: sheets.shots.length, problems, next: "The person reviews it in haggs and presses Apply." });
+    } catch (caught) {
+      return fail(caught instanceof Error ? caught.message : String(caught));
+    }
+  },
+);
+
+server.registerTool(
+  "haggs_propose_breakdown",
+  {
+    description:
+      "Break down the script already on a board's sheets, without rewriting it: the story's beats (each listing the scene numbers it covers, counting every scene in order from 1 across episodes, as haggs_get_sheets lists them), a first shot list timed to the board's seconds, and looks and locks for the cast and places (names exactly as on the sheet). Read the scenes with haggs_get_sheets and haggs_get_scenes first. It is checked here and the problems are returned. Applying it replaces the board's beats and shots; locks the person wrote are kept.",
+    inputSchema: {
+      project: z.string(),
+      board: z.string().optional(),
+      summary: z.string().max(300),
+      breakdown: z.object({
+        logline: z.string(),
+        characters: z.array(z.object({ name: z.string(), look: z.string(), wardrobe: z.string(), voice: z.string(), lock: z.string() })),
+        locations: z.array(z.object({ name: z.string(), look: z.string(), light: z.string(), lock: z.string() })),
+        beats: z.array(z.object({ title: z.string(), scenes: z.array(z.number().int()), feeling: z.string(), withhold: z.string() })),
+        shots: z.array(z.object({ beat: z.number().int(), scene: z.number().int(), action: z.string(), size: z.string(), angle: z.string(), lens: z.string(), move: z.string(), seconds: z.number(), dialogue: z.string(), sound: z.string() })),
+      }),
+    },
+    annotations: proposes,
+  },
+  async ({ project, board, summary, breakdown }) => {
+    try {
+      const snap = await load(project);
+      const sh = boardSheets(snap.sheets, snap.project.boards ?? [], board);
+      if (!sh) return fail("This project has no script yet. Upload one in haggs, or propose a whole draft with haggs_propose_draft.");
+      const checked = validateBreakdown(breakdown);
+      const { sheets, problems } = applyBreakdown(sh, checked);
+      const item = await propose(root, project, { kind: "breakdown", summary, payload: checked, ...(board ? { boardId: board } : {}) });
+      return text({ sent: item.id, beats: sheets.story.length, shots: sheets.shots.length, problems, next: "The person reviews it in haggs and presses Apply." });
     } catch (caught) {
       return fail(caught instanceof Error ? caught.message : String(caught));
     }

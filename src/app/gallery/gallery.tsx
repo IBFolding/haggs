@@ -18,13 +18,14 @@ import { Workspace } from "../workspace";
 import { Nav } from "../nav";
 import { useStartProject } from "../start-project";
 import { RecoverPanel } from "./recover-panel";
+import { ScriptShelf } from "./scripts";
 import { RunTile } from "../run-tile";
 import { ShareToExplore } from "../explore/share";
 import { SaveToProject } from "../save-to-project";
 import { SiteFooter } from "../site-footer";
 import { totalText } from "../../story/price-text";
 
-const SCOPES = ["All", "Images", "Video", "Sounds", "Kept"] as const;
+const SCOPES = ["All", "Images", "Video", "Sounds", "Scripts", "Kept"] as const;
 type Scope = (typeof SCOPES)[number];
 
 function inScope(run: Run, scope: Scope): boolean {
@@ -32,6 +33,7 @@ function inScope(run: Run, scope: Scope): boolean {
   if (scope === "Video") return run.kind === "video";
   if (scope === "Sounds") return run.kind === "audio";
   if (scope === "Kept") return run.favorite === true;
+  if (scope === "Scripts") return false;
   return true;
 }
 
@@ -52,6 +54,10 @@ const EMPTY: Record<Scope, { head: string; body: string }> = {
   Sounds: {
     head: "No sounds yet.",
     body: "Voice lines, sound effects and music you make or add in the editor land here, ready to play and download.",
+  },
+  Scripts: {
+    head: "No scripts yet.",
+    body: "Scripts you write, upload or lay out appear here, one card a project.",
   },
   Kept: {
     head: "Nothing kept yet.",
@@ -237,7 +243,7 @@ export function Gallery() {
                 <button key={option} role="tab" className="scope" aria-selected={option === scope} onClick={() => setScope(option)}>{option}</button>
               ))}
             </div>
-            <input type="search" className="gallery-search" aria-label="Search your work" placeholder="Search prompts and models" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input type="search" className="gallery-search" aria-label="Search your work" placeholder={scope === "Scripts" ? "Search titles, loglines and cast" : "Search prompts and models"} value={query} onChange={(e) => setQuery(e.target.value)} />
             <button className="gl-ghost" onClick={() => void findSounds()}>Find sounds in my projects</button>
           </div>
           {finding && <p className="gallery-note" role="status">{finding}</p>}
@@ -258,6 +264,7 @@ export function Gallery() {
 
           {error && <p className="library-error" role="alert">{error}</p>}
 
+          {scope === "Scripts" ? <ScriptShelf query={query} /> : <>
           <div className="gl-tools">
             <span className="eyebrow muted">Group by</span>
             <span className="nav-seg" role="group" aria-label="Group by">
@@ -315,6 +322,7 @@ export function Gallery() {
               )}
             </div>
           </div>
+          </>}
         </div>
         <SiteFooter />
       </div>

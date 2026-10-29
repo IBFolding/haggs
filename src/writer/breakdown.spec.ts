@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { formatById } from "../sheets/formats";
 import { parseScreenplay } from "../sheets/screenplay";
 import { buildSheets, fixCell } from "../sheets/sheets";
-import { applyBreakdown, BREAKDOWN_SCHEMA, breakdownRequest, sceneDigest, validateBreakdown, type Breakdown } from "./breakdown";
+import { applyBreakdown, BREAKDOWN_SCHEMA, breakdownRequest, byHandPrompt, readReply, sceneDigest, validateBreakdown, type Breakdown } from "./breakdown";
 
 const episode = (n: number) =>
   [
@@ -63,4 +63,15 @@ test("a breakdown lays beats and shots on the uploaded scenes and keeps a lock s
 test("a reply with no beats is refused, not half-applied", () => {
   assert.throws(() => validateBreakdown({ characters: [], locations: [], shots: [] }), /no beats/);
   assert.throws(() => validateBreakdown({ beats: [{}], locations: [], shots: [] }), /no characters/);
+});
+
+test("without a key, the same request can be pasted into a chat, and its reply read back from inside a code block", () => {
+  const prompt = byHandPrompt(breakdownRequest(sheets));
+  assert.match(prompt, /Do not rewrite the script/);
+  assert.match(prompt, /"beats":\[\{"title"/);
+  assert.match(prompt, /^4\. INT\. LIFT/m);
+  const reply = `Here you go:\n\`\`\`json\n${JSON.stringify(breakdown)}\n\`\`\`\nLet me know.`;
+  assert.deepEqual(validateBreakdown(readReply(reply)), breakdown);
+  assert.throws(() => readReply("Sorry, I can't."), /No JSON/);
+  assert.throws(() => readReply('{"beats": ['), /No JSON|isn't complete/);
 });

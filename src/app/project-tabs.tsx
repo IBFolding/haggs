@@ -13,12 +13,12 @@ import { nextStep, progress } from "../story/next-step";
 /**
  * The bar under the header on every project page: which project, which
  * board, and the four places that board's work moves through — plan it on
- * Sheets, shoot it on the Board, assemble it in the Cut, keep what it is made
+ * the Script sheets, shoot it on the Board, assemble it in the Cut, keep what it is made
  * of in Media. Switching board keeps you on the same tab.
  */
 
 const TABS = [
-  { id: "sheets", label: "Sheets", path: "/sheets" },
+  { id: "sheets", label: "Script", path: "/sheets" },
   { id: "board", label: "Board", path: "" },
   { id: "cut", label: "Cut", path: "/cut" },
   { id: "media", label: "Media", path: "/media" },

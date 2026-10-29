@@ -70,3 +70,28 @@ export function applyBreakdown(sheets: Sheets, breakdown: Breakdown): { sheets: 
   const start = { ...sheets, story: [], shots: [], logline: sheets.logline || breakdown.logline };
   return applyParts(start, breakdown, (n) => sheets.script[n - 1]?.id, { keep: true });
 }
+
+/** The request as one message a person can paste into Claude or ChatGPT, ending with the exact JSON shape to reply in. */
+export function byHandPrompt(request: DraftRequest): string {
+  const shape = {
+    logline: "…",
+    characters: [{ name: "NAME AS ON THE SHEET", look: "", wardrobe: "", voice: "", lock: "" }],
+    locations: [{ name: "PLACE AS ON THE SHEET", look: "", light: "", lock: "" }],
+    beats: [{ title: "", scenes: [1], feeling: "", withhold: "" }],
+    shots: [{ beat: 1, scene: 1, action: "", size: "", angle: "", lens: "", move: "", seconds: 5, dialogue: "", sound: "" }],
+  };
+  return [request.system, `Reply with one JSON object and nothing else, in exactly this shape (beat and scene are numbers from the list):\n${JSON.stringify(shape)}`, request.user].join("\n\n");
+}
+
+/** A pasted reply's JSON, found even inside a code block or a sentence of chat around it. */
+export function readReply(raw: string): unknown {
+  const text = raw.replace(/```(?:json)?/gi, "");
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("No JSON was found in that reply. Paste everything Claude or ChatGPT answered.");
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch {
+    throw new Error("That reply isn't complete JSON. If it was cut off, ask it to continue, then paste the whole answer.");
+  }
+}
