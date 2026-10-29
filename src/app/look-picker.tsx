@@ -6,9 +6,10 @@ import { APERTURES, FOCALS, lookPhrase, rowsFor, type LookChoice, type LookOptio
 
 /**
  * The look, picked by sight. A bar of cards (one per choice: camera, framing, move, light, film, era, look, grade)
- * sits over the prompt; each opens a picker of visual samples. The samples are our own three sample photos with the
- * treatment drawn on them in the browser, and simple drawings for the camera, so nothing here is generated or costs
- * anything. They show the idea, not the result: the model makes its own picture from the words, which are always shown.
+ * sits over the prompt; each opens a picker of visual samples. Light, look, era and four framings are pictures made with
+ * ChatGPT (see LOOK_PHOTOS); film and grade are our own sample photos with the treatment drawn on them in the browser;
+ * the camera is drawn. They show the idea, not the result: the model makes its own picture from the words, which are
+ * always shown.
  */
 
 const PORTRAIT = "/samples/portrait.jpg";
@@ -71,7 +72,19 @@ const CROP: Record<string, { at: string; zoom: number }> = {
   "extreme-close-up": { at: "59% 23%", zoom: 8 },
 };
 
+/** Real pictures for the rows where a tint can't show the difference: one scene shown each way, made with ChatGPT. */
+const slug = (id: string) => id.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+const LOOK_PHOTOS: Partial<Record<LookRow["id"], (id: string) => string | null>> = {
+  light: (id) => `/looks/light-${slug(id)}.webp`,
+  look: (id) => `/looks/genre-${slug(id)}.webp`,
+  era: (id) => `/looks/era-${slug(id)}.webp`,
+  framing: (id) => (["extreme-wide", "over-shoulder", "low-angle", "top-down"].includes(id) ? `/looks/framing-${id}.webp` : null),
+};
+export const lookPhotoFor = (row: LookRow["id"], id: string): string | null => LOOK_PHOTOS[row]?.(id) ?? null;
+
 function treatOf(row: LookRow["id"], option: LookOption): Treat {
+  const real = row === "framing" ? null : lookPhotoFor(row, option.id);
+  if (real) return { src: real };
   if (row === "grade") {
     if (option.id === "monochrome") return { src: STREET, filter: "grayscale(1) contrast(1.15)" };
     if (option.id === "natural") return { src: STREET };
@@ -118,6 +131,8 @@ function Visual({ row, option }: { row: LookRow["id"]; option: LookOption }) {
   if (row === "framing") {
     const crop = CROP[option.id];
     if (crop) return <Photo treat={{}} className="vk-crop" style={{ "--at": crop.at, "--zoom": crop.zoom } as CSSProperties} />;
+    const real = lookPhotoFor("framing", option.id);
+    if (real) return <Photo treat={{ src: real }} />;
     return <span className="vk-draw wide"><svg viewBox="0 0 96 64" aria-hidden>{FRAMES[option.id]}</svg></span>;
   }
   if (row === "move") return <><Photo treat={{}} className={`vk-move m-${option.id}`} /><i className="vk-mark" aria-hidden>{MOVE_MARK[option.id]}</i></>;
@@ -244,7 +259,7 @@ export function LookPicker({ value, onChange, video, start, onClose }: { value: 
           </div>
         </div>
         <footer>
-          <p>{words ? <>Adds to your prompt: <span>{words}</span></> : "Pick anything and its words go after your prompt. Samples show the idea; the model makes its own picture."}</p>
+          <p>{words ? <>Adds to your prompt: <span>{words}</span></> : "Pick anything and its words go after your prompt. Samples show the idea (light, look, era and some framings were made with ChatGPT); the model makes its own picture."}</p>
           <button className="fire" onClick={onClose}>Done</button>
         </footer>
       </div>

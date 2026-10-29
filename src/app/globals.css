@@ -4601,3 +4601,5 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .cx-heights circle.cx-fig { fill: var(--text); stroke: none; }
 .cx-heights button.on .cx-fig { stroke: var(--volt); }
 .cx-heights button.on circle.cx-fig { fill: var(--volt); }
+.cx-pics.wide { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.cx-pics.wide img { aspect-ratio: 4 / 3; }

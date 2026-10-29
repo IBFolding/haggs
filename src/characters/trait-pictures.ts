@@ -20,3 +20,7 @@ export function picturedChoices(): { row: PicturedRow; option: string; src: stri
 export const HEIGHT_SCALE: Record<string, number> = { short: 0.68, "below average height": 0.75, "average height": 0.82, tall: 0.9, "very tall": 0.98 };
 
 export const TRAIT_PICTURES_BY = "Pictures made with ChatGPT";
+
+/** The same for places: `/places/{row}-{choice}.webp`. Time of day stays a sky swatch. */
+export const PLACE_PICTURED = ["where", "setting", "weather", "season", "era", "mood"] as const;
+export const placePicture = (row: string, option: string): string => `/places/${row}-${option.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.webp`;
