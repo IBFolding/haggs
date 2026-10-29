@@ -32,3 +32,15 @@ export function createProductStore(kv: Kv) {
     },
   };
 }
+
+/** The ready-made photo for one of the Ads samples, matched by name, for a sample saved before it had one. */
+export function samplePhotoFor(product: { name: string }, samples: { product: { name: string; picture?: string } }[]): string | null {
+  const name = product.name.trim().toLowerCase();
+  return samples.find((s) => s.product.name.toLowerCase() === name)?.product.picture ?? null;
+}
+
+/** The words that make a product photo from what the product looks like: a plain studio shot, nothing else in it. */
+export function productPhotoPrompt(product: { name: string; words: string }): string {
+  const what = (product.words.trim() || product.name.trim()).replace(/[.\s]+$/, "");
+  return `Studio product photograph of ${what}, the product alone and centred, on a plain light background, soft even studio light, true colours, sharp detail. No text, no logos, no watermark, no other objects.`;
+}

@@ -17,6 +17,7 @@ import { makeStill } from "../series-actions";
 import { SiteFooter } from "../site-footer";
 import { surfaceAvailable } from "../studio";
 import { uploadFile } from "../upload-client";
+import { ProductPhoto } from "../product-photo";
 import { creditsText } from "../../story/price-text";
 
 const PRICE = 0.07;
@@ -66,6 +67,7 @@ export function Ads() {
   const [ready, setReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState("Loading draft…");
   const [remakeOpen, setRemakeOpen] = useState(false);
+  const [focus, setFocus] = useState<string | null>(null);
   const urlRef = useRef<HTMLInputElement>(null);
   const writes = useRef(Promise.resolve());
   useEffect(() => {
@@ -275,13 +277,17 @@ export function Ads() {
                   {list.length > 0 && (
                     <div className="cm-cast" aria-label="Your products">
                       {list.map((p) => (
-                        <button key={p.id} className={chosen.includes(p.id) ? "on" : ""} aria-pressed={chosen.includes(p.id)} onClick={() => toggle(setChosen, p.id)}>
-                          {p.picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.picture} alt="" /> : <span className="cm-noimg">{p.name.slice(0, 1)}</span>}
+                        <button key={p.id} className={chosen.includes(p.id) ? "on" : ""} aria-pressed={chosen.includes(p.id)} onClick={() => { toggle(setChosen, p.id); setFocus(p.id); }}>
+                          {p.picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.picture} alt="" /> : <span className="cm-noimg">{p.name.slice(0, 1)}<em className="pp-none">no photo</em></span>}
                           <span>{p.name}</span>
                         </button>
                       ))}
                     </div>
                   )}
+                  {(() => {
+                    const p = list.find((x) => x.id === focus) ?? list.find((x) => chosen.includes(x.id) && !x.picture) ?? null;
+                    return p ? <ProductPhoto key={p.id} product={p} onPicture={async (url) => { await products.save({ ...p, picture: url }); setList(await products.list()); }} /> : null;
+                  })()}
                   <div className="ad-add">
                     <label className="wf-field"><span>Add a product</span><input value={draft.name} maxLength={60} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Ember mug" /></label>
                     <textarea rows={2} value={draft.words} maxLength={300} onChange={(e) => setDraft({ ...draft, words: e.target.value })} placeholder="What it looks like: a speckled terracotta stoneware mug with a thumb handle" aria-label="What it looks like" />
