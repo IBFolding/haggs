@@ -67,7 +67,7 @@ export type StripeLike = {
   checkout: { sessions: { create(args: Record<string, unknown>): Promise<{ id?: string; url: string | null; amount_total?: number | null; currency?: string | null }>; expire?(id: string): Promise<unknown> } };
   billingPortal: { sessions: { create(args: Record<string, unknown>): Promise<{ url: string }> } };
   subscriptions: {
-    list(args: Record<string, unknown>): Promise<{ data: { status: string; items: { data: { price: { id: string }; current_period_end?: number }[] } }[] }>;
+    list(args: Record<string, unknown>): Promise<{ data: { status: string; cancel_at_period_end?: boolean; items: { data: { price: { id: string }; current_period_end?: number }[] } }[] }>;
   };
 };
 
@@ -123,7 +123,8 @@ export async function checkout(stripe: StripeLike, env: Env, planId: string, use
   return session.url;
 }
 
-export type Status = { plan: Plan["id"] | null; status: string; renews: number | null };
+/** `ending` is set when the plan is cancelled and stops at `renews` instead of renewing. */
+export type Status = { plan: Plan["id"] | null; status: string; renews: number | null; ending?: true };
 
 export async function status(stripe: StripeLike, env: Env, user: User): Promise<Status> {
   const customer = await customerOf(stripe, user);
@@ -135,7 +136,7 @@ export async function status(stripe: StripeLike, env: Env, user: User): Promise<
     .filter((x) => x.item && !["canceled", "incomplete_expired"].includes(x.s.status));
   const best = ours.find((x) => x.s.status === "active" || x.s.status === "trialing") ?? ours[0];
   if (!best?.item) return { plan: null, status: "none", renews: null };
-  return { plan: prices.get(best.item.price.id)!, status: best.s.status, renews: best.item.current_period_end ? best.item.current_period_end * 1000 : null };
+  return { plan: prices.get(best.item.price.id)!, status: best.s.status, renews: best.item.current_period_end ? best.item.current_period_end * 1000 : null, ...(best.s.cancel_at_period_end ? { ending: true as const } : {}) };
 }
 
 export async function portal(stripe: StripeLike, env: Env, user: User, origin: string): Promise<string> {

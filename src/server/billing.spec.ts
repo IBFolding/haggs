@@ -6,7 +6,7 @@ import { PLANS, checkout, configured, customerMessage, portal, status, type Stri
 const env = { STRIPE_API_KEY: "sk_test_x", STRIPE_PRICE_BYOK: "price_b", STRIPE_PRICE_STARTER: "price_s", STRIPE_PRICE_MID: "price_m", STRIPE_PRICE_PRO: "price_p", STRIPE_PRICE_STARTER_FIXED_2026: "price_s", STRIPE_PRICE_MID_FIXED_2026: "price_m", STRIPE_PRICE_PRO_FIXED_2026: "price_p", STRIPE_PORTAL_CONFIG_ID: "bpc_1" };
 const user = { id: "u1", email: "a@b.test" };
 
-function fakeStripe(subs: { price: string; status: string; end: number }[] = []) {
+function fakeStripe(subs: { price: string; status: string; end: number; ending?: boolean }[] = []) {
   const calls: Record<string, unknown[]> = {};
   const log = (name: string, arg: unknown) => ((calls[name] ??= []).push(arg), arg);
   const stripe: StripeLike = {
@@ -17,7 +17,7 @@ function fakeStripe(subs: { price: string; status: string; end: number }[] = [])
     },
     checkout: { sessions: { create: async (a) => (log("checkout", a), { url: "https://checkout.stripe.test/s" }) } },
     billingPortal: { sessions: { create: async (a) => (log("portal", a), { url: "https://billing.stripe.test/p" }) } },
-    subscriptions: { list: async (a) => (log("subs", a), { data: subs.map((s) => ({ status: s.status, items: { data: [{ price: { id: s.price }, current_period_end: s.end }] } })) }) },
+    subscriptions: { list: async (a) => (log("subs", a), { data: subs.map((s) => ({ status: s.status, ...(s.ending ? { cancel_at_period_end: true } : {}), items: { data: [{ price: { id: s.price }, current_period_end: s.end }] } })) }) },
   };
   return { stripe, calls };
 }
@@ -46,6 +46,7 @@ test("checkout makes a subscription session for the signed-in person, tied to th
 test("status reads the live subscription from Stripe; no customer means no plan", async () => {
   const end = Math.floor(Date.now() / 1000) + 86400 * 20;
   assert.deepEqual(await status(fakeStripe([{ price: "price_m", status: "active", end }]).stripe, env, user), { plan: "mid", status: "active", renews: end * 1000 });
+  assert.deepEqual(await status(fakeStripe([{ price: "price_m", status: "active", end, ending: true }]).stripe, env, user), { plan: "mid", status: "active", renews: end * 1000, ending: true }, "a cancelled plan says it ends instead of renewing");
   assert.deepEqual(await status(fakeStripe().stripe, env, user), { plan: null, status: "none", renews: null });
   assert.deepEqual(await status(fakeStripe([{ price: "price_other", status: "active", end }]).stripe, env, user), { plan: null, status: "none", renews: null }, "a price that isn't a haggs plan doesn't count");
 });
