@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { EMPTY_PROFILE, SOCIALS, cleanProfile, readProfile, type Profile } from "../../account/profile";
+import { exploreMessage, profileRow } from "../../community/explore";
 import { PLANS, capacity } from "../../server/billing";
 import { FileSyncNote } from "../file-sync-note";
 import { FilesPanel } from "../files-panel";
@@ -41,6 +42,7 @@ export default function Account() {
   const [savedProfile, setSavedProfile] = useState<Profile>(EMPTY_PROFILE);
   const [profileNote, setProfileNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [isPublic, setIsPublic] = useState(false);
   const pictureInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function Account() {
     // Credits and their history are read as the person themselves; the database only ever shows their own.
     const db = supabase();
     void db?.rpc("credits_balance").then(({ data }) => { const row = Array.isArray(data) ? data[0] : data; if (row) setBal({ plan: Number(row.plan) || 0, topup: Number(row.topup) || 0 }); });
+    void db?.from("profiles").select("user_id").eq("user_id", session.user.id).maybeSingle().then(({ data }) => setIsPublic(Boolean(data)));
     void db?.from("credit_ledger").select("delta,kind,memo,bucket,created_at").order("created_at", { ascending: false }).limit(12).then(({ data }) => setLedger((data as Entry[] | null) ?? []));
   }, [ready, session, router]);
 
@@ -74,6 +77,13 @@ export default function Account() {
     const r = await supabase()?.auth.updateUser({ data: { profile: clean } });
     setBusy(null);
     if (!r || r.error) return setProfileNote(r?.error?.message ?? "Your profile couldn't be saved.");
+    // Once your page is up (you've shared something), it shows the profile you just saved.
+    if (isPublic && session) {
+      const row = profileRow(clean, session.user.id);
+      const up = row ? await supabase()?.from("profiles").update(row).eq("user_id", session.user.id) : null;
+      const bad = up?.error ? exploreMessage(up.error, "Your public page couldn't be updated.") : null;
+      if (bad) { setProfile(clean); setSavedProfile(clean); return setProfileNote(`Saved here, but not on your page: ${bad}`); }
+    }
     const dropped = Object.keys(profile.links).filter((k) => profile.links[k as keyof Profile["links"]]?.trim() && !clean.links[k as keyof Profile["links"]]);
     setProfile(clean); setSavedProfile(clean);
     setProfileNote(dropped.length ? `Saved. ${dropped.join(", ")} didn't look like a link to that site, so it was left out.` : "Saved.");
@@ -108,7 +118,7 @@ export default function Account() {
 
           <div className="acct-grid">
             <section className="acct-card acct-profile" aria-label="Profile">
-              <div className="acct-card-head"><span className="eyebrow muted">Profile</span><small>Private for now · shown on your community page when that opens</small></div>
+              <div className="acct-card-head"><span className="eyebrow muted">Profile</span>{isPublic && savedProfile.handle ? <Link className="ex-mylink" href={`/u/${savedProfile.handle}`}>See your page →</Link> : <small>Private until you share something to Explore; then it&rsquo;s your public page</small>}</div>
               <div className="acct-who">
                 <button className="acct-pic" onClick={() => pictureInput.current?.click()} disabled={busy !== null} aria-label="Change your picture">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
