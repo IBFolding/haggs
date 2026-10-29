@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createCharacterStore, identityLock, type Character } from "../../characters/character";
-import { LAYOUTS, LOOKS, MAX_STYLE_REFS, STARTERS, comicProject, emptyStyle, imageRatio, newPanel, panelPrompt, styleSheetPrompt, type LayoutId, type LookId, type Panel, type Shape, type StyleSheet } from "../../comic/comic";
+import { LAYOUTS, LOOKS, LOOK_SAMPLES, MAX_STYLE_REFS, SAMPLES_MADE_WITH, STARTERS, STARTER_COVERS, comicProject, emptyStyle, imageRatio, newPanel, panelPrompt, styleSheetPrompt, type LayoutId, type LookId, type Panel, type Shape, type StyleSheet } from "../../comic/comic";
 import { readPick } from "../../story/handoff";
 import { idbKv, defaultKv } from "../../story/kv";
 import { createProjectStore } from "../../story/store";
@@ -187,7 +187,7 @@ export function Comic() {
                 <details className="cx-sec" open>
                   <summary><b>Start from</b><i>{STARTERS.length + 1}</i></summary>
                   <div className="cm-starts">
-                    {STARTERS.map((s) => <button key={s.id} className="cx-card" title={s.says} onClick={() => start(s.panels.map((p) => newPanel({ action: p.action, caption: p.caption ?? "", lines: p.lines ?? [], shape: p.shape ?? "wide" })))}><span><b>{s.name}</b><small>{s.panels.length} panels · {s.says}</small></span></button>)}
+                    {STARTERS.map((s) => <button key={s.id} className="cx-card cm-start" title={s.says} onClick={() => start(s.panels.map((p) => newPanel({ action: p.action, caption: p.caption ?? "", lines: p.lines ?? [], shape: p.shape ?? "wide" })))}>{/* eslint-disable-next-line @next/next/no-img-element */}{STARTER_COVERS[s.id] && <img src={STARTER_COVERS[s.id]} alt="" title={SAMPLES_MADE_WITH} loading="lazy" />}<span><b>{s.name}</b><small>{s.panels.length} panels · {s.says}</small></span></button>)}
                     <button className="cx-card cx-new" onClick={() => start([newPanel()])}><b>+ A blank page</b></button>
                   </div>
                 </details>
@@ -213,7 +213,8 @@ export function Comic() {
 
                 <details className="cx-sec" open>
                   <summary><b>The look</b><i>{LOOKS.length}</i><small>{LOOKS.find((l) => l.id === look)?.name}</small></summary>
-                  <div className="cm-looks">{LOOKS.map((l) => <button key={l.id} className={look === l.id ? "on" : ""} onClick={() => setLook(l.id)}><b>{l.name}</b><small>{l.says}</small></button>)}</div>
+                  <div className="cm-looks">{LOOKS.map((l) => <button key={l.id} className={look === l.id ? "on" : ""} onClick={() => setLook(l.id)}>{/* eslint-disable-next-line @next/next/no-img-element */}{LOOK_SAMPLES[l.id] ? <img className="cm-look-pic" src={LOOK_SAMPLES[l.id]} alt="" title={SAMPLES_MADE_WITH} loading="lazy" /> : <span className="cm-look-pic cm-look-own" aria-hidden>Your notes and pictures</span>}<b>{l.name}</b><small>{l.says}</small></button>)}</div>
+                  <small className="wf-small">Look samples made with ChatGPT; your panels are drawn by the picture model you run.</small>
                 </details>
 
                 <details className="cx-sec">
