@@ -205,3 +205,10 @@
 .pl-panel > .pl-ghost, .pl-panel > .pl-plain { justify-self: start; }
 textarea.pl-json { width: 100%; resize: vertical; color: var(--text); white-space: pre; }
 textarea.pl-json:focus { outline: none; border-color: var(--volt); }
+.pl-preview-code { position: relative; overflow: hidden; }
+.pl-preview-place { position: absolute; right: -6%; bottom: -18%; font-size: 120px; opacity: .22; filter: saturate(.8); }
+.pl-preview-emoji { position: absolute; line-height: 1; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); animation: pl-bob 3s ease-in-out infinite; }
+.pl-preview-emoji:nth-child(2n) { animation-delay: -1.2s; }
+.pl-preview-badge { position: absolute; left: 10px; top: 10px; padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font: 600 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+@keyframes pl-bob { 50% { transform: translateY(-6px) rotate(-4deg); } }
+@media (max-width: 520px) { .pl-composer-bar > .pl-go { width: 100%; } .pl-composer-bar .pl-switches { width: 100%; } }

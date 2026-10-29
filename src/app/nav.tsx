@@ -90,6 +90,8 @@ export function Nav({ current }: { current: Place }) {
             </Link>
           ))}
         </div>
+        {/* The tools: the two switches as one capsule, then what's running, credits, keys and the tour. On a phone this is a strip of its own under the top row. */}
+        <div className="nav-tools">
         <span className="nav-modes">
           <button className={`nav-open${openOnly ? " on" : ""}`} aria-pressed={openOnly} onClick={() => setOpenOnly(!openOnly)} title="No partner model is ever called">
             {openOnly ? "●" : "○"} Open weights only
@@ -111,16 +113,17 @@ export function Nav({ current }: { current: Place }) {
             )}
           </span>
         </span>
-        <span className="nav-right">
           <span className="nav-tip" aria-hidden><i>●</i><span key={tip}>{TIPS[tip % TIPS.length]}</span></span>
           <ActivityMenu />
           <CreditChip ownKey={held.comfy} />
-          <button className="nav-ask" onClick={() => openProducer()} data-tour="ask">Ask Haggy</button>
           <button className="key-state" onClick={() => setOpen(true)} title="Provider keys" data-tour="keys">
             <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />
             {label}
           </button>
-          <button className="nav-help" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))} title="Take the tour" aria-label="Take the tour">?</button>
+          <button className="nav-help nav-tour" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))} title="Take the tour" aria-label="Take the tour"><span aria-hidden>?</span><b>Tour</b></button>
+        </div>
+        <span className="nav-right">
+          <button className="nav-ask" onClick={() => openProducer()} data-tour="ask">Ask Haggy</button>
           {session ? (
             <Link className="nav-account" href="/account" aria-current={current === "Account"} title={session.user.email ?? "Account"}>
               {(session.user.email ?? "?").slice(0, 1).toUpperCase()}

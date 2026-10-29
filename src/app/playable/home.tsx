@@ -8,7 +8,7 @@ import { defaultKv } from "../../story/kv";
 import { type SentGame } from "../../playable/claude";
 import { GENRES, mcpCodeAsk, readCodeReply, type Quality } from "../../playable/code";
 import { FEATURED, type Featured } from "../../playable/featured";
-import { TEMPLATE_INFO, TEMPLATES, defaultSpec, genreOf, ruleChips, withArt, type GameSpec, type Shape, type Template, type TemplateSpec } from "../../playable/spec";
+import { TEMPLATE_INFO, TEMPLATES, controlsOf, defaultSpec, genreOf, ruleChips, withArt, type GameSpec, type Shape, type Template, type TemplateSpec } from "../../playable/spec";
 import { createGameStore, type GameSummary } from "../../playable/store";
 import { Nav, openKeys } from "../nav";
 import { BankPicker } from "../bank-picker";
@@ -41,8 +41,23 @@ function ago(at: number): string {
   return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }
 
-/** A tiny picture of a game, drawn in CSS from its placeholder art. */
-function Preview({ spec }: { spec: TemplateSpec }) {
+/** A tiny picture of a game: a code game shows its cast as emoji over its colours; a template game its placeholder shapes. */
+function Preview({ spec }: { spec: GameSpec }) {
+  if (spec.template === "code") {
+    const cast = spec.art.assets.filter((a) => a.kind === "sprite" && a.emoji).slice(0, 5);
+    const place = spec.art.assets.find((a) => a.kind === "background" && a.emoji);
+    return (
+      <div className="pl-preview pl-preview-code" style={{ background: `radial-gradient(120% 90% at 50% 0%, ${spec.palette.ground}, ${spec.palette.sky})` }}>
+        {place ? <span className="pl-preview-place" aria-hidden>{place.emoji}</span> : null}
+        {cast.map((a, i) => <span key={a.id} className="pl-preview-emoji" style={{ left: `${12 + i * 19}%`, top: `${30 + ((i * 37) % 40)}%`, fontSize: i === 0 ? 42 : 30 }} aria-hidden>{a.emoji}</span>)}
+        <span className="pl-preview-badge">{spec.three ? "3D · Claude" : "Written by Claude"}</span>
+      </div>
+    );
+  }
+  return <TemplatePreview spec={spec} />;
+}
+
+function TemplatePreview({ spec }: { spec: TemplateSpec }) {
   const template = spec.template;
   const swatch = (color: string, shape: Shape, style: React.CSSProperties = {}) => <i className={`pl-shape pl-${shape}`} style={{ background: color, ...style }} />;
   if (spec.template === "match") {
@@ -245,7 +260,7 @@ export function PlayableHome() {
                 <span className="pl-eyebrow">{genreOf(f.spec)}</span>
                 <strong>{f.spec.title}</strong>
                 <span className="pl-card-says">{f.spec.pitch}</span>
-                <span className="pl-mono">Play · {TEMPLATE_INFO[f.spec.template].controls}</span>
+                <span className="pl-mono">Play · {controlsOf(f.spec)}</span>
               </button>
             ))}
           </div>

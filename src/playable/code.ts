@@ -28,7 +28,7 @@ const MANIFEST_SHAPE = `{
   "touch": "pad" | "tap",
   "palette": { "sky": "#rrggbb", "ground": "#rrggbb", "accent": "#rrggbb", "text": "#rrggbb" },
   "assets": [
-    { "id": "player", "label": "Player", "kind": "sprite" | "background", "prompt": "what the picture shows, for an image model", "color": "#rrggbb", "shape": ${SHAPES.map((s) => `"${s}"`).join(" | ")} }
+    { "id": "player", "label": "Player", "kind": "sprite" | "background", "emoji": "one emoji that stands in until the picture is made", "prompt": "what the picture shows, for an image model", "color": "#rrggbb", "shape": ${SHAPES.map((s) => `"${s}"`).join(" | ")} }
   ],
   "said": "one short sentence to the player on what you made or changed"
 }`;
@@ -36,15 +36,20 @@ const MANIFEST_SHAPE = `{
 /** How Claude is told to write a code game: on the person's key here, and over MCP (haggs_playable_guide). */
 export function codeGuide(three: boolean): string {
   return [
-    "You make complete, polished, original browser games for haggs Playable. You write the whole game yourself: rules, levels, feel, and every screen.",
-    "Make it genuinely fun on the first try: clear goal, quick to learn, a difficulty curve, juice (screen shake, particles, flashes, sounds), a visible score or progress, and a real ending through HAGGS.end. A minute or three to finish a run.",
+    "You make complete, polished, original browser games for haggs Playable, the kind people share. You write the whole game yourself: rules, levels, feel, and every screen.",
+    [
+      "Be imaginative. Before writing, find the idea's hook: one mechanic that only makes sense for this idea and is fun on its own (light that pushes back the dark, a crowd that grows and splits, gravity that flips, a magnet that pulls scrap into combos, time that only moves when you move). Build the game around it, not around a generic template.",
+      "Give it a shape: at least three stages that each add something new (a new enemy, hazard, rule or place), a rising pace, combos, upgrades or choices that change how you play, and a finale worth reaching (a boss, a last wave, a final run). A run lasts one to three minutes and ends through HAGGS.end.",
+      "Make it feel great: responsive controls, anticipation and impact (HAGGS.burst, HAGGS.shake, HAGGS.flash, HAGGS.float on every hit, pickup and combo), sounds on every action, HAGGS.music for the mood, animated motion (bob, squash, spin, ease), a parallax or living background, and a clear HUD with score, lives or progress.",
+      "It must read well before any picture is made: every asset has an emoji placeholder, and the game draws its world with colour, light and shapes too, so it already looks deliberate.",
+    ].join(" "),
     "Keep it original: no brand names, real people, or other games' characters or levels.",
     three
       ? "3D is on: build the game in three.js on HAGGS.canvas, lit and shaded, with a camera that follows the action, and put the HUD on HAGGS.hud. Use the assets as textures on planes, billboards and simple meshes."
       : "3D is off: draw everything in 2D on HAGGS.ctx. Never use THREE.",
-    "Every picture the game shows is an asset in the manifest, drawn with HAGGS.draw, HAGGS.img or HAGGS.texture. List what the game needs and nothing more: usually 4 to 12 assets, at most 24. Sprites are single subjects (the image model draws them on a plain background that is removed); backgrounds are full scenes. Give each a prompt in the game's art style and a placeholder colour and shape that already reads well, because the game is played with placeholders until the pictures are made.",
+    "Every picture the game shows is an asset in the manifest, drawn with HAGGS.draw, HAGGS.img or HAGGS.texture. List what the game needs and nothing more: usually 6 to 14 assets, at most 24. Sprites are single subjects (the image model draws them on a plain background that is removed); backgrounds are full scenes. Give each one prompt in a single consistent art style for the whole game, a fitting emoji, and a placeholder colour and shape.",
     KIT_API,
-    "Write plain modern JavaScript, at most about 900 lines, no comments longer than a line. No imports, no fetch, no DOM elements, no alert, no eval, no external files.",
+    "Write plain modern JavaScript, at most about 900 lines, no comments longer than a line. No imports, no fetch, no DOM elements, no alert, no eval, no external files. Test your logic in your head: every variable defined before use, no stray syntax, the game reachable to its end.",
     `Answer with exactly two parts and nothing else:\n<manifest>\n${MANIFEST_SHAPE}\n</manifest>\n<game>\n// the game script\n</game>`,
   ].join("\n\n");
 }

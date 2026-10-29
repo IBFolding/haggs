@@ -39,7 +39,8 @@ export type TemplateSpec = RunnerSpec | CollectorSpec | MatchSpec;
  */
 export const ASPECTS = ["16:9", "9:16", "4:3", "1:1"] as const;
 export type Aspect = (typeof ASPECTS)[number];
-export type Asset = Art & { id: string; label: string; kind: "sprite" | "background" };
+/** `emoji`: what the kit draws until the picture is made, far more readable than a shape. */
+export type Asset = Art & { id: string; label: string; kind: "sprite" | "background"; emoji?: string };
 export type CodeSpec = {
   version: 2;
   template: "code";
@@ -243,7 +244,8 @@ function readCodeSpec(value: Record<string, unknown>): CodeSpec {
     seen.add(a.id);
     const kind = a.kind === "background" ? "background" : "sprite";
     const art = readArt(a, { prompt: a.id, color: CODE_PALETTE.accent, shape: kind === "background" ? "square" : "circle" });
-    assets.push({ id: a.id, label: text(a.label, a.id, 40), kind, ...art });
+    const emoji = typeof a.emoji === "string" && a.emoji.trim() && [...a.emoji.trim()].length <= 8 && !/[<>&"']/.test(a.emoji) ? a.emoji.trim() : undefined;
+    assets.push({ id: a.id, label: text(a.label, a.id, 40), kind, ...(emoji ? { emoji } : {}), ...art });
   }
   const code = typeof value.code === "string" ? value.code : "";
   if (code.length > CODE_LIMITS.code) throw new SpecError("That game's code is too long to keep.");
@@ -298,7 +300,7 @@ export function withArt(spec: GameSpec, key: string, change: { [K in keyof Art]?
   if (next.template === "code") {
     const at = next.art.assets.findIndex((a) => `assets.${a.id}` === key);
     const was = next.art.assets[at];
-    if (was) next.art.assets[at] = { id: was.id, label: was.label, kind: was.kind, ...apply(was) };
+    if (was) next.art.assets[at] = { id: was.id, label: was.label, kind: was.kind, ...(was.emoji ? { emoji: was.emoji } : {}), ...apply(was) };
     return next;
   }
   if (next.template === "match") {

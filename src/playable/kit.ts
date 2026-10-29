@@ -23,7 +23,7 @@ export const KIT_API = `The game runs inside the haggs game kit. Everything is o
 Size and drawing
 - HAGGS.W, HAGGS.H: the logical size you draw in (for example 960×540 for 16:9). The kit scales it to fit any screen.
 - HAGGS.ctx: a 2D canvas context in logical units. Clear and draw the whole frame yourself each draw().
-- HAGGS.img(id): the picture for an asset id from your manifest. It is always drawable: the made picture once there is one, a coloured placeholder shape until then. Sprites have transparent backgrounds.
+- HAGGS.img(id): the picture for an asset id from your manifest. It is always drawable: the made picture once there is one, its emoji (or a coloured shape) until then. Sprites have transparent backgrounds and fill their square, so draw them at the size you want them seen.
 - HAGGS.draw(id, x, y, w, h, { rot = 0, flipX = false, alpha = 1, center = true }): draw an asset, centred on x, y by default.
 - HAGGS.text(str, x, y, { size = 24, color = "#fff", align = "left", bold = true, shadow = true }): text in a clean system font.
 - HAGGS.palette: { sky, ground, accent, text } from your manifest.
@@ -42,6 +42,13 @@ Input (keyboard, mouse and touch are all covered for you)
 Running
 - Your script runs once when the player presses Play. Set up, then call HAGGS.start({ update(dt) { … }, draw() { … } }). update gets seconds (fixed 1/60) and runs before draw.
 - HAGGS.sound(name): a short synthesised effect: "jump", "coin", "hit", "shoot", "explode", "powerup", "click", "win", "lose".
+- HAGGS.music(mood): a quiet procedural loop that plays until the game ends: "upbeat", "tense", "calm", "spooky" or "heroic"; HAGGS.music(null) stops it. Start it in your setup.
+
+Juice (use it generously; the kit updates and draws it on top of your frame)
+- HAGGS.burst(x, y, { n = 18, color, speed = 240, life = 0.7, size = 4, gravity = 0, up = 0, drag = 0.97 }): a particle burst; color can be a list.
+- HAGGS.float(text, x, y, { color, size = 20, life = 0.9 }): words that rise and fade, e.g. "+50", "Combo x3".
+- HAGGS.shake(amount = 0.5): screen shake, 0 to 1. HAGGS.flash(color = "#fff", seconds = 0.15): a full-screen flash.
+- HAGGS.lerp(a, b, t), HAGGS.clamp(v, lo, hi), HAGGS.ease.out(t) / .inOut(t) / .back(t): for smooth motion and pops.
 - HAGGS.score(n): report the score as it changes. HAGGS.end({ won, score }): the game is over; the kit shows the result and a Play again button.
 - HAGGS.rand(seed): a seeded random function returning 0 to 1. HAGGS.time: seconds since Play.`;
 
@@ -76,7 +83,20 @@ export const KIT_SOURCE = String.raw`(function () {
     var g = c.getContext("2d");
     if (!sprite) {
       var grad = g.createLinearGradient(0, 0, 0, c.height); grad.addColorStop(0, cfg.palette.sky); grad.addColorStop(1, cfg.palette.ground);
-      g.fillStyle = grad; g.fillRect(0, 0, c.width, c.height); return c;
+      g.fillStyle = grad; g.fillRect(0, 0, c.width, c.height);
+      // Soft glows in the game's colours, so a scene reads as a place before its picture is made.
+      var seed = 0; for (var q = 0; q < a.id.length; q++) seed = (seed * 31 + a.id.charCodeAt(q)) >>> 0;
+      for (var k = 0; k < 6; k++) {
+        seed = (seed * 1103515245 + 12345) >>> 0; var gx = (seed % 1000) / 1000 * c.width;
+        seed = (seed * 1103515245 + 12345) >>> 0; var gy = (seed % 1000) / 1000 * c.height, gr = c.height * (0.25 + (k % 3) * 0.15);
+        var glow = g.createRadialGradient(gx, gy, 0, gx, gy, gr); glow.addColorStop(0, k % 2 ? cfg.palette.accent + "22" : a.color + "33"); glow.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = glow; g.fillRect(0, 0, c.width, c.height);
+      }
+      return c;
+    }
+    if (a.emoji) {
+      g.font = "200px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = 14; g.fillText(a.emoji, 128, 140); return c;
     }
     g.fillStyle = a.color; g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 10; g.beginPath();
     var s = a.shape, r = 108;
@@ -131,15 +151,49 @@ export const KIT_SOURCE = String.raw`(function () {
   }
   var SOUNDS = { jump: ["square", 300, 620, 0.16, 0.12], coin: ["square", 880, 1500, 0.12, 0.1], hit: ["sawtooth", 220, 60, 0.22, 0.16], shoot: ["square", 900, 200, 0.1, 0.08], explode: ["", 0, 0, 0.4, 0.25, true], powerup: ["triangle", 300, 1200, 0.35, 0.14], click: ["square", 600, 600, 0.04, 0.06], win: ["triangle", 520, 1040, 0.6, 0.16], lose: ["sawtooth", 400, 90, 0.7, 0.14] };
 
+  // ── juice: particles, floating words, shake, flashes ──
+  var bits = [], words = [], shakeT = 0, shakeA = 0, flashT = 0, flashMax = 0, flashC = "#fff";
+  function fxUpdate(dt) {
+    for (var i = bits.length - 1; i >= 0; i--) { var b = bits[i]; b.vy += b.g * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= b.drag; b.vy *= b.drag; if ((b.t -= dt) <= 0) bits.splice(i, 1); }
+    for (var j = words.length - 1; j >= 0; j--) { var w = words[j]; w.y -= 46 * dt; if ((w.t -= dt) <= 0) words.splice(j, 1); }
+    shakeT = Math.max(0, shakeT - dt); flashT = Math.max(0, flashT - dt);
+    var s = shakeT > 0 ? shakeA * (shakeT / 0.4) : 0;
+    stage.style.transform = s ? "translate(" + ((Math.random() - 0.5) * s) + "px," + ((Math.random() - 0.5) * s) + "px)" : "";
+  }
+  function fxDraw() {
+    var g = cfg.three ? hud : HAGGS.ctx; g.save();
+    for (var i = 0; i < bits.length; i++) { var b = bits[i], k = Math.max(0, b.t / b.life); g.globalAlpha = k; g.fillStyle = b.c; g.beginPath(); g.arc(b.x, b.y, b.r * (0.4 + 0.6 * k), 0, 6.283); g.fill(); }
+    g.globalAlpha = 1; g.restore();
+    for (var j = 0; j < words.length; j++) { var w = words[j]; HAGGS.text(w.s, w.x, w.y, { size: w.size, color: w.c, align: "center", ctx: g }); }
+    if (flashT > 0) { hud.save(); hud.globalAlpha = 0.55 * flashT / flashMax; hud.fillStyle = flashC; hud.fillRect(0, 0, W, H); hud.restore(); }
+  }
+
+  // ── music: a small procedural loop per mood ──
+  var MOODS = { upbeat: [[0, 4, 7, 12, 7, 4], 0.13, "square"], tense: [[0, 3, 6, 3, 0, -1], 0.16, "sawtooth"], calm: [[0, 7, 12, 16, 12, 7], 0.24, "triangle"], spooky: [[0, 1, 6, 1, 0, -6], 0.26, "triangle"], heroic: [[0, 7, 9, 12, 9, 7], 0.15, "square"] };
+  var musicTimer = null;
+  function music(mood) {
+    if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+    var m = MOODS[mood]; if (!m || !audio) return;
+    var root = 220, n = 0, bars = [0, 5, 3, 7];
+    musicTimer = setInterval(function () {
+      if (!audio || !running) return;
+      var bar = bars[Math.floor(n / m[0].length) % bars.length], semis = m[0][n % m[0].length] + bar;
+      tone(m[2], root * Math.pow(2, semis / 12), root * Math.pow(2, semis / 12), m[1] * 0.9, 0.025);
+      if (n % m[0].length === 0) tone("triangle", root / 2 * Math.pow(2, bar / 12), root / 2 * Math.pow(2, bar / 12), m[1] * m[0].length * 0.9, 0.035);
+      n++;
+    }, m[1] * 1000);
+  }
+
   // ── the loop ──
   var game = null, running = false, last = 0, acc = 0, step = 1 / 60;
   function frame(now) {
     if (!running) return;
     var dt = Math.min(0.1, (now - last) / 1000 || 0); last = now; acc += dt;
     try {
-      while (acc >= step) { acc -= step; HAGGS.time += step; game.update && game.update(step); down = {}; pointer.pressed = false; pointer.released = false; if (!running) return; }
+      while (acc >= step) { acc -= step; HAGGS.time += step; game.update && game.update(step); fxUpdate(step); down = {}; pointer.pressed = false; pointer.released = false; if (!running) return; }
       hud.clearRect(0, 0, W, H);
       game.draw && game.draw();
+      fxDraw();
     } catch (e) { running = false; fail(e && e.message ? e.message : String(e)); return; }
     requestAnimationFrame(frame);
   }
@@ -165,14 +219,26 @@ export const KIT_SOURCE = String.raw`(function () {
       if (!textures[id]) { var t = new THREE.Texture(HAGGS.img(id)); t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; textures[id] = t; }
       return textures[id];
     },
-    key: function (n) { return !!held[n]; },
+    // A tap shorter than a frame still counts for that frame.
+    key: function (n) { return !!(held[n] || down[n]); },
     pressed: function (n) { return !!down[n]; },
-    axis: function () { var x = (held.right ? 1 : 0) - (held.left ? 1 : 0) + stick.x, y = (held.down ? 1 : 0) - (held.up ? 1 : 0) + stick.y; var m = Math.max(1, Math.hypot(x, y)); return { x: x / m, y: y / m }; },
+    axis: function () { var k = HAGGS.key, x = (k("right") ? 1 : 0) - (k("left") ? 1 : 0) + stick.x, y = (k("down") ? 1 : 0) - (k("up") ? 1 : 0) + stick.y; var m = Math.max(1, Math.hypot(x, y)); return { x: x / m, y: y / m }; },
     pointer: pointer,
     sound: function (n) { var s = SOUNDS[n]; if (s) tone(s[0], s[1], s[2], s[3], s[4], s[5]); },
+    music: music,
+    burst: function (x, y, o) {
+      o = o || {}; var n = Math.min(160, o.n || 18), sp = o.speed || 240;
+      for (var i = 0; i < n && bits.length < 1200; i++) { var a = Math.random() * 6.283, v = sp * (0.25 + Math.random() * 0.75), life = (o.life || 0.7) * (0.6 + Math.random() * 0.4); bits.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (o.up || 0), g: o.gravity || 0, drag: o.drag || 0.97, t: life, life: life, r: o.size || 4, c: Array.isArray(o.color) ? o.color[i % o.color.length] : o.color || cfg.palette.accent }); }
+    },
+    float: function (s, x, y, o) { o = o || {}; words.push({ s: String(s), x: x, y: y, t: o.life || 0.9, size: o.size || 20, c: o.color || "#fff" }); },
+    shake: function (amount) { shakeA = Math.max(shakeA * (shakeT > 0 ? 1 : 0), (amount || 0.5) * 22); shakeT = 0.4; },
+    flash: function (color, t) { flashC = color || "#fff"; flashMax = flashT = t || 0.15; },
+    lerp: function (a, b, t) { return a + (b - a) * t; },
+    clamp: function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); },
+    ease: { out: function (t) { return 1 - Math.pow(1 - t, 3); }, inOut: function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }, back: function (t) { var c = 1.70158; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); } },
     score: function (n) { if (n !== lastScore) { lastScore = n; post({ type: "score", score: Number(n) || 0 }); } },
     end: function (r) {
-      if (!running) return; running = false; r = r || {};
+      if (!running) return; running = false; r = r || {}; music(null); stage.style.transform = "";
       post({ type: "end", won: !!r.won, score: Number(r.score) || 0 });
       HAGGS.sound(r.won ? "win" : "lose");
       var o = document.getElementById("overlay");
@@ -231,7 +297,7 @@ export function srcdoc(spec: CodeSpec, pictures: Record<string, string>, imageHo
     palette: spec.palette,
     three: spec.three,
     touch: spec.touch,
-    assets: spec.art.assets.map((a) => ({ id: a.id, kind: a.kind, color: a.color, shape: a.shape, ...(pictures[a.id] ? { src: pictures[a.id] } : {}) })),
+    assets: spec.art.assets.map((a) => ({ id: a.id, kind: a.kind, color: a.color, shape: a.shape, ...(a.emoji ? { emoji: a.emoji } : {}), ...(pictures[a.id] ? { src: pictures[a.id] } : {}) })),
   };
   const hosts = imageHosts.filter((h) => /^https?:\/\/[a-z0-9.*:-]+$/i.test(h)).join(" ");
   const csp = [
