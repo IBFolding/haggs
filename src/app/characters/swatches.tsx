@@ -33,14 +33,14 @@ export function SwatchRow({ id, label, options, value, onChange }: { id: string;
 }
 
 /** One trait picked by picture: the same person shown each way, with a box for your own words. */
-export function PictureRow({ id, label, options, value, onChange }: { id: string; label: string; options: readonly string[]; value: string; onChange: (v: string) => void }) {
+export function PictureRow({ id, label, options, value, onChange, src = traitPicture, wide = false }: { id: string; label: string; options: readonly string[]; value: string; onChange: (v: string) => void; src?: (row: string, option: string) => string; wide?: boolean }) {
   const custom = isCustom(options, value);
   return (
-    <div className="cx-pics" role="radiogroup" aria-label={label}>
+    <div className={`cx-pics${wide ? " wide" : ""}`} role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button key={o} role="radio" aria-checked={value === o} aria-label={o} title={`${o} · ${TRAIT_PICTURES_BY}`} className={value === o ? "on" : ""} onClick={() => onChange(o)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={traitPicture(id, o)} alt="" loading="lazy" />
+          <img src={src(id, o)} alt="" loading="lazy" />
           <small>{o}</small>
         </button>
       ))}

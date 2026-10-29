@@ -18,7 +18,8 @@ import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
 import { PLACE_SAMPLES, SAMPLE_PICTURES, SAMPLE_PICTURES_BY } from "../../samples/starters";
 import { ChipRow } from "../chip-row";
-import { SWATCHES, SwatchRow } from "../characters/swatches";
+import { PictureRow, SWATCHES, SwatchRow } from "../characters/swatches";
+import { PLACE_PICTURED, placePicture } from "../../characters/trait-pictures";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 import { creditsText } from "../../story/price-text";
@@ -165,6 +166,7 @@ export function Locations() {
                     <summary><b>{row.label}</b><i>· {row.options.length}</i><small>{traits[row.id]}</small></summary>
                     {row.id in SWATCHES
                       ? <SwatchRow id={row.id} label={row.label} options={row.options} value={traits[row.id]} onChange={(v) => set(row.id, v as never)} />
+                      : (PLACE_PICTURED as readonly string[]).includes(row.id) ? <PictureRow id={row.id} label={row.label} options={row.options} value={traits[row.id]} onChange={(v) => set(row.id, v as never)} src={placePicture} wide />
                       : <ChipRow label={row.label} options={row.options} value={traits[row.id]} onChange={(v) => set(row.id, v as never)} />}
                   </details>
                 ))}
