@@ -37,9 +37,9 @@ import { creditsText } from "../../../../../story/price-text";
 const STEPS = [
   { id: "blockout", label: "Blockout", says: "Work out the camera, the figures and the light in grey, for free. Key a camera move, then make the real picture." },
   { id: "cut", label: "Cut out", says: "Separate the actor from the grey room, so everything behind them can change." },
-  { id: "set", label: "Set", says: "Choose where it happens, then drag props into the picture." },
+  { id: "set", label: "Edit scene", says: "Choose what to change. Find a surface, choose its material, then review the result." },
   { id: "light", label: "Air and look", says: "Place lights, set the colour of the frame and what is in the air." },
-  { id: "render", label: "Render and Blender", says: "Check the set, then make a new take for the cut." },
+  { id: "render", label: "Review & export", says: "Check the set, then make a new take for the cut." },
 ] as const;
 type StepId = (typeof STEPS)[number]["id"];
 
@@ -53,7 +53,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const full = useRef<Project | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
-  const [step, setStep] = useState<StepId>("blockout");
+  const [step, setStep] = useState<StepId>("set");
   const [places, setPlaces] = useState<BankItem[]>([]);
   const [accessories, setAccessories] = useState<BankItem[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -116,6 +116,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
 
   /** A finished render becomes a new take on this shot, saved by this page so nothing else overwrites it. */
   function addTakeHere(url: string, usd: number, origin: string) {
+    if (shot?.render && !scene.source) change({ ...scene, source: { url: shot.render.url, kind: shot.render.kind } }, true);
     setProject((current) => {
       if (!current) return current;
       const updated: Project = { ...current, shots: current.shots.map((x) => (x.id === shotId ? addTake(x, { url, kind: "video", usd, promptHash: x.render?.promptHash ?? "", at: Date.now() }, origin) : x)) };
@@ -189,7 +190,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     if (!project || !shot?.render) return;
     setRunning(true);
     setProblem(null);
-    const footage = shot.render.url;
+    const footage = scene.source?.url ?? shot.render.url;
     const prompt = actorMattePrompt({ describe, points: dots.map((d) => d.at) });
     const r = await track(
       { label: "Cutting out the actor", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), result: (x) => (x.ok ? { url: x.url } : null) },
@@ -216,7 +217,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   if (!project || !shot) return <div className="app"><Nav current="Editor" /></div>;
 
   const here = STEPS.findIndex((s) => s.id === step);
-  const footage = shot.render;
+  const footage = scene.source ?? shot.render;
   const vertical = (project.aspect ?? "16:9") === "9:16";
   const matte = scene.matte;
   const shown = resolveScene(scene, time);
@@ -286,7 +287,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                   onChange={(next, commit) => change(mergeEdit(scene, shown, next, time, animate), commit)}
                 />
               ) : <p className="gs-note">This shot has no footage yet.</p>}
-              {step !== "cut" && !matte && !showOriginal && footage?.kind === "video" && <span className="gs-chip warn">Cut the actor out (step 1) to see the set behind them.</span>}
+              {step !== "cut" && !matte && !showOriginal && footage?.kind === "video" && <span className="gs-chip warn">Background replacement needs a subject cut-out. Surface edits keep the original shot.</span>}
               {step === "cut" && !matte && dots.map((d, i) => <i key={i} className="gs-dot" style={{ left: `${d.fx * 100}%`, top: `${d.fy * 100}%` }}>{i + 1}</i>)}
             </div>
             <div className="gs-time" aria-label="Playhead">
@@ -299,7 +300,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
               <button className={`pill${animate ? " on" : ""}`} aria-pressed={animate} onClick={() => setAnimate((a) => !a)} title="While on, moving something at this moment makes it move over time">{animate ? "Animating" : "Animate"}</button>
               {marks.some((m) => Math.abs(m - time) < 0.05) && <button className="plain" onClick={() => change({ ...scene, props: scene.props?.map((p) => ({ ...p, keys: dropKey(p.keys, time) })).map(clean), lights: scene.lights?.map((l) => ({ ...l, keys: dropKey(l.keys, time) })).map(clean), ...(scene.backdrop ? { backdrop: clean({ ...scene.backdrop, keys: dropKey(scene.backdrop.keys, time) }) } : {}) } as GreyScene, true)}>Remove key here</button>}
             </div>
-            <p className="gs-note">{showOriginal ? "Your original footage." : "A quick preview. The render makes the real picture."} Your footage is never changed; the result comes back as a new take.</p>
+            <p className="gs-note">{showOriginal ? "Your original footage." : "Live composite preview. Added images remain flat layers until cut out."} Your footage is never changed; the result comes back as a new take.</p>
           </section>
 
           <aside className="gs-side" aria-label={STEPS[here]!.label}>

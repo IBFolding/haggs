@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { track } from "../../../../../activity/activity";
 import { propCutoutPrompt, propPrompt, PROP_INPUT } from "../../../../../comfy/prop-cutout";
@@ -46,6 +46,8 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
   onReplace: (next: GreyScene) => void;
   onUseEverywhere: (set: SavedSet) => void;
 }) {
+  const [task, setTask] = useState<"surface" | "background" | "objects" | "sets">("surface");
+  useEffect(() => { if (selected) setTask("objects"); }, [selected]);
   const pick = useRef<HTMLInputElement>(null);
   const propPick = useRef<HTMLInputElement>(null);
   const modelPick = useRef<HTMLInputElement>(null);
@@ -109,8 +111,12 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
 
   return (
     <div className="gs-panel">
-      <section className="gs-sec">
-        <h3>Where it happens</h3>
+      <div className="gs-edit-choices" role="group" aria-label="What would you like to change?">
+        {([ ["surface", "Floor or wall"], ["background", "Background"], ["objects", "Add an object"], ["sets", "Saved looks"] ] as const).map(([id, label]) => <button key={id} className={`pill${task === id ? " on" : ""}`} aria-pressed={task === id} onClick={() => setTask(id)}>{label}</button>)}
+      </div>
+      {task === "background" && <section className="gs-sec">
+        <h3>Background reference</h3>
+        <p className="gs-soft">Choose the place around your subject. Cut out the subject first to reveal this background.</p>
         {places.length > 0 && (
           <ul className="gs-places">
             {places.filter((p) => p.image).map((p) => (
@@ -137,21 +143,21 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
             <button className="plain" onClick={() => onChange({ ...scene, backdrop: undefined as never, place: undefined as never })}>Remove the background</button>
           </div>
         )}
-        {!scene.matte && bd && <p className="gs-soft">Cut the actor out first (step 1) to see them in this place.</p>}
-      </section>
+        {!scene.matte && bd && <p className="gs-soft">Use Cut out first to see them in this place.</p>}
+      </section>}
 
-      <SurfacesPanel scene={scene} footageUrl={footageUrl} isVideo={isVideo} onChange={onChange} />
+      {task === "surface" && <SurfacesPanel scene={scene} footageUrl={footageUrl} isVideo={isVideo} references={[...places, ...props]} onChange={onChange} />}
 
-      <section className="gs-sec">
-        <h3>Props</h3>
-        <p className="gs-soft">Tap one to put it in the picture, then drag it where it belongs. Props start in front of the actor; send one behind to tuck it past them.</p>
+      {task === "objects" && <section className="gs-sec">
+        <h3>Add an object</h3>
+        <p className="gs-soft">Choose a cut-out object to place in the scene. A full photograph becomes a rectangular layer; it does not replace a floor or wall. Use Floor or wall for material changes.</p>
         <div className="gs-shelf">
           {props.map((p) => (
             <button key={p.id} className="gs-prop" title={p.name} onClick={() => { const next = addProp(scene, { name: p.name, url: p.image! }); onChange(next); onSelect(next.props!.at(-1)!.id); }}>
               <img src={p.image!} alt="" /><span>{p.name}</span>
             </button>
           ))}
-          <button className="gs-prop add" disabled={busy === "prop"} onClick={() => propPick.current?.click()}><b>+</b><span>{busy === "prop" ? "Adding…" : "Add a picture"}</span></button>
+          <button className="gs-prop add" disabled={busy === "prop"} onClick={() => propPick.current?.click()}><b>+</b><span>{busy === "prop" ? "Adding…" : "Add a flat layer"}</span></button>
           <input ref={propPick} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0], "prop"); e.target.value = ""; }} />
         </div>
         <label className="gs-field">
@@ -202,8 +208,8 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
             )}
           </div>
         )}
-      </section>
-      <SetsPanel scene={scene} others={others} onUse={onReplace} onUseEverywhere={onUseEverywhere} />
+      </section>}
+      {task === "sets" && <SetsPanel scene={scene} others={others} onUse={onReplace} onUseEverywhere={onUseEverywhere} />}
       {problem && <p className="library-error" role="alert">{problem}</p>}
     </div>
   );

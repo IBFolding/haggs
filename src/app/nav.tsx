@@ -114,6 +114,7 @@ export function Nav({ current }: { current: Place }) {
           </span>
         </span>
           <span className="nav-tip" aria-hidden><i>●</i><span key={tip}>{TIPS[tip % TIPS.length]}</span></span>
+          <span className="nav-utilities" role="group" aria-label="Activity, balance and connections">
           <ActivityMenu />
           <CreditChip ownKey={held.comfy} />
           <button className="key-state" onClick={() => setOpen(true)} title="Provider keys" data-tour="keys">
@@ -121,6 +122,7 @@ export function Nav({ current }: { current: Place }) {
             {label}
           </button>
           <button className="nav-help nav-tour" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))} title="Take the tour" aria-label="Take the tour"><span aria-hidden>?</span><b>Tour</b></button>
+          </span>
         </div>
         <span className="nav-right">
           <button className="nav-ask" onClick={() => openProducer()} data-tour="ask">Ask Haggy</button>

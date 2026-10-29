@@ -32,6 +32,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
   const [relit, setRelit] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [kept, setKept] = useState<string | null>(null);
+  const source = scene.source ?? shot.render;
   const seconds = shot.seconds ?? 4;
   const relightCost = editEstimate({ tool: "aleph", seconds });
   const realCost = editEstimate({ tool: "kling", seconds, resolution: "720p" });
@@ -50,7 +51,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
   ];
 
   async function makeDraft() {
-    if (!shot.render) return;
+    if (!source) return;
     setBusy("draft");
     setProblem(null);
     setKept(null);
@@ -58,8 +59,8 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
     const r = await track(
       { label: "Draft render of the set", href: href(), failure: (x) => (x.ok ? null : (x.reason ?? "The draft didn't finish.")), result: (x) => (x.ok && x.url ? { url: x.url } : null) },
       async () => {
-        const res = await fetch("/api/grey/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene, footage: shot.render!.url, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
-        return ((await res?.json().catch(() => null)) ?? { ok: false, reason: "The draft render needs this app running on your own computer." }) as { ok: boolean; url?: string; reason?: string; notes?: string[] };
+        const res = await fetch("/api/grey/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene, footage: source!.url, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
+        return ((await res?.json().catch(() => null)) ?? { ok: false, reason: "The render did not return a result. Check your connection and sign-in, then try again." }) as { ok: boolean; url?: string; reason?: string; notes?: string[] };
       },
     ).catch((e: unknown) => ({ ok: false, reason: e instanceof Error ? e.message : "The draft didn't finish.", url: undefined, notes: undefined }));
     setBusy(null);
@@ -98,10 +99,10 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
 
   /** The set as a folder Blender can build. */
   async function exportBlender() {
-    if (!shot.render) return;
+    if (!source) return;
     setBusy("export");
     setProblem(null);
-    const res = await fetch("/api/grey/blender", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene, ...(shot.grey ? { grey: shot.grey } : {}), footage: shot.render.url, footageKind: shot.render.kind, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
+    const res = await fetch("/api/grey/blender", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene, ...(shot.grey ? { grey: shot.grey } : {}), footage: source.url, footageKind: source.kind, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
     setBusy(null);
     if (!res?.ok) {
       const body = (await res?.json().catch(() => null)) as { reason?: string } | null;
@@ -118,13 +119,13 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
 
   /** A render made in Blender comes back as a candidate; the shot's own sound goes back under it. */
   async function bringBack(file: File | undefined) {
-    if (!file || !shot.render) return;
+    if (!file || !source) return;
     setBusy("blender");
     setProblem(null);
     setKept(null);
     const up = await uploadFile(file);
     if (!up.ok || up.kind !== "video") { setBusy(null); return setProblem(up.ok ? "Choose the mp4 Blender made." : up.reason); }
-    const res = await fetch("/api/grey/mux", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ video: up.url, sound: shot.render.url }) }).catch(() => null);
+    const res = await fetch("/api/grey/mux", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ video: up.url, sound: source.url }) }).catch(() => null);
     const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
     setBusy(null);
     if (!body?.ok || !body.url) return setProblem(body?.reason ?? "The render couldn't be brought in.");
@@ -148,8 +149,8 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
 
       <section className="gs-sec">
         <h3>1. Draft</h3>
-        <p className="gs-soft">The same composite you see, made on this computer. Free, and good for timing and placement.</p>
-        <button className="fire" disabled={busy !== null || empty || !shot.render} onClick={() => void makeDraft()}>{busy === "draft" ? "Making the draft…" : draft ? "Make the draft again" : "Make a draft"} <span className="cost">free</span></button>
+        <p className="gs-soft">Render the current composition to a video preview. No generation credits. Review it before keeping a new take.</p>
+        <button className="fire" disabled={busy !== null || empty || !source} onClick={() => void makeDraft()}>{busy === "draft" ? "Making the draft…" : draft ? "Make the draft again" : "Make a draft"} <span className="cost">free</span></button>
         {notes.map((n) => <p key={n} className="gs-soft">{n}</p>)}
       </section>
 
@@ -170,8 +171,8 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
         <h3>Blender <span className="gs-soft">(optional)</span></h3>
         <p className="gs-soft">For a shot that needs real 3D light or a finer render: take the set into Blender, finish it there, and bring the video back as a take.</p>
         <div className="gs-row">
-          <button className="pill" disabled={busy !== null || empty || !shot.render} onClick={() => void exportBlender()}>{busy === "export" ? "Gathering…" : "Export a Blender set"}</button>
-          <button className="pill" disabled={busy !== null || !shot.render} onClick={() => pickRender.current?.click()}>{busy === "blender" ? "Bringing it in…" : "Bring in a Blender render"}</button>
+          <button className="pill" disabled={busy !== null || empty || !source} onClick={() => void exportBlender()}>{busy === "export" ? "Gathering…" : "Export a Blender set"}</button>
+          <button className="pill" disabled={busy !== null || !source} onClick={() => pickRender.current?.click()}>{busy === "blender" ? "Bringing it in…" : "Bring in a Blender render"}</button>
           <input ref={pickRender} type="file" accept="video/mp4,video/*" hidden onChange={(e) => { void bringBack(e.target.files?.[0]); e.target.value = ""; }} />
         </div>
         <ol className="gs-steps-list">

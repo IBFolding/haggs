@@ -4702,3 +4702,32 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .sh-byhand textarea { display: block; width: 100%; margin-top: 6px; font-family: var(--mono); font-size: 12px; }
 .sh-byhand a { color: var(--volt); }
 .sh-byhand > .sh-meta { margin-top: 12px; }
+
+/* Grey Room: one editing intent at a time, with references outside the picture. */
+.gs-edit-choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.gs-reference-board { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:260px; overflow:auto; }
+.gs-reference-board:empty { display:none; }
+.gs-material-card { margin:0; padding:10px; border:1px solid var(--line); border-radius:12px; }
+.gs-material-card img { width:100%; height:100px; object-fit:cover; border-radius:8px; }
+.gs-material-card figcaption { margin-top:6px; font-size:12px; }
+.gs-mask-review { width:100%; max-height:200px; background:repeating-conic-gradient(#333 0% 25%,#222 0% 50%) 50% / 16px 16px; }
+
+/* Separate preferences, the central tip, and utilities into three calm groups. */
+.nav-utilities { display:flex; align-items:center; gap:4px; flex:none; }
+.nav-utilities .act-btn, .nav-utilities .key-state, .nav-utilities .nav-tour { border-color:transparent; background:transparent; box-shadow:none; border-radius:8px; }
+.nav-utilities .credit-chip { border-radius:8px; background:var(--surface); box-shadow:none; }
+.nav-utilities .key-state { max-width:180px; overflow:hidden; text-overflow:ellipsis; }
+@media (min-width:861px) {
+ .nav { flex-wrap:wrap; row-gap:6px; }
+ .nav-right { margin-left:auto; }
+ .nav-tools { order:3; flex-basis:100%; display:grid; grid-template-columns:auto minmax(100px,1fr) auto; gap:20px; margin-left:0; padding-top:8px; border-top:1px solid var(--line); }
+ .nav-tools .nav-tip { display:flex; max-width:none; justify-content:center; min-width:0; }
+ .nav-modes { border:0; border-radius:8px; padding:0; gap:8px; }
+ .nav-seg { background:var(--surface-2); border-radius:8px; padding:2px; }
+ .nav-seg button { border-radius:6px; }
+ .nav-open { padding-left:0; }
+}
+@media (max-width:860px) {
+ .nav-tools { gap:12px; }
+ .nav-utilities { gap:4px; }
+}

@@ -14,16 +14,17 @@ const key = (id: string) => `sets/${id}`;
 const uid = () => globalThis.crypto.randomUUID();
 
 export function captureSet(scene: GreyScene, name: string): SavedSet {
-  const { matte: _m, ...rest } = scene;
+  const { matte: _m, source: _source, ...rest } = scene;
   const now = Date.now();
   return { id: uid(), name: name.trim().slice(0, 60), createdAt: now, updatedAt: now, scene: normalizeScene(rest) };
 }
 
 /** The set on a shot, in place of what it had; the shot keeps its own cut-out. Props and lights get new ids. */
 export function applySet(shot: GreyScene, saved: SavedSet): GreyScene {
-  const set = normalizeScene(saved.scene);
+  const { source: _source, ...set } = normalizeScene(saved.scene);
   return {
     ...set,
+    ...(shot.source ? { source: shot.source } : {}),
     ...(shot.matte ? { matte: shot.matte } : {}),
     props: (set.props ?? []).map((p) => ({ ...p, id: uid() })),
     lights: (set.lights ?? []).map((l) => ({ ...l, id: uid() })),
