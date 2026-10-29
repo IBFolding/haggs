@@ -63,7 +63,7 @@ const TRANSITION = /^(FADE (IN|OUT)|SMASH TO BLACK|CUT TO|END OF |TITLE CARD|BAC
 
 const dashes = (text: string) =>
   text
-    .split(/\s+[—–]\s+|\s+--\s+/)
+    .split(/\s+[—–-]\s+|\s+--\s+/)
     .map((part) => part.trim())
     .filter(Boolean);
 const blank = (lines: string[], i: number) => i < 0 || i >= lines.length || !lines[i]!.trim();

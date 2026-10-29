@@ -277,7 +277,7 @@ export function SaveToProject({ run, onClose }: { run: Run; onClose: () => void 
                     {use === "character" ? "Make it their face — the picture shown on the board and sent first" : "Make it the main picture of this place"}
                   </label>
                 </>
-              ) : <p className="save-to-note">This project's sheets have no {use === "character" ? "characters" : "places"} yet. Add a script on Sheets first, or just keep it in Media.</p>
+              ) : <p className="save-to-note">This project's sheets have no {use === "character" ? "characters" : "places"} yet. Add a script on the Script tab first, or just keep it in Media.</p>
             )}
 
             {error && <p className="library-error" role="alert">{error}</p>}
