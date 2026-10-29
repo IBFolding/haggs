@@ -28,6 +28,7 @@ import { indexOf } from "../src/server/comfy-library";
 import { applyBoardProposal, validateBoardProposal } from "../src/story/proposed-board";
 import { applyTakes, applyVoices, validateTakes, validateVoices } from "../src/story/proposed-takes";
 import { GAME_GUIDE, GAME_SCHEMA, forClaude, readGameReply } from "../src/playable/claude";
+import { codeGuide } from "../src/playable/code";
 import { TEMPLATES, bare, defaultSpec, ruleChips } from "../src/playable/spec";
 import { applyDraft, validateDraft } from "../src/writer/draft";
 import { applyFill, type Fill } from "../src/writer/fill";
@@ -409,18 +410,24 @@ server.registerTool(
 server.registerTool(
   "haggs_playable_guide",
   {
-    description: "How to make a haggs Playable game: the three templates (runner, collector, match), the shape a game is written in (a JSON schema) with each rule's range, and one starting game per template. Read it before haggs_propose_game.",
-    inputSchema: {},
+    description: "How to make a haggs Playable game. With code: true (what to use for anything a person describes), how to write a whole game as code against the haggs game kit, with its manifest of assets; with 3d: true, the three.js version. Without, the three quick templates (runner, collector, match) as a JSON schema with examples. Read it before haggs_propose_game.",
+    inputSchema: { code: z.boolean().optional(), "3d": z.boolean().optional() },
     annotations: readOnly,
   },
-  async () => text({ guide: GAME_GUIDE, schema: GAME_SCHEMA, examples: TEMPLATES.map((t) => forClaude(defaultSpec(t))) }),
+  async (args) =>
+    args.code
+      ? text({
+          guide: codeGuide(Boolean(args["3d"])),
+          send: "Call haggs_propose_game with spec = { template: \"code\", three: " + String(Boolean(args["3d"])) + ", ...the manifest fields (title, pitch, genre, controls, aspect, touch, palette), art: { assets: [...the manifest assets] }, code: \"...the game script\", said: \"...\" }. Don't wrap anything in <manifest> or <game> tags there.",
+        })
+      : text({ guide: GAME_GUIDE, schema: GAME_SCHEMA, examples: TEMPLATES.map((t) => forClaude(defaultSpec(t))) }),
 );
 
 server.registerTool(
   "haggs_propose_game",
   {
     description:
-      "Send a Playable game to haggs: a new one from an idea, or a changed version of a game the person shared (pass its id as `game`, and keep everything they didn't ask to change). Write `spec` in the shape haggs_playable_guide gives, with `said` as one short line to the player. It is checked here and every rule is clamped into a playable range. The person sees it on Playable and presses Apply; art is made only when they press Make on a picture, which shows its price first.",
+      "Send a Playable game to haggs: a new one from an idea, or a changed version of a game the person shared (pass its id as `game`, and keep everything they didn't ask to change). Write `spec` in the shape haggs_playable_guide gives: a code game (template \"code\") for anything a person describes, or a quick template game. Put `said` in it as one short line to the player. It is checked here: words trimmed, assets limited, template rules clamped into a playable range. The person sees it on Playable and presses Apply; art is made only when they press Make on a picture, which shows its price first.",
     inputSchema: {
       summary: z.string().max(300),
       game: z.string().regex(/^[\w-]{1,80}$/).optional(),
