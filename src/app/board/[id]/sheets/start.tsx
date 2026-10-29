@@ -8,7 +8,7 @@ import { SCRIPT_ACCEPT } from "../../../../sheets/import";
 import type { Sheets } from "../../../../sheets/sheets";
 import { applyDraft } from "../../../../writer/draft";
 import { writeDraft } from "../../../actions";
-import { openKeys } from "../../../nav";
+import { ManualDraft } from "./manual-draft";
 
 import {defaultKv} from "../../../../story/kv";
 import {readPick} from "../../../../story/handoff";
@@ -92,6 +92,7 @@ export function StartScreen({
   const [title, setTitle] = useState("");
   const [breakdown, setBreakdown] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [manual, setManual] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [assets,setAssets]=useState<BankItem[]>([]);
   const [ready,setReady]=useState(false);
@@ -120,7 +121,7 @@ export function StartScreen({
     const result = await writeDraft(formatId, idea, [title && `Title: ${title}`, notes].filter(Boolean).join("\n"));
     setBusy(false);
     if (!result.ok) {
-      if ("needsKey" in result && result.needsKey) openKeys();
+      if ("needsKey" in result && result.needsKey) setManual(true);
       setProblem(result.reason);
       return;
     }
@@ -198,6 +199,8 @@ export function StartScreen({
             <button className="fire" disabled={busy || idea.trim().length < 12} onClick={() => void write()}>
               {busy ? "Writing… this can take a minute" : idea.trim().length < 12 ? "Say a little about the idea first" : `Write the ${format.label.toLowerCase()}`}
             </button>
+            <button className="pill" aria-expanded={manual} onClick={() => setManual((value) => !value)}>No key? Write in Claude or ChatGPT</button>
+            {manual && <ManualDraft key={formatId} format={format} idea={idea} notes={[title && `Title: ${title}`, notes].filter(Boolean).join("\n")} onSheets={(sheets, notice) => onSheets(useSheetAssets(sheets, assets), notice)} />}
           </>
         )}
         {path === "upload" && (
