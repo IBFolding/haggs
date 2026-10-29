@@ -69,7 +69,7 @@ function download(name: string, text: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export function Editor({ id, boardId, classic = false }: { id: string; boardId?: string | undefined; classic?: boolean }) {
+export function Editor({ id, boardId, classic = false, renderEnabled = false }: { id: string; boardId?: string | undefined; classic?: boolean; renderEnabled?: boolean }) {
   /** The whole project; the state below is one board's view of it. */
   const full = useRef<Project | null>(null);
   const kv = useMemo(() => defaultKv(), []);
@@ -507,7 +507,7 @@ export function Editor({ id, boardId, classic = false }: { id: string; boardId?:
 
   const exportsBar = (
     <>
-      {process.env.NODE_ENV !== "production" && (
+      {renderEnabled && (
         <button
           className="fire ed-render"
           disabled={rendering}
@@ -531,7 +531,7 @@ export function Editor({ id, boardId, classic = false }: { id: string; boardId?:
           {rendering ? "Rendering…" : "Render MP4"}
         </button>
       )}
-      {process.env.NODE_ENV !== "production" && cut.clips.some((c) => c.caption) && (
+      {renderEnabled && cut.clips.some((c) => c.caption) && (
         <label className="ed-burn" title="Off: the film is clean and the captions come as a subtitle file you can edit. On: they're drawn into the picture.">
           <input type="checkbox" checked={burn} onChange={(e) => setBurn(e.target.checked)} />
           Burn captions in

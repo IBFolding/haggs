@@ -10,6 +10,16 @@ const dir = join(import.meta.dirname, "fixtures");
 const catalog: Catalog = JSON.parse(readFileSync(join(dir, "catalog.json"), "utf8"));
 const ui: UiWorkflow = JSON.parse(readFileSync(join(dir, "api_higgsfield_genjutsu_motion_transfer.json"), "utf8"));
 
+test("ElevenLabs sound-effects template exposes its advanced audio saver", () => {
+  const prompt = {
+    "136": { class_type: "ElevenLabsTextToSoundEffects", inputs: { text: "Ocean waves" } },
+    "139": { class_type: "SaveAudioAdvanced", inputs: { audio: ["136", 0], filename_prefix: "audio/ComfyUI", format: "flac" } },
+  };
+  const app = appOf({ nodes: [], links: [] } as UiWorkflow, prompt, {});
+  assert.equal(app.output, "139", "the workflow must reach its audio output instead of being refused before submission");
+  assert.equal(app.produces, "audio");
+});
+
 test("Genjutsu as an app: a video and two pictures to drop, the prompt to type, the resolution to pick", () => {
   const { prompt } = toApiPrompt(ui, catalog);
   const app = appOf(ui, prompt, catalog, { "rooftop_dancer.mp4": "https://x/rooftop_dancer.mp4" });
