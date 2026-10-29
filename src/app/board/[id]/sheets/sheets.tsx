@@ -1,4 +1,6 @@
 "use client";
+import { applyBoardBreakdown } from "../../../../writer/board-breakdown";
+import { useAgentInbox } from "../../../agent-inbox";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -282,33 +284,9 @@ function ByHand({ prompt, onCopied, onReply }: { prompt: string; onCopied: () =>
 
 type Proposal = { id: string; kind: "draft" | "breakdown" | "fill" | "edits" | "board" | "takes" | "voices"; summary: string; payload: unknown; boardId?: string; formatId?: string; at: number };
 
-/** Polls the local bridge for what Claude has sent this project over MCP. Development only. */
 function useInbox(projectId: string) {
-  const [items, setItems] = useState<Proposal[]>([]);
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    let live = true;
-    const check = async () => {
-      try {
-        const res = await fetch(`/api/bridge/inbox?project=${encodeURIComponent(projectId)}`);
-        const body = (await res.json()) as { items?: Proposal[] };
-        if (live) setItems(body.items ?? []);
-      } catch {
-        // No bridge, no inbox; the page works the same.
-      }
-    };
-    void check();
-    const timer = setInterval(check, 4000);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [projectId]);
-  const drop = async (id: string) => {
-    setItems((list) => list.filter((i) => i.id !== id));
-    await fetch(`/api/bridge/inbox?project=${encodeURIComponent(projectId)}&id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => undefined);
-  };
-  return { items, drop };
+  const inbox = useAgentInbox(projectId);
+  return { ...inbox, items: inbox.items.filter((i): i is Proposal => ["draft", "breakdown", "fill", "edits", "board", "takes", "voices"].includes(i.kind)) };
 }
 
 const KIND: Record<Proposal["kind"], string> = { draft: "A draft", breakdown: "A breakdown of the script", fill: "Looks and locks", edits: "Sheet edits", board: "A new board", takes: "New takes", voices: "Voice-over lines" };
@@ -506,8 +484,10 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
       } else if (item.kind === "breakdown") {
         if (!all) throw new Error("There is no script to break down yet.");
         const sent = validateBreakdown(item.payload);
-        if (sheets?.story.length && !window.confirm("Use Claude's breakdown? It replaces this board's beats and shots. Locks and looks you wrote are kept.")) return;
-        act((x) => applyBreakdown(x, sent).sheets);
+        if (!project?.boards?.some((b) => b.id === target) && target !== first) throw new Error("The addressed board no longer exists.");
+        const addressed = sheetsView(normalizeSheets(all, first), target);
+        if ((addressed.story.length || addressed.shots.length) && !window.confirm(`Use Claude's breakdown for ${name ?? "this board"}? It replaces that board's beats and shots. Locks and looks you wrote are kept.`)) return;
+        setAll((current) => current ? applyBoardBreakdown(current, target, first, sent) : current);
         setTab("story");
         setNotice(`Applied Claude's breakdown: ${sent.beats.length} beats and ${sent.shots.length} shots. Your script wasn't changed.`);
       } else if (item.kind === "fill") {
@@ -685,6 +665,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
         <Nav current="Projects" />
         {tabs}
         <div className="canvas">
+          {claude.error && <p role="alert">{claude.error}</p>}
           {claude.items.length > 0 && <div className="sh-start">{(
             <div className="inbox" role="region" aria-label="From Claude">
               {claude.items.map((item) => (
@@ -795,6 +776,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
             <h1>{meta.label}</h1>
             <p>{meta.hint}</p>
           </header>
+          {claude.error && <p role="alert">{claude.error}</p>}
           {claude.items.length > 0 && (
             <div className="inbox" role="region" aria-label="From Claude">
               {claude.items.map((item) => (

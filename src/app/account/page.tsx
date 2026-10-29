@@ -1,10 +1,12 @@
 "use client";
 
+import { syncProfileDraft, type ProfileDraft } from "../../account/profile-draft";
+import { ConnectClaude } from "./connect-claude";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { EMPTY_PROFILE, SOCIALS, cleanProfile, readProfile, type Profile } from "../../account/profile";
+import { EMPTY_PROFILE, SOCIALS, cleanProfile, type Profile } from "../../account/profile";
 import { exploreMessage, profileRow } from "../../community/explore";
 import { PLANS, capacity } from "../../server/billing";
 import { FileSyncNote } from "../file-sync-note";
@@ -14,7 +16,7 @@ import { authed, supabase, useSession } from "../session";
 import { SiteFooter } from "../site-footer";
 import { uploadFile } from "../upload-client";
 
-type PlanStatus = { plan: string | null; status: string; renews: number | null; ending?: true };
+type PlanStatus = { plan: string | null; status: string; renews: number | null; credits: number; ending?: true };
 type Entry = { delta: number; kind: "renewal" | "topup" | "spend" | "refund"; memo: string | null; bucket: string; created_at: string };
 
 const STATUS: Record<string, { label: string; tone: "ok" | "warn" | "bad" }> = {
@@ -38,8 +40,11 @@ export default function Account() {
   const [bal, setBal] = useState<{ plan: number; topup: number } | null>(null);
   const [topups, setTopups] = useState<{ id: string; usd: number; credits: number }[]>([]);
   const [ledger, setLedger] = useState<Entry[] | null>(null);
-  const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
-  const [savedProfile, setSavedProfile] = useState<Profile>(EMPTY_PROFILE);
+  const [profileState, setProfileState] = useState<ProfileDraft>({ owner: null, draft: EMPTY_PROFILE, saved: EMPTY_PROFILE });
+  const profile = profileState.draft;
+  const savedProfile = profileState.saved;
+  const setProfile = (next: Profile | ((p: Profile) => Profile)) => setProfileState((s) => ({ ...s, draft: typeof next === "function" ? next(s.draft) : next }));
+  const setSavedProfile = (saved: Profile) => setProfileState((s) => ({ ...s, saved }));
   const [profileNote, setProfileNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [isPublic, setIsPublic] = useState(false);
@@ -47,9 +52,8 @@ export default function Account() {
 
   useEffect(() => {
     if (ready && !session) router.replace("/signin?next=/account");
+    setProfileState((current) => syncProfileDraft(current, session?.user ?? null));
     if (!session) return;
-    const kept = readProfile(session.user.user_metadata?.profile);
-    setProfile(kept); setSavedProfile(kept);
     void authed("/api/billing/status").then(async (r) => {
       const body = (await r.json()) as { status?: PlanStatus; topups?: typeof topups };
       setPlan(body.status ?? null);
@@ -98,8 +102,9 @@ export default function Account() {
     setProfile((p) => ({ ...p, picture: r.url }));
   }
 
-  if (!session) return <div className="app"><Nav current="Account" /></div>;
+  if (!session) return <div className="app"><Nav current="Account" /><ConnectClaude /></div>;
   const info = PLANS.find((p) => p.id === plan?.plan) ?? null;
+  const allowance = plan?.credits ?? 0;
   const total = bal ? bal.plan + bal.topup : 0;
   const buys = capacity(total);
   const state = plan && plan.status !== "none" ? STATUS[plan.status] ?? { label: plan.status, tone: "warn" as const } : null;
@@ -117,6 +122,7 @@ export default function Account() {
           </header>
 
           <div className="acct-grid">
+            <ConnectClaude />
             <section className="acct-card acct-profile" aria-label="Profile">
               <div className="acct-card-head"><span className="eyebrow muted">Profile</span>{isPublic && savedProfile.handle ? <Link className="ex-mylink" href={`/u/${savedProfile.handle}`}>See your page →</Link> : <small>Private until you share something to Explore; then it&rsquo;s your public page</small>}</div>
               <div className="acct-who">
@@ -150,7 +156,7 @@ export default function Account() {
                 {plan === null ? <p className="acct-muted">Reading your plan…</p> : info ? (
                   <>
                     <div className="acct-plan"><b>{info.name}</b><span>${info.monthly}<small>/month</small></span></div>
-                    <p className="acct-muted">{info.credits ? `${n(info.credits)} credits every month · ${info.storageGB} GB of storage` : "Generation on your own Comfy key or GPU, at Comfy's price"}</p>
+                    <p className="acct-muted">{allowance ? `${n(allowance)} credits every month · ${info.storageGB} GB of storage` : "Generation on your own Comfy key or GPU, at Comfy's price"}</p>
                     {plan.renews && <p className="acct-date">{plan.ending ? `Ends ${day(plan.renews)}. It won't renew; you keep it until then.` : `Renews ${day(plan.renews)}`}</p>}
                     {plan.status === "past_due" && <p className="library-error">The last payment didn&rsquo;t go through. Update your card under Payment and invoices to keep your plan.</p>}
                   </>
@@ -168,10 +174,10 @@ export default function Account() {
                   <>
                     <div className="acct-plan"><b>{n(total)}</b><span><small>credits left</small></span></div>
                     <p className="acct-muted">About {n(buys.clips)} four-second clips or {n(buys.pictures)} pictures at Comfy&rsquo;s list price.</p>
-                    {info?.credits ? (
-                      <div className="acct-meter" aria-label={`${n(bal.plan)} of ${n(info.credits)} monthly credits left`}>
-                        <i style={{ width: `${Math.min(100, (bal.plan / info.credits) * 100)}%` }} />
-                        <small>{n(bal.plan)} of {n(info.credits)} this month{plan?.renews && !plan.ending ? `, refilled ${day(plan.renews)}` : ""}</small>
+                    {allowance ? (
+                      <div className="acct-meter" aria-label={`${n(bal.plan)} of ${n(allowance)} monthly credits left`}>
+                        <i style={{ width: `${Math.min(100, (bal.plan / allowance) * 100)}%` }} />
+                        <small>{n(bal.plan)} of {n(allowance)} this month{plan?.renews && !plan.ending ? `, refilled ${day(plan.renews)}` : ""}</small>
                       </div>
                     ) : null}
                     <p className="acct-muted">{bal.topup ? `${n(bal.topup)} in top-ups, which never expire. ` : ""}Monthly credits are used first.</p>

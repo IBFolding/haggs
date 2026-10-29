@@ -1,5 +1,6 @@
 "use client";
 
+import { useAgentInbox } from "./agent-inbox";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -30,30 +31,9 @@ export const LAST_BOARD = "haggs.last-board";
 const NEW = "__new__";
 const DELETE = "__delete__";
 
-/** How many things Claude has sent this project and the person hasn't applied or dismissed. Development only. */
-function useWaiting(projectId: string): number {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    let live = true;
-    const check = () =>
-      fetch(`/api/bridge/inbox?project=${encodeURIComponent(projectId)}`)
-        .then((r) => r.json() as Promise<{ items?: unknown[] }>)
-        .then((b) => live && setCount(b.items?.length ?? 0))
-        .catch(() => undefined);
-    void check();
-    const timer = setInterval(check, 5000);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [projectId]);
-  return count;
-}
-
 export function ProjectTabs({ project, boardId, current }: { project: Project; boardId?: string | undefined; current: ProjectTab }) {
   const router = useRouter();
-  const waiting = useWaiting(project.id);
+  const waiting = useAgentInbox(project.id).items.length;
   // Remembered so Editor in the header can take you straight back to this board's cut.
   useEffect(() => {
     try {

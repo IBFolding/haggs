@@ -75,3 +75,17 @@ test("without a key, the same request can be pasted into a chat, and its reply r
   assert.throws(() => readReply("Sorry, I can't."), /No JSON/);
   assert.throws(() => readReply('{"beats": ['), /No JSON|isn't complete/);
 });
+
+test("an addressed breakdown replaces only the target board, preserving the open board", async () => {
+  const { normalizeSheets, putSheetsView, sheetsView } = await import("../sheets/sheets");
+  const { applyBoardBreakdown } = await import("./board-breakdown");
+  const original = applyBreakdown(sheets, breakdown).sheets;
+  const all = putSheetsView(normalizeSheets(original, "open"), "target", { ...original, story: original.story.map((b) => ({ ...b, title: "Target original" })) });
+  const before = structuredClone(sheetsView(all, "open"));
+  const made = applyBoardBreakdown(all, "target", "open", { ...breakdown, beats: breakdown.beats.map((b) => ({ ...b, title: "Target replacement" })) });
+  assert.deepEqual(sheetsView(made, "open").story, before.story);
+  assert.deepEqual(sheetsView(made, "open").shots, before.shots);
+  assert.equal(sheetsView(made, "target").story[0]!.title, "Target replacement");
+  assert.deepEqual(made.script, all.script);
+  assert.throws(() => applyBoardBreakdown(all, "target", "open", {}), /no beats/);
+});

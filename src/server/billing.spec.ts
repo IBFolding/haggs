@@ -45,10 +45,10 @@ test("checkout makes a subscription session for the signed-in person, tied to th
 
 test("status reads the live subscription from Stripe; no customer means no plan", async () => {
   const end = Math.floor(Date.now() / 1000) + 86400 * 20;
-  assert.deepEqual(await status(fakeStripe([{ price: "price_m", status: "active", end }]).stripe, env, user), { plan: "mid", status: "active", renews: end * 1000 });
-  assert.deepEqual(await status(fakeStripe([{ price: "price_m", status: "active", end, ending: true }]).stripe, env, user), { plan: "mid", status: "active", renews: end * 1000, ending: true }, "a cancelled plan says it ends instead of renewing");
-  assert.deepEqual(await status(fakeStripe().stripe, env, user), { plan: null, status: "none", renews: null });
-  assert.deepEqual(await status(fakeStripe([{ price: "price_other", status: "active", end }]).stripe, env, user), { plan: null, status: "none", renews: null }, "a price that isn't a haggs plan doesn't count");
+  assert.deepEqual(await status(fakeStripe([{ price: "price_m", status: "active", end }]).stripe, env, user), { plan: "mid", credits: 4400, status: "active", renews: end * 1000 });
+  assert.deepEqual(await status(fakeStripe([{ price: "price_m", status: "active", end, ending: true }]).stripe, env, user), { plan: "mid", credits: 4400, status: "active", renews: end * 1000, ending: true }, "a cancelled plan says it ends instead of renewing");
+  assert.deepEqual(await status(fakeStripe().stripe, env, user), { plan: null, credits: 0, status: "none", renews: null });
+  assert.deepEqual(await status(fakeStripe([{ price: "price_other", status: "active", end }]).stripe, env, user), { plan: null, credits: 0, status: "none", renews: null }, "a price that isn't a haggs plan doesn't count");
 });
 
 test("the billing portal opens for an existing customer only", async () => {
@@ -157,4 +157,17 @@ test("a key that cannot read prices still checks out when the session's own tota
 });
 test("customers never see a Stripe error, only our own refusals", () => {
   assert.equal(customerMessage(new Error("Permission denied. The provided key 'rk_live_secret'"), "Try again."), "Try again.");
+});
+
+test("status distinguishes legacy renewal allowance from fixed-price allowance", async () => {
+  const previous = process.env.HAGGS_PLATFORM_CUT;
+  process.env.HAGGS_PLATFORM_CUT = "20";
+  try {
+    const prices = { ...env, STRIPE_PRICE_STARTER: "legacy", STRIPE_PRICE_STARTER_FIXED_2026: "fixed" };
+    const legacy = await status(fakeStripe([{ price: "legacy", status: "active", end: 100 }]).stripe, prices, user);
+    const fixed = await status(fakeStripe([{ price: "fixed", status: "active", end: 100 }]).stripe, prices, user);
+    assert.equal(legacy.credits, 3120);
+    assert.equal(fixed.credits, 2400);
+    assert.equal((await status(fakeStripe([{ price: "price_b", status: "active", end: 100 }]).stripe, prices, user)).credits, 0);
+  } finally { if (previous === undefined) delete process.env.HAGGS_PLATFORM_CUT; else process.env.HAGGS_PLATFORM_CUT = previous; }
 });

@@ -1,4 +1,5 @@
 "use client";
+import { useAgentInbox } from "../agent-inbox";
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,7 +10,7 @@ import type { Entry } from "../../server/comfy-library";
 import { VOICES } from "../../providers/cloud-edits";
 import { Nav, openKeys } from "../nav";
 import { libraryPrompts, listWorkflows, planCanvas } from "../workflow-actions";
-import { planToCanvas, type Plan } from "../../comfy/canvas";
+import { checkPlan, planToCanvas, type Plan } from "../../comfy/canvas";
 import { alternativesFor, isOpen } from "../../comfy/alternatives";
 import { quickById } from "../../comfy/quick";
 import { defaultKv } from "../../story/kv";
@@ -46,7 +47,8 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   const autoTried = useRef(false);
   const [goal, setGoal] = useState("");
   const [planning, setPlanning] = useState(false);
-  const [sent, setSent] = useState<{ id: string; summary: string; plan: Plan }[]>([]);
+  const agentInbox = useAgentInbox("canvas");
+  const sent = agentInbox.items.filter((i) => i.kind === "canvas").map((i) => ({ id: i.id, summary: i.summary, plan: i.payload as Plan }));
   const surface = useRef<HTMLDivElement>(null);
   const [draftReady,setDraftReady]=useState(false);
   const draftKey=`workflow-builder/draft/${quick?.id??"custom"}`;
@@ -64,21 +66,12 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
     });
   }, [canvas.nodes, library]);
 
-  // What Claude has sent over MCP, waiting to be applied.
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    let live = true;
-    const look = () => fetch("/api/bridge/inbox?project=canvas").then((r) => (r.ok ? r.json() : null)).then((b: { items?: { id: string; kind: string; summary: string; payload: Plan }[] } | null) => live && b?.items && setSent(b.items.filter((i) => i.kind === "canvas").map((i) => ({ id: i.id, summary: i.summary, plan: i.payload })))).catch(() => undefined);
-    void look();
-    const t = setInterval(look, 4000);
-    return () => { live = false; clearInterval(t); };
-  }, []);
-
   async function applySent(item: { id: string; plan: Plan }) {
-    const names = item.plan.steps.flatMap((s) => (s.template ? [s.template] : []));
-    const next = planToCanvas(item.plan, names);
-    await fetch(`/api/bridge/inbox?project=canvas&id=${encodeURIComponent(item.id)}`, { method: "DELETE" }).catch(() => undefined);
-    setSent((all) => all.filter((x) => x.id !== item.id));
+    let checked: Plan;
+    try { checked = checkPlan(item.plan); } catch (e) { setNote(e instanceof Error ? e.message : "Invalid plan."); return; }
+    const names = checked.steps.flatMap((s) => (s.template ? [s.template] : []));
+    const next = planToCanvas(checked, names);
+    await agentInbox.drop(item.id);
     if (!next.nodes.length) return setNote("That plan had nothing the canvas could use.");
     setCanvas(next);
     setPan({ x: 0, y: 0 });
@@ -247,7 +240,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
               <div key={i.id}>
                 <b>Claude sent a canvas</b> <span>{i.summary}</span>
                 <button className="pill on" onClick={() => void applySent(i)}>Apply</button>
-                <button className="plain" onClick={() => { void fetch(`/api/bridge/inbox?project=canvas&id=${encodeURIComponent(i.id)}`, { method: "DELETE" }); setSent((all) => all.filter((x) => x.id !== i.id)); }}>Dismiss</button>
+                <button className="plain" onClick={() => { void agentInbox.drop(i.id); }}>Dismiss</button>
               </div>
             ))}
           </div>
