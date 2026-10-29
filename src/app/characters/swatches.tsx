@@ -1,6 +1,6 @@
 "use client";
 
-import { HEIGHT_SCALE, TRAIT_PICTURES_BY, traitPicture } from "../../characters/trait-pictures";
+import { HEIGHT_SCALE, traitPicture } from "../../characters/trait-pictures";
 import { isCustom } from "../../story/chip-row";
 
 /** What each colour choice looks like, so skin, hair and eyes are picked by sight, not by name. */
@@ -38,7 +38,7 @@ export function PictureRow({ id, label, options, value, onChange, src = traitPic
   return (
     <div className={`cx-pics${wide ? " wide" : ""}`} role="radiogroup" aria-label={label}>
       {options.map((o) => (
-        <button key={o} role="radio" aria-checked={value === o} aria-label={o} title={`${o} · ${TRAIT_PICTURES_BY}`} className={value === o ? "on" : ""} onClick={() => onChange(o)}>
+        <button key={o} role="radio" aria-checked={value === o} aria-label={o} title={o} className={value === o ? "on" : ""} onClick={() => onChange(o)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={src(id, o)} alt="" loading="lazy" />
           <small>{o}</small>

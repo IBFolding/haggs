@@ -261,7 +261,7 @@ export function LookPicker({ value, onChange, video, start, onClose }: { value: 
           </div>
         </div>
         <footer>
-          <p>{words ? <>Adds to your prompt: <span>{words}</span></> : "Pick anything and its words go after your prompt. Samples show the idea (cameras, light, look, era and some framings were made with ChatGPT); the model makes its own picture."}</p>
+          <p>{words ? <>Adds to your prompt: <span>{words}</span></> : "Pick anything and its words go after your prompt. Samples show the idea; the model makes its own picture."}</p>
           <button className="fire" onClick={onClose}>Done</button>
         </footer>
       </div>

@@ -14,7 +14,7 @@ import { surfaceAvailable } from "../studio";
 import { ReturnBar } from "../return-bar";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
-import { CHARACTER_SAMPLES, SAMPLE_PICTURES, SAMPLE_PICTURES_BY } from "../../samples/starters";
+import { CHARACTER_SAMPLES, SAMPLE_PICTURES } from "../../samples/starters";
 import { ChipRow } from "../chip-row";
 import { HeightRow, PictureRow, SWATCHES, SwatchRow } from "./swatches";
 import { PICTURED } from "../../characters/trait-pictures";
@@ -254,7 +254,7 @@ export function Characters() {
               <div className="cx-cards">
                 {CHARACTER_SAMPLES.map((t) => (
                   <button key={t.name} className="cx-card cx-sample" onClick={() => { setCurrent(null); setTraits(t); setLikeness([]); setSheet(null); setMade(null); setNote(null); setError(null); }}>
-                    {SAMPLE_PICTURES[t.name] ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="cx-sample-pic" src={SAMPLE_PICTURES[t.name]} alt="" title={SAMPLE_PICTURES_BY} /> : <span className="cx-mono" aria-hidden>{t.name.replace(/^(Professor|Dr\.?)\s+/, "").slice(0, 1)}</span>}
+                    {SAMPLE_PICTURES[t.name] ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="cx-sample-pic" src={SAMPLE_PICTURES[t.name]} alt="" /> : <span className="cx-mono" aria-hidden>{t.name.replace(/^(Professor|Dr\.?)\s+/, "").slice(0, 1)}</span>}
                     <span><b>{t.name}</b><small>{t.age} · {t.hairColor} {t.hairStyle} hair · {t.wardrobe || t.build}</small><em>Use this →</em></span>
                   </button>
                 ))}
