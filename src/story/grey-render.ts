@@ -56,6 +56,16 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
     at = "bg";
   } else at = "floor";
 
+  // Without a matte, footage is the base; surface edits must remain above it.
+  if (!scene.matte) {
+    notes.push("The original shot is the base. Surface edits sit over it; replacing the background needs a subject cut-out.");
+    inputs.push({ role: "footage-picture", ref: footageUrl, args: [] });
+    const i = inputs.length - 1;
+    parts.push(`[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease[ac]`);
+    parts.push(`[${at}][ac]overlay=x=(${W}-overlay_w)/2:y=(${H}-overlay_h)/2:shortest=1[wa]`);
+    at = "wa";
+  }
+
   // Surfaces from the footage (a wall, a floor) with a new texture: blend the texture into the surface, keep the surface's own shape.
   for (const sf of scene.surfaces ?? []) {
     if (sf.hidden || !sf.mask || !sf.texture) continue;
@@ -120,13 +130,6 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
       parts.push(`[${at}][asd]overlay=x=(${W}-overlay_w)/2+${dx}:y=(${H}-overlay_h)/2+${dy}:shortest=1[wsd]`);
       at = "wsd";
     } else parts.push(`[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease[ac]`);
-    parts.push(`[${at}][ac]overlay=x=(${W}-overlay_w)/2:y=(${H}-overlay_h)/2:shortest=1[wa]`);
-    at = "wa";
-  } else {
-    notes.push("There is no cut-out yet, so the whole original picture sits over the set. Cut the actor out first.");
-    inputs.push({ role: "footage-picture", ref: footageUrl, args: [] });
-    const i = inputs.length - 1;
-    parts.push(`[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease[ac]`);
     parts.push(`[${at}][ac]overlay=x=(${W}-overlay_w)/2:y=(${H}-overlay_h)/2:shortest=1[wa]`);
     at = "wa";
   }

@@ -13,10 +13,11 @@ import { uploadFile } from "../../../../upload-client";
 import { runWorkflow } from "../../../../workflow-actions";
 import { Slide } from "./set-panel";
 
-const QUICK = ["Wall", "Floor", "Table", "Door"];
+const QUICK = ["Floor", "Wall", "Table", "Door", "Other surface"];
+type Reference = { id: string; name: string; image?: string | null };
 
 /** Walls, floors and other real surfaces in the footage, found and given a new material. */
-export function SurfacesPanel({ scene, footageUrl, isVideo, onChange }: { scene: GreyScene; footageUrl: string | null; isVideo: boolean; onChange: (next: GreyScene) => void }) {
+export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange }: { scene: GreyScene; footageUrl: string | null; isVideo: boolean; references: Reference[]; onChange: (next: GreyScene) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [words, setWords] = useState<Record<string, string>>({});
@@ -66,27 +67,33 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, onChange }: { scene:
 
   return (
     <section className="gs-sec">
-      <h3>Walls and floors</h3>
-      <p className="gs-soft">For a wall, floor or table you filmed. haggs finds it in the footage, then lays a new material over it and keeps its real shading. {isVideo ? "" : "This needs a video shot."}</p>
+      <h3>What do you want to replace?</h3>
+      <p className="gs-soft">Choose a surface → find its outline → choose a material. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "" : "This needs a video shot."}</p>
       <div className="gs-row">
         {QUICK.map((q) => <button key={q} className="pill" disabled={!isVideo} onClick={() => onChange(addSurface(scene, q))}>+ {q}</button>)}
       </div>
       {(scene.surfaces ?? []).map((sf) => (
         <div key={sf.id} className="gs-surf">
           <div className="gs-surf-head">
-            <b>{sf.label}</b>
+            <b>{sf.label} · {sf.texture && sf.mask ? "Ready to review" : sf.mask ? "Choose material" : "Find outline"}</b>
             <span className="gs-lact">
               <button aria-label={sf.hidden ? "Show" : "Hide"} title={sf.hidden ? "Show" : "Hide"} onClick={() => onChange(updateSurface(scene, sf.id, { hidden: !sf.hidden }))}>{sf.hidden ? "○" : "●"}</button>
               <button aria-label="Remove" title="Remove" onClick={() => onChange(removeSurface(scene, sf.id))}>×</button>
             </span>
           </div>
+          <p className="gs-soft">1. Describe the exact area, then find its outline.</p>
           <div className="gs-row">
             <input className="gs-name" type="text" maxLength={120} value={words[sf.id] ?? sf.words ?? ""} placeholder={surfaceWords(sf.label, "")} onChange={(e) => setWords({ ...words, [sf.id]: e.target.value })} aria-label={`Words to find the ${sf.label}`} />
-            <button className="pill" disabled={busy !== null || !footageUrl} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
+            <button className="pill" disabled={busy !== null || !footageUrl || !isVideo} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
           </div>
           {sf.mask && (
             <>
-              <TextureControls sf={sf} busy={busy === `tex:${sf.id}`} onUpload={(f) => void upload(sf, f)} onMake={(t) => void makeTexture(sf, t)} />
+              <details><summary>Review the detected outline</summary><video className="gs-mask-review" src={sf.mask.url} controls muted playsInline loop /></details>
+              <p className="gs-soft">2. Choose a material reference. Use a close-up texture, not a whole room photograph.</p>
+              <div className="gs-reference-board" aria-label={`Material references for ${sf.label}`}>
+                {references.filter(r => r.image).map(r => <button key={r.id} className="gs-place" disabled={busy !== null} aria-pressed={sf.texture?.url === r.image} onClick={() => onChange(updateSurface(live.current, sf.id, {texture: {url: r.image!, name: r.name, scale: 1}}))}><img src={r.image!} alt="" /><span>{r.name}</span></button>)}
+              </div>
+              <TextureControls sf={sf} busy={busy !== null} onUpload={(f) => void upload(sf, f)} onMake={(t) => void makeTexture(sf, t)} />
               {sf.texture && (
                 <div className="gs-sliders">
                   <Slide label="Amount" min={0} max={1} step={0.01} value={sf.strength} onChange={(v) => onChange(updateSurface(scene, sf.id, { strength: v }))} />
@@ -107,12 +114,13 @@ function TextureControls({ sf, busy, onUpload, onMake }: { sf: Surface; busy: bo
   const [text, setText] = useState("");
   return (
     <div className="gs-tex">
+      {sf.texture && <figure className="gs-material-card"><img src={sf.texture.url} alt={sf.texture.name} /><figcaption>{sf.texture.name}</figcaption></figure>}
       <div className="gs-row">
-        <input className="gs-name" type="text" maxLength={200} value={text} placeholder="aged red brick" onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") onMake(text); }} aria-label={`Material for the ${sf.label}`} />
+        <input className="gs-name" type="text" maxLength={200} value={text} placeholder="aged red brick" onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !busy && text.trim()) onMake(text); }} aria-label={`Material for the ${sf.label}`} />
         <button className="pill on" disabled={busy || !text.trim()} onClick={() => onMake(text)}>{busy ? "Making…" : "Make it"} <span className="cost">about ${editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" }).toFixed(2)}</span></button>
       </div>
       <div className="gs-row">
-        <button className="pill" disabled={busy} onClick={() => pick.current?.click()}>Or add a picture</button>
+        <button className="pill" disabled={busy} onClick={() => pick.current?.click()}>Upload material reference</button>
         {sf.texture && <span className="gs-soft">Using {sf.texture.name}</span>}
         <input ref={pick} type="file" accept="image/*" hidden onChange={(e) => { onUpload(e.target.files?.[0]); e.target.value = ""; }} />
       </div>

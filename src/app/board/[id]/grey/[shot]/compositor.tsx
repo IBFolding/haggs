@@ -134,9 +134,10 @@ export function Compositor({
     <div ref={box} className={`cp${vertical ? " vertical" : ""}`} onPointerDown={() => onSelect(null)}>
       <div className="cp-inner" style={{ filter: lookFilter(scene.look) }}>
         <div className="cp-bg" style={bd ? { backgroundImage: `url(${bd.url})`, backgroundSize: `${bd.scale * 100}% auto`, backgroundPosition: `${bd.x * 100}% ${bd.y * 100}%`, filter: bd.blur ? `blur(${bd.blur * 14}px)` : undefined } : undefined} />
+        {!actorUrl && footage && (footage.kind === "video" ? <video key={footage.url} ref={clip} className="cp-actor full" src={footage.url} playsInline muted loop /> : <img className="cp-actor full" src={footage.url} alt="" />)}
         {(scene.surfaces ?? []).filter((x) => !x.hidden && x.mask && x.texture).map((x) => <SurfaceLayer key={x.id} surface={x} time={time} playing={playing} />)}
         {behind.map(propEl)}
-        {actorUrl ? <video key={actorUrl} ref={clip} className="cp-actor" style={actorStyle} src={actorUrl} playsInline muted loop /> : footage && (footage.kind === "video" ? <video key={footage.url} ref={clip} className="cp-actor full" src={footage.url} playsInline muted loop /> : <img className="cp-actor full" src={footage.url} alt="" />)}
+        {actorUrl && <video key={actorUrl} ref={clip} className="cp-actor" style={actorStyle} src={actorUrl} playsInline muted loop />}
         {front.map(propEl)}
         {(scene.lights ?? []).map((l) => <LightGlow key={l.id} l={l} />)}
         {air.map((a) => <div key={a.kind} className={`cp-air ${a.kind}`} style={{ opacity: a.amount }} />)}

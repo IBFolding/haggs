@@ -46,3 +46,11 @@ describe("saved sets", () => {
     await assert.rejects(store.save(captureSet(built(), "   ")), /name/i);
   });
 });
+
+it("saved looks never move a shot's source footage to another shot", () => {
+ const source = {url:"/original.mp4",kind:"video" as const};
+ const saved = captureSet({...built(),source},"Look");
+ assert.equal(saved.scene.source, undefined);
+ const other = {url:"/other.mp4",kind:"video" as const};
+ assert.deepEqual(applySet({source:other}, {...saved,scene:{...saved.scene,source}}).source,other);
+});

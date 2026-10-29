@@ -121,3 +121,12 @@ describe("greyPlan surfaces", () => {
     assert.deepEqual(greyPlan(s, size, 4, "/f.mp4").inputs.map((i) => i.role), ["backdrop", "actor", "footage"]);
   });
 });
+
+ it("keeps floor replacement visible over uncut footage", () => {
+  let s = addSurface({}, "Floor");
+  s = updateSurface(s, s.surfaces![0]!.id, { mask: {url:"/floor.webm",at:1,price:"x"}, texture:{url:"/oak.png",name:"Oak",scale:1} });
+  const p = greyPlan(s, size, 3, "/original.mp4");
+  assert.deepEqual(p.inputs.map(i=>i.role), ["footage-picture", "surface", "texture", "footage"]);
+  assert.ok(p.filter.indexOf("[wa]") < p.filter.indexOf("alphamerge"));
+  assert.match(p.filter, /\[wa\]\[sf1\]overlay/);
+ });
