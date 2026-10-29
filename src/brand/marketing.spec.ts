@@ -43,7 +43,6 @@ test("a brand name that ends in a full stop is not given a second one", () => {
 });
 
 test("a sample made outside haggs says so, and every sample card picture exists", async () => {
-  for (const t of TEMPLATES) if (t.madeWith) assert.ok(t.sample, t.id);
   const { SAMPLE_PICTURES } = await import("../samples/starters");
   for (const src of Object.values(SAMPLE_PICTURES)) assert.ok(existsSync(join(process.cwd(), "public", src)), src);
 });

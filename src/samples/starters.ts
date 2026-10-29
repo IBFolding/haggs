@@ -23,7 +23,7 @@ export const ACCESSORY_SAMPLES: { name: string; words: string }[] = [
 ];
 
 /**
- * A picture for each sample card, made with ChatGPT and labelled as such. Only a preview of the sample: using a
+ * A picture for each sample card, made with ChatGPT. Only a preview of the sample: using a
  * sample still fills the form, and the sheet, plate or picture is made in haggs as before.
  */
 export const SAMPLE_PICTURES: Record<string, string> = {
@@ -38,7 +38,6 @@ export const SAMPLE_PICTURES: Record<string, string> = {
   "Leather satchel": "/samples/acc-satchel.webp",
   "Vintage film camera": "/samples/acc-camera.webp",
 };
-export const SAMPLE_PICTURES_BY = "Sample picture made with ChatGPT";
 
 export const FOUND_SAMPLES: { label: string; brief: string }[] = [
   { label: "A city that is closing down", brief: "A lonely night shift in a city that is closing down" },

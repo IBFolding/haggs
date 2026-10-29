@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { ACADEMY_HERO, COVERS_BY, LESSONS, createProgress, lessonCover } from "../../academy/lessons";
+import { ACADEMY_HERO, LESSONS, createProgress, lessonCover } from "../../academy/lessons";
 import { defaultKv } from "../../story/kv";
 import { LearnShell } from "../learn-shell";
 
@@ -54,7 +54,7 @@ export function Academy() {
               <p className="ac-lede">Seven lessons, about 90 minutes in all. You make a video in the first one. Each lesson has a free practice lab, then a button into the real page to do it, and you finish with a cut, a voice and a render.</p>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="ac-hero-pic" src={ACADEMY_HERO} alt="" title={COVERS_BY} />
+            <img className="ac-hero-pic" src={ACADEMY_HERO} alt="" />
           </div>
 
           <ol className="ac-path" aria-label="The path of a film">
@@ -82,7 +82,7 @@ export function Academy() {
                   <button className="ac-lesson-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : l.id)}>
                     <span className="ac-badge">{isDone ? "✓" : i + 1}</span>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img className="ac-cover" src={lessonCover(l.id)} alt="" title={COVERS_BY} loading="lazy" />
+                    <img className="ac-cover" src={lessonCover(l.id)} alt="" loading="lazy" />
                     <span className="ac-lesson-name"><b>{l.title}</b><small>{l.goal}</small></span>
                     <span className="ac-min">{l.minutes} min</span>
                     <span className="ac-chev" aria-hidden>{isOpen ? "−" : "+"}</span>

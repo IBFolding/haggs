@@ -25,9 +25,8 @@ import {useSheetAssets} from "../../../../sheets/assets";
 
 const GROUPS = ["Half-hour", "Hour", "Vertical", "Short"] as const;
 const clock = (s: number) => (s < 120 ? `${s}s` : `${Math.round(s / 60)} min`);
-/** Each format's cover and the three ways in: pictures made with ChatGPT. */
+/** Each format's cover picture. */
 export const showCover = (id: string) => `/shows/${id}.webp`;
-export const START_PICTURES_BY = "Pictures made with ChatGPT";
 
 type Path = "write" | "upload" | "beats";
 const PATHS: { id: Path; title: string; says: string; picture: string }[] = [
@@ -240,7 +239,6 @@ export function StartScreen({
         <img src="/start/pictures.webp" alt="" />
         <span><b>Or start from pictures</b><i>Drop stills or references on the board, one picture a scene, and drag them into order.</i></span>
       </Link>
-      <p className="st-by">{START_PICTURES_BY}.</p>
       </fieldset>
       {problem && <p className="library-error" role="alert">{problem}</p>}
     </div>

@@ -16,7 +16,7 @@ import { ReturnBar } from "../return-bar";
 import { ReshootPanel } from "../reshoot-panel";
 import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
-import { PLACE_SAMPLES, SAMPLE_PICTURES, SAMPLE_PICTURES_BY } from "../../samples/starters";
+import { PLACE_SAMPLES, SAMPLE_PICTURES } from "../../samples/starters";
 import { ChipRow } from "../chip-row";
 import { PictureRow, SWATCHES, SwatchRow } from "../characters/swatches";
 import { PLACE_PICTURED, placePicture } from "../../characters/trait-pictures";
@@ -244,7 +244,7 @@ export function Locations() {
               <div className="cx-cards">
                 {PLACE_SAMPLES.map((p) => (
                   <button key={p.name} className="cx-card cx-sample" onClick={() => { setCurrent(null); setTraits(p); setReference(null); setPlate(null); setViews([]); setNote(null); setError(null); }}>
-                    {SAMPLE_PICTURES[p.name] ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="cx-sample-pic" src={SAMPLE_PICTURES[p.name]} alt="" title={SAMPLE_PICTURES_BY} /> : <span className="cx-mono" aria-hidden style={{ background: SWATCHES.timeOfDay?.[p.timeOfDay] }} />}
+                    {SAMPLE_PICTURES[p.name] ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="cx-sample-pic" src={SAMPLE_PICTURES[p.name]} alt="" /> : <span className="cx-mono" aria-hidden style={{ background: SWATCHES.timeOfDay?.[p.timeOfDay] }} />}
                     <span><b>{p.name}</b><small>{p.setting} · {p.timeOfDay} · {p.weather}</small><em>Use this →</em></span>
                   </button>
                 ))}

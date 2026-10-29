@@ -33,7 +33,6 @@ export const LOOK_SAMPLES: Partial<Record<LookId, string>> = {
 };
 /** A cover for each starter story, made with ChatGPT. */
 export const STARTER_COVERS: Record<string, string> = { spark: "/samples/comic-starter-spark.webp", heist: "/samples/comic-starter-heist.webp" };
-export const SAMPLES_MADE_WITH = "Sample made with ChatGPT";
 
 export const LAYOUTS = [
   { id: "strip", name: "Strip", says: "Three across, like a newspaper.", columns: 3 },

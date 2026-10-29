@@ -14,7 +14,6 @@ export type Technique = { do: string; avoid: string; why: string };
 /** A cover for each lesson and one for the Academy, made with ChatGPT (original scenes, no text). */
 export const lessonCover = (id: string) => `/academy/lesson-${id}.webp`;
 export const ACADEMY_HERO = "/academy/academy-hero.webp";
-export const COVERS_BY = "Pictures made with ChatGPT";
 
 export const LESSONS: Lesson[] = [
   {

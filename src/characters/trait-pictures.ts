@@ -19,7 +19,6 @@ export function picturedChoices(): { row: PicturedRow; option: string; src: stri
 /** How tall each height choice is drawn, against a doorway of 1. */
 export const HEIGHT_SCALE: Record<string, number> = { short: 0.68, "below average height": 0.75, "average height": 0.82, tall: 0.9, "very tall": 0.98 };
 
-export const TRAIT_PICTURES_BY = "Pictures made with ChatGPT";
 
 /** The same for places: `/places/{row}-{choice}.webp`. Time of day stays a sky swatch. */
 export const PLACE_PICTURED = ["where", "setting", "weather", "season", "era", "mood"] as const;
