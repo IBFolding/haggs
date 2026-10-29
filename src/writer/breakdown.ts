@@ -8,7 +8,7 @@
 import { cameraMoves } from "../sheets/camera";
 import type { Format } from "../sheets/formats";
 import type { Sheets } from "../sheets/sheets";
-import { applyParts, DRAFT_SCHEMA, type DraftParts, type DraftRequest } from "./draft";
+import { applyParts, validateDraftParts, DRAFT_SCHEMA, type DraftParts, type DraftRequest } from "./draft";
 
 export type Breakdown = DraftParts & { logline: string };
 
@@ -59,6 +59,7 @@ export function validateBreakdown(value: unknown): Breakdown {
   const d = value as Partial<Breakdown> | null;
   if (!d || !Array.isArray(d.beats) || !d.beats.length) throw new Error("The breakdown came back with no beats.");
   for (const key of ["characters", "locations", "shots"] as const) if (!Array.isArray(d[key])) throw new Error(`The breakdown came back with no ${key}.`);
+  validateDraftParts(d);
   return { ...(d as Breakdown), logline: typeof d.logline === "string" ? d.logline : "" };
 }
 

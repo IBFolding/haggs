@@ -69,12 +69,35 @@ export function draftRequest(format: Format, idea: string, notes: string): Draft
 
 const isText = (v: unknown): v is string => typeof v === "string";
 
+/** Validate every nested field before untrusted JSON can reach sheet rendering. */
+export function validateDraftParts(value: unknown): void {
+  const parts = value as Record<string, unknown>;
+  const strings: Record<string, string[]> = {
+    characters: ["name", "look", "wardrobe", "voice", "lock"],
+    locations: ["name", "look", "light", "lock"],
+    beats: ["title", "feeling", "withhold"],
+    shots: ["action", "size", "angle", "lens", "move", "dialogue", "sound"],
+  };
+  for (const [key, fields] of Object.entries(strings)) {
+    const rows = parts?.[key];
+    if (!Array.isArray(rows)) throw new Error(`Invalid ${key}: expected an array.`);
+    for (const [i, row] of rows.entries()) {
+      const invalid = () => new Error(`Invalid ${key} row ${i + 1}: check its field types.`);
+      if (!row || typeof row !== "object" || Array.isArray(row)) throw invalid();
+      for (const field of fields) if (typeof row[field] !== "string") throw invalid();
+      if (key === "beats" && (!Array.isArray(row.scenes) || !row.scenes.every((n: unknown) => Number.isInteger(n)))) throw invalid();
+      if (key === "shots" && (!Number.isInteger(row.beat) || !Number.isInteger(row.scene) || typeof row.seconds !== "number" || !Number.isFinite(row.seconds))) throw invalid();
+    }
+  }
+}
+
 export function validateDraft(value: unknown): Draft {
   const d = value as Partial<Draft> | null;
   if (!d || !isText(d.script) || !d.script.trim()) throw new Error("The writer's reply has no script.");
   if (!/^\s*(INT|EXT)\.?/m.test(d.script)) throw new Error("The writer's script has no scene headings, so it can't be broken into scenes.");
   if (!Array.isArray(d.beats) || !d.beats.length) throw new Error("The writer's reply has no beats.");
   for (const key of ["characters", "locations", "shots"] as const) if (!Array.isArray(d[key])) throw new Error(`The writer's reply has no ${key}.`);
+  validateDraftParts(d);
   return { ...(d as Draft), title: isText(d.title) && d.title.trim() ? d.title : "Untitled", logline: isText(d.logline) ? d.logline : "" };
 }
 

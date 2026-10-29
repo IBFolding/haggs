@@ -89,3 +89,7 @@ test("an addressed breakdown replaces only the target board, preserving the open
   assert.deepEqual(made.script, all.script);
   assert.throws(() => applyBoardBreakdown(all, "target", "open", {}), /no beats/);
 });
+
+test("malformed agent beat is refused before application", () => {
+  assert.throws(() => validateBreakdown({ beats: [{}], characters: [], locations: [], shots: [] }), /beats/);
+});
