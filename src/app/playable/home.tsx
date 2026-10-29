@@ -256,7 +256,7 @@ export function PlayableHome() {
           <div className="pl-grid">
             {FEATURED.map((f) => (
               <button key={f.id} className="pl-card pl-template" onClick={() => void playFeatured(f)}>
-                <Preview spec={f.spec} />
+                {f.cover ? <span className="pl-preview pl-cover"><img src={f.cover} alt="" loading="lazy" /><span className="pl-preview-badge">{f.spec.template === "code" && f.spec.three ? "3D · Claude" : "Written by Claude"}</span></span> : <Preview spec={f.spec} />}
                 <span className="pl-eyebrow">{genreOf(f.spec)}</span>
                 <strong>{f.spec.title}</strong>
                 <span className="pl-card-says">{f.spec.pitch}</span>

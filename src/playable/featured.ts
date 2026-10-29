@@ -12,7 +12,11 @@ import type { Asset, CodeSpec, GameSpec, Shape } from "./spec";
  * copy in this browser, which can then be changed by chatting like any other.
  */
 
-export type Featured = { id: string; spec: GameSpec };
+/** `cover`: key art for the card, in `public/playable/covers/`; without one the card draws the game's emoji cast. */
+export type Featured = { id: string; spec: GameSpec; cover?: string };
+
+/** The games that have a cover picture (made with ChatGPT's image model). */
+const COVERS = new Set<string>(["sprout-swarm", "noodle-patch", "bramble-run", "lantern-moth", "starlight-salvage", "comet-market"]);
 
 const asset = (id: string, label: string, kind: Asset["kind"], emoji: string, prompt: string, color: string, shape: Shape): Asset => ({ id, label, kind, emoji, prompt, color, shape });
 
@@ -150,4 +154,4 @@ const WRITTEN: { id: string; spec: CodeSpec }[] = [
 ];
 
 /** What the home page shows first: the games Claude wrote. The template games are under Quick start. */
-export const FEATURED: Featured[] = WRITTEN;
+export const FEATURED: Featured[] = WRITTEN.map((f) => (COVERS.has(f.id) ? { ...f, cover: `/playable/covers/${f.id}.webp` } : f));
