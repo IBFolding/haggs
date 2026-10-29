@@ -15,19 +15,22 @@ import { boardOf, commit, view } from "../../../../story/boards";
 import type { Project } from "../../../../story/model";
 import type { Fill } from "../../../../writer/fill";
 import { createProjectStore } from "../../../../story/store";
-import { fillLooks } from "../../../actions";
+import { breakDown, fillLooks } from "../../../actions";
 import { applyFill, fillRequest } from "../../../../writer/fill";
 import { applyDraft, validateDraft } from "../../../../writer/draft";
 import { applyBoardProposal, validateBoardProposal } from "../../../../story/proposed-board";
 import { applyTakes, applyVoices, validateTakes, validateVoices } from "../../../../story/proposed-takes";
-import { formatById } from "../../../../sheets/formats";
-import { StartScreen } from "./start";
+import { formatById, type Format } from "../../../../sheets/formats";
+import { readScriptFile, SCRIPT_ACCEPT } from "../../../../sheets/import";
+import { fixAll, fixesFor } from "../../../../sheets/fixes";
+import { applyBreakdown, breakdownRequest } from "../../../../writer/breakdown";
+import { StartScreen, type UploadOptions } from "./start";
 import { Nav, openKeys } from "../../../nav";
 import { PROJECT_SAVED } from "../../../agent";
 import { ProjectTabs } from "../../../project-tabs";
 import { BankPicker, loadBank } from "../../../bank-picker";
 import { ProjectAssets } from "../../../project-assets";
-import { useSheetAsset } from "../../../../sheets/assets";
+import { useSheetAsset, useSheetAssets } from "../../../../sheets/assets";
 import { readPick } from "../../../../story/handoff";
 import type { BankItem } from "../../../../story/bank";
 
@@ -42,6 +45,25 @@ import type { BankItem } from "../../../../story/bank";
  */
 
 const keyFor = (id: string) => `sheets/${id}`;
+
+/** The sheets as five steps, the order a production office works in. Cast and places share a step, as do shots and their prompts. */
+const STEPS: { label: string; tabs: SheetId[] }[] = [
+  { label: "Script", tabs: ["script"] },
+  { label: "Story beats", tabs: ["story"] },
+  { label: "Cast & places", tabs: ["characters", "locations"] },
+  { label: "Shots", tabs: ["shots", "prompts"] },
+  { label: "Check", tabs: ["qa"] },
+];
+type Progress = { sheets: Sheets; unlocked: number; errors: number };
+/** What the foot of each sheet says before pointing at the next one. */
+const NEXT: Record<Exclude<SheetId, "qa">, (p: Progress) => string> = {
+  script: ({ sheets }) => (sheets.story.length ? `${sheets.script.length} scenes, ${sheets.story.length} beats taken from them.` : `${sheets.script.length} scenes read. Break it down with Claude above, or tick scenes and make beats from them yourself.`),
+  story: ({ sheets }) => `${sheets.story.length} beats, ${sheets.shots.length} shots. Next, lock how the people and places look so every shot matches.`,
+  characters: ({ sheets }) => { const n = sheets.characters.filter((c) => c.lines && !c.lock).length; return n ? `${n} speaking character${n === 1 ? " has" : "s have"} no identity lock yet. Fill looks with AI, or write one.` : "Every speaking character is locked."; },
+  locations: ({ sheets }) => { const n = sheets.locations.filter((l) => l.scenes.length && !l.lock).length; return n ? `${n} place${n === 1 ? " has" : "s have"} no look lock yet.` : "Every place is locked."; },
+  shots: ({ sheets }) => `${sheets.shots.length} shots, ${runtime(sheets)}s of ${sheets.seconds}s. The prompts are built from these.`,
+  prompts: ({ errors }) => (errors ? `Check has ${errors} problem${errors === 1 ? "" : "s"} to look at before anything is spent.` : "Check reads every shot for problems before anything is spent."),
+};
 const SIZES = ["Extreme wide", "Wide", "Full", "Medium wide", "Medium", "Medium close-up", "Close-up", "Extreme close-up", "Insert", "Two-shot", "Over-the-shoulder"];
 const ANGLES = ["Eye level", "Low", "High", "Overhead", "Ground level", "Dutch", "POV"];
 const LENSES = ["14mm", "24mm", "35mm", "50mm", "85mm", "135mm", "100mm macro", "Anamorphic"];
@@ -294,7 +316,10 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
   const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [setup, setSetup] = useState({ title: "", seconds: 60, format: "16:9" });
+  const [setup] = useState({ title: "", seconds: 60, format: "16:9" });
+  const [breaking, setBreaking] = useState(false);
+  const [reading, setReading] = useState<string[]>([]);
+  const [sendAnyway, setSendAnyway] = useState(false);
   const scripts = useRef<HTMLInputElement>(null);
   const saved = useRef<HTMLInputElement>(null);
   const claude = useInbox(id);
@@ -484,29 +509,65 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
   const qa = useMemo(() => (sheets ? qaSheet(sheets) : []), [sheets]);
   const prompts = useMemo(() => (sheets ? promptRows(sheets) : []), [sheets]);
 
-  async function upload(files: File[]) {
+  async function upload(files: File[], from?: UploadOptions) {
     if (!files.length) return;
     try {
-      if (files.some((f) => f.size > 3_000_000)) throw new Error("Keep each script under 3 MB.");
-      const parsed: Screenplay[] = [];
-      for (const file of files) parsed.push(parseScreenplay(await file.text()));
+      setNotice(files.some((f) => /\.pdf$/i.test(f.name)) ? "Reading the PDF…" : null);
+      const texts: string[] = [];
+      for (const file of files) texts.push(await readScriptFile(file));
+      let parsed: Screenplay[] = texts.map((text) => parseScreenplay(text));
+      // Several files that don't say which episode they are become episodes in the order they were picked.
+      if (new Set(parsed.map((p) => p.episode)).size < parsed.length) parsed = texts.map((text, i) => parseScreenplay(text, { episode: i + 1 }));
+      if (!parsed.some((p) => p.scenes.length)) throw new Error("No scenes were found. Each scene should start with a heading like INT. KITCHEN — DAY.");
       const first = parsed[0]!;
-      const next = buildSheets(parsed, {
+      let next = buildSheets(parsed, {
         title: setup.title || project?.name || first.series || first.title || "Untitled reel",
-        seconds: Number(setup.seconds),
-        format: setup.format,
+        seconds: from ? from.format.seconds : Number(setup.seconds),
+        format: from ? from.format.aspect : setup.format,
       });
+      if (from?.assets.length) next = useSheetAssets(next, from.assets);
       // A new upload replaces the scripts but keeps every board's beats and shots, and any locks already written.
-      setAll((current) => (current ? keepWork(next, current) : next));
+      const merged = all ? keepWork(next, all) : next;
+      setAll(merged);
       setTab("script");
       setPicked([]);
       setError(null);
       setNotice(
         `Read ${parsed.length} script${parsed.length > 1 ? "s" : ""}: ${next.script.length} scenes, ${next.characters.length} speaking characters, ${next.locations.length} places. Nothing left this browser.`,
       );
+      if (from?.breakdown) {
+        const base = normalizeSheets(merged, project?.boards?.[0]?.id ?? "main");
+        void breakItDown(sheetsView(base, bid, { title: board?.name ?? base.title }), from.format);
+      }
     } catch (caught) {
+      setNotice(null);
       setError(caught instanceof Error ? caught.message : "That script couldn't be read.");
     }
+  }
+
+  /** Claude reads the script and fills beats, shots, cast and places. This board's beats and shots are replaced; locks people wrote are kept. */
+  async function breakItDown(current: Sheets, format?: Format) {
+    if (current.story.length && !window.confirm("Break the script down again? Claude's beats and shots replace this board's. Locks and looks you wrote are kept.")) return;
+    setBreaking(true);
+    setError(null);
+    setNotice(`Claude is reading ${current.script.length} scenes and breaking them down. This can take a minute or two.`);
+    const result = await breakDown(breakdownRequest(current, format));
+    setBreaking(false);
+    if (!result.ok) {
+      if ("needsKey" in result && result.needsKey) openKeys();
+      setNotice(null);
+      setError(result.reason);
+      return;
+    }
+    const { problems } = applyBreakdown(current, result.draft);
+    act((x) => applyBreakdown(x, result.draft).sheets);
+    setTab("story");
+    setNotice(
+      [
+        `Broken down: ${result.draft.beats.length} beats and ${result.draft.shots.length} shots, with looks and locks for the cast and places. Claude used ${result.usage.input.toLocaleString()} + ${result.usage.output.toLocaleString()} tokens on your account. Your script wasn't changed.`,
+        problems.length ? `Fixed on the way in: ${problems.join(" ")}` : "",
+      ].filter(Boolean).join(" "),
+    );
   }
 
   async function sendToBoard() {
@@ -547,7 +608,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
 
   const fileInputs = (
     <>
-      <input ref={scripts} type="file" multiple accept=".md,.txt,.fountain,text/plain,text/markdown" hidden onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ""; void upload(files); }} />
+      <input ref={scripts} type="file" multiple accept={SCRIPT_ACCEPT} hidden onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ""; void upload(files); }} />
       <input
         ref={saved}
         type="file"
@@ -600,7 +661,7 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
           <StartScreen
             projectName={project.name}
             boardHref={`/board/${id}?b=${encodeURIComponent(bid)}`}
-            onUpload={() => scripts.current?.click()}
+            onFiles={(files, options) => void upload(files, options)}
             onOpenSaved={() => saved.current?.click()}
             onSheets={(made, message) => {
               // A start belongs to the board it was made on, not always the first one.
@@ -626,6 +687,14 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
     locations: sheets.locations.length, shots: sheets.shots.length, prompts: prompts.length, qa: qa.length,
   };
   const meta = SHEETS.find((s) => s.id === tab)!;
+  const go = (t: SheetId) => { setTab(t); setPicked([]); };
+  const unlocked = sheets.characters.filter((c) => c.lines && !c.lock).length + sheets.locations.filter((l) => l.scenes.length && !l.lock).length;
+  /** Which guided steps are done: read, beaten out, locked, shot, checked. */
+  const done = [sheets.script.length > 0, sheets.story.length > 0, sheets.characters.length + sheets.locations.length > 0 && !unlocked, sheets.shots.length > 0, sheets.shots.length > 0 && !errors];
+  const stepOf = STEPS.findIndex((s) => s.tabs.includes(tab));
+  const order = STEPS.flatMap((s) => s.tabs);
+  const after = order[order.indexOf(tab) + 1];
+  const fixable = qa.reduce((n, q) => n + (fixesFor(sheets, q).length && q.code !== "dialogue" ? 1 : 0), 0);
   // Every still the project has — imported media and image takes on any board — to pick references from.
   const pool = [
     ...new Set([
@@ -648,20 +717,33 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
             <span className={`sh-runtime${total === sheets.seconds ? " ok" : ""}`}>
               {total}s <i>of {sheets.seconds}s</i>
             </span>
-            <button className="fire" disabled={!sheets.shots.length} onClick={() => void sendToBoard()}>
-              Send to board
-            </button>
+            {errors && !sendAnyway ? (
+              <button className="plain" disabled={!sheets.shots.length} onClick={() => go("qa")} title="Check found problems that would waste a render. Fix them, or send anyway from Check.">
+                Check {errors} problem{errors === 1 ? "" : "s"} first
+              </button>
+            ) : (
+              <button className="fire" disabled={!sheets.shots.length} onClick={() => void sendToBoard()}>
+                Send to board
+              </button>
+            )}
           </div>
-          {SHEETS.map((s, i) => (
-            <button key={s.id} aria-current={tab === s.id ? "page" : undefined} onClick={() => { setTab(s.id); setPicked([]); }}>
-              <span className="sh-step">{i + 1}</span>
-              <span>
-                <b>{s.label}</b>
-                <small className={s.id === "qa" && errors ? "bad" : undefined}>
-                  {s.id === "qa" ? (errors ? `${errors} to fix` : qa.length ? `${qa.length} to review` : "All clear") : `${count[s.id]}`}
-                </small>
-              </span>
-            </button>
+          {STEPS.map((step, n) => (
+            <div key={step.label} className={`sh-stepgroup${step.tabs.includes(tab) ? " on" : ""}`}>
+              {step.tabs.map((t, j) => {
+                const s = SHEETS.find((x) => x.id === t)!;
+                return (
+                  <button key={t} className={j ? "sub" : undefined} aria-current={tab === t ? "page" : undefined} onClick={() => go(t)}>
+                    {j ? <span className="sh-step sub" aria-hidden /> : <span className={`sh-step${done[n] ? " done" : ""}`}>{done[n] ? "✓" : n + 1}</span>}
+                    <span>
+                      <b>{j || step.tabs.length === 1 ? s.label : step.label}</b>
+                      <small className={t === "qa" && errors ? "bad" : undefined}>
+                        {t === "qa" ? (errors ? `${errors} to fix` : qa.length ? `${qa.length} to review` : "All clear") : j || step.tabs.length === 1 ? `${count[t]}` : `${s.label} · ${count[t]}`}
+                      </small>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           ))}
           <div className="sh-rail-foot">
             <button className="plain" onClick={download}>Export sheets</button>
@@ -704,6 +786,10 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                 >
                   Make one beat from {picked.length || "selected"} scene{picked.length === 1 ? "" : "s"}
                 </button>
+                <button className="pill" onClick={() => setReading(reading.length ? [] : sheets.script.map((x) => x.id))}>{reading.length ? "Fold the scenes" : "Read every scene"}</button>
+                <button className="pill on" disabled={breaking} onClick={() => void breakItDown(sheets)} title="Claude maps the scenes onto beats and fills the cast, places and a first shot list. Your script isn't changed.">
+                  {breaking ? "Breaking it down…" : sheets.story.length ? "Break it down again" : "Break it down for me"}
+                </button>
               </div>
               {sheets.sources.map((src) => (
                 <div key={src.episode}>
@@ -716,11 +802,23 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                         <div>
                           <p className="sh-heading">{s.flash && <em>flash </em>}{s.heading}</p>
                           <p className="sh-meta">{[s.act, `lines ${s.from}–${s.to}`, s.characters.join(", ")].filter(Boolean).join("  ·  ")}</p>
-                          <p className="sh-action">{s.action.slice(0, 280)}{s.action.length > 280 && "…"}</p>
+                          {reading.includes(s.id) ? (
+                            <div className="sh-read">
+                              {s.action && <p className="sh-action">{s.action}</p>}
+                              {s.dialogue.map((l, k) => (
+                                <p key={k} className="sh-line"><b>{l.character}{l.extension && ` (${l.extension})`}</b>{l.parenthetical && <i> ({l.parenthetical})</i>} {l.words}</p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="sh-action">{s.action.slice(0, 280)}{s.action.length > 280 && "…"}{s.dialogue.length ? <i className="sh-lines"> · {s.dialogue.length} line{s.dialogue.length === 1 ? "" : "s"}</i> : null}</p>
+                          )}
                         </div>
-                        <button className="pill" onClick={() => { act((x) => addBeat(x, { sceneIds: [s.id] })); setNotice(`Beat added: ${s.heading}`); }}>
-                          Add as beat
-                        </button>
+                        <div className="sh-row-side">
+                          <button className="pill" onClick={() => { act((x) => addBeat(x, { sceneIds: [s.id] })); setNotice(`Beat added: ${s.heading}`); }}>
+                            Add as beat
+                          </button>
+                          <button className="plain" onClick={() => setReading((r) => (r.includes(s.id) ? r.filter((x) => x !== s.id) : [...r, s.id]))}>{reading.includes(s.id) ? "Fold" : "Read"}</button>
+                        </div>
                       </article>
                     ))}
                 </div>
@@ -868,18 +966,50 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
 
           {tab === "qa" && (
             <>
+              {qa.length > 0 && (
+                <div className="sh-tools">
+                  <span className="sh-meta">{errors ? `${errors} to fix, ` : ""}{qa.length - errors} to review{fixable ? ` · ${fixable} haggs can fix by itself, with nothing spent` : ""}</span>
+                  {fixable > 0 && (
+                    <button className="pill on" onClick={() => {
+                      const { sheets: fixed, fixed: n } = fixAll(sheets, qa);
+                      act(() => fixed);
+                      setNotice(`Fixed ${n} thing${n === 1 ? "" : "s"}: lengths, trims and locks written from what was on the sheets. Nothing was spent.`);
+                    }}>Fix what you can</button>
+                  )}
+                </div>
+              )}
               {qa.length ? (
                 <ul className="sh-qa">
                   {qa.map((q, i) => (
                     <li key={i} className={q.level}>
                       <span>{q.level === "error" ? "Fix" : "Review"}</span>
                       <p>{q.message}</p>
-                      <button className="pill" onClick={() => setTab(q.sheet)}>{SHEETS.find((s) => s.id === q.sheet)!.label}</button>
+                      <div className="sh-qa-do">
+                        {fixesFor(sheets, q).map((f) => (
+                          <button key={f.label} className="pill on" onClick={() => { act(f.apply); setNotice(`${f.label}: done.`); }}>{f.label}</button>
+                        ))}
+                        <button className="pill" onClick={() => go(q.sheet)}>{SHEETS.find((s) => s.id === q.sheet)!.label}</button>
+                      </div>
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p className="sh-empty">All clear. Send it to the board to see prices and generate.</p>
+              )}
+              {sheets.shots.length > 0 && (
+                <div className="sh-next">
+                  {errors ? (
+                    <>
+                      <p>{errors} problem{errors === 1 ? "" : "s"} left. Each one would waste a render, so they are worth fixing first.</p>
+                      <button className="plain" onClick={() => { setSendAnyway(true); void sendToBoard(); }}>Send to board anyway</button>
+                    </>
+                  ) : (
+                    <>
+                      <p>Ready. On the board you see the price of every shot before anything is generated.</p>
+                      <button className="fire" onClick={() => void sendToBoard()}>Send to board</button>
+                    </>
+                  )}
+                </div>
               )}
               <article className="sh-card">
                 <div className="sh-3">
@@ -896,6 +1026,14 @@ export function SheetsStudio({ id, boardId }: { id: string; boardId?: string | u
                 <Text label="Withheld across the whole reel — one per line" rows={3} value={sheets.rules.join("\n")} hint="Spoilers and anything the reel must never show" onChange={(v) => act((x) => ({ ...x, rules: v.split("\n").slice(0, 40) }))} />
               </article>
             </>
+          )}
+          {tab !== "qa" && after && (
+            <div className="sh-next">
+              <p>{NEXT[tab]({ sheets, unlocked, errors })}</p>
+              <button className={tab === "script" && !sheets.story.length ? "plain" : "fire"} onClick={() => go(after)}>
+                Next: {after === STEPS[stepOf + 1]?.tabs[0] ? STEPS[stepOf + 1]!.label : SHEETS.find((x) => x.id === after)!.label} →
+              </button>
+            </div>
           )}
         </section>
       </div>

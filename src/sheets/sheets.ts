@@ -107,7 +107,9 @@ export type Sheets = {
 type Row = SceneRow | Beat | CharacterRow | LocationRow | ShotRow;
 type Patch = Record<string, unknown>;
 
-export type Finding = { level: "error" | "warn"; sheet: SheetId; id: string; message: string };
+/** What a finding is about, so Check can offer the fix for it. */
+export type FindingCode = "no-shots" | "too-many" | "runtime" | "no-lock" | "no-look" | "no-action" | "long-prompt" | "dialogue" | "withheld";
+export type Finding = { level: "error" | "warn"; sheet: SheetId; id: string; message: string; code: FindingCode };
 
 const FIXED = new Set(["id", "beatId", "sceneId", "from", "to", "episode", "number"]);
 const uid = () => crypto.randomUUID().slice(0, 8);
@@ -366,22 +368,22 @@ export const runtime = (sheets: Sheets) => Math.round(sheets.shots.reduce((n, s)
 
 export function qaSheet(sheets: Sheets): Finding[] {
   const out: Finding[] = [];
-  const add = (level: Finding["level"], sheet: SheetId, id: string, message: string) => out.push({ level, sheet, id, message });
+  const add = (code: FindingCode, level: Finding["level"], sheet: SheetId, id: string, message: string) => out.push({ level, sheet, id, message, code });
   const { shots } = sheets;
 
-  if (!shots.length) add("error", "shots", "", "No shots yet. Add beats on the Story sheet, then shots from each beat.");
-  if (shots.length > 96) add("error", "shots", "", "Keep the reel to 96 shots or fewer.");
+  if (!shots.length) add("no-shots", "error", "shots", "", "No shots yet. Add beats on the Story sheet, then shots from each beat.");
+  if (shots.length > 96) add("too-many", "error", "shots", "", "Keep the reel to 96 shots or fewer.");
   if (shots.length && runtime(sheets) !== sheets.seconds) {
-    add("error", "shots", "", `The reel runs ${runtime(sheets)}s of the ${sheets.seconds}s target. Change shot lengths until they add up.`);
+    add("runtime", "error", "shots", "", `The reel runs ${runtime(sheets)}s of the ${sheets.seconds}s target. Change shot lengths until they add up.`);
   }
 
   const cast = new Set(shots.flatMap((s) => s.characters));
   const places = new Set(shots.map((s) => s.location).filter(Boolean));
   for (const c of sheets.characters) {
-    if (cast.has(c.id) && !c.lock) add("warn", "characters", c.id, `${c.name} has no identity lock. Describe face, age, hair and wardrobe so every shot matches.`);
+    if (cast.has(c.id) && !c.lock) add("no-lock", "warn", "characters", c.id, `${c.name} has no identity lock. Describe face, age, hair and wardrobe so every shot matches.`);
   }
   for (const l of sheets.locations) {
-    if (places.has(l.id) && !l.lock) add("warn", "locations", l.id, `${l.name} has no look lock. Describe the place and its light.`);
+    if (places.has(l.id) && !l.lock) add("no-look", "warn", "locations", l.id, `${l.name} has no look lock. Describe the place and its light.`);
   }
 
   const rules = [
@@ -392,14 +394,14 @@ export function qaSheet(sheets: Sheets): Finding[] {
   shots.forEach((shot, i) => {
     const prompt = promptForShot(sheets, shot);
     const hay = (shot.action + "\n" + prompt).toLowerCase();
-    if (!shot.action.trim()) add("error", "shots", shot.id, `Shot ${i + 1} has no action. Say what we see.`);
-    if (prompt.length >= 4000) add("error", "prompts", shot.id, `Shot ${i + 1}'s prompt is too long. Shorten the action or the locks.`);
+    if (!shot.action.trim()) add("no-action", "error", "shots", shot.id, `Shot ${i + 1} has no action. Say what we see.`);
+    if (prompt.length >= 4000) add("long-prompt", "error", "prompts", shot.id, `Shot ${i + 1}'s prompt is too long. Shorten the action or the locks.`);
     if (shot.dialogue.trim()) {
-      add("warn", "shots", shot.id, `Shot ${i + 1} has dialogue. Video models do not lip-sync reliably; plan voice and lip-sync as a separate step.`);
+      add("dialogue", "warn", "shots", shot.id, `Shot ${i + 1} has dialogue. Video models do not lip-sync reliably; plan voice and lip-sync as a separate step.`);
     }
     for (const rule of rules) {
       if (rule.trim() && hay.includes(rule.trim().toLowerCase())) {
-        add("error", "shots", shot.id, `Shot ${i + 1} shows something marked withheld: "${rule.trim()}".`);
+        add("withheld", "error", "shots", shot.id, `Shot ${i + 1} shows something marked withheld: "${rule.trim()}".`);
       }
     }
   });

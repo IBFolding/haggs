@@ -81,28 +81,48 @@ export function validateDraft(value: unknown): Draft {
 const onFrame = (n: number) => Math.round(Math.min(15, Math.max(0.5, n)) * 30) / 30;
 
 export function applyDraft(draft: Draft, format: Format): { sheets: Sheets; problems: string[] } {
-  const problems: string[] = [];
   const play = parseScreenplay(draft.script, { episode: 1 });
-  let sheets = buildSheets([play], { title: draft.title, seconds: format.seconds, format: format.aspect, logline: draft.logline });
+  const sheets = buildSheets([play], { title: draft.title, seconds: format.seconds, format: format.aspect, logline: draft.logline });
+  return applyParts(sheets, draft, (n) => sheets.script.find((s) => s.number === n)?.id);
+}
 
-  for (const c of draft.characters) {
+/** What the writer fills on sheets that already have a script: the cast, the places, the beats and a first shot list. */
+export type DraftParts = Pick<Draft, "characters" | "locations" | "beats" | "shots">;
+
+/**
+ * Lays the writer's cast, places, beats and shots onto sheets. `sceneAt` turns the writer's scene number into a row on
+ * the script sheet. With `keep`, anything already written on a character or place is left as it is.
+ */
+export function applyParts(
+  start: Sheets,
+  parts: DraftParts,
+  sceneAt: (n: number) => string | undefined,
+  { keep = false }: { keep?: boolean } = {},
+): { sheets: Sheets; problems: string[] } {
+  const problems: string[] = [];
+  let sheets = start;
+  const fill = (sheet: "characters" | "locations", id: string, key: string, value: string) => {
+    const row = sheets[sheet].find((x) => x.id === id) as Record<string, unknown> | undefined;
+    if (value && !(keep && typeof row?.[key] === "string" && (row[key] as string).trim())) sheets = fixCell(sheets, sheet, id, key, value.slice(0, 4000));
+  };
+
+  for (const c of parts.characters) {
     const id = c.name.trim().toUpperCase();
     if (!id) continue;
     if (!sheets.characters.some((x) => x.id === id)) sheets = addRow(sheets, "characters", { name: id });
-    for (const key of ["look", "wardrobe", "voice", "lock"] as const) if (c[key]) sheets = fixCell(sheets, "characters", id, key, c[key].slice(0, 4000));
+    for (const key of ["look", "wardrobe", "voice", "lock"] as const) fill("characters", id, key, c[key]);
   }
-  for (const l of draft.locations) {
+  for (const l of parts.locations) {
     const id = l.name.trim().toUpperCase();
     if (!id) continue;
     if (!sheets.locations.some((x) => x.id === id)) sheets = addRow(sheets, "locations", { name: id });
-    for (const key of ["look", "light", "lock"] as const) if (l[key]) sheets = fixCell(sheets, "locations", id, key, l[key].slice(0, 4000));
+    for (const key of ["look", "light", "lock"] as const) fill("locations", id, key, l[key]);
   }
 
-  const sceneId = (n: number) => sheets.script.find((s) => s.number === n)?.id;
   const beatIds: string[] = [];
-  draft.beats.forEach((b, i) => {
+  parts.beats.forEach((b, i) => {
     const ids = b.scenes.map((n) => {
-      const id = sceneId(n);
+      const id = sceneAt(n);
       if (!id) problems.push(`Beat "${b.title}" named scene ${n}, which the script doesn't have.`);
       return id;
     }).filter((id): id is string => Boolean(id));
@@ -114,7 +134,7 @@ export function applyDraft(draft: Draft, format: Format): { sheets: Sheets; prob
     beatIds.push(sheets.story.at(-1)!.id);
   });
 
-  draft.shots.forEach((s, i) => {
+  parts.shots.forEach((s, i) => {
     const beatId = beatIds[s.beat - 1];
     if (!beatId) {
       problems.push(`Shot ${i + 1} belonged to beat ${s.beat}, which doesn't exist, so it was left out.`);
@@ -124,7 +144,7 @@ export function applyDraft(draft: Draft, format: Format): { sheets: Sheets; prob
     if (s.move && !move) problems.push(`Shot ${i + 1} asked for a camera move "${s.move}" that isn't on the list; it has none now.`);
     const seconds = onFrame(Number(s.seconds) || 5);
     if (Number(s.seconds) !== seconds) problems.push(`Shot ${i + 1} was ${s.seconds}s; shots run 0.5–15s, so it is ${seconds}s now.`);
-    const scene = sceneId(s.scene) ?? sheets.story.find((b) => b.id === beatId)!.sceneIds[0]!;
+    const scene = sceneAt(s.scene) ?? sheets.story.find((b) => b.id === beatId)!.sceneIds[0]!;
     sheets = addShot(sheets, beatId, {
       sceneId: scene,
       action: s.action.slice(0, 4000),

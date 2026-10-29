@@ -8,6 +8,7 @@ import { cloudEstimate, createCloudProvider, createCloudRunner, type Kept } from
 import { alephWorkflow, editEstimate, genjutsuWorkflow, musicWorkflow, soundEffectWorkflow, klingEditWorkflow, kontextWorkflow, regenerateWorkflow, speechWorkflow, VOICES, voiceWorkflow, type Line } from "../providers/cloud-edits";
 import { formatById } from "../sheets/formats";
 import { askClaude, draftRequest, type ClaudeResult, type DraftRequest } from "../writer/draft";
+import { BREAKDOWN_BUDGET, BREAKDOWN_SCHEMA, validateBreakdown, type Breakdown } from "../writer/breakdown";
 import { FILL_SCHEMA, type Fill } from "../writer/fill";
 import { cookies } from "next/headers";
 
@@ -365,6 +366,20 @@ export async function fillLooks(request: DraftRequest): Promise<ClaudeResult<Fil
       if (!fill || !Array.isArray(fill.characters) || !Array.isArray(fill.locations)) throw new Error("The writer's reply had no looks to fill.");
       return fill as Fill;
     },
+  });
+}
+
+/** Breaks an uploaded script down into cast, places, beats and shots, on the writer's key. */
+export async function breakDown(request: DraftRequest): Promise<ClaudeResult<Breakdown> | { ok: false; reason: string; needsKey: true }> {
+  const jar = await cookies();
+  const key = keyIn(jar, CLAUDE_COOKIE);
+  if (!key) return { ok: false, reason: "Add a Claude key in Keys to break the script down with AI.", needsKey: true };
+  if (request.user.length > BREAKDOWN_BUDGET + 8_000 || request.system.length > 8_000) return { ok: false, reason: "That script is too large to send in one go." };
+  return askClaude<Breakdown>({
+    key, workspaceId: claudeWorkspaceIn(jar),
+    request: { ...request, maxTokens: Math.min(request.maxTokens, 24000) },
+    schema: BREAKDOWN_SCHEMA,
+    read: validateBreakdown,
   });
 }
 
