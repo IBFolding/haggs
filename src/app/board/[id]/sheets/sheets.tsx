@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { cameraMove, cameraMoves, MOVE_GROUPS } from "../../../../sheets/camera";
-import { CropPreview, Drawing, FRAMES, MovePreview, PickerShell, Wedge, type PickerTab } from "../../../look-picker";
+import { CropPreview, Drawing, MovePreview, PickerShell, StillPreview, Wedge, type PickerTab } from "../../../look-picker";
 import { parseScreenplay, type Screenplay } from "../../../../sheets/screenplay";
 import {
   SHEETS, addBeat, addShot, alterRows, buildSheets, exportSheets, fixCell, importSheets,
@@ -81,7 +81,7 @@ function Pick({ label, value, options, onChange }: { label: string; value: strin
 
 /** Shot sizes as crops of the sample portrait, or a drawing where a crop cannot show it. */
 const SIZE_LOOK: Record<string, ReactNode> = {
-  "Extreme wide": <Drawing wide>{FRAMES["extreme-wide"]}</Drawing>,
+  "Extreme wide": <StillPreview src="/looks/framing-extreme-wide.webp" />,
   Wide: <CropPreview at="50% 50%" zoom={1} />,
   Full: <CropPreview at="66% 58%" zoom={1.35} />,
   "Medium wide": <CropPreview at="65% 50%" zoom={1.7} />,
@@ -90,18 +90,13 @@ const SIZE_LOOK: Record<string, ReactNode> = {
   "Close-up": <CropPreview at="61% 25%" zoom={3.6} />,
   "Extreme close-up": <CropPreview at="59% 23%" zoom={8} />,
   Insert: <CropPreview at="58% 74%" zoom={4.5} />,
-  "Two-shot": <Drawing wide><circle cx="34" cy="24" r="8" /><path d="M20 64 C22 42 46 42 48 64" /><circle cx="62" cy="24" r="8" /><path d="M48 64 C50 42 74 42 76 64" /></Drawing>,
-  "Over-the-shoulder": <Drawing wide>{FRAMES["over-shoulder"]}</Drawing>,
+  "Two-shot": <StillPreview src="/looks/size-two-shot.webp" />,
+  "Over-the-shoulder": <StillPreview src="/looks/framing-over-shoulder.webp" />,
 };
-const ANGLE_LOOK: Record<string, ReactNode> = {
-  "Eye level": <Drawing wide><circle cx="60" cy="24" r="8" /><path d="M46 64 C48 42 72 42 74 64" /><path d="M6 26 H40" strokeDasharray="4 4" /><circle cx="10" cy="26" r="3" /></Drawing>,
-  Low: <Drawing wide>{FRAMES["low-angle"]}</Drawing>,
-  High: <Drawing wide><circle cx="48" cy="40" r="7" /><path d="M36 64 C38 50 58 50 60 64" /><path d="M10 6 L40 34 M86 6 L56 34" /></Drawing>,
-  Overhead: <Drawing wide>{FRAMES["top-down"]}</Drawing>,
-  "Ground level": <Drawing wide><path d="M0 52 H96" /><circle cx="64" cy="30" r="6" /><path d="M58 52 L64 36 L70 52" /><circle cx="10" cy="50" r="3" /><path d="M14 50 H40" strokeDasharray="4 4" /></Drawing>,
-  Dutch: <Drawing wide><g transform="rotate(-14 48 32)"><rect x="16" y="8" width="64" height="48" rx="3" /><circle cx="48" cy="26" r="7" /><path d="M36 56 C38 40 58 40 60 56" /></g></Drawing>,
-  POV: <Drawing wide><path d="M8 12 Q48 -4 88 12 V52 Q48 68 8 52 Z" /><path d="M30 64 L40 44 M66 64 L56 44" /><circle cx="48" cy="28" r="5" /></Drawing>,
-};
+/** Camera angles as the same woman in the same square, shot from each angle (made with ChatGPT). */
+const ANGLE_LOOK: Record<string, ReactNode> = Object.fromEntries(
+  ["Eye level", "Low", "High", "Overhead", "Ground level", "Dutch", "POV"].map((a) => [a, <StillPreview key={a} src={`/looks/angle-${a.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.webp`} />]),
+);
 const LENS_LOOK = (lens: string): ReactNode => {
   if (lens === "Anamorphic") return <Drawing><ellipse cx="32" cy="32" rx="24" ry="13" /><ellipse cx="32" cy="32" rx="11" ry="6" /><path d="M2 32 H62" className="vk-flare" /></Drawing>;
   const mm = parseInt(lens, 10);

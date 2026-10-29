@@ -43,3 +43,12 @@ test("the look picker's light, look and era choices, and four framings, have the
   }
   for (const f of ["extreme-wide", "over-shoulder", "low-angle", "top-down"]) assert.ok(existsSync(join(process.cwd(), "public", lookPhotoFor("framing", f)!)), f);
 });
+
+test("the shot sheet's angles and sizes, and the camera bodies, have their pictures", () => {
+  const files = [
+    ...["eye-level", "low", "high", "overhead", "ground-level", "dutch", "pov"].map((a) => `/looks/angle-${a}.webp`),
+    "/looks/size-two-shot.webp", "/looks/framing-extreme-wide.webp", "/looks/framing-over-shoulder.webp",
+    ...["large-format", "super-35", "16mm", "handheld", "phone", "drone"].map((c) => `/looks/camera-${c}.webp`),
+  ];
+  for (const f of files) assert.ok(existsSync(join(process.cwd(), "public", f)), f);
+});
