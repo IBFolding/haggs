@@ -16,7 +16,8 @@ import { SaveToProject } from "../save-to-project";
 import { makeStill } from "../series-actions";
 import { CHARACTER_SAMPLES, SAMPLE_PICTURES, SAMPLE_PICTURES_BY } from "../../samples/starters";
 import { ChipRow } from "../chip-row";
-import { SWATCHES, SwatchRow } from "./swatches";
+import { HeightRow, PictureRow, SWATCHES, SwatchRow } from "./swatches";
+import { PICTURED } from "../../characters/trait-pictures";
 import { ModeTabs } from "../mode-tabs";
 import { SiteFooter } from "../site-footer";
 import { creditsText } from "../../story/price-text";
@@ -185,6 +186,8 @@ export function Characters() {
                     <summary><b>{row.label}</b><i>· {row.options.length}</i><small>{String(traits[row.id])}</small></summary>
                     {row.id in SWATCHES
                       ? <SwatchRow id={row.id} label={row.label} options={row.options} value={String(traits[row.id])} onChange={(v) => set(row.id, v as never)} />
+                      : row.id === "height" ? <HeightRow label={row.label} options={row.options} value={String(traits[row.id])} onChange={(v) => set(row.id, v as never)} />
+                      : (PICTURED as readonly string[]).includes(row.id) ? <PictureRow id={row.id} label={row.label} options={row.options} value={String(traits[row.id])} onChange={(v) => set(row.id, v as never)} />
                       : <ChipRow label={row.label} options={row.options} value={String(traits[row.id])} onChange={(v) => set(row.id, v as never)} />}
                   </details>
                 ))}
