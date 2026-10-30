@@ -44,3 +44,5 @@ The `scripts/local-room` SQLite backend is solely a disposable local integration
 - Model-dependent H3, LTX, HY-Motion, SAM2 and Eden modes additionally require their correct models/services and verified licenses and resources. Their local fixture previews do not demonstrate inference.
 - A disposable Supabase-compatible environment and private storage are needed to validate the SQL migrations, real authentication, quota races, owner isolation and object recovery together; no production migration has been applied.
 - A user-owned compatible Comfy deployment and an explicitly bounded test budget are needed to verify deployment capabilities, user billing, actual jobs, all output types and recovery. Keep customer execution disabled until these checks pass.
+
+`prepareOwnedGameAction` maps the bundled Drag to Action and Boss Fight no-model graph nodes and checks basic input bounds and actor count. It is not connected to submission or artifact recovery; timeline details and actual runtime compatibility still require validation. It returns an explicit unverified status and does not enable execution.
