@@ -1,6 +1,7 @@
 "use client";
 
 import { contestVariant } from "../../../comfy/contest-lab";
+import { haggsPreview } from "../../../comfy/haggs-preview";
 import { ltxWorkflow } from "../../../comfy/ltx";
 import { track } from "../../../activity/activity";
 import { BankPicker, useReturnedPick } from "../../bank-picker";
@@ -298,9 +299,9 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
           <button onClick={()=>setCheckVersion(v=>v+1)}>Check again</button>
           {opened.needsKey ? (
             <div className="key-callout">
-              <b>{contestVariant(name) ? "Connect local ComfyUI first." : "Choose how to run this first."}</b>
-              <span>{contestVariant(name) ? "These experimental effects need ComfyUI-HaggsContestLab installed on your local ComfyUI. A cloud key or plan credits alone will not run them." : "Looking around is free. To open and run a workflow, buy credits, add your Comfy key or connect your own GPU."}</span>
-              <button className="ph-go" onClick={() => openKeys()}>{contestVariant(name) ? "Connect local ComfyUI" : "Choose how to run"}</button>
+              <b>{contestVariant(name) || haggsPreview(name) ? "Connect local ComfyUI first." : "Choose how to run this first."}</b>
+              <span>{contestVariant(name) || haggsPreview(name) ? "This Haggs workflow needs the matching custom nodes installed on your local ComfyUI. A cloud key or plan credits alone will not run it." : "Looking around is free. To open and run a workflow, buy credits, add your Comfy key or connect your own GPU."}</span>
+              <button className="ph-go" onClick={() => openKeys()}>{contestVariant(name) || haggsPreview(name) ? "Connect local ComfyUI" : "Choose how to run"}</button>
             </div>
           ) : null}
           {onBack ? <button className="pill" onClick={onBack}>Back to choices</button> : <Link className="pill" href="/workflows">Back to workflows</Link>}
@@ -338,7 +339,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
             <Nodes
               graph={opened.graph}
               media={Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && (files[keyOf(f)] ?? f.sample) ? [[f.node, (files[keyOf(f)] ?? f.sample)!]] : [])))}
-              output={{ node: opened.app.output, url: result?.ok ? result.url : (ltxWorkflow(opened.name) || contestVariant(opened.name)) ? null : opened.thumb }}
+              output={{ node: opened.app.output, url: result?.ok ? result.url : (ltxWorkflow(opened.name) || contestVariant(opened.name) || haggsPreview(opened.name)) ? null : opened.thumb }}
             />
           ) : (
             <div className="wf-body">
@@ -401,7 +402,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 ) : result && !result.ok ? (
                   <p className="library-error" role="alert">{result.reason}</p>
                 ) : opened.thumb ? (
-                  <figure className="wf-example"><img src={opened.thumb} alt="" /><figcaption>{(ltxWorkflow(opened.name) || contestVariant(opened.name)) ? "Illustrative example made with image generation, not a verified workflow output. Yours appears here after a successful run." : "The example result. Yours appears here."}</figcaption></figure>
+                  <figure className="wf-example"><img src={opened.thumb} alt="" /><figcaption>{(ltxWorkflow(opened.name) || contestVariant(opened.name) || haggsPreview(opened.name)) ? "Illustrative example made with image generation, not a verified workflow output. Yours appears here after a successful run." : "The example result. Yours appears here."}</figcaption></figure>
                 ) : (
                   <div className="wf-result-wait">Your result appears here.</div>
                 )}

@@ -28,6 +28,7 @@ import { SiteFooter } from "../site-footer";
 const TABS = ["Quick start", "Haggs", "Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const SHELVES = ["Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const FEATURED = ["api_higgsfield_genjutsu_motion_transfer", "template_seedance2_0_viral_videos_character_swap", "video_wan21_scail2_character_replacement", "video_minimax_h3_r2v", "api_bria_video_replace_background"];
+const GAME_GUIDE_APPS: Record<string, string> = { '01-drag-to-action':'haggs_preview_drag_to_action', '02-boss-fight-choreographer':'haggs_preview_boss_fight', '04-game-reskin-director':'haggs_preview_game_reskin', '05-animation-moveset-builder':'haggs_preview_moveset', '06-enemy-intent-painter':'haggs_preview_enemy_intent' };
 
 function HaggsCard({ title, image, label, href, children }: { title: string; image: string; label: string; href?: string; children: ReactNode }) {
   if (href) return <div className="haggs-workflow-card">
@@ -182,10 +183,10 @@ export function Workflows() {
 
           {haggs && games.length > 0 && (
             <section className="quick" id="haggs-games" aria-label="Game Director workflows">
-              <h2>Game Director · experimental ComfyUI downloads</h2>
-              <p>Six custom workflow concepts with local H3 and no-model preview graphs. Install the included Game Director nodes in ComfyUI. Moveset and VFX atlases can be imported into Playable sprite slots. Live ComfyUI and H3 generation remain unverified.</p>
+              <h2>Game Director</h2>
+              <p>Preview guides use your connected ComfyUI and the Game Director nodes. They do not generate H3 footage or export atlases in Haggs. The full workflows remain available below.</p>
               <div className="wf-grid">
-                {games.map(g => <HaggsCard key={g.slug} title={g.title} image={`/workflows/game-director/${g.slug}-illustrative.webp`} label="Game Director · ComfyUI">
+                {games.map(g => <HaggsCard key={g.slug} title={g.title} image={`/workflows/game-director/${g.slug}-illustrative.webp`} label={GAME_GUIDE_APPS[g.slug] ? "Guide preview · local ComfyUI" : "Workflow download · ComfyUI"} {...(GAME_GUIDE_APPS[g.slug] ? {href:`/workflows/${GAME_GUIDE_APPS[g.slug]}`} : {})}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
                   <p>{g.scope}</p><p>Exports: {g.output}</p>
                   {/^0[56]-/.test(g.slug) && <Link href="/playable">Import atlas in Playable · free</Link>}
@@ -206,9 +207,10 @@ export function Workflows() {
               <h2>World, motion and directed VFX</h2>
               <p>Ten experimental ComfyUI downloads in three toolsets. Install the supplied HaggsStudio nodes and configure the required models or services. Live ComfyUI and GPU generation remain unverified.</p>
               <div className="wf-grid">
-                {studio.map(w => <HaggsCard key={w.slug} title={w.title} image={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} label="Toolset · ComfyUI">
+                {studio.map(w => <HaggsCard key={w.slug} title={w.title} image={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} label={w.slug === 'vfx' ? 'Mask preview · local ComfyUI' : 'Toolset · ComfyUI'} {...(w.slug === 'vfx' ? {href:'/workflows/haggs_preview_vfx_mask'} : {})}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
                   <p>{w.scope}</p><p>{w.limits}</p>
+                  {w.slug === 'vfx' && <p><Link href="/workflows/haggs_preview_vfx_mask">Open mask preview app</Link> · <Link href="/workflows/haggs_preview_vfx_reuse">Open combine-takes app</Link></p>}
                   <details><summary>Workflow downloads and supplied preview</summary>
                     <p>Deterministic proxy or synthetic fixture; not a neural generation result.</p>
                     <video src={`/workflows/world-motion-vfx/previews/${w.preview}`} controls preload="none" style={{width:'100%'}} />
