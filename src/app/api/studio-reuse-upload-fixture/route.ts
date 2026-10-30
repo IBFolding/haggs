@@ -1,0 +1,17 @@
+import {spawnSync} from 'node:child_process';import {randomUUID} from 'node:crypto';import {mkdir,writeFile} from 'node:fs/promises';import {join} from 'node:path';import {tmpdir} from 'node:os';import {probeOwnedInput} from '../../../server/owned-comfy-input';
+/** Local disposable fixture; never enabled on hosted production. */
+export async function POST(request:Request){
+ if(process.env.NODE_ENV==='production'||process.env.HAGGS_STUDIO_FIXTURE!=='1')return new Response('Unavailable',{status:404});
+ const declared=Number(request.headers.get('content-length')??0);if(!Number.isSafeInteger(declared)||declared<0||declared>6_100_000)return new Response('Inputs too large',{status:413});
+ let form:FormData;try{const reader=request.body?.getReader();if(!reader)return new Response('Invalid input',{status:400});const chunks:Uint8Array[]=[];let size=0;try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>6_100_000){await reader.cancel();return new Response('Inputs too large',{status:413});}chunks.push(value);}}finally{reader.releaseLock();}form=await new Request('http://local.invalid',{method:'POST',headers:{'content-type':request.headers.get('content-type')??''},body:Buffer.concat(chunks)}).formData();}catch{return new Response('Invalid input',{status:400});}
+ const source=form.get('source'),take=form.get('take'),audio=form.get('audio'),effect=form.get('effect');
+ if(!(source instanceof File)||!(take instanceof File)||(audio!==null&&!(audio instanceof File))||typeof effect!=='string'||!['portal','burst','trail','beam'].includes(effect)||source.size>2_000_000||take.size>2_000_000||(audio instanceof File&&audio.size>2_000_000))return new Response('Invalid input',{status:400});
+ if(source.type!=='video/mp4'||take.type!=='video/mp4'||(audio instanceof File&&audio.type!=='audio/wav'))return new Response('Use MP4 video and WAV audio',{status:400});
+ try{
+  const a=new Uint8Array(await source.arrayBuffer()),b=new Uint8Array(await take.arrayBuffer()),c=audio instanceof File?new Uint8Array(await audio.arrayBuffer()):undefined;
+  await probeOwnedInput('10001/file','video/mp4',a,{localTest:true});await probeOwnedInput('1/file','video/mp4',b,{localTest:true});if(c)await probeOwnedInput('10002/audio','audio/wav',c,{localTest:true});
+  const result=spawnSync('python3',[join(process.cwd(),'scripts/studio-local-reuse.py')],{input:JSON.stringify({effect,source:Buffer.from(a).toString('base64'),take:Buffer.from(b).toString('base64'),...(c?{audio:Buffer.from(c).toString('base64')}:{})}),timeout:40000,maxBuffer:2_000_000,env:{PATH:process.env.PATH??'/usr/bin:/bin',NODE_ENV:'development'},windowsHide:true});
+  if(result.error||result.status!==0)throw Error('render');const data=JSON.parse(result.stdout.toString('utf8')) as {mp4:string;metadata:unknown};const video=Buffer.from(data.mp4,'base64');if(video.length<12||video.length>1_000_000||video.toString('ascii',4,8)!=='ftyp')throw Error('invalid output');
+  const id=randomUUID(),dir=join(tmpdir(),'haggs-studio-fixture-v1');await mkdir(dir,{recursive:true,mode:0o700});await writeFile(join(dir,`${id}.mp4`),video,{mode:0o600,flag:'wx'});await writeFile(join(dir,`${id}.json`),JSON.stringify(data.metadata),{mode:0o600,flag:'wx'});return Response.json({id,format:'mp4'},{headers:{'Cache-Control':'no-store'}});
+ }catch{return new Response('Input could not be verified or rendered. No provider was used.',{status:400});}
+}

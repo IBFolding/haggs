@@ -1,0 +1,10 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {readFile,mkdtemp,writeFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {execFileSync} from 'node:child_process';import {POST} from './route';import {GET} from '../studio-fixture/route';
+test('local selected media produces MP4 with audio; production stays closed',async()=>{
+ const e=process.env as Record<string,string|undefined>,old=e.NODE_ENV,flag=e.HAGGS_STUDIO_FIXTURE;e.NODE_ENV='test';e.HAGGS_STUDIO_FIXTURE='1';const tmp=await mkdtemp(join(tmpdir(),'haggs-reuse-check-'));
+ try{
+  const root='public/workflows/world-motion-vfx/input/',audioRoot='public/workflows/contest-lab/input/haggs/';const form=new FormData();
+  form.set('source',new File([await readFile(root+'haggs-studio-source.mp4')],'source.mp4',{type:'video/mp4'}));form.set('take',new File([await readFile(root+'haggs-studio-existing-take.mp4')],'take.mp4',{type:'video/mp4'}));form.set('audio',new File([await readFile(audioRoot+'music.wav')],'audio.wav',{type:'audio/wav'}));form.set('effect','portal');
+  const response=await POST(new Request('http://test',{method:'POST',body:form}));assert.equal(response.status,200);const data=await response.json() as {id:string};const output=await GET(new Request(`http://test?id=${data.id}&format=mp4`));assert.equal(output.status,200);const path=join(tmp,'video.mp4');await writeFile(path,Buffer.from(await output.arrayBuffer()));const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-show_entries','stream=codec_type','-of','json',path],{encoding:'utf8',timeout:10000}));assert.ok(probe.streams.some((s:{codec_type:string})=>s.codec_type==='video'));assert.ok(probe.streams.some((s:{codec_type:string})=>s.codec_type==='audio'));
+  e.NODE_ENV='production';assert.equal((await POST(new Request('http://test',{method:'POST'}))).status,404);
+ }finally{await rm(tmp,{recursive:true,force:true});if(old===undefined)delete e.NODE_ENV;else e.NODE_ENV=old;if(flag===undefined)delete e.HAGGS_STUDIO_FIXTURE;else e.HAGGS_STUDIO_FIXTURE=flag;}
+});
