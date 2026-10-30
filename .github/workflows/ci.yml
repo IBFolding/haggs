@@ -21,3 +21,5 @@ jobs:
         run: npm run typecheck
       - name: Tests
         run: npm test
+      - name: Local Comfy node installer
+        run: python3 tools/haggs-comfy-installer/test_installer.py
