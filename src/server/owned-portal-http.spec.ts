@@ -5,7 +5,7 @@ import {once} from 'node:events';
 import {createComfyManaged} from '../providers/comfy-managed';
 import {ownedPortalRequest} from './owned-portal-request';
 import {saveManagedOutput} from './managed-output-save';
-import {uploadOwnedInput,type Entry} from './owned-input-upload';
+import {uploadOwnedInput,resolveOwnedPortalInputs,type Entry} from './owned-input-upload';
 import type {Journal,JournalEntry} from './managed-job-journal';
 import type {ManagedOutput} from './managed-output-journal';
 test('portal test route polls a local HTTP provider and recovers a stored output',async()=>{
@@ -27,7 +27,7 @@ test('portal test route polls a local HTTP provider and recovers a stored output
   const inputJournal={read:async(u:string,r:string,f:string)=>{const e=inputs.get(`${r}/${f}`);return e?.userId===u?e:null;},begin:async(e:Entry)=>{const k=`${e.submissionId}/${e.field}`;if(inputs.has(k))return false;inputs.set(k,e);return true;},accept:async(e:Entry,id:string)=>{inputs.set(`${e.submissionId}/${e.field}`,{...e,state:'ready',assetId:id});return true;}};
   const input=async(field:string,mime:string,data:Uint8Array)=>uploadOwnedInput(user,ref,field,mime,data,{journal:inputJournal,probe:async()=>({sha256:Buffer.from(data).toString('hex').padEnd(64,'0'),bytes:data.length}),upload:(bytes,type)=>api.upload(bytes,type)});
   const deps={authenticate:async(r:Request)=>r.headers.get('x-user'),connection:async(id:string)=>({ownerId:id,origin:'https://example.run.comfy.app'}),journal,
-   assets:async()=>({'1/file':await input('1/file','video/mp4',new Uint8Array([1])),'10001/file':await input('10001/file','video/mp4',new Uint8Array([2])),'10002/audio':await input('10002/audio','audio/wav',new Uint8Array([3]))}),
+   assets:async(owner:string,id:string)=>{if(owner!==user||id!==ref)throw Error('Not found');await input('1/file','video/mp4',new Uint8Array([1]));await input('10001/file','video/mp4',new Uint8Array([2]));await input('10002/audio','audio/wav',new Uint8Array([3]));return resolveOwnedPortalInputs(owner,id,inputJournal);},
    submit:async(_origin:string,prompt:Parameters<typeof api.submit>[0],id:string)=>api.submit(prompt,id),find:async()=>null,
    save:async(_origin:string,job:Parameters<typeof api.result>[0],node:string)=> (await api.result(job,node)).url};
   const req=(id:string,action:string)=>new Request('http://local.test',{method:'POST',headers:{'x-user':id},body:JSON.stringify({reference:ref,action,values:{'10000/amount':0.5}})});

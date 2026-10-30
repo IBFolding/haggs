@@ -23,3 +23,15 @@ export async function uploadOwnedInput(userId:string,submissionId:string,field:s
  if(!await deps.journal.accept(entry,asset.info.id))throw Error('Upload may have completed. Check its status before retrying.');
  return asset;
 }
+
+/** Resolve only ready, unexpired inputs belonging to the authenticated owner and job. */
+export async function resolveOwnedPortalInputs(userId:string,submissionId:string,journal:Journal,now=Date.now()):Promise<Record<string,ComfyAsset>> {
+ if(!userId||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(submissionId))throw Error('Invalid input request.');
+ const result:Record<string,ComfyAsset>={};
+ for(const field of ['1/file','10001/file','10002/audio']) {
+  const entry=await journal.read(userId,submissionId,field);
+  if(!entry||entry.userId!==userId||entry.submissionId!==submissionId||entry.field!==field||entry.state!=='ready'||!entry.assetId||!/^[a-zA-Z0-9_-]{1,128}$/.test(entry.assetId)||!Number.isFinite(entry.expiresAt)||entry.expiresAt<=now)throw Error('A required upload is unavailable or expired.');
+  result[field]={__type:'core/ASSET',info:{id:entry.assetId}};
+ }
+ return result;
+}
