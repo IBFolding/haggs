@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {POST} from './route';
+test('game preview is inaccessible in production even with the flag set',async()=>{const e=process.env as Record<string,string|undefined>,old=e.NODE_ENV,flag=e.HAGGS_GAME_FIXTURE;e.NODE_ENV='production';e.HAGGS_GAME_FIXTURE='1';try{assert.equal((await POST(new Request('http://test',{method:'POST'}))).status,404);}finally{if(old===undefined)delete e.NODE_ENV;else e.NODE_ENV=old;if(flag===undefined)delete e.HAGGS_GAME_FIXTURE;else e.HAGGS_GAME_FIXTURE=flag;}});
