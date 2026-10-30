@@ -313,6 +313,8 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key!, keep: keepResult, beforeRun: checkGenerationStorage, timeoutMs: 40 * 60_000 });
     const uploaded: Values = {};
     const optionalMasks = opened.app.fields.filter(f => f.kind === "media" && f.optional && isContestMaskField(f.node));
+    const allowedMasks = new Set(optionalMasks.map(f => `${f.node}/${f.input}`));
+    if (Object.entries(files).some(([key, value]) => value && isContestMaskField(key.split('/')[0] ?? '') && !allowedMasks.has(key))) return {ok:false,reason:"One of the selected masks is not supported by this effect. Reload the app and choose a supported control; no generation was started."};
     const hasMasks = optionalMasks.some(f => Boolean(files[`${f.node}/${f.input}`]));
     if (hasMasks && (!catalog.LoadImage || !catalog.ImageToMask)) return {ok:false,reason:"Install the standard ComfyUI LoadImage and ImageToMask nodes before using masks; no generation was started."};
     // An empty choice leaves that input out of the run, with the wire it fed.

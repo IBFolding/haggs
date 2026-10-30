@@ -357,8 +357,8 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                   </div>
                 )}
                 {opened.app.fields.some(f => f.kind === "media" && f.optional) && <details className="wf-field">
-                  <summary>Optional masks and audio band map</summary>
-                  <p className="wf-small">Use still images: the red channel of each mask controls the whole shot. White selects or protects; black leaves it unchanged. Tracking moving masks requires ComfyUI.</p>
+                  <summary>Optional image controls</summary>
+                  <p className="wf-small">Still masks use their red channel across the whole shot: white marks the selected area and black leaves it unchanged. RGB band maps use all three color channels. Tracking moving masks requires ComfyUI.</p>
                   <div className="wf-drops">{opened.app.fields.map(f => f.kind === "media" && f.optional && <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onBusy={b => setAdding(n => Math.max(0, n + (b ? 1 : -1)))} onChange={url => setFiles(prior => { const next = {...prior}; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />)}</div>
                 </details>}
                 {opened.app.fields.map((f) => {

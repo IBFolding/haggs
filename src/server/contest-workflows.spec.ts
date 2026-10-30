@@ -56,6 +56,17 @@ for(const e of CONTEST_EFFECTS){
   assert.equal(contestVariant(`haggs_fx_h3_${e.slug}`),undefined,'paid variant is not registered as an app');
  });
 }
+test('each effect exposes only controls its compositor uses in both variants', () => {
+ const expected: Record<string,string[]> = {
+  '01-world-orchestra':['haggs_subject_mask','haggs_band_map'], '02-impossible-duet':['haggs_subject_mask'],
+  '03-portal-paint':['haggs_subject_mask','haggs_region_mask'], '04-reality-scrubber':['haggs_subject_mask'],
+  '05-foley-orchestra':[], '06-future-echo':['haggs_subject_mask'], '07-motion-becomes-matter':['haggs_subject_mask'],
+ };
+ for(const effect of CONTEST_EFFECTS) for(const kind of ['ltx','reuse'] as const) {
+  const opened=openContest(contestName(effect.slug,kind),catalog);
+  assert.deepEqual(opened.app.fields.filter(f=>f.kind==='media' && f.optional).map(f=>f.node),expected[effect.slug]);
+ }
+});
 test('seven grouped effects expose fourteen exact local variants, without duplicate cards',()=>{
  assert.equal(CONTEST_EFFECTS.length,7);assert.equal(contestEntries().length,14);
  assert.equal(new Set(contestEntries().map(e=>e.name)).size,14);
