@@ -5,13 +5,14 @@ import moveset from '../../public/workflows/game-director/workflows/preview-no-m
 import enemy from '../../public/workflows/game-director/workflows/preview-no-model/06-enemy-intent-painter.json';
 import vfxMask from '../../public/workflows/world-motion-vfx/workflows/07-vfx-placement-mask-preview.json';
 import vfxReuse from '../../public/workflows/world-motion-vfx/workflows/08-vfx-reuse-existing-take.json';
+import savedMotion from '../../public/workflows/world-motion-vfx/workflows/05-saved-motion-bridge-preview.json';
 import { HAGGS_PREVIEWS, haggsPreview } from '../comfy/haggs-preview';
 import { appOf } from '../comfy/apps';
 import { prepare, validate, type Catalog, type UiWorkflow } from '../comfy/convert';
 import type { Entry, Opened } from './comfy-library';
 import fixture from '../comfy/fixtures/haggs-preview.catalog.json';
 
-const graphs: Record<string, unknown> = { haggs_preview_drag_to_action:drag, haggs_preview_boss_fight:boss, haggs_preview_game_reskin:reskin, haggs_preview_moveset:moveset, haggs_preview_enemy_intent:enemy, haggs_preview_vfx_mask:vfxMask, haggs_preview_vfx_reuse:vfxReuse };
+const graphs: Record<string, unknown> = { haggs_preview_drag_to_action:drag, haggs_preview_boss_fight:boss, haggs_preview_game_reskin:reskin, haggs_preview_moveset:moveset, haggs_preview_enemy_intent:enemy, haggs_preview_vfx_mask:vfxMask, haggs_preview_vfx_reuse:vfxReuse, haggs_preview_saved_motion:savedMotion };
 export function previewTemplate(name: string): UiWorkflow | null {
   const meta = haggsPreview(name);
   if (!meta) return null;
@@ -52,6 +53,14 @@ export function openHaggsPreview(name: string, catalog: Catalog): Opened {
     if (f.input === 'seconds') return {...f, label:'Preview length (seconds)'};
     return f;
   });
+  if (name === 'haggs_preview_saved_motion') {
+    app.fields = [
+      {kind:'text', node:'1', input:'file', label:'NPZ filename inside ComfyUI/input', value:'haggs-studio-synthetic-motion.npz'},
+      {kind:'number', node:'1', input:'duration', label:'Motion duration (seconds)', value:5, min:0.5, max:12},
+      {kind:'number', node:'900', input:'yaw_degrees', label:'Camera angle', value:0, min:-180, max:180},
+      {kind:'number', node:'900', input:'speed', label:'Playback speed', value:1, min:0.25, max:4},
+    ];
+  }
   if (!app.output || app.produces !== 'video') problems.push('A video output is required for this preview.');
   return {entry,ui,app,problems,catalog};
 }

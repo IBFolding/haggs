@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { HAGGS_PREVIEWS } from '../comfy/haggs-preview';
 import { prepare, validate } from '../comfy/convert';
+import { fill } from '../comfy/apps';
 import fixture from '../comfy/fixtures/haggs-preview.catalog.json';
 import type { Catalog } from '../comfy/convert';
 import { isSavedHaggsPreview, openHaggsPreview, openHaggsPreviewForDisplay, previewTemplate } from './haggs-preview-workflows';
@@ -21,6 +22,15 @@ for (const item of HAGGS_PREVIEWS) test(`${item.title} opens as a no-model video
 test('unknown workflow names cannot select arbitrary files', () => {
   assert.equal(previewTemplate('../outside'), null);
   assert.equal(previewTemplate('toString'), null);
+});
+test('saved motion guide applies the selected file and motion controls', () => {
+  const opened = openHaggsPreview('haggs_preview_saved_motion', fixture as unknown as Catalog);
+  const {prompt} = prepare(opened.ui, opened.catalog);
+  const edited = fill(prompt, opened.app, {'1/file':'my-motion.npz', '1/duration':3, '900/yaw_degrees':30, '900/speed':2});
+  assert.equal(edited['1']?.inputs.file, 'my-motion.npz');
+  assert.equal(edited['1']?.inputs.duration, 3);
+  assert.equal(edited['900']?.inputs.yaw_degrees, 30);
+  assert.equal(edited['900']?.inputs.speed, 2);
 });
 test('only the exact saved no-model graphs retain CPU eligibility', () => {
   for (const item of HAGGS_PREVIEWS) {

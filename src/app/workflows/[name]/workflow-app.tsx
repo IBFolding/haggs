@@ -322,6 +322,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
               {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to choices</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
               <h1>{opened.title === "your workflow" ? name : opened.title}</h1>
               {opened.description && <p>{opened.description}</p>}
+              {name === 'haggs_preview_saved_motion' && <p>Copy your saved HY-Motion NPZ into your ComfyUI input folder, then enter its filename below. For a synthetic example and node installation instructions, see <a href="/workflows/world-motion-vfx/START-HERE.md">Haggs Studio setup</a>.</p>}
               {ltxWorkflow(opened.name) && <p>Requires current ComfyUI, ComfyUI-LTXVideo and the named model weights. Live generation remains unverified. <a href="/workflows/ltx/README.txt">Setup and licenses</a></p>}
             </div>
             <div className="wf-appbar">
