@@ -12,6 +12,7 @@ import { uploadFile } from "../../../../upload-client";
 import { BuildLink } from "../../../../return-bar";
 import type { BankItem } from "../../../../../story/bank";
 import { SetsPanel } from "./sets-panel";
+import { ReferenceBoard } from "./reference-board";
 import { SurfacesPanel } from "./surfaces-panel";
 import type { SavedSet } from "../../../../../story/set-bank";
 import { MODEL_EXT, addProp, propShadow, removeProp, setPropModel, shiftLayer, updateProp, type GreyScene } from "../../../../../story/grey-scene";
@@ -111,6 +112,7 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
 
   return (
     <div className="gs-panel">
+      <ReferenceBoard scene={scene} onChange={onChange} onEdit={id => { setTask(id ? "objects" : "surface"); onSelect(id ?? null); }} />
       <div className="gs-edit-choices" role="group" aria-label="What would you like to change?">
         {([ ["surface", "Floor or wall"], ["background", "Background"], ["objects", "Add an object"], ["sets", "Saved looks"] ] as const).map(([id, label]) => <button key={id} className={`pill${task === id ? " on" : ""}`} aria-pressed={task === id} onClick={() => setTask(id)}>{label}</button>)}
       </div>
@@ -146,7 +148,7 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
         {!scene.matte && bd && <p className="gs-soft">Use Cut out first to see them in this place.</p>}
       </section>}
 
-      {task === "surface" && <SurfacesPanel scene={scene} footageUrl={footageUrl} isVideo={isVideo} references={[...places, ...props]} onChange={onChange} />}
+      {task === "surface" && <SurfacesPanel scene={scene} footageUrl={footageUrl} isVideo={isVideo} references={[...(scene.references ?? []).map(r => ({ ...r, image: r.url })), ...places, ...props]} onChange={onChange} />}
 
       {task === "objects" && <section className="gs-sec">
         <h3>Add an object</h3>

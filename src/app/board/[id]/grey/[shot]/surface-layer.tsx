@@ -12,15 +12,20 @@ import type { Surface } from "../../../../../story/grey-scene";
 export function SurfaceLayer({ surface, time, playing }: { surface: Surface; time: number; playing: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const video = useRef<HTMLVideoElement>(null);
+  const still = useRef<HTMLImageElement>(null);
   const tex = useRef<HTMLImageElement | null>(null);
   const work = useRef<HTMLCanvasElement | null>(null);
   const lastUrl = useRef("");
   const url = surface.texture?.url ?? "";
 
   const paint = () => {
-    const v = video.current, c = canvas.current, img = tex.current;
-    if (!v || !c || !img || !img.complete || !img.naturalWidth || v.readyState < 2 || !v.videoWidth) return;
-    if (c.width !== v.videoWidth) { c.width = v.videoWidth; c.height = v.videoHeight; }
+    const v = surface.mask?.kind === "image" ? still.current : video.current, c = canvas.current, img = tex.current;
+    if (!v || !c || !img || !img.complete || !img.naturalWidth) return;
+    const isImage = v instanceof HTMLImageElement;
+    if (isImage ? !v.complete || !v.naturalWidth : v.readyState < 2 || !v.videoWidth) return;
+    const width = isImage ? v.naturalWidth : v.videoWidth;
+    const height = isImage ? v.naturalHeight : v.videoHeight;
+    if (c.width !== width || c.height !== height) { c.width = width; c.height = height; }
     const w = (work.current ??= document.createElement("canvas"));
     w.width = c.width; w.height = c.height;
     const a = w.getContext("2d"), o = c.getContext("2d");
@@ -58,6 +63,7 @@ export function SurfaceLayer({ surface, time, playing }: { surface: Surface; tim
   }, [url]);
 
   useEffect(() => {
+    if (surface.mask?.kind === "image") { paint(); return; }
     const v = video.current;
     if (!v) return;
     if (!playing) {
@@ -72,12 +78,12 @@ export function SurfaceLayer({ surface, time, playing }: { surface: Surface; tim
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, playing ? 0 : time, surface.strength, surface.texture?.scale]);
+  }, [playing, playing ? 0 : time, surface.strength, surface.texture?.scale, surface.mask?.url, surface.mask?.kind]);
 
   if (!surface.mask) return null;
   return (
     <>
-      <video ref={video} className="cp-hidden" src={surface.mask.url} muted playsInline loop onSeeked={paint} onLoadedData={paint} />
+      {surface.mask.kind === "image" ? <img ref={still} className="cp-hidden" src={surface.mask.url} alt="" onLoad={paint} /> : <video ref={video} className="cp-hidden" src={surface.mask.url} muted playsInline loop onSeeked={paint} onLoadedData={paint} />}
       <canvas ref={canvas} className="cp-actor cp-surface" />
     </>
   );

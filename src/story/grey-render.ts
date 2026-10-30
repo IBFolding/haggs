@@ -59,7 +59,7 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
   // Without a matte, footage is the base; surface edits must remain above it.
   if (!scene.matte) {
     notes.push("The original shot is the base. Surface edits sit over it; replacing the background needs a subject cut-out.");
-    inputs.push({ role: "footage-picture", ref: footageUrl, args: [] });
+    inputs.push({ role: "footage-picture", ref: footageUrl, args: scene.source?.kind === "image" ? loop : [] });
     const i = inputs.length - 1;
     parts.push(`[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease[ac]`);
     parts.push(`[${at}][ac]overlay=x=(${W}-overlay_w)/2:y=(${H}-overlay_h)/2:shortest=1[wa]`);
@@ -69,7 +69,7 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
   // Surfaces from the footage (a wall, a floor) with a new texture: blend the texture into the surface, keep the surface's own shape.
   for (const sf of scene.surfaces ?? []) {
     if (sf.hidden || !sf.mask || !sf.texture) continue;
-    inputs.push({ role: "surface", ref: sf.mask.url, args: ["-c:v", "libvpx-vp9"] });
+    inputs.push({ role: "surface", ref: sf.mask.url, args: sf.mask.kind === "image" ? loop : ["-c:v", "libvpx-vp9"] });
     const si = inputs.length - 1;
     inputs.push({ role: "texture", ref: sf.texture.url, args: loop, tile: Math.round(W * 0.25 * sf.texture.scale) });
     const ti = inputs.length - 1;

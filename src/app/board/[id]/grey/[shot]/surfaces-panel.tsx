@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 
 import { track } from "../../../../../activity/activity";
-import { actorMattePrompt, MATTE_INPUT } from "../../../../../comfy/actor-matte";
+import { actorMattePrompt, imageMattePrompt, IMAGE_MATTE_INPUT, MATTE_INPUT } from "../../../../../comfy/actor-matte";
 import { surfaceWords, texturePrompt } from "../../../../../comfy/surface-texture";
 import { editEstimate } from "../../../../../providers/cloud-edits";
 import { addSurface, removeSurface, updateSurface, type GreyScene, type Surface } from "../../../../../story/grey-scene";
@@ -30,14 +30,36 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
     if (!footageUrl) return;
     setBusy(`find:${sf.id}`);
     setProblem(null);
-    const prompt = actorMattePrompt({ describe: surfaceWords(sf.label, words[sf.id] ?? sf.words ?? "") });
-    const r = await track({ label: `Finding the ${sf.label.toLowerCase()}`, href: href(), failure: fail }, () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [MATTE_INPUT]: footageUrl })).catch((e: unknown) => ({ ok: false as const, reason: e instanceof Error ? e.message : "It didn't finish.", needsKey: false }));
+    const description = surfaceWords(sf.label, words[sf.id] ?? sf.words ?? "");
+    const prompt = isVideo ? actorMattePrompt({ describe: description }) : imageMattePrompt(description);
+    const r = await track({ label: `Finding the ${sf.label.toLowerCase()}`, href: href(), failure: fail }, () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [isVideo ? MATTE_INPUT : IMAGE_MATTE_INPUT]: footageUrl })).catch((e: unknown) => ({ ok: false as const, reason: e instanceof Error ? e.message : "It didn't finish.", needsKey: false }));
     setBusy(null);
     if (!r.ok) {
       if ("needsKey" in r && r.needsKey) openKeys();
       return setProblem(r.reason);
     }
-    onChange(updateSurface(live.current, sf.id, { words: surfaceWords(sf.label, words[sf.id] ?? sf.words ?? ""), mask: { url: r.url, at: Date.now(), price: r.price } }));
+    onChange(updateSurface(live.current, sf.id, { words: surfaceWords(sf.label, words[sf.id] ?? sf.words ?? ""), mask: { kind: r.kind === "image" ? "image" : "video", url: r.url, at: Date.now(), price: r.price } }));
+  }
+
+  async function uploadOutline(sf: Surface, file: File | undefined) {
+    if (!file) return;
+    setBusy(`mask:${sf.id}`); setProblem(null);
+    try {
+      if (file.type !== "image/png") throw new Error("Choose a PNG cut-out with transparency outside the selected area.");
+      const image = await createImageBitmap(file);
+      const canvas = document.createElement("canvas");
+      canvas.width = 128; canvas.height = 128;
+      const context = canvas.getContext("2d")!;
+      context.drawImage(image, 0, 0, 128, 128); image.close();
+      const pixels = context.getImageData(0, 0, 128, 128).data;
+      let clear = false, visible = false;
+      for (let i = 3; i < pixels.length; i += 4) { clear ||= pixels[i]! < 10; visible ||= pixels[i]! > 245; }
+      if (!clear || !visible) throw new Error("The outline must contain the selected surface and transparent pixels outside it. A black-and-white mask is not a cut-out.");
+      const result = await uploadFile(file);
+      if (!result.ok) throw new Error(result.reason);
+      onChange(updateSurface(live.current, sf.id, { mask: { kind: "image", url: result.url, at: Date.now(), price: "Prepared outline" } }));
+    } catch (e) { setProblem(e instanceof Error ? e.message : "Outline upload failed."); }
+    finally { setBusy(null); }
   }
 
   async function upload(sf: Surface, file: File | undefined) {
@@ -68,9 +90,9 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
   return (
     <section className="gs-sec">
       <h3>What do you want to replace?</h3>
-      <p className="gs-soft">Choose a surface → find its outline → choose a material. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "" : "This needs a video shot."}</p>
+      <p className="gs-soft">Choose a surface → find its outline → choose a material. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "The outline follows the video." : "Find the area in your photo."}</p>
       <div className="gs-row">
-        {QUICK.map((q) => <button key={q} className="pill" disabled={!isVideo} onClick={() => onChange(addSurface(scene, q))}>+ {q}</button>)}
+        {QUICK.map((q) => <button key={q} className="pill" disabled={!footageUrl} onClick={() => onChange(addSurface(scene, q))}>+ {q}</button>)}
       </div>
       {(scene.surfaces ?? []).map((sf) => (
         <div key={sf.id} className="gs-surf">
@@ -84,11 +106,15 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
           <p className="gs-soft">1. Describe the exact area, then find its outline.</p>
           <div className="gs-row">
             <input className="gs-name" type="text" maxLength={120} value={words[sf.id] ?? sf.words ?? ""} placeholder={surfaceWords(sf.label, "")} onChange={(e) => setWords({ ...words, [sf.id]: e.target.value })} aria-label={`Words to find the ${sf.label}`} />
-            <button className="pill" disabled={busy !== null || !footageUrl || !isVideo} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
+            <button className="pill" disabled={busy !== null || !footageUrl} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
           </div>
+          {!isVideo && <label className="gs-field">Or upload a prepared outline (PNG)
+            <input type="file" accept="image/png" disabled={busy !== null} onChange={e => { void uploadOutline(sf, e.target.files?.[0]); e.target.value = ""; }} />
+            <small>Use the room photo at its original size, with everything outside this surface made transparent. This requires no AI generation.</small>
+          </label>}
           {sf.mask && (
             <>
-              <details><summary>Review the detected outline</summary><video className="gs-mask-review" src={sf.mask.url} controls muted playsInline loop /></details>
+              <details><summary>Review the detected outline</summary>{sf.mask.kind === "image" ? <img className="gs-mask-review" src={sf.mask.url} alt={`${sf.label} detected area`} /> : <video className="gs-mask-review" src={sf.mask.url} controls muted playsInline loop />}</details>
               <p className="gs-soft">2. Choose a material reference. Use a close-up texture, not a whole room photograph.</p>
               <div className="gs-reference-board" aria-label={`Material references for ${sf.label}`}>
                 {references.filter(r => r.image).map(r => <button key={r.id} className="gs-place" disabled={busy !== null} aria-pressed={sf.texture?.url === r.image} onClick={() => onChange(updateSurface(live.current, sf.id, {texture: {url: r.image!, name: r.name, scale: 1}}))}><img src={r.image!} alt="" /><span>{r.name}</span></button>)}

@@ -59,7 +59,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
     const r = await track(
       { label: "Draft render of the set", href: href(), failure: (x) => (x.ok ? null : (x.reason ?? "The draft didn't finish.")), result: (x) => (x.ok && x.url ? { url: x.url } : null) },
       async () => {
-        const res = await fetch("/api/grey/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene, footage: source!.url, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
+        const res = await fetch("/api/grey/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene: { ...scene, source: { url: source!.url, kind: source!.kind } }, footage: source!.url, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
         return ((await res?.json().catch(() => null)) ?? { ok: false, reason: "The render did not return a result. Check your connection and sign-in, then try again." }) as { ok: boolean; url?: string; reason?: string; notes?: string[] };
       },
     ).catch((e: unknown) => ({ ok: false, reason: e instanceof Error ? e.message : "The draft didn't finish.", url: undefined, notes: undefined }));
@@ -68,7 +68,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
     setDraft(r.url);
     setRelit(null);
     setNotes(r.notes ?? []);
-    setCandidate({ kind: "draft", url: r.url, usd: 0, origin: "Grey Room draft", from: null });
+    setCandidate({ kind: "draft", url: r.url, usd: 0, origin: "Grey Room draft", from: source.url });
   }
 
   /** An AI pass over a video: look at it first, keep it or not. */
@@ -187,7 +187,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
         <section className="gs-sec gs-review" aria-label="Look before you keep it">
           <h3>{candidate.kind === "draft" ? "Your draft" : candidate.kind === "blender" ? "Your Blender render" : candidate.kind === "relit" ? "Relit: look at the faces" : "Made real: look at the faces"}</h3>
           <div className="gs-pair">
-            {candidate.from && <figure><video src={candidate.from} controls playsInline muted loop /><figcaption>Before</figcaption></figure>}
+            {candidate.from && <figure>{candidate.from === source?.url && source.kind === "image" ? <img src={candidate.from} alt="Original room" /> : <video src={candidate.from} controls playsInline muted loop />}<figcaption>Before</figcaption></figure>}
             <figure><video src={candidate.url} controls playsInline muted loop autoPlay /><figcaption>{candidate.from ? "After" : "Draft"}</figcaption></figure>
           </div>
           <div className="gs-row">
