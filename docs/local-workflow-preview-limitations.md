@@ -12,3 +12,15 @@ Before exposing a reuse-take compositor to customers:
 - Verify output decoding and signed URL renewal, retain only trusted owned output locations, and run cross-user and deployment-switch tests against the real integration.
 
 The local proxy room uses the bundled deterministic simulation and stores fixture data in a separate browser IndexedDB database. Its WebM recording is a browser capture, not the Comfy node's five-second recording contract. Eden registration and neural replay are not implemented here and require their own configured backend and verification.
+
+## Room graph and user-owned deployment gaps
+
+The draft `prepareOwnedRoom` maps the existing `HaggsPlayableWorld` node's character, theme, prompt and optional reference image. It does not add geometry controls: the shipped node accepts no editable geometry input. The node returns a worker-local session ID and an interactive `/haggs-studio/session/...` page, not a portable v2 output asset. The five-second recording is submitted back to that same session and workflow 09 reads its worker-local file. A managed job may run on another worker, so neither the session nor that recording is durable or account-isolated by this mapping.
+
+Before enabling the real user-owned path:
+
+1. Establish a secure, user- and deployment-bound interactive session transport and a persistent recording contract that works across workers. Verify its lifecycle and access controls with the actual Comfy deployment.
+2. Upload reference media through the owner/deployment-bound journal and validate isolated decoding. Do not trust client-provided asset IDs.
+3. Complete per-artifact persistence and recovery against a disposable Supabase and Blob environment, including quota races, partial failures, cross-user isolation and expiring provider URLs.
+4. Build authenticated customer controls and explicit provider cost disclosures, then verify actual node and model compatibility. The current H3 and Eden execution gates remain closed.
+5. Test the end-to-end deployment with a user-authorized connection and bounded test costs; do not treat the loopback fake or browser proxy room as a Comfy or Eden run.
