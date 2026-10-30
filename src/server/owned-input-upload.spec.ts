@@ -22,3 +22,12 @@ test('portal inputs must belong to the owner and job and be ready and unexpired'
  await assert.rejects(resolveOwnedPortalInputs('alice',ref,'https://other.run.comfy.app',journal,1000),/unavailable/);
  entries[0]!.assetId='../wrong';await assert.rejects(resolveOwnedPortalInputs('alice',ref,'https://example.run.comfy.app',journal,1000),/unavailable/);
 });
+
+test('concurrent duplicate input uploads call the provider once',async()=>{
+ let row:import('./owned-input-upload').Entry|null=null,uploads=0;
+ const journal={read:async()=>row,begin:async(e:import('./owned-input-upload').Entry)=>{if(row)return false;row=e;return true;},accept:async(e:import('./owned-input-upload').Entry,id:string)=>{row={...e,state:'ready',assetId:id};return true;}};
+ const deps={deployment:'https://example.run.comfy.app',journal,probe:async()=>({sha256:'b'.repeat(64),bytes:12}),upload:async()=>{uploads++;await new Promise(r=>setTimeout(r,10));return {__type:'core/ASSET' as const,info:{id:'fixture'}};}};
+ const args=['alice','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','1/file','video/mp4',new Uint8Array(12)] as const;
+ const outcomes=await Promise.allSettled([uploadOwnedInput(...args,deps),uploadOwnedInput(...args,deps)]);
+ assert.equal(uploads,1);assert.equal(outcomes.filter(o=>o.status==='fulfilled').length,1);
+});

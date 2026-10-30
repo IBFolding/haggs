@@ -1,4 +1,4 @@
-import {openContestForDisplay} from './contest-workflows';
+import {contestEntries,openContestForDisplay} from './contest-workflows';
 import {fill,type Values} from '../comfy/apps';
 import {prepare,validate,type ApiPrompt} from '../comfy/convert';
 import type {ComfyAsset} from '../providers/comfy-managed';
@@ -7,7 +7,12 @@ const NAME='haggs_fx_reuse_03-portal-paint';
 /** Convert the bundled portal-paint reuse graph using the bundled display schema.
  * This does not prove a remote runtime has the nodes/models and must not enable execution. */
 export function prepareOwnedPortalPaint(values:Values,assets:Record<string,ComfyAsset>):{prompt:ApiPrompt;outputNode:string} {
- const opened=openContestForDisplay(NAME), converted=prepare(opened.ui,opened.catalog);
+ return prepareOwnedReuse(NAME,values,assets);
+}
+
+export function prepareOwnedReuse(name:string,values:Values,assets:Record<string,ComfyAsset>):{prompt:ApiPrompt;outputNode:string} {
+ if(!contestEntries().some(e=>e.name===name && e.name.startsWith('haggs_fx_reuse_')))throw Error('Unknown reuse workflow.');
+ const opened=openContestForDisplay(name), converted=prepare(opened.ui,opened.catalog);
  if(converted.problems.length||converted.swaps.length||opened.app.output!=='10004')throw Error('Bundled workflow is invalid.');
  const allowed=new Set(opened.app.fields.filter(f=>f.kind!=='media').map(f=>`${f.node}/${f.input}`));
  if(Object.keys(values).some(k=>!allowed.has(k))) throw Error('Unknown workflow control.');
