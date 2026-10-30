@@ -10,3 +10,8 @@ test('checks size, field type and magic bytes before any upload',()=>{
  assert.throws(()=>validateOwnedInput('bad','video/mp4',mp4),/Unknown/);
  assert.throws(()=>validateOwnedInput('1/file','video/mp4',new Uint8Array(2)),/size/);
 });
+
+test('a file with a plausible header but invalid media fails the bounded probe',async()=>{
+ const {probeOwnedInput}=await import('./owned-comfy-input');
+ await assert.rejects(probeOwnedInput('1/file','video/mp4',Buffer.from('0000ftypisom0000')),/could not be verified/);
+});

@@ -9,3 +9,21 @@ export function validateOwnedInput(field:string,mime:string,bytes:Uint8Array):{s
  if(!valid)throw Error('Input does not match its media type.');
  return {sha256:createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length};
 }
+
+/** Probe locally with strict time and output limits. A signature alone is not enough. */
+export async function probeOwnedInput(field:string,mime:string,bytes:Uint8Array):Promise<{sha256:string;bytes:number}>{
+ const info=validateOwnedInput(field,mime,bytes);
+ const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {execFile}=await import('node:child_process');const {promisify}=await import('node:util');
+ const {ffprobeBin}=await import('./ffmpeg');
+ const dir=await mkdtemp(join(tmpdir(),'haggs-input-'));
+ try {
+  const path=join(dir,'media');await writeFile(path,bytes,{mode:0o600,flag:'wx'});
+  const {stdout}=await promisify(execFile)(ffprobeBin(),['-v','error','-protocol_whitelist','file,pipe','-show_entries','stream=codec_type:format=duration','-of','json',path],{timeout:15000,maxBuffer:65536,windowsHide:true});
+  const parsed=JSON.parse(stdout) as {streams?:{codec_type?:string}[];format?:{duration?:string}};
+  const kind=field==='10002/audio'?'audio':'video',duration=Number(parsed.format?.duration);
+  if(!Array.isArray(parsed.streams)||!parsed.streams.some(s=>s.codec_type===kind)||!Number.isFinite(duration)||duration<=0||duration>600)throw Error('Invalid media.');
+  return info;
+ }catch{throw Error('The media could not be verified. No upload was started.');}
+ finally{await rm(dir,{recursive:true,force:true});}
+}
