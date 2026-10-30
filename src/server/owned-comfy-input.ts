@@ -11,7 +11,8 @@ export function validateOwnedInput(field:string,mime:string,bytes:Uint8Array):{s
 }
 
 /** Probe locally with strict time and output limits. A signature alone is not enough. */
-export async function probeOwnedInput(field:string,mime:string,bytes:Uint8Array):Promise<{sha256:string;bytes:number}>{
+export async function probeOwnedInput(field:string,mime:string,bytes:Uint8Array,options:{localTest?:boolean}={}):Promise<{sha256:string;bytes:number}>{
+ if(process.env.NODE_ENV==='production'||options.localTest!==true)throw Error('Isolated media probing is not configured. No upload was started.');
  const info=validateOwnedInput(field,mime,bytes);
  const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
  const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {execFile}=await import('node:child_process');const {promisify}=await import('node:util');
