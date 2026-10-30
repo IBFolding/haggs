@@ -51,3 +51,41 @@ test("failed storage reports the completed job for recovery instead of rerunning
   await assert.rejects(api.result({ id: "job-1", urls: { self: "/api/v2/jobs/job-1" } }, "5"), /job job-1 succeeded.*Recover/);
   assert.equal(calls, 2);
 });
+
+test("signed output redirects are allowed only to configured HTTPS hosts and never receive the bearer token", async () => {
+  let signedCalls = 0;
+  const fetcher: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/jobs/job-1")) return Response.json({ id: "job-1", status: "succeeded", outputs: [{ node_id: "5", content_type: "video/mp4", url: "/api/v2/assets/out/content" }] });
+    if (url.endsWith("/content")) { assert.equal(new Headers(init?.headers).get("authorization"), "Bearer secret"); return new Response(null, { status: 302, headers: { location: "https://storage.example/signed?signature=private" } }); }
+    signedCalls++; assert.equal(new Headers(init?.headers).get("authorization"), null); assert.equal(init?.redirect, "error");
+    return new Response(new Uint8Array([1, 2]));
+  };
+  const config = { base: "http://127.0.0.1:8198", localTest: true, apiKey: "secret", keep, fetch: fetcher };
+  const job = { id: "job-1", urls: { self: "/api/v2/jobs/job-1" } };
+  await assert.rejects(createComfyManaged(config).result(job, "5"), /Recover/);
+  assert.equal(signedCalls, 0);
+  const result = await createComfyManaged({ ...config, outputHosts: ["storage.example"] }).result(job, "5");
+  assert.equal(result.url, "kept.mp4"); assert.equal(signedCalls, 1);
+});
+
+test("output streaming stops at the configured size limit", async () => {
+  let saved = false;
+  const api = createComfyManaged({ base: "http://127.0.0.1:8198", localTest: true, maxOutputBytes: 2, keep: async () => { saved = true; return "saved"; }, fetch: async (input) => String(input).endsWith("/content") ? new Response(new Uint8Array([1, 2, 3])) : Response.json({ id: "job-1", status: "succeeded", outputs: [{ node_id: "5", content_type: "video/mp4", url: "/api/v2/assets/out/content" }] }) });
+  await assert.rejects(api.result({ id: "job-1", urls: { self: "/api/v2/jobs/job-1" } }, "5"), /Recover/);
+  assert.equal(saved, false);
+});
+
+test("managed recovery uses a server-sent reference and refuses ambiguous matches", async () => {
+  let calls = 0;
+  const api = createComfyManaged({ base: "https://example.run.comfy.app", apiKey: "secret", keep, fetch: async (input, init) => {
+    calls++; assert.equal(new Headers(init?.headers).get("authorization"), "Bearer secret");
+    if (String(input).endsWith("/jobs/job-1")) return Response.json({ id: "job-1", metadata: { haggs_ref: "ref-1" }, urls: { self: "/api/v2/jobs/job-1" } });
+    assert.match(String(input), /metadata%5Bhaggs_ref%5D=ref-1/);
+    return Response.json({ jobs: [{ id: "job-1", metadata: { haggs_ref: "ref-1" } }], next_cursor: null });
+  } });
+  assert.equal((await api.findByReference("ref-1"))?.id, "job-1");
+  assert.equal(calls, 2);
+  const duplicate = createComfyManaged({ base: "https://example.run.comfy.app", apiKey: "secret", keep, fetch: async () => Response.json({ jobs: [{ metadata: { haggs_ref: "ref-1" } }, { metadata: { haggs_ref: "ref-1" } }] }) });
+  await assert.rejects(duplicate.findByReference("ref-1"), /Multiple jobs/);
+});

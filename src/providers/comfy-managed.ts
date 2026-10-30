@@ -4,7 +4,7 @@ import type { Kept, Workflow } from "./cloud";
 /** A v2 asset, resolved by Comfy before the workflow is executed. */
 export type ComfyAsset = { __type: "core/ASSET"; info: { id: string } };
 type Output = { node_id?: string; name?: string; content_type?: string; url?: string };
-type Job = { id?: string; status?: string; urls?: { self?: string }; outputs?: Output[] };
+export type ManagedJob = { id?: string; status?: string; urls?: { self?: string }; outputs?: Output[]; metadata?: Record<string, string> };
 type Settings = {
   base: string;
   apiKey?: string;
@@ -14,6 +14,9 @@ type Settings = {
   keep: (bytes: Uint8Array, extension: Kept) => Promise<string>;
   pollMs?: number;
   timeoutMs?: number;
+  /** Server-configured exact HTTPS storage hosts; no wildcard or client input. */
+  outputHosts?: readonly string[];
+  maxOutputBytes?: number;
 };
 const ID = /^[a-zA-Z0-9_-]{1,128}$/;
 const EXT: Record<string, Kept> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/flac": "flac" };
@@ -26,7 +29,7 @@ const EXT: Record<string, Kept> = { "image/png": "png", "image/jpeg": "jpg", "im
 export function createComfyManaged(settings: Settings) {
   let base: URL;
   try { base = new URL(settings.base); } catch { throw new Error("Invalid Comfy API address."); }
-  const local = settings.localTest === true && base.protocol === "http:" && (base.hostname === "127.0.0.1" || base.hostname === "localhost" || base.hostname === "[::1]");
+  const local = process.env.NODE_ENV !== "production" && settings.localTest === true && base.protocol === "http:" && (base.hostname === "127.0.0.1" || base.hostname === "localhost" || base.hostname === "[::1]");
   const managed = base.protocol === "https:" && /^[a-z0-9-]+\.run\.comfy\.app$/.test(base.hostname);
   if ((!local && !managed) || base.username || base.password || base.search || base.hash || base.pathname !== "/") throw new Error("Unsupported Comfy API address.");
   if (managed && !settings.apiKey?.trim()) throw new Error("A Comfy API key is required.");
@@ -41,6 +44,34 @@ export function createComfyManaged(settings: Settings) {
   const assertFreeTest = () => { if (!local) throw new Error("Managed runs are disabled until a server-enforced spending limit and recovery are available. No request was sent."); };
   async function request(path: string, init: RequestInit = {}) {
     return fetcher(sameOrigin(path), { ...init, headers: { ...headers(), ...init.headers }, redirect: "error", signal: AbortSignal.timeout(120_000) });
+  }
+  async function outputBytes(path: string): Promise<Uint8Array> {
+    let response = await fetcher(sameOrigin(path), { headers: headers(), redirect: "manual", signal: AbortSignal.timeout(120_000) });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get("location");
+      if (!location) throw new Error("Comfy output redirect is missing its destination.");
+      let signed: URL;
+      try { signed = new URL(location); } catch { throw new Error("Comfy output redirect is invalid."); }
+      if (signed.protocol !== "https:" || signed.username || signed.password || signed.port || !settings.outputHosts?.includes(signed.hostname)) throw new Error("Comfy output redirect is not trusted.");
+      // Signed URLs carry their own authorization. Never forward the API key.
+      response = await fetcher(signed.href, { redirect: "error", signal: AbortSignal.timeout(120_000) });
+    }
+    if (!response.ok || !response.body) throw new Error("Comfy output could not be downloaded.");
+    const max = settings.maxOutputBytes ?? 200_000_000;
+    if (!Number.isSafeInteger(max) || max <= 0 || Number(response.headers.get("content-length") ?? 0) > max) throw new Error("Comfy output exceeds the size limit.");
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = []; let size = 0;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > max) { await reader.cancel(); throw new Error("Comfy output exceeds the size limit."); }
+        chunks.push(value);
+      }
+    } finally { reader.releaseLock(); }
+    if (!size) throw new Error("Comfy output is empty.");
+    return new Uint8Array(Buffer.concat(chunks, size));
   }
   async function upload(bytes: Uint8Array, mime: string): Promise<ComfyAsset> {
     assertFreeTest();
@@ -57,40 +88,38 @@ export function createComfyManaged(settings: Settings) {
     if (typeof result.id !== "string" || !ID.test(result.id)) throw new Error("Comfy returned an invalid asset ID.");
     return { __type: "core/ASSET", info: { id: result.id } };
   }
-  async function submit(workflow: Workflow, submissionId: string = randomUUID()): Promise<Job> {
+  async function submit(workflow: Workflow, submissionId: string = randomUUID()): Promise<ManagedJob> {
     assertFreeTest();
     if (!ID.test(submissionId)) throw new Error("Invalid submission ID.");
     let response: Response;
     try {
-      response = await request("/api/v2/jobs", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": submissionId }, body: JSON.stringify({ workflow }) });
+      response = await request("/api/v2/jobs", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": submissionId }, body: JSON.stringify(local ? { workflow } : { workflow, metadata: { haggs_ref: submissionId } }) });
     } catch {
       throw new Error(`Submission outcome unknown (reference ${submissionId}). Check the job list before retrying.`);
     }
     if (response.status >= 500 || response.status === 422) throw new Error(`Submission may need investigation (reference ${submissionId}, status ${response.status}). Check the job list before retrying.`);
     if (!response.ok) throw new Error(`Comfy rejected the submission (${response.status}); no automatic retry was made.`);
-    let job: Job;
-    try { job = await response.json() as Job; }
+    let job: ManagedJob;
+    try { job = await response.json() as ManagedJob; }
     catch { throw new Error(`Submission outcome unknown (reference ${submissionId}). Check the job list before retrying.`); }
     if (!job.id || !ID.test(job.id) || !job.urls?.self) throw new Error(`Submission outcome unknown (reference ${submissionId}). Check the job list before retrying.`);
     sameOrigin(job.urls.self);
     return job;
   }
-  async function result(job: Job, outputNode: string) {
+  async function result(job: ManagedJob, outputNode: string) {
     if (!job.id || !job.urls?.self) throw new Error("Missing job reference.");
     const started = Date.now();
     while (Date.now() - started < (settings.timeoutMs ?? 60 * 60_000)) {
       const response = await request(job.urls.self);
       if (!response.ok) throw new Error(`Could not check Comfy job ${job.id} (${response.status}); do not resubmit.`);
-      const current = await response.json() as Job;
+      const current = await response.json() as ManagedJob;
       if (current.id !== job.id) throw new Error("Comfy returned the wrong job.");
       if (current.status === "succeeded") {
         const out = current.outputs?.find(x => x.node_id === outputNode && x.url && x.content_type && EXT[x.content_type]);
         if (!out?.url || !out.content_type) throw new Error(`Comfy job ${job.id} finished without a supported output.`);
         const extension = EXT[out.content_type]!;
-        const file = await request(out.url);
-        if (!file.ok) throw new Error(`Could not retrieve output for Comfy job ${job.id}.`);
         let url: string;
-        try { url = await settings.keep(new Uint8Array(await file.arrayBuffer()), extension); }
+        try { url = await settings.keep(await outputBytes(out.url), extension); }
         catch { throw new Error(`Comfy job ${job.id} succeeded, but its output could not be saved. Recover it from the job before retrying.`); }
         return { url, kind: out.content_type.startsWith("video/") ? "video" as const : out.content_type.startsWith("audio/") ? "audio" as const : "image" as const, jobId: job.id };
       }
@@ -100,5 +129,36 @@ export function createComfyManaged(settings: Settings) {
     }
     throw new Error(`Comfy job ${job.id} is still running or queued; check it before retrying.`);
   }
-  return { upload, submit, result };
+  /** On a managed deployment, locate an uncertain submission by its durable label. */
+  async function findByReference(reference: string): Promise<ManagedJob | null> {
+    if (!managed || !ID.test(reference)) throw new Error("Managed job lookup is unavailable.");
+    const found: ManagedJob[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const query = new URLSearchParams({ "metadata[haggs_ref]": reference, limit: "100" });
+      if (cursor) query.set("cursor", cursor);
+      const response = await request(`/api/v2/jobs?${query}`);
+      if (!response.ok) throw new Error("Could not inspect managed jobs. Do not resubmit.");
+      const body = await response.json() as { jobs?: ManagedJob[]; next_cursor?: string | null };
+      if (!Array.isArray(body.jobs)) throw new Error("Invalid managed job listing. Do not resubmit.");
+      found.push(...body.jobs.filter(job => job.metadata?.haggs_ref === reference));
+      if (found.length > 1) throw new Error("Multiple jobs match this reference. Manual reconciliation is required.");
+      if (!body.next_cursor) {
+        const match = found[0];
+        if (!match) return null;
+        if (!match.id || !ID.test(match.id)) throw new Error("Invalid managed job ID. Do not resubmit.");
+        // List items do not contain follow-up links; the documented job endpoint does.
+        const detailResponse = await request(`/api/v2/jobs/${encodeURIComponent(match.id)}`);
+        if (!detailResponse.ok) throw new Error("Could not inspect the recovered job. Do not resubmit.");
+        const detail = await detailResponse.json() as ManagedJob;
+        if (detail.id !== match.id || detail.metadata?.haggs_ref !== reference || !detail.urls?.self) throw new Error("Recovered job identity is invalid. Do not resubmit.");
+        sameOrigin(detail.urls.self);
+        return detail;
+      }
+      if (typeof body.next_cursor !== "string" || body.next_cursor.length > 4096 || body.next_cursor === cursor) throw new Error("Invalid job listing cursor. Do not resubmit.");
+      cursor = body.next_cursor;
+    }
+    throw new Error("Job listing is incomplete. Do not resubmit.");
+  }
+  return { upload, submit, result, findByReference };
 }
