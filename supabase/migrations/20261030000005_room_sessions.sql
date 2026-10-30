@@ -5,7 +5,7 @@ create table public.room_sessions (
  expires_at timestamptz not null, state text not null check(state in ('open','uploading','recorded')),
  recording_path text, recording_bytes bigint, recording_sha256 text,
  check((state='open' and recording_path is null and recording_bytes is null and recording_sha256 is null) or
-       (state in ('uploading','recorded') and recording_path is not null and recording_bytes>0 and recording_bytes<=100000000 and recording_sha256 ~ '^[0-9a-f]{64}$'))
+       (state in ('uploading','recorded') and recording_path is not null and recording_bytes is not null and recording_bytes>0 and recording_bytes<=100000000 and recording_sha256 is not null and recording_sha256 ~ '^[0-9a-f]{64}$'))
 );
 alter table public.room_sessions enable row level security;
 revoke all on public.room_sessions from anon,authenticated;grant select on public.room_sessions to authenticated;
