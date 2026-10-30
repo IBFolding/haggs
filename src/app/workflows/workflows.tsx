@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { CONTEST_EFFECTS, contestName, contestVariant } from "../../comfy/contest-lab";
 import { STUDIO_WORKFLOWS } from "../../comfy/world-motion-vfx";
@@ -28,6 +28,16 @@ import { SiteFooter } from "../site-footer";
 const TABS = ["Quick start", "Haggs", "Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const SHELVES = ["Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const FEATURED = ["api_higgsfield_genjutsu_motion_transfer", "template_seedance2_0_viral_videos_character_swap", "video_wan21_scail2_character_replacement", "video_minimax_h3_r2v", "api_bria_video_replace_background"];
+
+function HaggsCard({ title, image, label, children }: { title: string; image: string; label: string; children: ReactNode }) {
+  return <details className="haggs-workflow-card">
+    <summary className="wf-tile">
+      <img src={image} alt="" loading="lazy" />
+      <span className="wf-tile-face"><b>{title}</b><small>{label} · Illustrative image</small><small>View workflow options</small></span>
+    </summary>
+    <div className="haggs-workflow-options">{children}</div>
+  </details>;
+}
 
 export function Workflows() {
   const { openOnly } = usePrefs();
@@ -147,12 +157,10 @@ export function Workflows() {
             <section className="quick" id="haggs-effects" aria-label="Contest Lab effects">
               <h2>Seven experimental effects</h2>
               <p>Install the included Contest Lab nodes in your local ComfyUI. Reuse a take without another model call, or generate a layer with LTX. Live ComfyUI execution remains unverified.</p>
-              <div className="quick-row">
-                {effects.map(e => <div className="quick-card" key={e.slug}>
+              <div className="wf-grid">
+                {effects.map(e => <HaggsCard key={e.slug} title={e.name} image={e.image} label="Effect · local ComfyUI">
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
-                  <a href={e.image} target="_blank" rel="noreferrer"><img src={e.image} alt={`Illustrative concept for ${e.name}`} width={1536} height={1024} style={{width:"100%",height:"auto",borderRadius:8}} loading="lazy" /></a>
-                  <small>Illustrative concept · not a workflow render</small>
-                  <b>{e.name}</b><span>{e.scope}</span>
+                  <p>{e.scope}</p>
                   <Link href={`/workflows/${contestName(e.slug, 'reuse')}`}>Reuse existing video · local app</Link>
                   <Link href={`/workflows/${contestName(e.slug, 'ltx')}`}>Generate with LTX · local app</Link>
                   <details><summary>Workflow files and synthetic preview</summary>
@@ -162,7 +170,7 @@ export function Workflows() {
                     <a href={`/workflows/contest-lab/${e.ltx}`} download>LTX JSON</a>
                     {!openOnly && <p><a href={`/workflows/contest-lab/${e.h3}`} download>H3 JSON · paid API, generation switch OFF</a></p>}
                   </details>
-                </div>)}
+                </HaggsCard>)}
               </div>
               <p><a href="/workflows/contest-lab/Haggs-ComfyUI-Contest-Lab-ALL.zip" download>Download complete node pack</a> · <a href="/workflows/contest-lab/START-HERE.md">Setup, masks and limitations</a> · <a href="/workflows/contest-lab/workflows/08-SAM2-tracked-mask-helper.json" download>SAM2 mask helper (optional model download)</a> · <a href="/workflows/contest-lab/LICENSE">License</a></p>
             </section>
@@ -172,12 +180,10 @@ export function Workflows() {
             <section className="quick" id="haggs-games" aria-label="Game Director workflows">
               <h2>Game Director · experimental ComfyUI downloads</h2>
               <p>Six custom workflow concepts with local H3 and no-model preview graphs. Install the included Game Director nodes in ComfyUI. Moveset and VFX atlases can be imported into Playable sprite slots. Live ComfyUI and H3 generation remain unverified.</p>
-              <div className="quick-row">
-                {games.map(g => <div className="quick-card" key={g.slug}>
+              <div className="wf-grid">
+                {games.map(g => <HaggsCard key={g.slug} title={g.title} image={`/workflows/game-director/${g.slug}-illustrative.webp`} label="Game Director · ComfyUI">
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
-                  <a href={`/workflows/game-director/${g.slug}-illustrative.webp`} target="_blank" rel="noreferrer"><img src={`/workflows/game-director/${g.slug}-illustrative.webp`} alt={`Illustrative concept for ${g.title}`} width={1536} height={1024} loading="lazy" style={{width:'100%',height:'auto',borderRadius:8}} /></a>
-                  <small>Illustrative concept · not an H3 render</small>
-                  <b>{g.title}</b><span>{g.scope}</span><small>Exports: {g.output}</small>
+                  <p>{g.scope}</p><p>Exports: {g.output}</p>
                   {/^0[56]-/.test(g.slug) && <Link href="/playable">Import atlas in Playable · free</Link>}
                   <a href={`/workflows/game-director/workflows/preview-no-model/${g.slug}.json`} download>No-model preview JSON · open in ComfyUI</a>
                   <a href={`/workflows/game-director/workflows/H3-local/${g.slug}.json`} download>Local H3 JSON · requires GPU and weights</a>
@@ -185,7 +191,7 @@ export function Workflows() {
                     <p>Included deterministic fixture; not an H3 generation result.</p>
                     {g.preview ? <video src={`/workflows/game-director/previews/${g.preview}`} controls preload="none" style={{width:'100%'}} /> : <a href="/workflows/game-director/previews/prepared-branch-player/player.html" target="_blank" rel="noreferrer">Try the synthetic three-choice player</a>}
                   </details>
-                </div>)}
+                </HaggsCard>)}
               </div>
               <p><a href="/workflows/game-director/Haggs-ComfyUI-H3-Game-Director-Six-Workflows.zip" download>Download complete Game Director pack</a> · <a href="/workflows/game-director/START-HERE.md">Setup and dependencies</a> · <a href="/workflows/game-director/PLAYABLE-ASSESSMENT.md">Playable integration assessment</a> · <a href="/workflows/game-director/LICENSE">License</a></p>
             </section>
@@ -195,18 +201,16 @@ export function Workflows() {
             <section className="quick" id="haggs-studio" aria-label="World motion and VFX workflows">
               <h2>World, motion and directed VFX</h2>
               <p>Ten experimental ComfyUI downloads in three toolsets. Install the supplied HaggsStudio nodes and configure the required models or services. Live ComfyUI and GPU generation remain unverified.</p>
-              <div className="quick-row">
-                {studio.map(w => <div className="quick-card" key={w.slug}>
+              <div className="wf-grid">
+                {studio.map(w => <HaggsCard key={w.slug} title={w.title} image={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} label="Toolset · ComfyUI">
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
-                  <a href={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} target="_blank" rel="noreferrer"><img src={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} alt={`Illustrative concept for ${w.title}`} width={1536} height={1024} loading="lazy" style={{width:'100%',height:'auto',borderRadius:8}} /></a>
-                  <small>Illustrative concept · not a workflow render</small>
-                  <b>{w.title}</b><span>{w.scope}</span><small>{w.limits}</small>
+                  <p>{w.scope}</p><p>{w.limits}</p>
                   <details><summary>Workflow downloads and supplied preview</summary>
                     <p>Deterministic proxy or synthetic fixture; not a neural generation result.</p>
                     <video src={`/workflows/world-motion-vfx/previews/${w.preview}`} controls preload="none" style={{width:'100%'}} />
                     {w.files.map(file => <p key={file}><a href={`/workflows/world-motion-vfx/workflows/${file}.json`} download>{file.replaceAll('-', ' ')} · JSON</a></p>)}
                   </details>
-                </div>)}
+                </HaggsCard>)}
               </div>
               <p><a href="/workflows/world-motion-vfx/Haggs-ComfyUI-Playable-World-Motion-LTX-VFX.zip" download>Download complete HaggsStudio pack</a> · <a href="/workflows/world-motion-vfx/INTEGRATION.md">Verification and integration limits</a> · <a href="/workflows/world-motion-vfx/START-HERE.md">Setup and dependencies</a> · <a href="/workflows/world-motion-vfx/LICENSE">License</a></p>
             </section>
