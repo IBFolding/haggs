@@ -7,17 +7,25 @@ import vfxMask from '../../public/workflows/world-motion-vfx/workflows/07-vfx-pl
 import vfxReuse from '../../public/workflows/world-motion-vfx/workflows/08-vfx-reuse-existing-take.json';
 import savedMotion from '../../public/workflows/world-motion-vfx/workflows/05-saved-motion-bridge-preview.json';
 import roomRecording from '../../public/workflows/world-motion-vfx/workflows/09-load-room-recording-no-model.json';
+import sam2 from '../../public/workflows/contest-lab/workflows/08-SAM2-tracked-mask-helper.json';
 import { HAGGS_PREVIEWS, haggsPreview } from '../comfy/haggs-preview';
 import { appOf } from '../comfy/apps';
 import { prepare, validate, type Catalog, type UiWorkflow } from '../comfy/convert';
 import type { Entry, Opened } from './comfy-library';
 import fixture from '../comfy/fixtures/haggs-preview.catalog.json';
 
-const graphs: Record<string, unknown> = { haggs_preview_drag_to_action:drag, haggs_preview_boss_fight:boss, haggs_preview_game_reskin:reskin, haggs_preview_moveset:moveset, haggs_preview_enemy_intent:enemy, haggs_preview_vfx_mask:vfxMask, haggs_preview_vfx_reuse:vfxReuse, haggs_preview_saved_motion:savedMotion, haggs_preview_room_recording:roomRecording };
+const graphs: Record<string, unknown> = { haggs_preview_drag_to_action:drag, haggs_preview_boss_fight:boss, haggs_preview_game_reskin:reskin, haggs_preview_moveset:moveset, haggs_preview_enemy_intent:enemy, haggs_preview_vfx_mask:vfxMask, haggs_preview_vfx_reuse:vfxReuse, haggs_preview_saved_motion:savedMotion, haggs_preview_room_recording:roomRecording, haggs_sam2_mask_preview:sam2 };
 export function previewTemplate(name: string): UiWorkflow | null {
   const meta = haggsPreview(name);
   if (!meta) return null;
   const ui = structuredClone(graphs[name]) as UiWorkflow;
+  if (name === 'haggs_sam2_mask_preview') {
+    const loader = ui.nodes.find(node => String(node.id) === '3');
+    if (!loader) throw new Error('The SAM2 model loader is unavailable.');
+    loader.widgets_values = ['sam2.1_hiera_tiny.safetensors','video','cpu','fp32'];
+    ui.nodes.push({id:90,type:'CreateVideo',inputs:[{name:'images',type:'IMAGE',link:90},{name:'fps',type:'FLOAT',link:91}],widgets_values:{bit_depth:'auto',color_space:'sRGB'}}, {id:91,type:'SaveVideo',inputs:[{name:'video',type:'VIDEO',link:92}],widgets_values:['video/haggs/sam2-mask','auto','auto']});
+    ui.links.push([90,6,0,90,0,'IMAGE'],[91,2,2,90,1,'FLOAT'],[92,90,0,91,0,'VIDEO']);
+  }
   // Use named fields: CreateVideo's optional input order varies by Comfy version.
   for (const node of ui.nodes) if (node.type === 'CreateVideo') node.widgets_values = { fps:24, bit_depth:'auto', color_space:'sRGB' };
   // The website returns a video; do not silently create an atlas that it cannot deliver.
@@ -30,7 +38,7 @@ export function previewTemplate(name: string): UiWorkflow | null {
   }
   return ui;
 }
-/** Only exact bundled graphs inherit CPU preview eligibility when saved as an app. */
+/** Only exact bundled graphs inherit their preview identity when saved as an app. */
 export function savedHaggsPreviewName(file: string): string | null {
   if (file.length > 5_000_000) return null;
   try {
@@ -41,10 +49,19 @@ export function savedHaggsPreviewName(file: string): string | null {
 export const isSavedHaggsPreview = (file: string) => savedHaggsPreviewName(file) !== null;
 export function previewInputProblem(name: string | null, values: Record<string, string | number | boolean>): string | null {
   if (name === 'haggs_preview_room_recording' && !/^[0-9a-f]{32}$/.test(String(values['1/value'] ?? ''))) return 'Enter the 32-character session ID from your recorded Playable World room.';
+  if (name === 'haggs_sam2_mask_preview') {
+    const match = /^(\d{1,5})\s*,\s*(\d{1,5})$/.exec(String(values['4/value'] ?? '').trim());
+    if (!match || Number(match[1]) > 32767 || Number(match[2]) > 32767) return 'Enter a first-frame point as X, Y in pixels, for example 100, 100.';
+  }
   return null;
 }
+export function previewValues(name: string | null, values: Record<string, string | number | boolean>) {
+  if (name !== 'haggs_sam2_mask_preview' || previewInputProblem(name, values)) return values;
+  const [x,y] = String(values['4/value']).split(',').map(Number);
+  return {...values, '4/value':JSON.stringify([{x,y}])};
+}
 export function previewEntries(): Entry[] {
-  return HAGGS_PREVIEWS.map(e => ({ name:e.name, title:e.title, description:e.description, category:'Video Tools', kind:'video', tags:['Haggs', 'Preview', 'Local'], models:['No model'], thumb:`/workflows/${e.pack}/${e.image}`, usage:0, inputs:[], runnable:null, open:true }));
+  return HAGGS_PREVIEWS.map(e => ({ name:e.name, title:e.title, description:e.description, category:'Video Tools', kind:'video', tags:['Haggs', 'Preview', 'Local'], models:e.name === 'haggs_sam2_mask_preview' ? ['SAM2'] : ['No model'], thumb:`/workflows/${e.pack}/${e.image}`, usage:0, inputs:[], runnable:null, open:true }));
 }
 export function openHaggsPreview(name: string, catalog: Catalog): Opened {
   const ui = previewTemplate(name); const entry = previewEntries().find(item => item.name === name);
@@ -68,6 +85,11 @@ export function openHaggsPreview(name: string, catalog: Catalog): Opened {
   }
   if (name === 'haggs_preview_room_recording') {
     app.fields = [{kind:'text', node:'1', input:'value', label:'Recorded room session ID', value:''}];
+  }
+  if (name === 'haggs_sam2_mask_preview') {
+    app.fields = [...app.fields.filter(f => f.kind === 'media').map(f => ({...f,label:'Source video'})),
+      {kind:'text',node:'4',input:'value',label:'Subject point on first frame (X, Y in pixels)',value:''},
+      {kind:'choice',node:'3',input:'device',label:'SAM2 device',value:'cpu',options:['cpu','cuda','mps']}];
   }
   if (!app.output || app.produces !== 'video') problems.push('A video output is required for this preview.');
   return {entry,ui,app,problems,catalog};

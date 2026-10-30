@@ -5,9 +5,9 @@ import { prepare, validate } from '../comfy/convert';
 import { fill } from '../comfy/apps';
 import fixture from '../comfy/fixtures/haggs-preview.catalog.json';
 import type { Catalog } from '../comfy/convert';
-import { isSavedHaggsPreview, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem, previewTemplate } from './haggs-preview-workflows';
+import { isSavedHaggsPreview, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem, previewTemplate, previewValues } from './haggs-preview-workflows';
 
-for (const item of HAGGS_PREVIEWS) test(`${item.title} opens as a no-model video preview`, () => {
+for (const item of HAGGS_PREVIEWS) test(`${item.title} opens as a video preview`, () => {
   const opened = openHaggsPreview(item.name, fixture as unknown as Catalog);
   const display = openHaggsPreviewForDisplay(item.name);
   const converted = prepare(opened.ui, opened.catalog);
@@ -18,6 +18,19 @@ for (const item of HAGGS_PREVIEWS) test(`${item.title} opens as a no-model video
   assert.equal(display.app.output, opened.app.output);
   assert.ok(!Object.values(converted.prompt).some(node => node.class_type === 'HaggsAtlasExport'), 'the form does not create an atlas it cannot return');
   assert.ok(!opened.app.fields.some(field => field.input === 'scene' || field.input === 'style'), 'do not expose prompts that do not affect this preview');
+});
+test('SAM2 preview preserves source frame rate and requires a valid first-frame point', () => {
+  const opened = openHaggsPreview('haggs_sam2_mask_preview', fixture as unknown as Catalog);
+  const {prompt} = prepare(opened.ui, opened.catalog);
+  assert.deepEqual(prompt['90']?.inputs.fps,['2',2]);
+  assert.deepEqual(prompt['90']?.inputs.images,['6',0]);
+  assert.equal(opened.app.output, '91');
+  assert.ok(previewInputProblem('haggs_sam2_mask_preview', {}));
+  assert.ok(previewInputProblem('haggs_sam2_mask_preview', {'4/value':'-1, 2'}));
+  assert.equal(previewInputProblem('haggs_sam2_mask_preview', {'4/value':'64, 64'}),null);
+  const filled = fill(prompt, opened.app, previewValues('haggs_sam2_mask_preview', {'4/value':'64, 64','3/device':'cpu'}));
+  assert.equal(filled['4']?.inputs.value,'[{"x":64,"y":64}]');
+  assert.equal(filled['3']?.inputs.device,'cpu');
 });
 test('unknown workflow names cannot select arbitrary files', () => {
   assert.equal(previewTemplate('../outside'), null);
@@ -43,7 +56,7 @@ test('room recording app passes the session identifier to the recorded room node
   assert.ok(previewInputProblem('haggs_preview_room_recording', {'1/value':'../../not-a-session'}));
   assert.equal(previewInputProblem('haggs_preview_room_recording', {'1/value':'0123456789abcdef0123456789abcdef'}), null);
 });
-test('only the exact saved no-model graphs retain CPU eligibility', () => {
+test('only exact saved preview graphs retain their preview identity', () => {
   for (const item of HAGGS_PREVIEWS) {
     const graph = previewTemplate(item.name)!;
     assert.equal(isSavedHaggsPreview(JSON.stringify(graph)), true);

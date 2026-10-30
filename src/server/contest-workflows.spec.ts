@@ -76,7 +76,7 @@ test('seven grouped effects expose fourteen exact local variants, without duplic
  assert.equal(counts.unique_graphs,22);assert.equal(counts.duplicate_workflow_copies_omitted,30);
 });
 
-test('SAM2 helper is an optional download with intact links, not an executable featured app',()=>{
+test('SAM2 native helper has intact links and is not an effect variant',()=>{
  const ui=read('../../public/workflows/contest-lab/workflows/08-SAM2-tracked-mask-helper.json');
  const ids=new Set(ui.nodes.map((n:{id:number})=>n.id));
  for(const l of ui.links){assert.ok(ids.has(l[1]));assert.ok(ids.has(l[3]));}

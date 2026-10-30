@@ -177,7 +177,7 @@ export function Workflows() {
                   </details>
                 </HaggsCard>)}
               </div>
-              <p><a href="/workflows/contest-lab/Haggs-ComfyUI-Contest-Lab-ALL.zip" download>Download complete node pack</a> · <a href="/workflows/contest-lab/START-HERE.md">Setup, masks and limitations</a> · <a href="/workflows/contest-lab/workflows/08-SAM2-tracked-mask-helper.json" download>SAM2 mask helper (optional model download)</a> · <a href="/workflows/contest-lab/LICENSE">License</a></p>
+              <p><Link href="/workflows/haggs_sam2_mask_preview">Open SAM2 mask preview app</Link> · <a href="/workflows/contest-lab/Haggs-ComfyUI-Contest-Lab-ALL.zip" download>Download complete node pack</a> · <a href="/workflows/contest-lab/START-HERE.md">Setup, masks and limitations</a> · <a href="/workflows/contest-lab/workflows/08-SAM2-tracked-mask-helper.json" download>SAM2 native workflow</a> · <a href="/workflows/contest-lab/LICENSE">License</a></p>
             </section>
           )}
 
