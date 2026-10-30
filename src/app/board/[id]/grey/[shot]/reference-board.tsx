@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { addRoomReference, assignObjectReference, assignSurfaceReference, removeRoomReference, referenceUses, type GreyScene, type RoomReference } from "../../../../../story/grey-scene";
+import { addRoomReference, assignObjectReference, assignSurfaceReference, removeRoomReference, referenceUses, updateProp, type GreyScene, type RoomReference } from "../../../../../story/grey-scene";
 import { uploadFile } from "../../../../upload-client";
 
 export function ReferenceBoard({ scene, onChange, onEdit }: { scene: GreyScene; onChange: (scene: GreyScene) => void; onEdit: (objectId?: string) => void }) {
@@ -39,8 +39,10 @@ export function ReferenceBoard({ scene, onChange, onEdit }: { scene: GreyScene; 
   }
   function assign(ref: RoomReference) {
     const target = targets[ref.id] ?? "Floor";
-    const object = target.startsWith("object:");
-    const next = object ? assignObjectReference(live.current, target.slice(7) || null, ref) : assignSurfaceReference(live.current, target, ref);
+    const actor = target === "actor:";
+    const object = target.startsWith("object:") || actor;
+    let next = object ? assignObjectReference(live.current, actor ? null : target.slice(7) || null, ref) : assignSurfaceReference(live.current, target, ref);
+    if (actor) next = updateProp(next, next.props!.at(-1)!.id, { role: "actor" });
     live.current = next; onChange(next); onEdit(object ? (target.slice(7) || next.props!.at(-1)!.id) : undefined);
   }
   return <section className="gs-sec gs-moodboard" aria-label="Room reference board">
@@ -62,11 +64,11 @@ export function ReferenceBoard({ scene, onChange, onEdit }: { scene: GreyScene; 
         <label>Use on<select aria-label={`Use ${ref.name} on`} value={targets[ref.id] ?? "Floor"} onChange={e => setTargets({ ...targets, [ref.id]: e.target.value })}>
           {(scene.surfaces ?? []).map(s => <option key={s.id} value={s.id}>{s.label} · swap material</option>)}
           {(scene.props ?? []).map(p => <option key={p.id} value={`object:${p.id}`}>{p.name} · swap object image</option>)}
-          <option value="object:">New object layer</option>
-          <option value="Floor">Floor</option><option value="Wall">Wall</option><option value="Table">New table surface</option><option value="Other surface">Another surface</option>
+          <option value="object:">New furniture / object layer</option><option value="actor:">New actor layer</option>
+          <option value="Floor">Floor</option><option value="Wall">Wall</option><option value="Door">Door</option><option value="Window">Window</option><option value="Sofa">Sofa upholstery</option><option value="Table">Table surface</option><option value="Other surface">Another surface</option>
         </select></label>
         <button className="pill" onClick={() => assign(ref)}>Apply reference <span aria-hidden="true">↗</span></button>
-        {(targets[ref.id] ?? "").startsWith("object:") && <small>Use a transparent cut-out. A full photo appears as a rectangular layer.</small>}
+        {(["object:", "actor:"].some(prefix => (targets[ref.id] ?? "").startsWith(prefix))) && <small>Use a transparent cut-out. A full photo appears as a rectangular layer.</small>}
       </article>;
     })}</div>
     {error && <p role="alert" className="library-error">{error}</p>}

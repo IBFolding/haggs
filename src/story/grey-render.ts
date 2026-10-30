@@ -1,3 +1,4 @@
+import { selectionFrame, validSelection } from "./grey-selection";
 import { airLayout } from "./grey-air";
 import { actorShadow, atmosphere, exprAt, propShadow, type GreyScene, type Key, type Prop } from "./grey-scene";
 
@@ -20,6 +21,7 @@ export type PlanInput = {
   args: string[];
   /** For a texture: the width in pixels of one tile, which the server repeats to fill the frame. */
   tile?: number;
+  fit?: { x: number; y: number; w: number; h: number };
 };
 export type Plan = { inputs: PlanInput[]; filter: string; /** The input to take sound from. */ audioFrom: number; notes: string[] };
 
@@ -71,13 +73,14 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
     if (sf.hidden || !sf.mask || !sf.texture) continue;
     inputs.push({ role: "surface", ref: sf.mask.url, args: sf.mask.kind === "image" ? loop : ["-c:v", "libvpx-vp9"] });
     const si = inputs.length - 1;
-    inputs.push({ role: "texture", ref: sf.texture.url, args: loop, tile: Math.round(W * 0.25 * sf.texture.scale) });
+    inputs.push({ role: "texture", ref: sf.texture.url, args: loop, ...(sf.mode === "replace" && validSelection(sf.selection) ? { fit: selectionFrame(sf.selection, size) } : { tile: Math.round(W * 0.25 * sf.texture.scale) }) });
     const ti = inputs.length - 1;
     parts.push(`[${si}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black@0,format=rgba,split[sc${si}][sz${si}]`);
     parts.push(`[sz${si}]alphaextract[sa${si}]`);
     parts.push(`[sc${si}]format=gbrp[sg${si}]`);
     parts.push(`[${ti}:v]format=gbrp[tx${ti}]`);
-    parts.push(`[sg${si}][tx${ti}]blend=all_mode=overlay:all_opacity=${n(sf.strength)}[bl${si}]`);
+    const replacement = sf.mode === "replace" && validSelection(sf.selection);
+    parts.push(replacement ? `[tx${ti}][sg${si}]blend=all_mode=normal:all_opacity=${n(sf.strength)}[bl${si}]` : `[sg${si}][tx${ti}]blend=all_mode=overlay:all_opacity=${n(sf.strength)}[bl${si}]`);
     parts.push(`[bl${si}][sa${si}]alphamerge[sf${si}]`);
     parts.push(`[${at}][sf${si}]overlay=0:0:shortest=1[su${si}]`);
     at = `su${si}`;

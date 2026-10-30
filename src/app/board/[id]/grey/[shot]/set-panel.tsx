@@ -15,7 +15,7 @@ import { SetsPanel } from "./sets-panel";
 import { ReferenceBoard } from "./reference-board";
 import { SurfacesPanel } from "./surfaces-panel";
 import type { SavedSet } from "../../../../../story/set-bank";
-import { MODEL_EXT, addProp, propShadow, removeProp, setPropModel, shiftLayer, updateProp, type GreyScene } from "../../../../../story/grey-scene";
+import { MODEL_EXT, addProp, replaceRoomSource, propShadow, removeProp, setPropModel, shiftLayer, updateProp, type GreyScene } from "../../../../../story/grey-scene";
 
 /** The Set step: where it happens, and what is standing in it. */
 /** How many frame-widths wide a picture must be to fill the whole frame, so a wide room in a tall frame doesn't leave bars. */
@@ -31,11 +31,13 @@ async function coverScale(url: string, vertical: boolean): Promise<number> {
   return Math.min(4, Math.max(1, +(size.w / size.h / frame).toFixed(2)));
 }
 
-export function SetPanel({ scene, places, props, selected, vertical, footageUrl, isVideo, others, onSelect, onChange, onReplace, onUseEverywhere }: {
+export function SetPanel({ scene, places, props, actors = [], selected, vertical, footageUrl, isVideo, others, onSelect, onChange, onReplace, onUseEverywhere, onLights }: {
   scene: GreyScene;
   places: BankItem[];
   /** Props you can drop in: your saved accessories with a picture. */
   props: BankItem[];
+  actors?: BankItem[];
+  onLights?: () => void;
   selected: string | null;
   vertical: boolean;
   footageUrl: string | null;
@@ -47,8 +49,9 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
   onReplace: (next: GreyScene) => void;
   onUseEverywhere: (set: SavedSet) => void;
 }) {
-  const [task, setTask] = useState<"surface" | "background" | "objects" | "sets">("surface");
-  useEffect(() => { if (selected) setTask("objects"); }, [selected]);
+  const [task, setTask] = useState<"surface" | "background" | "objects" | "actors" | "sets">("surface");
+  useEffect(() => { if (selected && scene.props?.some(p => p.id === selected)) setTask(scene.props.find(p => p.id === selected)?.role === "actor" ? "actors" : "objects"); }, [selected]);
+  const sourcePick = useRef<HTMLInputElement>(null);
   const pick = useRef<HTMLInputElement>(null);
   const propPick = useRef<HTMLInputElement>(null);
   const modelPick = useRef<HTMLInputElement>(null);
@@ -61,6 +64,19 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
   const bd = scene.backdrop;
   const sel = scene.props?.find((p) => p.id === selected) ?? null;
 
+  async function uploadRoom(file: File | undefined) {
+    if (!file) return;
+    setBusy("room"); setProblem(null);
+    try {
+      if (!file.type.startsWith("image/")) throw new Error("Choose a room photo.");
+      const result = await uploadFile(file);
+      if (!result.ok) throw new Error(result.reason);
+      onReplace(replaceRoomSource(live.current, { url: result.url, kind: "image" }));
+      setTask("surface"); onSelect(null);
+    } catch (e) { setProblem(e instanceof Error ? e.message : "The room photo could not be added."); }
+    finally { setBusy(null); }
+  }
+
   async function upload(file: File | undefined, as: "backdrop" | "prop") {
     if (!file) return;
     setBusy(as);
@@ -71,7 +87,7 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
     if (r.kind !== "image") return setProblem("Add a picture.");
     const now = live.current;
     if (as === "backdrop") onChange({ ...now, backdrop: { url: r.url, name: file.name.replace(/\.[^.]+$/, ""), scale: await coverScale(r.url, vertical), x: 0.5, y: 0.5, blur: 0 } });
-    else onChange(addProp(now, { name: file.name.replace(/\.[^.]+$/, ""), url: r.url }));
+    else { const next = addProp(now, { name: file.name.replace(/\.[^.]+$/, ""), url: r.url }); const id = next.props!.at(-1)!.id; onChange(updateProp(next, id, { role: task === "actors" ? "actor" : "object" })); onSelect(id); }
   }
 
   /** A 3D model for the Blender set. Only on your own computer: the Blender export reads files from the local media folder. */
@@ -112,9 +128,11 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
 
   return (
     <div className="gs-panel">
+      <section className="gs-sec gs-source-tools"><div className="gs-surf-head"><h3>Your starting image</h3><button className="pill" disabled={busy !== null} onClick={() => sourcePick.current?.click()}>{busy === "room" ? "Adding…" : footageUrl ? "Change photo" : "Upload a photo"}</button></div><p className="gs-soft">Bring your own room or scene. Changing the photo clears old outlines; your reference cards and placed layers stay.</p><input ref={sourcePick} type="file" accept="image/*" hidden onChange={e => { void uploadRoom(e.target.files?.[0]); e.target.value = ""; }} /></section>
       <ReferenceBoard scene={scene} onChange={onChange} onEdit={id => { setTask(id ? "objects" : "surface"); onSelect(id ?? null); }} />
       <div className="gs-edit-choices" role="group" aria-label="What would you like to change?">
-        {([ ["surface", "Floor or wall"], ["background", "Background"], ["objects", "Add an object"], ["sets", "Saved looks"] ] as const).map(([id, label]) => <button key={id} className={`pill${task === id ? " on" : ""}`} aria-pressed={task === id} onClick={() => setTask(id)}>{label}</button>)}
+        {([ ["surface", "Edit an area"], ["objects", "Furniture & props"], ["actors", "Actors"], ["background", "Background"], ["sets", "Saved looks"] ] as const).map(([id, label]) => <button key={id} className={`pill${task === id ? " on" : ""}`} aria-pressed={task === id} onClick={() => setTask(id)}>{label}</button>)}
+        {onLights && <button className="pill" onClick={onLights}>Lights & atmosphere ↗</button>}
       </div>
       {task === "background" && <section className="gs-sec">
         <h3>Background reference</h3>
@@ -150,19 +168,20 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
 
       {task === "surface" && <SurfacesPanel scene={scene} footageUrl={footageUrl} isVideo={isVideo} references={[...(scene.references ?? []).map(r => ({ ...r, image: r.url })), ...places, ...props]} onChange={onChange} />}
 
-      {task === "objects" && <section className="gs-sec">
-        <h3>Add an object</h3>
-        <p className="gs-soft">Choose a cut-out object to place in the scene. A full photograph becomes a rectangular layer; it does not replace a floor or wall. Use Floor or wall for material changes.</p>
+      {(task === "objects" || task === "actors") && <section className="gs-sec">
+        <h3>{task === "actors" ? "Place an actor" : "Furniture & props"}</h3>
+        <p className="gs-soft">{task === "actors" ? "Choose a saved character or upload an actor cut-out. Drag to place them, then adjust size and depth. A character sheet stays a flat image; use a transparent single-pose cut-out for compositing." : "Bring in a couch, table, lamp or other saved accessory. Drag to place it. Use a transparent cut-out; a full photograph appears as a rectangle."}</p>
         <div className="gs-shelf">
-          {props.map((p) => (
-            <button key={p.id} className="gs-prop" title={p.name} onClick={() => { const next = addProp(scene, { name: p.name, url: p.image! }); onChange(next); onSelect(next.props!.at(-1)!.id); }}>
+          {(task === "actors" ? actors : props).map((p) => (
+            <button key={p.id} className="gs-prop" title={p.name} onClick={() => { const next = addProp(scene, { name: p.name, url: p.image! }); const id = next.props!.at(-1)!.id; onChange(updateProp(next, id, { role: task === "actors" ? "actor" : "object" })); onSelect(id); }}>
               <img src={p.image!} alt="" /><span>{p.name}</span>
             </button>
           ))}
-          <button className="gs-prop add" disabled={busy === "prop"} onClick={() => propPick.current?.click()}><b>+</b><span>{busy === "prop" ? "Adding…" : "Add a flat layer"}</span></button>
+          <button className="gs-prop add" disabled={busy === "prop"} onClick={() => propPick.current?.click()}><b>+</b><span>{busy === "prop" ? "Adding…" : task === "actors" ? "Upload actor" : "Upload object"}</span></button>
           <input ref={propPick} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0], "prop"); e.target.value = ""; }} />
         </div>
-        <label className="gs-field">
+        {task !== "actors" && <div className="gs-row" aria-label="Furniture prompt starters">{[{ name: "Couch", words: "a contemporary cream boucle sofa, isolated full object" }, { name: "Table", words: "a walnut coffee table, isolated full object" }, { name: "Lamp", words: "a sculptural brass floor lamp, isolated full object" }, { name: "Chair", words: "a mid-century lounge chair, isolated full object" }].map(p => <button className="pill" key={p.name} onClick={() => setWords(p.words)}>{p.name}</button>)}</div>}
+        {task !== "actors" && <label className="gs-field">
           Make one from words
           <div className="gs-row">
             <input className="gs-name" type="text" maxLength={200} value={words} onChange={(e) => setWords(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void makeProp(); }} placeholder="a worn leather armchair" />
@@ -170,7 +189,8 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
           </div>
           <small>One picture, then the background is cut away. The cut-out is free apart from GPU time.</small>
         </label>
-        <BuildLink className="plain" href="/accessories" label="the Grey Room">Or build a prop to keep</BuildLink>
+        }
+        <BuildLink className="plain" href={task === "actors" ? "/characters" : "/accessories"} label="the Grey Room">{task === "actors" ? "Open character builder" : "Build a couch, table or other accessory"}</BuildLink>
         <p className="gs-soft">A prop is a flat picture, so it can't turn to show another side. Pictures with a clear background sit best.</p>
 
         {(scene.props ?? []).length > 0 && (
@@ -192,6 +212,8 @@ export function SetPanel({ scene, places, props, selected, vertical, footageUrl,
 
         {sel && (
           <div className="gs-sliders" aria-label={`${sel.name} controls`}>
+            <Slide label="Across" min={0} max={1} step={0.01} value={sel.x} onChange={v => onChange(updateProp(scene, sel.id, { x: v }))} />
+            <Slide label="Down" min={0} max={1} step={0.01} value={sel.y} onChange={v => onChange(updateProp(scene, sel.id, { y: v }))} />
             <Slide label="Size" min={0.03} max={1.5} step={0.01} value={sel.w} onChange={(v) => onChange(updateProp(scene, sel.id, { w: v }))} />
             <Slide label="Turn" min={0} max={359} step={1} value={sel.rotate} onChange={(v) => onChange(updateProp(scene, sel.id, { rotate: v }))} />
             <Slide label="Opacity" min={0.1} max={1} step={0.01} value={sel.opacity} onChange={(v) => onChange(updateProp(scene, sel.id, { opacity: v }))} />

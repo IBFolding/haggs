@@ -20,3 +20,12 @@ Built-in Image Generation was used. Project assets are in public/grey-room as We
 - floor-cutout.webp: transparent extraction of visible wooden floor from the generated room, preserving original canvas and excluding furniture/rug. This illustrative cut-out is not proof of Comfy segmentation quality.
 
 Generation prompt constraints: photorealistic architectural material library quality; no logos, people or text; preserve floor alignment and original lighting for the cut-out. The assets are examples, not users' project media.
+
+## Scene tools and photo areas
+- Starting-photo upload keeps reference cards and placed layers, clearing outlines tied to the previous image.
+- Draw a polygon on a still photo with pointer clicks or arrow keys and Enter. Saving creates the transparent original-image cut-out without a generation job.
+- Door, window, sofa upholstery and table targets join the board. Material finish tiles a reference; Replacement image fits it into a manually outlined area. This is a flat composite, not perspective reconstruction or generative inpainting.
+- Furniture and actor shelves reuse the accessory and character banks. Couch/table/lamp/chair prompt starters require an explicit generation click. Actor layers support positioning, scale and depth; use a transparent single-pose image rather than a character sheet.
+- Lighting links to the existing lights, grading and atmosphere controls.
+
+Follow-up verification: 990 tests passed; TypeScript passed; the real FFmpeg check in scripts/check-grey-area-render.ts confirms replacement pixels inside the selection and unchanged pixels outside it. Browser checks exercised polygon creation and local upload, replacement assignment, couch prompt starter, actor entry and lighting navigation. No paid generation was submitted.

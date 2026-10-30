@@ -55,6 +55,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [missing, setMissing] = useState(false);
   const [step, setStep] = useState<StepId>("set");
   const [places, setPlaces] = useState<BankItem[]>([]);
+  const [actors, setActors] = useState<BankItem[]>([]);
   const [accessories, setAccessories] = useState<BankItem[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [describe, setDescribe] = useState("");
@@ -83,7 +84,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
       history.current = createHistory<GreyScene>(first);
       setSceneState(first);
     });
-    void loadBank().then((all) => { setPlaces(all.filter((i) => i.kind === "place")); setAccessories(all.filter((i) => i.kind === "accessory" && i.image)); });
+    void loadBank().then((all) => { setPlaces(all.filter((i) => i.kind === "place")); setAccessories(all.filter((i) => i.kind === "accessory" && i.image)); setActors(all.filter(i => i.kind === "character" && i.image)); });
   }, [store, id, boardId, shotId]);
 
   // What the cut-out will cost on Comfy.
@@ -339,7 +340,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
               </div>
             )}
 
-            {step === "set" && <SetPanel scene={shown} places={places} props={accessories} vertical={vertical} footageUrl={footage?.url ?? null} isVideo={isVideo} others={project.shots.filter((x) => x.id !== shotId).length} selected={selected} onSelect={setSelected} onChange={edit} onReplace={(n) => change(n, true)} onUseEverywhere={useEverywhere} />}
+            {step === "set" && <SetPanel scene={shown} places={places} props={accessories} actors={actors} onLights={() => { setStep("light"); setSelected(null); }} vertical={vertical} footageUrl={footage?.url ?? null} isVideo={isVideo} others={project.shots.filter((x) => x.id !== shotId).length} selected={selected} onSelect={setSelected} onChange={edit} onReplace={(n) => change(n, true)} onUseEverywhere={useEverywhere} />}
             {step === "light" && <LightPanel scene={shown} selected={selected} onSelect={setSelected} onChange={edit} />}
             {step === "render" && <RenderPanel scene={scene} project={project} shot={shot} places={places} onTake={addTakeHere} />}
 

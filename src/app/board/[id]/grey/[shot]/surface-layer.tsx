@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { selectionBounds, validSelection } from "../../../../../story/grey-selection";
 import type { Surface } from "../../../../../story/grey-scene";
 
 /**
@@ -33,9 +34,19 @@ export function SurfaceLayer({ surface, time, playing }: { surface: Surface; tim
     // The surface, then the texture blended into it, then the surface's own outline put back.
     a.clearRect(0, 0, w.width, w.height);
     a.drawImage(v, 0, 0);
-    a.globalCompositeOperation = "overlay";
+    const replacement = surface.mode === "replace" && validSelection(surface.selection);
+    a.globalCompositeOperation = replacement ? "source-over" : "overlay";
+    if (replacement) {
+      const b = selectionBounds(surface.selection!);
+      const x = b.x * w.width, y = b.y * w.height, width = b.w * w.width, height = b.h * w.height;
+      const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+      a.save(); a.beginPath(); a.rect(x, y, width, height); a.clip();
+      a.fillStyle = "#808080"; a.fillRect(x, y, width, height);
+      a.drawImage(img, x + (width - img.naturalWidth * scale) / 2, y + (height - img.naturalHeight * scale) / 2, img.naturalWidth * scale, img.naturalHeight * scale); a.restore();
+    }
+
     const pat = a.createPattern(img, "repeat");
-    if (pat) {
+    if (pat && !replacement) {
       const k = (w.width * 0.25 * (surface.texture?.scale ?? 1)) / img.naturalWidth;
       pat.setTransform(new DOMMatrix().scale(k));
       a.fillStyle = pat;
@@ -78,7 +89,7 @@ export function SurfaceLayer({ surface, time, playing }: { surface: Surface; tim
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, playing ? 0 : time, surface.strength, surface.texture?.scale, surface.mask?.url, surface.mask?.kind]);
+  }, [playing, playing ? 0 : time, surface.strength, surface.texture?.scale, surface.mask?.url, surface.mask?.kind, surface.mode, surface.selection]);
 
   if (!surface.mask) return null;
   return (

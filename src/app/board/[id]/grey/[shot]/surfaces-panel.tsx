@@ -12,12 +12,14 @@ import { openKeys } from "../../../../nav";
 import { uploadFile } from "../../../../upload-client";
 import { runWorkflow } from "../../../../workflow-actions";
 import { Slide } from "./set-panel";
+import { AreaSelector } from "./area-selector";
 
-const QUICK = ["Floor", "Wall", "Table", "Door", "Other surface"];
+const QUICK = ["Floor", "Wall", "Table", "Door", "Window", "Other surface"];
 type Reference = { id: string; name: string; image?: string | null };
 
 /** Walls, floors and other real surfaces in the footage, found and given a new material. */
 export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange }: { scene: GreyScene; footageUrl: string | null; isVideo: boolean; references: Reference[]; onChange: (next: GreyScene) => void }) {
+  const [selecting, setSelecting] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [words, setWords] = useState<Record<string, string>>({});
@@ -38,7 +40,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
       if ("needsKey" in r && r.needsKey) openKeys();
       return setProblem(r.reason);
     }
-    onChange(updateSurface(live.current, sf.id, { words: surfaceWords(sf.label, words[sf.id] ?? sf.words ?? ""), mask: { kind: r.kind === "image" ? "image" : "video", url: r.url, at: Date.now(), price: r.price } }));
+    onChange(updateSurface(live.current, sf.id, { words: surfaceWords(sf.label, words[sf.id] ?? sf.words ?? ""), selection: undefined, mode: "material", mask: { kind: r.kind === "image" ? "image" : "video", url: r.url, at: Date.now(), price: r.price } }));
   }
 
   async function uploadOutline(sf: Surface, file: File | undefined) {
@@ -57,7 +59,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
       if (!clear || !visible) throw new Error("The outline must contain the selected surface and transparent pixels outside it. A black-and-white mask is not a cut-out.");
       const result = await uploadFile(file);
       if (!result.ok) throw new Error(result.reason);
-      onChange(updateSurface(live.current, sf.id, { mask: { kind: "image", url: result.url, at: Date.now(), price: "Prepared outline" } }));
+      onChange(updateSurface(live.current, sf.id, { selection: undefined, mode: "material", mask: { kind: "image", url: result.url, at: Date.now(), price: "Prepared outline" } }));
     } catch (e) { setProblem(e instanceof Error ? e.message : "Outline upload failed."); }
     finally { setBusy(null); }
   }
@@ -90,7 +92,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
   return (
     <section className="gs-sec">
       <h3>What do you want to replace?</h3>
-      <p className="gs-soft">Choose a surface → find its outline → choose a material. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "The outline follows the video." : "Find the area in your photo."}</p>
+      <p className="gs-soft">Choose an area → outline it → apply a reference. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "The outline follows the video." : "Draw your own outline for free, or use AI detection."}</p>
       <div className="gs-row">
         {QUICK.map((q) => <button key={q} className="pill" disabled={!footageUrl} onClick={() => onChange(addSurface(scene, q))}>+ {q}</button>)}
       </div>
@@ -103,7 +105,8 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
               <button aria-label="Remove" title="Remove" onClick={() => onChange(removeSurface(scene, sf.id))}>×</button>
             </span>
           </div>
-          <p className="gs-soft">1. Describe the exact area, then find its outline.</p>
+          <p className="gs-soft">1. Select the exact area you want to change.</p>
+          {!isVideo && footageUrl && <button className="pill on" disabled={busy !== null} onClick={() => setSelecting(sf.id)}>{sf.selection ? "Redraw area" : "Draw area on photo"} <span className="cost">free</span></button>}
           <div className="gs-row">
             <input className="gs-name" type="text" maxLength={120} value={words[sf.id] ?? sf.words ?? ""} placeholder={surfaceWords(sf.label, "")} onChange={(e) => setWords({ ...words, [sf.id]: e.target.value })} aria-label={`Words to find the ${sf.label}`} />
             <button className="pill" disabled={busy !== null || !footageUrl} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
@@ -114,8 +117,14 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
           </label>}
           {sf.mask && (
             <>
-              <details><summary>Review the detected outline</summary>{sf.mask.kind === "image" ? <img className="gs-mask-review" src={sf.mask.url} alt={`${sf.label} detected area`} /> : <video className="gs-mask-review" src={sf.mask.url} controls muted playsInline loop />}</details>
-              <p className="gs-soft">2. Choose a material reference. Use a close-up texture, not a whole room photograph.</p>
+              <details><summary>Review selected area</summary>{sf.mask.kind === "image" ? <img className="gs-mask-review" src={sf.mask.url} alt={`${sf.label} detected area`} /> : <video className="gs-mask-review" src={sf.mask.url} controls muted playsInline loop />}</details>
+              <label className="gs-field">2. How should this reference be used?
+                <select value={sf.mode ?? "material"} onChange={e => onChange(updateSurface(live.current, sf.id, { mode: e.target.value as "material" | "replace" }))}>
+                  <option value="material">Material finish · keep original shading</option>
+                  <option value="replace" disabled={!sf.selection}>Replacement image · fit inside drawn area</option>
+                </select>
+              </label>
+              <p className="gs-soft">{sf.mode === "replace" ? "The reference is cropped to fill your outline. Use a door, window or other object photographed from a similar angle. This is a flat composite." : "Use a close-up texture for paint, flooring or upholstery. Draw an area to enable a fitted replacement image."}</p>
               <div className="gs-reference-board" aria-label={`Material references for ${sf.label}`}>
                 {references.filter(r => r.image).map(r => <button key={r.id} className="gs-place" disabled={busy !== null} aria-pressed={sf.texture?.url === r.image} onClick={() => onChange(updateSurface(live.current, sf.id, {texture: {url: r.image!, name: r.name, scale: 1}}))}><img src={r.image!} alt="" /><span>{r.name}</span></button>)}
               </div>
@@ -123,13 +132,14 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
               {sf.texture && (
                 <div className="gs-sliders">
                   <Slide label="Amount" min={0} max={1} step={0.01} value={sf.strength} onChange={(v) => onChange(updateSurface(scene, sf.id, { strength: v }))} />
-                  <Slide label="Pattern size" min={0.1} max={4} step={0.05} value={sf.texture.scale} onChange={(v) => onChange(updateSurface(scene, sf.id, { texture: { ...sf.texture!, scale: v } }))} />
+                  {sf.mode !== "replace" && <Slide label="Pattern size" min={0.1} max={4} step={0.05} value={sf.texture.scale} onChange={(v) => onChange(updateSurface(scene, sf.id, { texture: { ...sf.texture!, scale: v } }))} />}
                 </div>
               )}
             </>
           )}
         </div>
       ))}
+      {selecting && footageUrl && <AreaSelector source={footageUrl} label={scene.surfaces?.find(s => s.id === selecting)?.label ?? "area"} onClose={() => setSelecting(null)} onSave={(url, selection) => onChange(updateSurface(live.current, selecting, { selection, mask: { kind: "image", url, at: Date.now(), price: "Manual selection · free" } }))} />}
       {problem && <p className="library-error" role="alert">{problem}</p>}
     </section>
   );
