@@ -179,6 +179,11 @@ export function PlayableHome() {
     <div className="app">
       <Nav current="Playable" />
       <div className="canvas pl-page">
+        <section className="pl-panel" aria-label="Neon Courier">
+          <h2>Neon Courier</h2>
+          <p>A fox, a neon skyline, and a sixty-second delivery run. Tap to switch rooftops, collect crystals, and dodge drones.</p>
+          <Link className="pl-go" href="/playable/neon-courier">Play Neon Courier</Link>
+        </section>
         <section className="pl-panel" aria-label="Game Director animations">
           <h2>Bring Game Director sprites into Playable</h2>
           <p>Import atlas.png and atlas.json into a sprite slot in the Art panel. Choose an action, preview its frames, then play. No generation charge.</p>
