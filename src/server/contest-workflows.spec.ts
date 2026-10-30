@@ -64,7 +64,10 @@ test('each effect exposes only controls its compositor uses in both variants', (
  };
  for(const effect of CONTEST_EFFECTS) for(const kind of ['ltx','reuse'] as const) {
   const opened=openContest(contestName(effect.slug,kind),catalog);
-  assert.deepEqual(opened.app.fields.filter(f=>f.kind==='media' && f.optional).map(f=>f.node),expected[effect.slug]);
+  const fields = opened.app.fields.filter(f=>f.kind==='media' && f.optional).map(f=>f.node);
+  const still = fields.filter(node=>node!=='haggs_subject_mask_video');
+  assert.deepEqual(still,expected[effect.slug]);
+  assert.equal(fields.includes('haggs_subject_mask_video'),kind==='reuse' && expected[effect.slug]!.includes('haggs_subject_mask'));
  }
 });
 test('seven grouped effects expose fourteen exact local variants, without duplicate cards',()=>{

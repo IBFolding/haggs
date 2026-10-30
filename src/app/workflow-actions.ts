@@ -25,6 +25,7 @@ import { createLocalRunner, localBase } from "../providers/local";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
 import { contestVariant } from "../comfy/contest-lab";
 import { addContestMasks, isContestMaskField } from "../comfy/contest-masks";
+import { assertAlignedVideos } from "../server/contest-mask-timing";
 import { openContest, openContestForDisplay, savedContestName } from "../server/contest-workflows";
 import { haggsPreview } from "../comfy/haggs-preview";
 import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem, previewValues } from "../server/haggs-preview-workflows";
@@ -322,7 +323,20 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     const allowedMasks = new Set(optionalMasks.map(f => `${f.node}/${f.input}`));
     if (Object.entries(files).some(([key, value]) => value && isContestMaskField(key.split('/')[0] ?? '') && !allowedMasks.has(key))) return {ok:false,reason:"One of the selected masks is not supported by this effect. Reload the app and choose a supported control; no generation was started."};
     const hasMasks = optionalMasks.some(f => Boolean(files[`${f.node}/${f.input}`]));
-    if (hasMasks && (!catalog.LoadImage || !catalog.ImageToMask)) return {ok:false,reason:"Install the standard ComfyUI LoadImage and ImageToMask nodes before using masks; no generation was started."};
+    const trackedMask = files['haggs_subject_mask_video/video'];
+    if (trackedMask && files['haggs_subject_mask/image']) return {ok:false,reason:'Choose either a still subject mask or a tracked subject mask video, not both. No generation was started.'};
+    const hasStillMasks = optionalMasks.some(f => f.kind === 'media' && f.media === 'image' && Boolean(files[`${f.node}/${f.input}`]));
+    if (hasMasks && (!catalog.ImageToMask || (hasStillMasks && !catalog.LoadImage) || (trackedMask && (!catalog.LoadVideo || !catalog.GetVideoComponents)))) return {ok:false,reason:"Install the standard ComfyUI image and video nodes before using masks; no generation was started."};
+    const cached: Record<string, Awaited<ReturnType<typeof mediaBytes>>> = {};
+    if (trackedMask) {
+      for (const k of ['10001/file','1/file','haggs_subject_mask_video/video']) {
+        const field = opened.app.fields.find(f => f.kind === 'media' && `${f.node}/${f.input}` === k);
+        const source = files[k] || (field?.kind === 'media' ? field.sample : undefined);
+        if (!source) return {ok:false,reason:'Add the source video, effect layer and tracked mask before running.'};
+        cached[k] = await mediaBytes(source);
+      }
+      await assertAlignedVideos(['10001/file','1/file','haggs_subject_mask_video/video'].map(k => cached[k]!.bytes));
+    }
     // An empty choice leaves that input out of the run, with the wire it fed.
     const skipped = Object.entries(files).filter(([, v]) => v === "").map(([k]) => k);
     for (const field of opened.app.fields) {
@@ -332,7 +346,7 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
       const source = files[k] ?? field.sample;
       if (!source && field.optional) continue;
       if (!source) return { ok: false, reason: `Add ${field.label.toLowerCase()} first.` };
-      const { bytes, mime } = await mediaBytes(source);
+      const { bytes, mime } = cached[k] ?? await mediaBytes(source);
       uploaded[k] = await cloud.uploadBytes(bytes, mime);
     }
     const basicApp = { ...opened.app, fields: opened.app.fields.filter(f => !(f.kind === "media" && f.optional && isContestMaskField(f.node))) };

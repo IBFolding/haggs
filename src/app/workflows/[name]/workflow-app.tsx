@@ -324,7 +324,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
               {opened.description && <p>{opened.description}</p>}
               {name === 'haggs_preview_saved_motion' && <p>Copy your saved HY-Motion NPZ into your ComfyUI input folder, then enter its filename below. For a synthetic example and node installation instructions, see <a href="/workflows/world-motion-vfx/START-HERE.md">Haggs Studio setup</a>.</p>}
               {name === 'haggs_preview_room_recording' && <p>First queue Playable World in ComfyUI, open its room and record five seconds. Paste the session ID shown by the node below. Creating and playing the room still happens in ComfyUI. <a href="/workflows/world-motion-vfx/START-HERE.md">Setup instructions</a></p>}
-              {name === 'haggs_sam2_mask_preview' && <p>Install <a href="https://github.com/kijai/ComfyUI-segment-anything-2">ComfyUI Segment Anything 2</a> on your connected ComfyUI. Its tiny model may download on first run. Enter one point on the subject in the first frame, in pixels from the top left; for example, 100, 100. This exports a mask preview video; use the native workflow to apply a tracked mask to an effect.</p>}
+              {name === 'haggs_sam2_mask_preview' && <p>Install <a href="https://github.com/kijai/ComfyUI-segment-anything-2">ComfyUI Segment Anything 2</a> on your connected ComfyUI. Its tiny model may download on first run. Enter one point on the subject in the first frame, in pixels from the top left; for example, 100, 100. Download the compressed mask video and add it to a <Link href="/workflows#haggs-effects">compatible reuse effect</Link>; source, effect layer and mask must have matching frames and timing.</p>}
               {ltxWorkflow(opened.name) && <p>Requires current ComfyUI, ComfyUI-LTXVideo and the named model weights. Live generation remains unverified. <a href="/workflows/ltx/README.txt">Setup and licenses</a></p>}
             </div>
             <div className="wf-appbar">
@@ -359,8 +359,9 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                   </div>
                 )}
                 {opened.app.fields.some(f => f.kind === "media" && f.optional) && <details className="wf-field">
-                  <summary>Optional image controls</summary>
-                  <p className="wf-small">Still masks use their red channel across the whole shot: white marks the selected area and black leaves it unchanged. RGB band maps use all three color channels. Tracking moving masks requires ComfyUI.</p>
+                  <summary>Optional masks and maps</summary>
+                  <p className="wf-small">Still masks use their red channel across the whole shot: white marks the selected area and black leaves it unchanged. RGB band maps use all three color channels.</p>
+                  {opened.app.fields.some(f => f.node === 'haggs_subject_mask_video') && <p className="wf-small">For a tracked subject, upload the mask-preview video from <Link href="/workflows/haggs_sam2_mask_preview">SAM2</Link>. Choose either a still subject mask or a video mask. The source, effect layer and mask must have matching dimensions, frames and timing; the mask video is compressed, so edges may be approximate.</p>}
                   <div className="wf-drops">{opened.app.fields.map(f => f.kind === "media" && f.optional && <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onBusy={b => setAdding(n => Math.max(0, n + (b ? 1 : -1)))} onChange={url => setFiles(prior => { const next = {...prior}; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />)}</div>
                 </details>}
                 {opened.app.fields.map((f) => {

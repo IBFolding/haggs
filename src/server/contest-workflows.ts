@@ -82,7 +82,7 @@ export function openContest(name: string, catalog: Catalog): Opened {
   if (/duet|echo/.test(meta.effect.slug)) { number('delay_seconds','Echo delay (seconds)',0.01,10,0.01); number('spread_fraction','Horizontal spread',-0.5,0.5,0.01); }
   if (meta.effect.slug.includes('reality')) text('reality_schedule','Time:mix schedule (0–1)');
   if (meta.effect.slug.includes('foley')) number('source_impact_seconds','Marked source impact (seconds)',0,600,0.01);
-  app.fields = [...fields, ...contestMaskFieldsFor(effectType)];
+  app.fields = [...fields, ...contestMaskFieldsFor(effectType).filter(field => meta.kind === 'reuse' || field.node !== 'haggs_subject_mask_video')];
   app.output = prompt['10004']?.class_type === 'SaveVideo' ? '10004' : null;
   app.produces = app.output ? 'video' : null;
   if (!app.output) problems.push('SaveVideo is required to return the finished effect.');
