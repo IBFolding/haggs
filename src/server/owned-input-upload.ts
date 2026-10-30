@@ -1,8 +1,8 @@
 import {probeOwnedInput} from './owned-comfy-input';
 import type {ComfyAsset} from '../providers/comfy-managed';
 
-type Entry={userId:string;submissionId:string;field:string;mime:string;sha256:string;size:number;state:'uploading'|'ready';assetId?:string;expiresAt:number};
-type Journal={begin(entry:Entry):Promise<boolean>;read(userId:string,submissionId:string,field:string):Promise<Entry|null>;accept(entry:Entry,assetId:string):Promise<boolean>};
+export type Entry={userId:string;submissionId:string;field:string;mime:string;sha256:string;size:number;state:'uploading'|'ready';assetId?:string;expiresAt:number};
+export type Journal={begin(entry:Entry):Promise<boolean>;read(userId:string,submissionId:string,field:string):Promise<Entry|null>;accept(entry:Entry,assetId:string):Promise<boolean>};
 type Deps={journal:Journal;upload(bytes:Uint8Array,mime:string):Promise<ComfyAsset>;probe?:typeof probeOwnedInput;now?:()=>number};
 /** Prototype: journal must atomically persist upload intent before invoking the provider. */
 export async function uploadOwnedInput(userId:string,submissionId:string,field:string,mime:string,bytes:Uint8Array,deps:Deps):Promise<ComfyAsset>{
