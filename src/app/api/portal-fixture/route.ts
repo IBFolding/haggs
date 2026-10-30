@@ -19,7 +19,7 @@ const valid=(v:unknown):v is string=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]
 const reply=(data:object,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 async function factory(ref:string){
  await mkdir(dir,{recursive:true,mode:0o700});const db=new DatabaseSync(join(dir,'fixture.sqlite'));
- db.exec('CREATE TABLE IF NOT EXISTS input (k TEXT PRIMARY KEY, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS job (k TEXT PRIMARY KEY, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS output (k TEXT PRIMARY KEY, body TEXT NOT NULL)');
+ db.exec('CREATE TABLE IF NOT EXISTS input (k TEXT PRIMARY KEY, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS job (k TEXT PRIMARY KEY, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS output (k TEXT PRIMARY KEY, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS workflow (ref TEXT PRIMARY KEY, name TEXT NOT NULL)');
  const read=(table:string,key:string)=>{const row=db.prepare(`SELECT body FROM ${table} WHERE k=?`).get(key);return row?JSON.parse(String(row.body)):null;};
  const begin=(table:string,key:string,entry:object)=>db.prepare(`INSERT OR IGNORE INTO ${table}(k,body) VALUES(?,?)`).run(key,JSON.stringify(entry)).changes===1;
  const update=(table:string,key:string,entry:object)=>db.prepare(`UPDATE ${table} SET body=? WHERE k=?`).run(JSON.stringify(entry),key).changes===1;
@@ -38,9 +38,10 @@ export async function POST(request:Request){
  try{await uploadOwnedInput(owner,ref,field,mime,new Uint8Array(await file.arrayBuffer()),{deployment,journal:ctx.inputJournal,upload:ctx.api.upload,probe:(f,m,b)=>probeOwnedInput(f,m,b,{localTest:true})});return reply({ok:true});}catch{return reply({error:'Fixture upload failed; check before retrying.'},400);}finally{ctx.db.close();}
 }
 export async function PUT(request:Request){
- if(!enabled())return reply({error:'Unavailable'},404);let body:{ref?:unknown;action?:unknown;values?:unknown};try{body=await request.json();}catch{return reply({error:'Invalid'},400);}
- if(!valid(body.ref)||(body.action!=='start'&&body.action!=='recover'))return reply({error:'Invalid'},400);const ref=body.ref,ctx=await factory(ref);
- try{return await ownedPortalRequest(new Request('http://fixture.local',{method:'POST',body:JSON.stringify({reference:ref,action:body.action,values:body.values && typeof body.values==='object' && !Array.isArray(body.values) ? body.values : {}})}),{authenticate:async()=>owner,connection:async()=>({ownerId:owner,origin:deployment}),journal:ctx.journal,assets:(u,r)=>resolveOwnedPortalInputs(u,r,deployment,ctx.inputJournal),submit:async(_origin,prompt,id)=>ctx.api.submit(prompt,id),find:async()=>null,save:async(_origin,job,node)=>(await ctx.api.result(job,node)).url});}finally{ctx.db.close();}
+ if(!enabled())return reply({error:'Unavailable'},404);let body:{ref?:unknown;action?:unknown;values?:unknown;name?:unknown};try{body=await request.json();}catch{return reply({error:'Invalid'},400);}
+ if(!valid(body.ref)||(body.action!=='start'&&body.action!=='recover')||typeof body.name!=='string'||!/^haggs_fx_reuse_0[1-7]-[a-z-]+$/.test(body.name))return reply({error:'Invalid'},400);const ref=body.ref,ctx=await factory(ref);
+ const prior=ctx.db.prepare('SELECT name FROM workflow WHERE ref=?').get(ref);if(prior&&prior.name!==body.name){ctx.db.close();return reply({error:'Workflow does not match this fixture job'},400);}if(!prior){if(body.action!=='start'){ctx.db.close();return reply({error:'Fixture job not found'},404);}ctx.db.prepare('INSERT INTO workflow(ref,name) VALUES(?,?)').run(ref,body.name);}
+ try{return await ownedPortalRequest(new Request('http://fixture.local',{method:'POST',body:JSON.stringify({reference:ref,action:body.action,name:body.name,values:body.values && typeof body.values==='object' && !Array.isArray(body.values) ? body.values : {}})}),{authenticate:async()=>owner,connection:async()=>({ownerId:owner,origin:deployment}),journal:ctx.journal,assets:(u,r)=>resolveOwnedPortalInputs(u,r,deployment,ctx.inputJournal),submit:async(_origin,prompt,id)=>ctx.api.submit(prompt,id),find:async()=>null,save:async(_origin,job,node)=>(await ctx.api.result(job,node)).url});}finally{ctx.db.close();}
 }
 export async function GET(request:Request){
  if(!enabled())return reply({error:'Unavailable'},404);const url=new URL(request.url),output=url.searchParams.get('output');if(!valid(output))return reply({error:'Invalid'},400);
