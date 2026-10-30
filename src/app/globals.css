@@ -4823,8 +4823,10 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .gw-main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
 .gw-left, .gw-right { position: sticky; top: 0; max-height: calc(100vh - 150px); overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .gw-center { display: grid; gap: 10px; justify-items: center; min-width: 0; width: 100%; }
-.gw-stage { width: 100%; }
-.gw-stage .cp { max-width: min(100%, 1000px); margin: 0 auto; }
+.gw-stage { position: relative; width: 100%; display: grid; justify-items: center; }
+.gw-stage.picking .cp { cursor: crosshair; outline: 2px solid var(--volt); }
+.gw-stage .gs-chip { z-index: 5; }
+.gw-stage .cp { max-width: min(100%, 1000px); }
 .gw-stage .cp.vertical { max-width: 380px; max-height: 64vh; }
 .gw-time { max-width: 1000px; }
 .gw-blockout { max-width: 1000px; margin: 0 auto; width: 100%; }

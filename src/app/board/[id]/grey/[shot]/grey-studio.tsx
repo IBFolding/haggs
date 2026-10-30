@@ -342,7 +342,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
               </aside>
 
               <section className="gw-center" aria-label="Preview">
-                <div ref={stage} className={`gs-pickwrap gw-stage${picking ? " picking" : ""}`} onClick={pick}>
+                <div ref={stage} className={`gw-stage${picking ? " picking" : ""}`} onClick={pick}>
                   {footage ? (
                     <Compositor
                       scene={showOriginal ? {} : shown}
