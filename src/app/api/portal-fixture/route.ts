@@ -38,9 +38,9 @@ export async function POST(request:Request){
  try{await uploadOwnedInput(owner,ref,field,mime,new Uint8Array(await file.arrayBuffer()),{deployment,journal:ctx.inputJournal,upload:ctx.api.upload,probe:(f,m,b)=>probeOwnedInput(f,m,b,{localTest:true})});return reply({ok:true});}catch{return reply({error:'Fixture upload failed; check before retrying.'},400);}finally{ctx.db.close();}
 }
 export async function PUT(request:Request){
- if(!enabled())return reply({error:'Unavailable'},404);let body:{ref?:unknown;action?:unknown};try{body=await request.json();}catch{return reply({error:'Invalid'},400);}
+ if(!enabled())return reply({error:'Unavailable'},404);let body:{ref?:unknown;action?:unknown;values?:unknown};try{body=await request.json();}catch{return reply({error:'Invalid'},400);}
  if(!valid(body.ref)||(body.action!=='start'&&body.action!=='recover'))return reply({error:'Invalid'},400);const ref=body.ref,ctx=await factory(ref);
- try{return await ownedPortalRequest(new Request('http://fixture.local',{method:'POST',body:JSON.stringify({reference:ref,action:body.action,values:{}})}),{authenticate:async()=>owner,connection:async()=>({ownerId:owner,origin:deployment}),journal:ctx.journal,assets:(u,r)=>resolveOwnedPortalInputs(u,r,deployment,ctx.inputJournal),submit:async(_origin,prompt,id)=>ctx.api.submit(prompt,id),find:async()=>null,save:async(_origin,job,node)=>(await ctx.api.result(job,node)).url});}finally{ctx.db.close();}
+ try{return await ownedPortalRequest(new Request('http://fixture.local',{method:'POST',body:JSON.stringify({reference:ref,action:body.action,values:body.values && typeof body.values==='object' && !Array.isArray(body.values) ? body.values : {}})}),{authenticate:async()=>owner,connection:async()=>({ownerId:owner,origin:deployment}),journal:ctx.journal,assets:(u,r)=>resolveOwnedPortalInputs(u,r,deployment,ctx.inputJournal),submit:async(_origin,prompt,id)=>ctx.api.submit(prompt,id),find:async()=>null,save:async(_origin,job,node)=>(await ctx.api.result(job,node)).url});}finally{ctx.db.close();}
 }
 export async function GET(request:Request){
  if(!enabled())return reply({error:'Unavailable'},404);const url=new URL(request.url),output=url.searchParams.get('output');if(!valid(output))return reply({error:'Invalid'},400);

@@ -13,5 +13,5 @@ export default async function WorkflowPage({ params }: { params: Promise<{ name:
   if (name === "import") return <ImportWorkflow />;
   if (name === "build") return <BuildWorkflow />;
   if (name === "mine") return <Suspense><MyApp /></Suspense>;
-  return <WorkflowApp name={decodeURIComponent(name)} />;
+  return <WorkflowApp name={decodeURIComponent(name)} fixture={process.env.NODE_ENV !== 'production' && process.env.HAGGS_PORTAL_FIXTURE === '1' && decodeURIComponent(name) === 'haggs_fx_reuse_03-portal-paint'} />;
 }

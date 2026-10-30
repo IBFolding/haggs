@@ -31,7 +31,11 @@ import { creditsText } from "../../../story/price-text";
 
 const keyOf = (f: Field) => `${f.node}/${f.input}`;
 
-async function addFile(file: File): Promise<string> {
+async function addFile(file: File, fixture = false): Promise<string> {
+  if (fixture) {
+    if (file.size > 500_000) throw new Error("Fixture files must be under 500 KB.");
+    return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("That file could not be read.")); reader.readAsDataURL(file); });
+  }
   // In development the file goes to the local media folder; otherwise it travels with the run.
   const added = await uploadFile(file);
   if (added.ok) return added.url;
@@ -46,7 +50,7 @@ async function addFile(file: File): Promise<string> {
   });
 }
 
-function MediaDrop({ field, value, onChange, onBusy }: { field: Extract<Field, { kind: "media" }>; value: string | undefined; onChange: (url: string | undefined) => void; onBusy?: (busy: boolean) => void }) {
+function MediaDrop({ field, value, onChange, onBusy, fixture = false }: { fixture?: boolean; field: Extract<Field, { kind: "media" }>; value: string | undefined; onChange: (url: string | undefined) => void; onBusy?: (busy: boolean) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,7 +66,7 @@ function MediaDrop({ field, value, onChange, onBusy }: { field: Extract<Field, {
     onBusy?.(true);
     setError(null);
     try {
-      onChange(await addFile(file));
+      onChange(await addFile(file,fixture));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "That file couldn't be added.");
     } finally {
@@ -148,7 +152,7 @@ async function embed(url: string): Promise<string | null> {
   });
 }
 
-export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBack }: { name: string; file?: string; recipe?: Recipe; canvas?: Canvas; saved?: SavedApp; onBack?: () => void }) {
+export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBack, fixture = false }: { name: string; file?: string; recipe?: Recipe; canvas?: Canvas; saved?: SavedApp; onBack?: () => void; fixture?: boolean }) {
   const [destination, setDestination] = useState<"local" | "cloud">("local");
   const source: Source = useMemo(() => ({...(file ? { file } : { template: name }), destination}), [name, file, destination]);
   const [preflight, setPreflight] = useState<Preflight | null>(null);
@@ -225,11 +229,12 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
 
   useEffect(() => {
     let live = true;
+    if(fixture){setPreflight({ok:true,destination:'Local fixture',connection:'Fake provider',cost:'No credits',issues:[],notes:['Synthetic sample only; not an AI render.']});setChecking(false);return;}
     setPreflight(null);
     setChecking(true);
     const timer = setTimeout(() => { void preflightWorkflow(source,values).then(r=>{if(live)setPreflight(r);}).catch(()=>{if(live)setPreflight({ok:false,destination,connection:"Check failed",cost:"Unknown",issues:["Connection check failed. Retry or update settings."],notes:[]});}).finally(()=>{if(live)setChecking(false);}); },300);
     return ()=>{live=false;clearTimeout(timer);};
-  },[source,values,destination,checkVersion]);
+  },[source,values,destination,checkVersion,fixture]);
 
   // Re-price when a setting changes; the words never change the price, but resolution and length do.
   useEffect(() => {
@@ -263,6 +268,13 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     setRunning(true);
     setResult(null);
     setKept(null);
+    if(fixture){
+      try {
+        let ref=sessionStorage.getItem('portal-real-ui-fixture');if(!ref){ref=crypto.randomUUID();sessionStorage.setItem('portal-real-ui-fixture',ref);}
+        for(const f of opened.app.fields){if(f.kind!=='media')continue;const source=files[keyOf(f)];if(!source)throw Error(`Add ${f.label} first.`);const media=await fetch(source);if(!media.ok)throw Error('Could not read fixture media.');const blob=await media.blob();const form=new FormData();form.set('ref',ref);form.set('field',keyOf(f));form.set('file',new File([blob],f.media==='audio'?'input.wav':'input.mp4',{type:blob.type}));const upload=await fetch('/api/portal-fixture',{method:'POST',body:form});if(!upload.ok)throw Error('Fixture upload failed.');}
+        const response=await fetch('/api/portal-fixture',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({ref,action:'start',values})});const data=await response.json();if(!response.ok)throw Error(data.error||'Fixture failed; recover before retrying.');setResult({ok:true,url:data.url,kind:'video',price:'Test only · no credits'});
+      } catch(e){setResult({ok:false,reason:e instanceof Error?e.message:'Fixture failed.'});} finally{setRunning(false);}return;
+    }
     // A community app takes its creator's fee first, and gives it back if the run fails.
     let paid: string | null = null;
     const sb = savedApp?.community ? supabase() : null;
@@ -321,6 +333,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
               {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to choices</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
               <h1>{opened.title === "your workflow" ? name : opened.title}</h1>
               {opened.description && <p>{opened.description}</p>}
+              {fixture && <p role="status">Local test fixture: fake provider and synthetic example video. This is not an AI render and uses no credits.</p>}
               {ltxWorkflow(opened.name) && <p>Requires current ComfyUI, ComfyUI-LTXVideo and the named model weights. Live generation remains unverified. <a href="/workflows/ltx/README.txt">Setup and licenses</a></p>}
             </div>
             <div className="wf-appbar">
@@ -343,14 +356,14 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
           ) : (
             <div className="wf-body">
               <div className="wf-form">
-                {destinationPicker}
+                {!fixture && destinationPicker}
                 <section aria-live="polite"><h2>Before you generate</h2>
                 {checking ? <p>Checking connection, nodes, models, GPU and charges…</p> : preflight && <><p>{preflight.destination} · {preflight.connection}</p><p>{preflight.cost}</p>{preflight.issues.map((issue,i)=><p role="alert" key={i}>{issue}</p>)}{preflight.notes.map((note,i)=><p key={i}>{note}</p>)}</>}
                 <button className="pill" disabled={checking || running} onClick={()=>setCheckVersion(v=>v+1)}>Check again</button></section>
                 {opened.app.fields.filter((f) => f.kind === "media").length > 0 && (
                   <div className="wf-drops">
                     {opened.app.fields.map((f) => f.kind === "media" && (
-                      <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onBusy={(b) => setAdding((n) => Math.max(0, n + (b ? 1 : -1)))} onChange={(url) => setFiles((prior) => { const next = { ...prior }; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />
+                      <MediaDrop key={keyOf(f)} fixture={fixture} field={f} value={files[keyOf(f)]} onBusy={(b) => setAdding((n) => Math.max(0, n + (b ? 1 : -1)))} onChange={(url) => setFiles((prior) => { const next = { ...prior }; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />
                     ))}
                   </div>
                 )}
@@ -382,6 +395,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 <button className="fire wf-run" disabled={running || checking || !preflight?.ok || adding > 0 || Boolean(blocked)} onClick={() => void run()}>
                   {running ? `Running on ${preflight?.destination ?? "Comfy"}…` : "Run"} <span className="cost">{price ?? "···"}</span>
                 </button>
+                {fixture && <button className="pill" disabled={running} onClick={async()=>{const ref=sessionStorage.getItem('portal-real-ui-fixture');if(!ref)return;setRunning(true);try{const response=await fetch('/api/portal-fixture',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({ref,action:'recover'})});const data=await response.json();setResult(response.ok?{ok:true,url:data.url,kind:'video',price:'Test only · no credits'}:{ok:false,reason:data.error});}catch{setResult({ok:false,reason:'Fixture recovery failed.'});}finally{setRunning(false);}}}>Recover fixture</button>}
                 <p className="wf-small">Your selected location is checked again before submission. No automatic fallback to another provider.</p>
               </div>
 
