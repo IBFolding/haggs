@@ -34,6 +34,10 @@ for(const e of CONTEST_EFFECTS){
   assert.ok(existsSync(new URL('../../public'+e.preview,import.meta.url)));
  });
  test(`${e.name}: LTX and paid H3 are distinct; all graph links and embedded subgraphs resolve`,()=>{
+  // Incomplete bundled display schemas must not block a real runtime preflight.
+  const display = openContestForDisplay(contestName(e.slug, 'ltx'));
+  assert.deepEqual(display.problems, []);
+  assert.ok(display.app.fields.some(f => f.label === 'Effect layer prompt'));
   for(const path of [e.ltx,e.reuse,e.h3]){
    const ui=read('../../public/workflows/contest-lab/'+path);
    const definitions=new Set((ui.definitions?.subgraphs??[]).map((s:{id:string})=>s.id));

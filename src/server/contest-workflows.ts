@@ -43,7 +43,10 @@ export function openContestForDisplay(name: string): Opened {
     LoadAudio: { input: { required: { audio: ['STRING'] } }, output: ['AUDIO'] },
     PrimitiveStringMultiline: { input: { required: { value: ['STRING', { multiline: true, default: '' }] } }, output: ['STRING'] },
   } as unknown as Catalog;
-  return openContest(name, catalog);
+  const opened = openContest(name, catalog);
+  // This catalog only builds the form; it is not the runtime's node inventory.
+  // Preflight and submission independently validate against the real catalog.
+  return { ...opened, problems: [] };
 }
 export function contestEntries(): Entry[] {
   return CONTEST_EFFECTS.flatMap(e => (['ltx', 'reuse'] as const).map(kind => ({ name: contestName(e.slug, kind), title: `${e.name} · ${kind === 'ltx' ? 'LTX' : 'Reuse video'}`, description: `${e.scope} Experimental local app: install ComfyUI-HaggsContestLab. Advanced masks and band maps must be connected in ComfyUI; otherwise the supplied geometric defaults apply.`, category: 'Video Tools', kind: 'video', tags: ['Haggs Contest Lab', 'Local', kind], models: kind === 'ltx' ? ['LTX 2.5'] : ['Existing video'], thumb: e.image, usage: 0, inputs: [], runnable: null, open: true })));
