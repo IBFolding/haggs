@@ -4785,3 +4785,21 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .gs-demo .gs-side { max-height:calc(100vh - 170px); }
 .gs-demo .gs-note { text-align:left; padding:10px 0; font-size:11px; line-height:1.5; }
 @media(max-width:860px) { .gs-demo { padding:20px; } .gs-demo-head { align-items:flex-start; } .gs-demo-badge { display:none; } .gs-demo .gs-side { max-height:none; } }
+
+.gs-area-dialog { width:min(920px,94vw); max-height:94vh; padding:22px; border:1px solid var(--line); border-radius:18px; color:var(--text); background:var(--surface); overflow:auto; }
+.gs-area-dialog::backdrop { background:#000b; backdrop-filter:blur(5px); }
+.gs-area-dialog header { display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.gs-area-dialog h2 { margin:5px 0; font-size:24px; letter-spacing:-.03em; }
+.gs-area-dialog p,.gs-area-dialog small { color:var(--text-2); font-size:12px; line-height:1.5; }
+.gs-area-image { position:relative; width:100%; cursor:crosshair; margin:16px auto; touch-action:manipulation; }
+.gs-area-image img { display:block; width:100%; height:auto; }
+.gs-area-image svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.gs-area-image polygon { fill:#70e69a33; stroke:#70e69a; stroke-width:.3; vector-effect:non-scaling-stroke; }
+.gs-area-image circle { fill:#fff; stroke:#171717; stroke-width:.2; }
+.gs-area-dialog .fire { margin-left:auto; }
+.gs-source-tools .gs-soft { font-size:11px; }
+.gs-field select { width:100%; min-width:0; padding:9px; color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:7px; }
+
+.gs-area-image:focus-visible { outline:2px solid var(--volt); outline-offset:4px; }
+.gs-area-image .gs-area-cursor { display:none; fill:none; stroke:white; stroke-dasharray:1 1; }
+.gs-area-image:focus-visible .gs-area-cursor { display:block; }

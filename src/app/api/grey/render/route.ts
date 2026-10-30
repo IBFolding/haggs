@@ -1,3 +1,4 @@
+import { prepareGreyTexture } from "../../../../server/grey-texture";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -85,15 +86,8 @@ export async function POST(request: Request) {
     const paths: string[] = [];
     for (const [i, input] of plan.inputs.entries()) {
       if (input.role === "texture") {
-        // The texture repeated edge to edge until it fills the frame.
-        const meta = await sharp(file(input.ref)).metadata();
-        const tw = Math.max(16, input.tile ?? 256);
-        const th = Math.max(16, Math.round((tw * (meta.height ?? 1)) / (meta.width ?? 1)));
-        const tile = await sharp(file(input.ref)).resize(tw, th).png().toBuffer();
-        const layers = [];
-        for (let y = 0; y < size.h; y += th) for (let x = 0; x < size.w; x += tw) layers.push({ input: tile, left: x, top: y });
         const out = join(work, `texture-${i}.png`);
-        await sharp({ create: { width: size.w, height: size.h, channels: 4, background: { r: 128, g: 128, b: 128, alpha: 1 } } }).composite(layers).png().toFile(out);
+        await prepareGreyTexture(input, file(input.ref), size, out);
         paths.push(out);
       } else if (input.role === "air") {
         // Two tiles end to end, so sliding one tile's length never runs out.

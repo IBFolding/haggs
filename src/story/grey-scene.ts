@@ -1,3 +1,4 @@
+import { validSelection, type AreaSelection } from "./grey-selection";
 /**
  * The set built around one shot in the Grey Room: where it takes place, the
  * props standing in it, the lights, the look of the picture and the air. All
@@ -8,7 +9,7 @@
 export type Matte = { kind?: "image" | "video"; url: string; at: number; price: string };
 /** A moment in the shot where some of an item's values are set. Between two keys a value moves in a straight line; before the first and after the last it holds. */
 export type Key = { t: number; x?: number; y?: number; w?: number; rotate?: number; opacity?: number; intensity?: number; size?: number; scale?: number };
-export type Prop = { id: string; name: string; url: string; x: number; y: number; w: number; rotate: number; behind: boolean; opacity: number; flip?: boolean; locked?: boolean; hidden?: boolean; /** How dark the contact shadow under it is, 0–1. Default 0.4. */ shadow?: number; keys?: Key[];
+export type Prop = { role?: "actor" | "object"; id: string; name: string; url: string; x: number; y: number; w: number; rotate: number; behind: boolean; opacity: number; flip?: boolean; locked?: boolean; hidden?: boolean; /** How dark the contact shadow under it is, 0–1. Default 0.4. */ shadow?: number; keys?: Key[];
   /** A real 3D model for the Blender set (glb, gltf, obj or fbx). The picture above stays what the preview shows. */
   model?: { url: string; name: string } };
 export type LightKind = "key" | "fill" | "glow" | "practical";
@@ -21,7 +22,7 @@ export const MAX_POWER = 5000;
 export type AtmosKind = "fog" | "rain" | "snow" | "dust" | "embers" | "beams";
 export type Atmos = { kind: AtmosKind; amount: number };
 /** A real surface in the footage (a wall, a floor) given a new texture. `mask` is that surface cut out of the footage; the texture is laid over it. */
-export type Surface = { id: string; label: string; words?: string; mask?: Matte; texture?: { url: string; name: string; scale: number }; strength: number; hidden?: boolean };
+export type Surface = { selection?: AreaSelection | undefined; mode?: "material" | "replace"; id: string; label: string; words?: string; mask?: Matte; texture?: { url: string; name: string; scale: number }; strength: number; hidden?: boolean };
 export type Look = { exposure: number; contrast: number; warmth: number; saturation: number; vignette: number };
 export type Backdrop = { url: string; name: string; scale: number; x: number; y: number; blur: number; keys?: Key[] };
 
@@ -183,7 +184,7 @@ export function normalizeScene(raw: GreyScene | undefined): GreyScene {
     ...(Array.isArray(raw.references) ? { references: raw.references.filter(r => r && typeof r.id === "string" && typeof r.url === "string" && typeof r.name === "string").slice(0, 60) } : {}),
     ...(raw.place ? { place: raw.place } : {}),
     ...(raw.matte ? { matte: raw.matte } : {}),
-    ...(Array.isArray(raw.surfaces) ? { surfaces: raw.surfaces.filter((x) => x && typeof x.id === "string").map((x) => ({ ...x, strength: unit(x.strength ?? 0.85) })) } : {}),
+    ...(Array.isArray(raw.surfaces) ? { surfaces: raw.surfaces.filter((x) => x && typeof x.id === "string").map((x) => ({ ...x, selection: validSelection(x.selection) ? x.selection : undefined, mode: x.mode === "replace" ? "replace" as const : "material" as const, strength: unit(x.strength ?? 0.85) })) } : {}),
     ...(raw.backdrop ? { backdrop: raw.backdrop } : {}),
     props: Array.isArray(raw.props) ? raw.props.filter(isProp).map((p) => tidyProp({ ...p, w: p.w ?? 0.25, rotate: p.rotate ?? 0, behind: p.behind ?? false, opacity: p.opacity ?? 1, name: p.name ?? "Prop" })) : [],
     lights: Array.isArray(raw.lights) ? raw.lights.filter(isLight).map((l) => { const { spot: _s, power: _p, ...rest } = l; return { ...rest, ...tidyLightExtras(l) }; }) : [],
@@ -404,3 +405,9 @@ export function assignObjectReference(scene: GreyScene, target: string | null, r
 }
 /** Removing inspiration from the board leaves already assigned scene assets intact. */
 export const removeRoomReference = (scene: GreyScene, id: string): GreyScene => ({ ...scene, references: (scene.references ?? []).filter(r => r.id !== id) });
+
+/** A new base invalidates old surface outlines, while references and placed layers remain editable. */
+export function replaceRoomSource(scene: GreyScene, source: { url: string; kind: "image" | "video" }): GreyScene {
+  const { matte: _matte, backdrop: _backdrop, place: _place, surfaces, ...rest } = scene;
+  return { ...rest, source, ...(surfaces ? { surfaces: surfaces.map(({ mask: _mask, selection: _selection, ...surface }) => ({ ...surface, mode: "material" as const })) } : {}) };
+}
