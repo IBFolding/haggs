@@ -29,7 +29,9 @@ export function openLocalRoomStore(filename, limit) {
   cleanup:{
    claim:async(owner,session,now)=>tx(()=>{const row=db.prepare('SELECT * FROM room_objects WHERE owner=? AND session=?').get(owner,session);if(!row||row.expires>now||row.lease||!row.data)return null;const lease=randomUUID();db.prepare('UPDATE room_objects SET lease=? WHERE owner=? AND session=?').run(lease,owner,session);return {path:row.path,bytes:row.size,sha256:row.digest,lease};}),
    finish:async(owner,session,lease)=>tx(()=>db.prepare('DELETE FROM room_objects WHERE owner=? AND session=? AND lease=? AND data IS NULL').run(owner,session,lease).changes===1),
-   reconcileDeleted:async(owner,session,now)=>tx(()=>db.prepare('DELETE FROM room_objects WHERE owner=? AND session=? AND expires<=? AND lease IS NOT NULL AND data IS NULL').run(owner,session,now).changes===1)
+   reconcileDeleted:async(owner,session,now)=>tx(()=>db.prepare('DELETE FROM room_objects WHERE owner=? AND session=? AND expires<=? AND lease IS NOT NULL AND data IS NULL').run(owner,session,now).changes===1),
+   // Local SQLite can remove data and reservation atomically: there is no external delete outcome to guess.
+   reconcile:async(owner,session,now)=>tx(()=>{const row=db.prepare('SELECT * FROM room_objects WHERE owner=? AND session=?').get(owner,session);if(!row)return 'absent';if(row.expires>now||!row.lease)return 'not-ready';if(row.data && (row.data.length!==row.size || createHash('sha256').update(row.data).digest('hex')!==row.digest))return 'uncertain';db.prepare('DELETE FROM room_objects WHERE owner=? AND session=? AND lease=?').run(owner,session,row.lease);return 'deleted';})
   }
  };
 }
