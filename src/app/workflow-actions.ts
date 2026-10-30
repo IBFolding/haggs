@@ -262,11 +262,11 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
       if (!stats.ok) throw new Error("GPU status unavailable. Check ComfyUI /system_stats before generating.");
       const data = await stats.json() as {devices?:{name?:string;type?:string;vram_free?:number}[]};
       const devices = data.devices?.filter(d => d.type && d.type !== "cpu") ?? [];
-      if (!devices.length) {
-        const sam2Cpu = previewName === 'haggs_sam2_mask_preview' && prompt['3']?.inputs.device === 'cpu';
+      const sam2Cpu = previewName === 'haggs_sam2_mask_preview' && prompt['3']?.inputs.device === 'cpu';
+      if (previewName === 'haggs_sam2_mask_preview') report.notes.push(sam2Cpu ? "SAM2 runs on your CPU and may be slow; the model may download on first use." : "SAM2 uses a model that may download on first use.");
+      if (!devices.length && !sam2Cpu) {
         const localPreview = previewName !== 'haggs_sam2_mask_preview' && (("template" in source && (haggsPreview(source.template) || contestVariant(source.template)?.kind === "reuse")) || ("file" in source && (isSavedHaggsPreview(source.file) || contestVariant(savedContestName(source.file) ?? "")?.kind === "reuse")));
-        if (sam2Cpu) report.notes.push("SAM2 runs on your CPU and may be slow; the model may download on first use.");
-        else if (localPreview) report.notes.push("CPU compositing · no model generation. This can take longer than a GPU.");
+        if (localPreview) report.notes.push("CPU compositing · no model generation. This can take longer than a GPU.");
         else report.issues.push("No GPU reported by ComfyUI. Start ComfyUI with GPU support before generating.");
       }
       report.notes.push(...devices.map(d => `${d.name ?? d.type}: ${typeof d.vram_free === "number" ? (d.vram_free/2**30).toFixed(1)+" GiB free" : "free memory unknown"}`));
