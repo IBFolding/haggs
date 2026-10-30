@@ -34,3 +34,8 @@ Follow-up verification: 990 tests passed; TypeScript passed; the real FFmpeg che
 The editor Grey Room and local preview use the same SetPanel, ReferenceBoard and Compositor. Reference thumbnails apply with one click after choosing a target once. Saved furniture and actor cards drag onto the canvas; dropping on a prop swaps its image while preserving placement and animation. Selected objects have duplicate/hide/remove actions on the canvas, and manually outlined surfaces expose a swap target there. Existing cut-out, light, animation and export stages retain the same scene model.
 
 Verification: 992 tests pass and TypeScript passes. Browser verified click-to-add, click-to-swap, duplication, drag-to-place at the drop position and drag-to-swap without movement. Touch/keyboard users can click thumbnails and use the existing position controls. This change does not add AI reconstruction.
+
+## Pending outline source changes
+Confirmed review 5707059631 on PR57: pending detection previously attached its result to the latest scene even after source replacement. Outline completion now checks the source URL, media kind and replacement revision; switching A→B→A still invalidates the old work. Prepared-outline uploads and manual selection completion use the same guard, and unmounted panels do not commit results. Valid completions preserve newer material edits. This discards stale results; it does not cancel an already submitted provider job.
+
+Regression coverage uses deferred detection completion after source replacement, return to the original URL, removed surfaces, media-kind changes and valid results retaining current texture settings. No paid detection job was run for this fix.
