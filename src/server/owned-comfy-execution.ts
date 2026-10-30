@@ -17,7 +17,7 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Never mount this until provider billing, durable credentials, storage and app inputs are verified. */
 export async function ownedComfyExecution(userId:string|null,submissionId:string,name:string,action:'start'|'recover',deps:Dependencies):Promise<string> {
   if(!userId) throw Error('Sign in to use your deployment.');
-  if(!UUID.test(submissionId) || !/^[a-z0-9-]{1,80}$/.test(name) || !['start','recover'].includes(action)) throw Error('Invalid request.');
+  if(!UUID.test(submissionId) || !/^[a-z0-9_-]{1,80}$/.test(name) || !['start','recover'].includes(action)) throw Error('Invalid request.');
   const connection=await deps.connection(userId);
   if(!connection || connection.ownerId!==userId) throw Error('Your deployment is not connected.');
   const origin=ownedComfyOrigin(connection.origin);
