@@ -5,7 +5,7 @@
  * monitor. Pure helpers only; the page draws it and the renderer reads it.
  */
 
-export type Matte = { url: string; at: number; price: string };
+export type Matte = { kind?: "image" | "video"; url: string; at: number; price: string };
 /** A moment in the shot where some of an item's values are set. Between two keys a value moves in a straight line; before the first and after the last it holds. */
 export type Key = { t: number; x?: number; y?: number; w?: number; rotate?: number; opacity?: number; intensity?: number; size?: number; scale?: number };
 export type Prop = { id: string; name: string; url: string; x: number; y: number; w: number; rotate: number; behind: boolean; opacity: number; flip?: boolean; locked?: boolean; hidden?: boolean; /** How dark the contact shadow under it is, 0–1. Default 0.4. */ shadow?: number; keys?: Key[];
@@ -25,7 +25,10 @@ export type Surface = { id: string; label: string; words?: string; mask?: Matte;
 export type Look = { exposure: number; contrast: number; warmth: number; saturation: number; vignette: number };
 export type Backdrop = { url: string; name: string; scale: number; x: number; y: number; blur: number; keys?: Key[] };
 
+export type RoomReference = { id: string; url: string; name: string };
+
 export type GreyScene = {
+  references?: RoomReference[];
   /** The uncomposited source, kept when a rendered draft becomes the active take. */
   source?: { url: string; kind: "video" | "image" };
   place?: string;
@@ -54,7 +57,7 @@ export function setShadow(s: GreyScene, change: Partial<{ amount: number; angle:
   return { ...s, shadow: { amount: unit(next.amount), angle: ((Math.round(next.angle) % 360) + 360) % 360 } };
 }
 
-export const sceneIsEmpty = (s: GreyScene | undefined) => !s || !(s.place || s.matte || s.backdrop || s.surfaces?.length || s.props?.length || s.lights?.length || s.atmos?.length || (s.look && JSON.stringify(s.look) !== JSON.stringify(NEUTRAL)));
+export const sceneIsEmpty = (s: GreyScene | undefined) => !s || !(s.references?.length || s.place || s.matte || s.backdrop || s.surfaces?.length || s.props?.length || s.lights?.length || s.atmos?.length || (s.look && JSON.stringify(s.look) !== JSON.stringify(NEUTRAL)));
 
 /* ── props ── */
 
@@ -177,6 +180,7 @@ export function normalizeScene(raw: GreyScene | undefined): GreyScene {
   const isLight = (l: unknown): l is Light => !!l && typeof l === "object" && typeof (l as Light).id === "string" && typeof (l as Light).kind === "string";
   return {
     ...(raw.source && typeof raw.source.url === "string" && (raw.source.kind === "video" || raw.source.kind === "image") ? { source: { url: raw.source.url, kind: raw.source.kind } } : {}),
+    ...(Array.isArray(raw.references) ? { references: raw.references.filter(r => r && typeof r.id === "string" && typeof r.url === "string" && typeof r.name === "string").slice(0, 60) } : {}),
     ...(raw.place ? { place: raw.place } : {}),
     ...(raw.matte ? { matte: raw.matte } : {}),
     ...(Array.isArray(raw.surfaces) ? { surfaces: raw.surfaces.filter((x) => x && typeof x.id === "string").map((x) => ({ ...x, strength: unit(x.strength ?? 0.85) })) } : {}),
@@ -372,3 +376,31 @@ export function describeLighting(s: GreyScene): string {
   const parts = [...lights, ...(mood.length ? [`an overall ${mood.join(", ")} mood`] : [])];
   return parts.join("; ");
 }
+
+/** References do not become scene layers until explicitly assigned. */
+export function addRoomReference(scene: GreyScene, input: { url: string; name: string }): GreyScene {
+  if (scene.references?.some(r => r.url === input.url)) return scene;
+  return { ...scene, references: [...(scene.references ?? []), { ...input, name: input.name.slice(0, 80), id: uid() }].slice(0, 60) };
+}
+export function referenceUses(scene: GreyScene, url: string): string[] {
+  return [
+    ...(scene.surfaces ?? []).filter(s => s.texture?.url === url).map(s => s.label + (s.mask ? "" : " · outline needed")),
+    ...(scene.backdrop?.url === url ? ["Background" + (scene.matte ? "" : " · cut-out needed")] : []),
+    ...(scene.props ?? []).filter(p => p.url === url).map(p => p.name),
+  ];
+}
+export function assignSurfaceReference(scene: GreyScene, target: string, ref: RoomReference): GreyScene {
+  const existing = scene.surfaces?.find(s => s.id === target) ?? scene.surfaces?.find(s => s.label.toLowerCase() === target.toLowerCase());
+  const next = existing ? scene : addSurface(scene, target);
+  const id = existing?.id ?? next.surfaces!.at(-1)!.id;
+  return updateSurface(next, id, { texture: { url: ref.url, name: ref.name, scale: existing?.texture?.scale ?? 1 } });
+}
+
+/** Swap a prop image while preserving its placement, animation and layering. */
+export function assignObjectReference(scene: GreyScene, target: string | null, ref: RoomReference): GreyScene {
+  return target && scene.props?.some(p => p.id === target)
+    ? updateProp(scene, target, { url: ref.url, name: ref.name })
+    : addProp(scene, ref);
+}
+/** Removing inspiration from the board leaves already assigned scene assets intact. */
+export const removeRoomReference = (scene: GreyScene, id: string): GreyScene => ({ ...scene, references: (scene.references ?? []).filter(r => r.id !== id) });

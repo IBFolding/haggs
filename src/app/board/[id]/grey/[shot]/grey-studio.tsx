@@ -127,6 +127,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
 
   /** Every change shows at once. It counts as one undo step when you let go, or a moment after the last slider move. */
   function change(next: GreyScene, commitNow = false) {
+    setShowOriginal(false);
     setSceneState(next);
     clearTimeout(settle.current);
     const done = () => { history.current.push(next); persist(next); bump((n) => n + 1); };

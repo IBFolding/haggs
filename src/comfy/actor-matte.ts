@@ -35,3 +35,17 @@ export function actorMattePrompt({ describe, points = [] }: { describe: string; 
     "7": { class_type: "SaveWEBM", inputs: { images: ["6", 0], filename_prefix: "haggs/matte", codec: "vp9", fps: ["2", 2], crf: 24 } },
   } as unknown as ApiPrompt;
 }
+
+/** A selected surface in a still photo, saved with alpha as PNG. */
+export const IMAGE_MATTE_INPUT = "1/image";
+export function imageMattePrompt(describe: string): ApiPrompt {
+  const video = actorMattePrompt({ describe });
+  const { "2": _frames, "7": _videoSave, ...nodes } = video;
+  return {
+    ...nodes,
+    "1": { class_type: "LoadImage", inputs: { image: "room.png" } },
+    "5": { ...video["5"]!, inputs: { ...video["5"]!.inputs, image: ["1", 0] } },
+    "6": { class_type: "JoinImageWithAlpha", inputs: { image: ["1", 0], alpha: ["5", 0] } },
+    "7": { class_type: "SaveImage", inputs: { images: ["6", 0], filename_prefix: "haggs/surface" } },
+  };
+}

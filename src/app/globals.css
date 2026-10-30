@@ -4731,3 +4731,57 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
  .nav-tools { gap:12px; }
  .nav-utilities { gap:4px; }
 }
+
+.gs-reference-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:12px; }
+.gs-reference-card { display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--panel); min-width:0; }
+.gs-reference-card img { width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:7px; }
+.gs-reference-card strong { overflow-wrap:anywhere; }
+.gs-reference-card label { display:grid; gap:4px; }
+.gs-reference-card select { width:100%; min-width:0; padding:7px; color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:6px; }
+.gs-reference-use { font-size:12px; color:var(--text-2); }
+.gs-reference-empty { padding:20px 12px; border:1px dashed var(--line); border-radius:10px; margin-top:12px!important; }
+@media(max-width:420px) { .gs-reference-cards { grid-template-columns:1fr; } }
+
+.gs-side, .gs-panel, .gs-sec, .gs-surf { min-width: 0; }
+.gs-field input[type="file"] { max-width: 100%; min-width: 0; }
+.gs-pair img { width: 100%; border-radius: 8px; }
+
+/* Mood board: imagery first, a clear destination, and visible assignment state. */
+.gs-board-kicker { display:block; font-size:9px; font-weight:600; letter-spacing:.13em; color:var(--text-3); margin-bottom:5px; }
+.gs-moodboard .gs-surf-head h3 { font-size:18px; letter-spacing:-.025em; }
+.gs-board-count { display:inline-grid; place-items:center; min-width:20px; height:20px; margin-left:5px; border:1px solid var(--line); border-radius:6px; font-size:10px; color:var(--text-3); vertical-align:middle; }
+.gs-board-steps { display:flex; justify-content:space-between; padding:10px 0 3px; gap:8px; font-size:11px; color:var(--text-2); }
+.gs-board-steps span { display:flex; align-items:center; gap:6px; }
+.gs-board-steps b { display:grid; place-items:center; width:18px; height:18px; border:1px solid var(--line); border-radius:50%; font-size:9px; }
+.gs-reference-card { gap:7px; padding:8px; background:var(--surface); border-radius:11px; }
+.gs-reference-card.assigned { border-color:color-mix(in srgb,var(--volt) 40%,var(--line)); }
+.gs-reference-image { position:relative; overflow:hidden; border-radius:7px; }
+.gs-reference-image img { display:block; aspect-ratio:1; }
+.gs-card-remove { position:absolute; top:6px; right:6px; display:grid; place-items:center; width:23px; height:23px; padding:0; border:1px solid #ffffff26; border-radius:50%; color:#fff; background:#141414b3; font-size:17px; cursor:pointer; }
+.gs-card-remove:hover { background:#141414; }
+.gs-reference-card strong { font-size:12px; font-weight:600; }
+.gs-reference-card label { font-size:10px; color:var(--text-3); }
+.gs-reference-card .pill { display:flex; align-items:center; justify-content:space-between; width:100%; padding:7px 9px; font-size:11px; }
+.gs-reference-card .gs-reference-use { font-size:10px; line-height:1.4; min-height:28px; }
+.gs-reference-card.assigned .gs-reference-use { color:var(--volt); }
+.gs-board-welcome { position:relative; overflow:hidden; border:1px solid var(--line); border-radius:12px; }
+.gs-board-welcome > img { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; }
+.gs-board-example { display:block; padding:7px 12px 0; font-size:9px; color:var(--text-3); }
+.gs-board-welcome > div { padding:10px 12px 14px; }
+.gs-board-welcome strong { font-size:16px; letter-spacing:-.025em; }
+.gs-board-welcome p { margin:6px 0 12px; color:var(--text-2); font-size:12px; line-height:1.5; }
+
+.gs-starter-materials > span { color:var(--text-3); font-size:10px; }
+.gs-starter-materials > div { display:grid; gap:6px; margin-top:8px; }
+.gs-starter-materials button { display:flex; align-items:center; gap:10px; padding:6px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--text-2); font-size:11px; text-align:left; cursor:pointer; }
+.gs-starter-materials img { width:32px; height:32px; border-radius:4px; object-fit:cover; }
+.gs-starter-materials b { margin-left:auto; padding:0 6px; }
+.gs-demo { padding:32px; max-width:1440px; margin:auto; width:100%; }
+.gs-demo-head { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:28px; }
+.gs-demo-head h1 { font-size:clamp(24px,3vw,38px); font-weight:500; letter-spacing:-.045em; margin:8px 0; }
+.gs-demo-head p { font-size:13px; color:var(--text-3); margin:0; }
+.gs-demo-badge { font-size:10px; color:var(--text-2); border:1px solid var(--line); padding:8px 12px; border-radius:20px; white-space:nowrap; }
+.gs-demo-toolbar { width:100%; display:flex; align-items:center; justify-content:space-between; padding:0 0 4px; font-size:11px; color:var(--text-2); }
+.gs-demo .gs-side { max-height:calc(100vh - 170px); }
+.gs-demo .gs-note { text-align:left; padding:10px 0; font-size:11px; line-height:1.5; }
+@media(max-width:860px) { .gs-demo { padding:20px; } .gs-demo-head { align-items:flex-start; } .gs-demo-badge { display:none; } .gs-demo .gs-side { max-height:none; } }

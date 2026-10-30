@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { actorMattePrompt } from "./actor-matte";
+import { actorMattePrompt, imageMattePrompt } from "./actor-matte";
 
 describe("actorMattePrompt", () => {
   it("cuts the people you describe out of the footage and saves a transparent video at the footage's own frame rate", () => {
@@ -35,4 +35,19 @@ describe("actorMattePrompt", () => {
     const long = Object.values(actorMattePrompt({ describe: "x".repeat(300) })).find((n) => n.class_type === "CLIPTextEncode")!;
     assert.equal((long.inputs.text as string).length, 120);
   });
+});
+
+it("still-photo selection loads an image and saves RGBA PNG without video nodes", () => {
+  const p = imageMattePrompt("the wooden floor");
+  assert.equal(p["1"]!.class_type, "LoadImage");
+  assert.equal(p["7"]!.class_type, "SaveImage");
+  assert.deepEqual(p["5"]!.inputs.image, ["1", 0]);
+  assert.deepEqual(p["6"]!.inputs.alpha, ["5", 0]);
+  assert.equal(p["4"]!.inputs.text, "the wooden floor");
+  for (const node of Object.values(p)) {
+    assert.ok(!["LoadVideo", "GetVideoComponents", "SaveWEBM"].includes(node.class_type));
+    for (const input of Object.values(node.inputs)) {
+      if (Array.isArray(input) && typeof input[0] === "string" && typeof input[1] === "number") assert.ok(p[input[0]], `missing node ${input[0]}`);
+    }
+  }
 });
