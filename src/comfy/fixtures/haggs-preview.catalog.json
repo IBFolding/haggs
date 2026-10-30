@@ -1267,5 +1267,90 @@
     "output_node": false,
     "has_intermediate_output": false,
     "search_aliases": []
+  },
+  "HaggsRecordedRoom": {
+    "input": {
+      "required": {
+        "session_id": [
+          "STRING",
+          {
+            "forceInput": true
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "session_id"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "VIDEO"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "VIDEO"
+    ],
+    "name": "HaggsRecordedRoom",
+    "display_name": "Haggs \u00b7 Load Room Recording",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsStudio",
+    "category": "Haggs/World Motion VFX",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "PrimitiveStringMultiline": {
+    "input": {
+      "required": {
+        "value": [
+          "STRING",
+          {
+            "multiline": true
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "value"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "STRING"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "STRING"
+    ],
+    "output_tooltips": [
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "PrimitiveStringMultiline",
+    "display_name": "Text (Multiline)",
+    "description": "",
+    "python_module": "comfy_extras.nodes_primitive",
+    "category": "utilities/primitive",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": false,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "text",
+      "string",
+      "text box",
+      "prompt"
+    ],
+    "essentials_category": "Basics",
+    "has_intermediate_output": false
   }
 }

@@ -6,13 +6,14 @@ import enemy from '../../public/workflows/game-director/workflows/preview-no-mod
 import vfxMask from '../../public/workflows/world-motion-vfx/workflows/07-vfx-placement-mask-preview.json';
 import vfxReuse from '../../public/workflows/world-motion-vfx/workflows/08-vfx-reuse-existing-take.json';
 import savedMotion from '../../public/workflows/world-motion-vfx/workflows/05-saved-motion-bridge-preview.json';
+import roomRecording from '../../public/workflows/world-motion-vfx/workflows/09-load-room-recording-no-model.json';
 import { HAGGS_PREVIEWS, haggsPreview } from '../comfy/haggs-preview';
 import { appOf } from '../comfy/apps';
 import { prepare, validate, type Catalog, type UiWorkflow } from '../comfy/convert';
 import type { Entry, Opened } from './comfy-library';
 import fixture from '../comfy/fixtures/haggs-preview.catalog.json';
 
-const graphs: Record<string, unknown> = { haggs_preview_drag_to_action:drag, haggs_preview_boss_fight:boss, haggs_preview_game_reskin:reskin, haggs_preview_moveset:moveset, haggs_preview_enemy_intent:enemy, haggs_preview_vfx_mask:vfxMask, haggs_preview_vfx_reuse:vfxReuse, haggs_preview_saved_motion:savedMotion };
+const graphs: Record<string, unknown> = { haggs_preview_drag_to_action:drag, haggs_preview_boss_fight:boss, haggs_preview_game_reskin:reskin, haggs_preview_moveset:moveset, haggs_preview_enemy_intent:enemy, haggs_preview_vfx_mask:vfxMask, haggs_preview_vfx_reuse:vfxReuse, haggs_preview_saved_motion:savedMotion, haggs_preview_room_recording:roomRecording };
 export function previewTemplate(name: string): UiWorkflow | null {
   const meta = haggsPreview(name);
   if (!meta) return null;
@@ -38,6 +39,10 @@ export function savedHaggsPreviewName(file: string): string | null {
   } catch { return null; }
 }
 export const isSavedHaggsPreview = (file: string) => savedHaggsPreviewName(file) !== null;
+export function previewInputProblem(name: string | null, values: Record<string, string | number | boolean>): string | null {
+  if (name === 'haggs_preview_room_recording' && !/^[0-9a-f]{32}$/.test(String(values['1/value'] ?? ''))) return 'Enter the 32-character session ID from your recorded Playable World room.';
+  return null;
+}
 export function previewEntries(): Entry[] {
   return HAGGS_PREVIEWS.map(e => ({ name:e.name, title:e.title, description:e.description, category:'Video Tools', kind:'video', tags:['Haggs', 'Preview', 'Local'], models:['No model'], thumb:`/workflows/${e.pack}/${e.image}`, usage:0, inputs:[], runnable:null, open:true }));
 }
@@ -60,6 +65,9 @@ export function openHaggsPreview(name: string, catalog: Catalog): Opened {
       {kind:'number', node:'900', input:'yaw_degrees', label:'Camera angle', value:0, min:-180, max:180},
       {kind:'number', node:'900', input:'speed', label:'Playback speed', value:1, min:0.25, max:4},
     ];
+  }
+  if (name === 'haggs_preview_room_recording') {
+    app.fields = [{kind:'text', node:'1', input:'value', label:'Recorded room session ID', value:''}];
   }
   if (!app.output || app.produces !== 'video') problems.push('A video output is required for this preview.');
   return {entry,ui,app,problems,catalog};
