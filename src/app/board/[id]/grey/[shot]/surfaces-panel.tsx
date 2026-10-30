@@ -12,14 +12,19 @@ import { run } from "../../../../actions";
 import { openKeys } from "../../../../nav";
 import { uploadFile } from "../../../../upload-client";
 import { runWorkflow } from "../../../../workflow-actions";
-import { Slide } from "./set-panel";
+import { Slide } from "./slide";
 import { AreaSelector } from "./area-selector";
 
 const QUICK = ["Floor", "Wall", "Table", "Door", "Window", "Other surface"];
 type Reference = { id: string; name: string; image?: string | null };
 
 /** Walls, floors and other real surfaces in the footage, found and given a new material. */
-export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange }: { scene: GreyScene; footageUrl: string | null; isVideo: boolean; references: Reference[]; onChange: (next: GreyScene) => void }) {
+/**
+ * `list` is the compact set of areas (add one, pick one, hide or remove it) for the side shelf.
+ * `card` is one area's full flow (outline it, choose a material, review) for the inspector.
+ * `all` is both together, as before.
+ */
+export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange, mode = "all", focus = null, onSelect, selected = null }: { scene: GreyScene; footageUrl: string | null; isVideo: boolean; references: Reference[]; onChange: (next: GreyScene) => void; mode?: "all" | "list" | "card"; focus?: string | null; onSelect?: (id: string | null) => void; selected?: string | null }) {
   const [selecting, setSelecting] = useState<{id:string; source:string} | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -102,14 +107,32 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
     onChange(updateSurface(live.current, sf.id, { texture: { url: first.url, name: text.trim().slice(0, 40), scale: sf.texture?.scale ?? 1 } }));
   }
 
+  const cards = mode === "list" ? [] : (scene.surfaces ?? []).filter((sf) => mode === "all" || sf.id === focus);
   return (
     <section className="gs-sec">
-      <h3>What do you want to replace?</h3>
-      <p className="gs-soft">Choose an area → outline it → apply a reference. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "AI outlines can follow the video; manual areas stay fixed for the whole clip." : "Draw your own outline for free, or use AI detection."}</p>
-      <div className="gs-row">
-        {QUICK.map((q) => <button key={q} className="pill" disabled={!footageUrl} onClick={() => onChange(addSurface(scene, q))}>+ {q}</button>)}
-      </div>
-      {(scene.surfaces ?? []).map((sf) => (
+      {mode !== "card" && (
+        <>
+          <h3>What do you want to replace?</h3>
+          <p className="gs-soft">Choose an area → outline it → apply a reference. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "The outline follows the video." : "Draw your own outline for free, or use AI detection."}</p>
+          <div className="gs-row">
+            {QUICK.map((q) => <button key={q} className="pill" disabled={!footageUrl} onClick={() => onChange(addSurface(scene, q))}>+ {q}</button>)}
+          </div>
+        </>
+      )}
+      {mode === "list" && (scene.surfaces ?? []).length > 0 && (
+        <ul className="gs-layers" aria-label="Areas">
+          {(scene.surfaces ?? []).map((sf) => (
+            <li key={sf.id} className={sf.id === selected ? "on" : ""}>
+              <button className="gs-lname" onClick={() => onSelect?.(sf.id === selected ? null : sf.id)}>{sf.label} · {sf.texture && sf.mask ? "ready" : sf.mask ? "choose material" : "find outline"}</button>
+              <span className="gs-lact">
+                <button aria-label={sf.hidden ? "Show" : "Hide"} title={sf.hidden ? "Show" : "Hide"} onClick={() => onChange(updateSurface(scene, sf.id, { hidden: !sf.hidden }))}>{sf.hidden ? "○" : "●"}</button>
+                <button aria-label="Remove" title="Remove" onClick={() => { onChange(removeSurface(scene, sf.id)); if (selected === sf.id) onSelect?.(null); }}>×</button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {cards.map((sf) => (
         <div key={sf.id} className="gs-surf">
           <div className="gs-surf-head">
             <b>{sf.label} · {sf.texture && sf.mask ? "Ready to review" : sf.mask ? "Choose material" : "Find outline"}</b>
@@ -119,7 +142,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
             </span>
           </div>
           <p className="gs-soft">1. Select the exact area you want to change.</p>
-          {footageUrl && <button className="pill on" disabled={busy !== null} onClick={() => setSelecting({id:sf.id,source})}>{sf.selection ? "Redraw area" : isVideo ? "Draw static area" : "Draw area on photo"} <span className="cost">free</span></button>}
+          {!isVideo && footageUrl && <button className="pill on" disabled={busy !== null} onClick={() => setSelecting({id:sf.id,source})}>{sf.selection ? "Redraw area" : "Draw area on photo"} <span className="cost">free</span></button>}
           <div className="gs-row">
             <input className="gs-name" type="text" maxLength={120} value={words[sf.id] ?? sf.words ?? ""} placeholder={surfaceWords(sf.label, "")} onChange={(e) => setWords({ ...words, [sf.id]: e.target.value })} aria-label={`Words to find the ${sf.label}`} />
             <button className="pill" disabled={busy !== null || !footageUrl} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
@@ -152,7 +175,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
           )}
         </div>
       ))}
-      {selecting && selecting.source === source && footageUrl && <AreaSelector key={source} video={isVideo} start={scene.source?.trimIn ?? 0} source={footageUrl} label={scene.surfaces?.find(s => s.id === selecting.id)?.label ?? "area"} onClose={() => setSelecting(null)} onSave={(url, selection) => accept(selecting.id, selecting.source, { selection, mask: { kind: "image", url, at: Date.now(), price: "Manual selection · free" } })} />}
+      {selecting && selecting.source === source && footageUrl && <AreaSelector key={source} source={footageUrl} label={scene.surfaces?.find(s => s.id === selecting.id)?.label ?? "area"} onClose={() => setSelecting(null)} onSave={(url, selection) => accept(selecting.id, selecting.source, { selection, mask: { kind: "image", url, at: Date.now(), price: "Manual selection · free" } })} />}
       {problem && <p className="library-error" role="alert">{problem}</p>}
     </section>
   );
