@@ -9,6 +9,7 @@ import {createComfyManaged} from '../../../../providers/comfy-managed';
 const reply=(error:string,status:number)=>Response.json({error},{status,headers:{'Cache-Control':'no-store'}});
 /** Experimental wiring. Production and managed paid submissions remain blocked. */
 export async function POST(request:Request){
+ if(process.env.NODE_ENV!=='production'&&process.env.HAGGS_PORTAL_FIXTURE==='1')return (await import('../../portal-fixture/route')).PUT(request);
  if(process.env.NODE_ENV==='production'||process.env.HAGGS_OWN_COMFY_PORTAL_PREVIEW!=='1')return reply('Owned deployment execution is unavailable.',503);
  const user=await verifyUser(request),token=requestToken(request);if(!user||!token)return reply('Sign in first.',401);
  if(Number(request.headers.get('content-length')??0)>8192)return reply('Invalid request.',400);

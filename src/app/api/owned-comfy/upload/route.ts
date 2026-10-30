@@ -6,6 +6,7 @@ import {probeOwnedInput} from '../../../../server/owned-comfy-input';
 import {createComfyManaged} from '../../../../providers/comfy-managed';
 const reply=(error:string,status:number)=>Response.json({error},{status,headers:{'Cache-Control':'no-store'}});
 export async function POST(request:Request){
+ if(process.env.NODE_ENV!=='production'&&process.env.HAGGS_PORTAL_FIXTURE==='1')return (await import('../../portal-fixture/route')).POST(request);
  if(process.env.NODE_ENV==='production'||process.env.HAGGS_OWN_COMFY_PORTAL_PREVIEW!=='1')return reply('Owned deployment uploads are unavailable.',503);
  const user=await verifyUser(request),token=requestToken(request);if(!user||!token)return reply('Sign in first.',401);
  // The key is transient, never returned or stored. This endpoint remains unavailable in production.
