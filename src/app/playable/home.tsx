@@ -179,17 +179,6 @@ export function PlayableHome() {
     <div className="app">
       <Nav current="Playable" />
       <div className="canvas pl-page">
-        <section className="pl-panel" aria-label="Neon Courier">
-          <h2>Neon Courier</h2>
-          <p>A fox, a neon skyline, and a sixty-second delivery run. Tap to switch rooftops, collect crystals, and dodge drones.</p>
-          <Link className="pl-go" href="/playable/neon-courier">Play Neon Courier</Link>
-        </section>
-        <section className="pl-panel" aria-label="Game Director animations">
-          <h2>Bring Game Director sprites into Playable</h2>
-          <p>Import atlas.png and atlas.json into a sprite slot in the Art panel. Choose an action, preview its frames, then play. No generation charge.</p>
-          <button className="pl-go" disabled={busy} onClick={() => void startAtlasDemo()}>Try Game Director atlas demo · free</button>
-          <p className="pl-sub">Uses supplied deterministic pose and VFX exports, not H3 renders. <Link href="/workflows/game-director/PLAYABLE-ASSESSMENT.md">Supported outputs and limits</Link></p>
-        </section>
         <section className="pl-hero">
           <span className="pl-eyebrow">Playable · beta</span>
           <h1>Describe a game.<br /><em>Play it.</em></h1>
@@ -253,6 +242,43 @@ export function PlayableHome() {
           ) : null}
         </section>
 
+        <section className="pl-section" aria-label="Featured games">
+          <h2>Featured games</h2>
+          <p className="pl-sub">Jump into a finished game. No key needed to play.</p>
+          <Link className="pl-card pl-template pl-neon-feature" href="/playable/neon-courier" aria-label="Play Neon Courier">
+            <span className="pl-neon-scene" role="img" aria-label="The fox courier racing through the illuminated city from the game">
+              <span className="pl-neon-fox" aria-hidden="true" />
+              <span className="pl-preview-badge">Featured · Tap arcade</span>
+            </span>
+            <span className="pl-neon-copy">
+              <span className="pl-eyebrow">One fox. One night shift.</span>
+              <strong>Neon Courier</strong>
+              <span className="pl-card-says">Race the neon skyline. Collect crystals, dodge drones, and build your rush in a sixty-second delivery run.</span>
+              <span className="pl-go">Play now ↗</span>
+              <span className="pl-mono">Tap a lane · Arrow keys or Space · Free to play</span>
+            </span>
+          </Link>
+          <div className="pl-grid">
+            {FEATURED.map((f) => (
+              <button key={f.id} className="pl-card pl-template" onClick={() => void playFeatured(f)}>
+                {f.cover ? <span className="pl-preview pl-cover"><img src={f.cover} alt="" loading="lazy" /><span className="pl-preview-badge">{f.spec.template === "code" && f.spec.three ? "3D · Claude" : "Written by Claude"}</span></span> : <Preview spec={f.spec} />}
+                <span className="pl-eyebrow">{genreOf(f.spec)}</span>
+                <strong>{f.spec.title}</strong>
+                <span className="pl-card-says">{f.spec.pitch}</span>
+                <span className="pl-mono">Play · {controlsOf(f.spec)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+
+        <section className="pl-panel" aria-label="Game Director animations">
+          <h2>Bring Game Director sprites into Playable</h2>
+          <p>Import atlas.png and atlas.json into a sprite slot in the Art panel. Choose an action, preview its frames, then play. No generation charge.</p>
+          <button className="pl-go" disabled={busy} onClick={() => void startAtlasDemo()}>Try Game Director atlas demo · free</button>
+          <p className="pl-sub">Uses supplied deterministic pose and VFX exports, not H3 renders. <Link href="/workflows/game-director/PLAYABLE-ASSESSMENT.md">Supported outputs and limits</Link></p>
+        </section>
+
         {fresh.length > 0 ? (
           <section className="pl-section" aria-label="From Claude">
             <h2>From Claude</h2>
@@ -274,21 +300,6 @@ export function PlayableHome() {
           </section>
         ) : null}
 
-        <section className="pl-section" aria-label="Featured games">
-          <h2>Featured games</h2>
-          <p className="pl-sub">Ready to play. Playing one keeps a copy here that you can change by chatting.</p>
-          <div className="pl-grid">
-            {FEATURED.map((f) => (
-              <button key={f.id} className="pl-card pl-template" onClick={() => void playFeatured(f)}>
-                {f.cover ? <span className="pl-preview pl-cover"><img src={f.cover} alt="" loading="lazy" /><span className="pl-preview-badge">{f.spec.template === "code" && f.spec.three ? "3D · Claude" : "Written by Claude"}</span></span> : <Preview spec={f.spec} />}
-                <span className="pl-eyebrow">{genreOf(f.spec)}</span>
-                <strong>{f.spec.title}</strong>
-                <span className="pl-card-says">{f.spec.pitch}</span>
-                <span className="pl-mono">Play · {controlsOf(f.spec)}</span>
-              </button>
-            ))}
-          </div>
-        </section>
 
         <section className="pl-section">
           <h2>Quick start</h2>
