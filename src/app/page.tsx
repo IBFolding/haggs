@@ -9,6 +9,7 @@ import { JoinBand, JoinButton } from "./join-push";
 import { HeroReel } from "./hero-reel";
 import { ModelsWall } from "./models-wall";
 import { QUICK_APPS } from "../comfy/quick";
+import { STEPS } from "../comfy/recipe";
 import { ModelTicker } from "./model-ticker";
 import { ShowcaseReel } from "./showcase-reel";
 import { OpenWeightsBand } from "./open-weights-band";
@@ -182,6 +183,34 @@ export default function Landing() {
                 <b /><b /><b /><u />
               </div>
             </article>
+          </div>
+        </section>
+
+        <section className="lp-nodes" id="nodes" aria-label="haggs nodes">
+          <h2 data-kicker="haggs nodes">Chain a few steps. It becomes an app.</h2>
+          <p className="lp-nodes-lede">haggs has its own small set of steps you wire together, with no graph editor to learn. Any Comfy template can join the chain too. Whatever you build opens as a simple form, with the price on its button.</p>
+          <ol className="lp-node-row" aria-label="The haggs steps">
+            {STEPS.map((n) => (
+              <li key={n.kind}>
+                <b>{n.label}</b>
+                <span>{n.blurb}</span>
+                {"model" in n && n.model ? <i>{n.model}</i> : <i>you add it</i>}
+              </li>
+            ))}
+            <li className="lp-node-lib">
+              <b>Any Comfy workflow</b>
+              <span>Open a template from Comfy&rsquo;s library and use it as a step.</span>
+              <i>open weights or partner models</i>
+            </li>
+          </ol>
+          <div className="lp-node-points">
+            <div><b>Wire it</b><p>Pick the steps, in order. Each one only offers what fits what came before it.</p></div>
+            <div><b>It is already an app</b><p>The form asks only for what the person running it needs: a picture to drop in, a line to type. The price shows before the run.</p></div>
+            <div><b>Keep it, share it</b><p>Save it to Your apps, with its latest result as the cover. Send it as a file, or put it on the Community shelf, free or for up to 12&cent; a run.</p></div>
+          </div>
+          <div className="lp-cta">
+            <Link className="fire" href="/workflows/build">Build one →</Link>
+            <Link className="lp-ghost" href="/workflows">See the {QUICK_APPS.length} ready-made apps</Link>
           </div>
         </section>
 
