@@ -18,7 +18,7 @@ test('status checks ownership and configured deployment before calling provider'
 });
 
 test('status reconciles a previously uncertain job without resubmitting it',async()=>{
-  let row:JournalEntry={...entry,state:'dispatching',jobId:undefined,jobUrl:undefined};
+  let row:JournalEntry={submissionId:ref,userId:'owner',deployment:entry.deployment,outputNode:'5',state:'dispatching'};
   let finds=0, accepts=0;
   const pending:Journal={begin:async()=>false,read:async(user,id)=>user==='owner' && id===ref?row:null,accept:async(user,id,jobId,jobUrl)=>{
     assert.equal(user,'owner'); assert.equal(id,ref); accepts++;
