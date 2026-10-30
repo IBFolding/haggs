@@ -1,4 +1,4 @@
-/** Small, no-model guide graphs. These are previews, not H3/LTX generation. */
+/** Local guide and mask previews. SAM2 uses a model; none generate H3/LTX video. */
 export const HAGGS_PREVIEWS = [
   { name: 'haggs_preview_drag_to_action', title: 'Drag to Action · guide', pack: 'game-director', file: 'preview-no-model/01-drag-to-action.json', image: '01-drag-to-action-illustrative.webp', description: 'Render a pose guide from an editable action plan. This does not generate a character video.' },
   { name: 'haggs_preview_boss_fight', title: 'Boss Fight Choreographer · guide', pack: 'game-director', file: 'preview-no-model/02-boss-fight-choreographer.json', image: '02-boss-fight-choreographer-illustrative.webp', description: 'Render a two-actor pose guide from an editable action plan. This does not generate a finished fight.' },
@@ -9,5 +9,6 @@ export const HAGGS_PREVIEWS = [
   { name: 'haggs_preview_vfx_reuse', title: 'Directed VFX · combine takes', pack: 'world-motion-vfx', file: '08-vfx-reuse-existing-take.json', image: 'vfx-illustrative.webp', description: 'Combine an existing effect take with a source using timed masks. This does not generate a new effect.' },
   { name: 'haggs_preview_saved_motion', title: 'Motion to Movie · saved motion guide', pack: 'world-motion-vfx', file: '05-saved-motion-bridge-preview.json', image: 'motion-illustrative.webp', description: 'Render a pose guide from a saved HY-Motion NPZ file in your connected ComfyUI input folder. The supplied example is synthetic. This does not generate motion or H3 video.' },
   { name: 'haggs_preview_room_recording', title: 'Playable World · room recording', pack: 'world-motion-vfx', file: '09-load-room-recording-no-model.json', image: 'world-illustrative.webp', description: 'Open a proxy room recording you already made in the Playable World node on your connected ComfyUI. This is a geometry preview, not neural rendering.' },
+  { name: 'haggs_sam2_mask_preview', title: 'SAM2 · tracked mask preview', pack: 'contest-lab', file: '08-SAM2-tracked-mask-helper.json', image: '03-portal-paint-illustrative.webp', description: 'Track a subject in a video using a point on its first frame. Requires SAM2 custom nodes on your connected ComfyUI; the tiny model may download on first run. The video result previews the mask; applying tracked masks to an effect still requires ComfyUI.' },
 ] as const;
 export const haggsPreview = (name: string) => HAGGS_PREVIEWS.find(item => item.name === name);

@@ -27,7 +27,7 @@ import { contestVariant } from "../comfy/contest-lab";
 import { addContestMasks, isContestMaskField } from "../comfy/contest-masks";
 import { openContest, openContestForDisplay, savedContestName } from "../server/contest-workflows";
 import { haggsPreview } from "../comfy/haggs-preview";
-import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem } from "../server/haggs-preview-workflows";
+import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem, previewValues } from "../server/haggs-preview-workflows";
 import { ltxWorkflow } from "../comfy/ltx";
 import { openLtx } from "../server/ltx-workflows";
 import { STEPS } from "../comfy/recipe";
@@ -221,7 +221,8 @@ export async function quoteWorkflow(source: Source, values: Values): Promise<Quo
     if (source.destination !== "cloud" && localIn(await cookies()) && !partnerNodes(prompt,opened.catalog).length) return {label:"Your GPU · no provider charge",min:0,max:0,perSecond:false};
     const media = Object.fromEntries(Object.entries(values).filter(([k]) => opened.app.fields.some((f) => f.kind === "media" && `${f.node}/${f.input}` === k)));
     const words = Object.fromEntries(Object.entries(values).filter(([k]) => !(k in media)));
-    const p = await priceOf(fill(prompt, opened.app, words), opened.catalog);
+    const previewName = 'template' in source ? source.template : savedHaggsPreviewName(source.file);
+    const p = await priceOf(fill(prompt, opened.app, previewValues(previewName, words)), opened.catalog);
     return { label: p.label, min: p.min, max: p.max, perSecond: p.perSecond };
   } catch {
     return { label: "priced by Comfy at run", min: 0, max: 0, perSecond: false };
@@ -248,10 +249,10 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
     const catalog = await response.json() as Catalog;
     report.connection = "Connected · catalog checked now";
     const prepared = prepare(opened.ui,catalog);
-    prompt = fill(prepared.prompt,opened.app,values);
     const previewName = 'template' in source ? source.template : savedHaggsPreviewName(source.file);
     const inputProblem = previewInputProblem(previewName, values);
     if (inputProblem) report.issues.push(inputProblem);
+    prompt = fill(prepared.prompt,opened.app,previewValues(previewName,values));
     report.issues.push(...prepared.swaps.map(s => `Model substitution requires an explicit workflow edit: ${s}. No generation started.`), ...prepared.problems, ...validate(prompt,catalog), ...modelRequirements(prompt,catalog));
     const refusal = workflowRefusal(openOnlyIn(await cookies()),partnerNodes(prompt,catalog));
     if (refusal) report.issues.push(refusal);
@@ -261,8 +262,10 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
       if (!stats.ok) throw new Error("GPU status unavailable. Check ComfyUI /system_stats before generating.");
       const data = await stats.json() as {devices?:{name?:string;type?:string;vram_free?:number}[]};
       const devices = data.devices?.filter(d => d.type && d.type !== "cpu") ?? [];
-      if (!devices.length) {
-        const localPreview = ("template" in source && (haggsPreview(source.template) || contestVariant(source.template)?.kind === "reuse")) || ("file" in source && (isSavedHaggsPreview(source.file) || contestVariant(savedContestName(source.file) ?? "")?.kind === "reuse"));
+      const sam2Cpu = previewName === 'haggs_sam2_mask_preview' && prompt['3']?.inputs.device === 'cpu';
+      if (previewName === 'haggs_sam2_mask_preview') report.notes.push(sam2Cpu ? "SAM2 runs on your CPU and may be slow; the model may download on first use." : "SAM2 uses a model that may download on first use.");
+      if (!devices.length && !sam2Cpu) {
+        const localPreview = previewName !== 'haggs_sam2_mask_preview' && (("template" in source && (haggsPreview(source.template) || contestVariant(source.template)?.kind === "reuse")) || ("file" in source && (isSavedHaggsPreview(source.file) || contestVariant(savedContestName(source.file) ?? "")?.kind === "reuse")));
         if (localPreview) report.notes.push("CPU compositing · no model generation. This can take longer than a GPU.");
         else report.issues.push("No GPU reported by ComfyUI. Start ComfyUI with GPU support before generating.");
       }
@@ -333,7 +336,8 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
       uploaded[k] = await cloud.uploadBytes(bytes, mime);
     }
     const basicApp = { ...opened.app, fields: opened.app.fields.filter(f => !(f.kind === "media" && f.optional && isContestMaskField(f.node))) };
-    const base = leaveOut(fill(prompt, basicApp, { ...values, ...uploaded }), basicApp, skipped.filter(k => basicApp.fields.some(f => `${f.node}/${f.input}` === k)));
+    const previewName = 'template' in source ? source.template : savedHaggsPreviewName(source.file);
+    const base = leaveOut(fill(prompt, basicApp, previewValues(previewName, { ...values, ...uploaded })), basicApp, skipped.filter(k => basicApp.fields.some(f => `${f.node}/${f.input}` === k)));
     const ready = optionalMasks.length ? addContestMasks(base, uploaded) : base;
     const missing = validate(ready, catalog);
     if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
