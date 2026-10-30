@@ -18,3 +18,10 @@ def test_boss_and_moveset_outputs():
  assert boss.returncode==atlas.returncode==0
  assert Image.open(io.BytesIO(boss.stdout)).size==(256,160)
  assert Image.open(io.BytesIO(atlas.stdout)).size==(256,192)
+def test_reskin_edge_guide_uses_uploaded_frame():
+ import base64,io
+ from PIL import Image,ImageDraw
+ image=Image.new('RGB',(64,64),'black');ImageDraw.Draw(image).rectangle((16,16,48,48),fill='white')
+ data=io.BytesIO();image.save(data,format='PNG')
+ result=preview({'mode':'reskin','image':base64.b64encode(data.getvalue()).decode()})
+ assert result.returncode==0 and Image.open(io.BytesIO(result.stdout)).getbbox() is not None

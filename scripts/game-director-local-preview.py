@@ -1,5 +1,5 @@
 """Local-only deterministic pose preview; no model or provider calls."""
-import importlib.util, io, json, sys
+import base64, importlib.util, io, json, sys
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -18,6 +18,15 @@ if mode in ('pose','boss','moveset'):
  if mode=='boss': actors.append({'path':[[0,.75,.55],[1,.4,.55]],'events':[{'start':0,'end':1,'action':'dodge'}]})
  plan={'actors':actors}
  frames,_=core.render_poses(json.dumps(plan),256,160,12)
+elif mode=='reskin':
+ raw=base64.b64decode(request['image'],validate=True)
+ if len(raw)>500000: raise ValueError('image too large')
+ Image.MAX_IMAGE_PIXELS=2000000
+ with Image.open(io.BytesIO(raw)) as source:
+  source.verify()
+ with Image.open(io.BytesIO(raw)) as source:
+  frame=np.asarray(source.convert('RGB').resize((256,160)),dtype=np.float32)/255
+ frames=core.edge_guide(frame[None],threshold=.12)
 elif mode=='telegraph':
  shape=request['shape']
  if shape not in ('circle','cone','rectangle'): raise ValueError('unsupported shape')
@@ -25,5 +34,5 @@ elif mode=='telegraph':
  if not .05<=impact<=.45: raise ValueError('invalid timing')
  frames,_,_=core.telegraph(json.dumps({'telegraphs':[{'shape':shape,'start':0,'impact':impact,'end':.5}]}),256,160,12)
 else: raise ValueError('unsupported mode')
-image,_=core.atlas(frames,tile_size=64,columns=4) if mode=='moveset' else (Image.fromarray((np.clip(frames[6],0,1)*255).astype(np.uint8)),None)
+image,_=core.atlas(frames,tile_size=64,columns=4) if mode=='moveset' else (Image.fromarray((np.clip(frames[0 if mode=='reskin' else 6],0,1)*255).astype(np.uint8)),None)
 output=io.BytesIO();image.save(output,format='PNG');sys.stdout.buffer.write(output.getvalue())
