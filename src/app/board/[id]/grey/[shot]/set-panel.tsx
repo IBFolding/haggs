@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { addUploadedLayer } from "../../../../../story/grey-tray";
 import { track } from "../../../../../activity/activity";
 import { propCutoutPrompt, propPrompt, PROP_INPUT } from "../../../../../comfy/prop-cutout";
 import { editEstimate } from "../../../../../providers/cloud-edits";
@@ -87,7 +88,7 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
     if (r.kind !== "image") return setProblem("Add a picture.");
     const now = live.current;
     if (as === "backdrop") onChange({ ...now, backdrop: { url: r.url, name: file.name.replace(/\.[^.]+$/, ""), scale: await coverScale(r.url, vertical), x: 0.5, y: 0.5, blur: 0 } });
-    else { const next = addProp(now, { name: file.name.replace(/\.[^.]+$/, ""), url: r.url }); const id = sel?.id ?? next.props!.at(-1)!.id; onChange(updateProp(next, id, { role: task === "actors" ? "actor" : "object" })); onSelect(id); }
+    else { const result = addUploadedLayer(now, { name: file.name.replace(/\.[^.]+$/, ""), url: r.url }, task === "actors" ? "actor" : "object"); onChange(result.scene); onSelect(result.selected); }
   }
 
   /** A 3D model for the Blender set. Only on your own computer: the Blender export reads files from the local media folder. */
@@ -133,7 +134,7 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
         {([ ["surface", "Edit an area"], ["objects", "Furniture & props"], ["actors", "Actors"], ["background", "Background"], ["sets", "Saved looks"] ] as const).map(([id, label]) => <button key={id} className={`pill${task === id ? " on" : ""}`} aria-pressed={task === id} onClick={() => setTask(id)}>{label}</button>)}
         {onLights && <button className="pill" onClick={onLights}>Lights & atmosphere ↗</button>}
       </div>
-      <ReferenceBoard selected={selected} scene={scene} onChange={onChange} onEdit={id => { setTask(id ? "objects" : "surface"); onSelect(id ?? null); }} />
+      <ReferenceBoard selected={selected} scene={scene} onChange={onChange} onEdit={(id, kind) => { setTask(kind ?? "surface"); onSelect(id ?? null); }} />
       {task === "background" && <section className="gs-sec">
         <h3>Background reference</h3>
         <p className="gs-soft">Choose the place around your subject. Cut out the subject first to reveal this background.</p>

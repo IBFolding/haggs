@@ -1,9 +1,10 @@
 "use client";
 import { useRef, useState } from "react";
-import { addRoomReference, assignObjectReference, assignSurfaceReference, removeRoomReference, referenceUses, updateProp, type GreyScene, type RoomReference } from "../../../../../story/grey-scene";
+import { addRoomReference, removeRoomReference, referenceUses, type GreyScene, type RoomReference } from "../../../../../story/grey-scene";
+import { applyTrayReference } from "../../../../../story/grey-tray";
 import { uploadFile } from "../../../../upload-client";
 
-export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: GreyScene; selected?: string | null; onChange: (scene: GreyScene) => void; onEdit: (objectId?: string) => void }) {
+export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: GreyScene; selected?: string | null; onChange: (scene: GreyScene) => void; onEdit: (id?: string, kind?: "objects" | "surface") => void }) {
   const picker = useRef<HTMLInputElement>(null);
   const live = useRef(scene); live.current = scene;
   const [busy, setBusy] = useState(false);
@@ -39,12 +40,9 @@ export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: G
     finally { setBusy(false); }
   }
   function assign(ref: RoomReference) {
-    const target = activeTarget;
-    const actor = target === "actor:";
-    const object = target.startsWith("object:") || actor;
-    let next = object ? assignObjectReference(live.current, actor ? null : target.slice(7) || null, ref) : assignSurfaceReference(live.current, target, ref);
-    if (actor) next = updateProp(next, next.props!.at(-1)!.id, { role: "actor" });
-    live.current = next; onChange(next); onEdit(object ? (target.slice(7) || next.props!.at(-1)!.id) : undefined);
+    const result = applyTrayReference(live.current, activeTarget, ref);
+    setTarget(result.kind === "surface" ? result.selected : `object:${result.selected}`);
+    live.current = result.scene; onChange(result.scene); onEdit(result.selected, result.kind);
   }
   return <section className="gs-sec gs-moodboard" aria-label="Room reference board">
     <div className="gs-surf-head"><div><span className="gs-board-kicker">YOUR CREATIVE DIRECTION</span><h3>Mood board <span className="gs-board-count">{scene.references?.length ?? 0}</span></h3></div><button className="pill on" disabled={busy || (scene.references?.length ?? 0) >= 60} onClick={() => picker.current?.click()}>{busy ? "Adding…" : "+ Add photos"}</button></div>
