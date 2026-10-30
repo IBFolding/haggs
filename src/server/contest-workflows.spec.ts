@@ -22,7 +22,7 @@ for(const e of CONTEST_EFFECTS){
   assert.deepEqual(opened.problems,[]);
   assert.equal(opened.app.output,'10004');
   assert.equal(opened.app.produces,'video');
-  assert.equal(opened.app.fields.filter(f=>f.kind==='media').length,3);
+  assert.equal(opened.app.fields.filter(f=>f.kind==='media' && !f.optional).length,3);
   const {prompt}=toApiPrompt(opened.ui,catalog);
   const filled=fill(prompt,opened.app,{'10000/amount':0.4,'10000/bpm':90,'10000/beat_times_seconds':'0,0.5'});
   assert.equal(filled['10000']!.inputs.amount,0.4);
@@ -50,7 +50,7 @@ for(const e of CONTEST_EFFECTS){
   const ltx=openContest(contestName(e.slug,'ltx'),catalog);
   assert.ok(ltx.problems.length,'partial catalog must refuse missing LTX nodes');
   assert.ok(ltx.app.fields.some(f=>f.node==='251:252'&&f.kind==='text'));
-  assert.equal(ltx.app.fields.filter(f=>f.kind==='media').length,4);
+  assert.equal(ltx.app.fields.filter(f=>f.kind==='media' && !f.optional).length,4);
   const h3=read('../../public/workflows/contest-lab/'+e.h3);
   assert.equal(h3.nodes.find((n:{type:string})=>n.type==='HaggsH3PromptGate').widgets_values[0],false);
   assert.equal(contestVariant(`haggs_fx_h3_${e.slug}`),undefined,'paid variant is not registered as an app');
@@ -71,4 +71,13 @@ test('SAM2 helper is an optional download with intact links, not an executable f
  for(const l of ui.links){assert.ok(ids.has(l[1]));assert.ok(ids.has(l[3]));}
  assert.ok(ui.nodes.some((n:{type:string})=>n.type==='DownloadAndLoadSAM2Model'));
  assert.equal(contestVariant('08-SAM2-tracked-mask-helper'),undefined);
+});
+
+test('saved exact effects retain their optional controls; modified graphs do not inherit them', async () => {
+  const {savedContestName} = await import('./contest-workflows');
+  const name = contestName(CONTEST_EFFECTS[0]!.slug,'reuse');
+  const graph = contestTemplate(name)!;
+  assert.equal(savedContestName(JSON.stringify(graph)),name);
+  graph.nodes.push({id:99999,type:'KSampler'});
+  assert.equal(savedContestName(JSON.stringify(graph)),null);
 });
