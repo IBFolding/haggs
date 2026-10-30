@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
 import {test} from 'node:test';
 import {CONTEST_EFFECTS, contestName, contestVariant} from '../comfy/contest-lab';
-import {contestEntries,contestTemplate,openContest} from './contest-workflows';
+import {contestEntries,contestTemplate,openContest,openContestForDisplay} from './contest-workflows';
 import {fill} from '../comfy/apps';
 import {toApiPrompt,type Catalog} from '../comfy/convert';
 const read=(path:string)=>JSON.parse(readFileSync(new URL(path,import.meta.url),'utf8'));
@@ -15,6 +15,10 @@ const catalog:Catalog={...read('../comfy/fixtures/catalog.json'),...read('../com
 for(const e of CONTEST_EFFECTS){
  test(`${e.name}: reuse graph converts, fills effect controls and returns video`,()=>{
   const name=contestName(e.slug,'reuse'),opened=openContest(name,catalog);
+  const display = openContestForDisplay(name);
+  assert.equal(display.entry?.title, opened.entry?.title);
+  assert.deepEqual(display.app.fields, opened.app.fields);
+  assert.deepEqual(display.problems, []);
   assert.deepEqual(opened.problems,[]);
   assert.equal(opened.app.output,'10004');
   assert.equal(opened.app.produces,'video');
@@ -30,6 +34,10 @@ for(const e of CONTEST_EFFECTS){
   assert.ok(existsSync(new URL('../../public'+e.preview,import.meta.url)));
  });
  test(`${e.name}: LTX and paid H3 are distinct; all graph links and embedded subgraphs resolve`,()=>{
+  // Incomplete bundled display schemas must not block a real runtime preflight.
+  const display = openContestForDisplay(contestName(e.slug, 'ltx'));
+  assert.deepEqual(display.problems, []);
+  assert.ok(display.app.fields.some(f => f.label === 'Effect layer prompt'));
   for(const path of [e.ltx,e.reuse,e.h3]){
    const ui=read('../../public/workflows/contest-lab/'+path);
    const definitions=new Set((ui.definitions?.subgraphs??[]).map((s:{id:string})=>s.id));
