@@ -312,6 +312,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                 onGrey={(g) => updateShot((x) => ({ ...x, grey: g }))}
                 onApprove={() => updateShot((x) => ({ ...x, approved: true }))}
                 onTake={(url, usd) => updateShot((x) => addTake(x, { url, kind: "image", usd, promptHash: x.render?.promptHash ?? "", at: Date.now() }, "Grey room"))}
+                onShot={(url, usd) => updateShot((x) => addTake(x, { url, kind: "video", usd, promptHash: x.render?.promptHash ?? "", at: Date.now() }, "Grey room shot"))}
               />
               <div className="gs-nav">
                 <span />

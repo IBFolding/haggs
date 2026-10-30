@@ -9,7 +9,10 @@ import { CAM_SECONDS, PRESETS, camAt, dropKey, drawnKeys, presetKeys, setKey, wo
 import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, tidy, type GreyFrame } from "../../../../story/grey";
 import type { Shot } from "../../../../story/model";
 import { editEstimate } from "../../../../providers/cloud-edits";
+import { openKeys } from "../../../nav";
 import { runEdit } from "../../../actions";
+import { makeGreyShot } from "../../../grey-shot-actions";
+import { GREY_SHOT_USD } from "../../../../comfy/grey-shot";
 import { creditsText } from "../../../../story/price-text";
 
 /**
@@ -110,7 +113,7 @@ const PLAN = 8;
 const MONEY = (n: number) => creditsText(n);
 const LENS_NAME = (mm: number) => (mm <= 24 ? "wide" : mm >= 85 ? "telephoto" : "natural");
 
-export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: { shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number) => void }) {
+export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onShot }: { shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number) => void; /** The finished shot, as a video take. */ onShot?: (url: string, usd: number) => void }) {
   const saved = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
   const [t, setT] = useState(0);
   const [rec, setRec] = useState(false);
@@ -124,6 +127,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
   const plan = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<null | { kind: "cam" } | { kind: "sub"; id: string } | { kind: "draw" }>(null);
   const [busy, setBusy] = useState(false);
+  const [making, setMaking] = useState<"real" | "shot" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const locked = needsApproval(shot);
@@ -180,19 +184,25 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
   const toPlan = (x: number, z: number) => ({ x: 150 + (x / R) * 150 * 1, y: 150 - (z / R) * 150 });
   const camP = toPlan(Math.sin(a) * grey.cam.distance, -Math.cos(a) * grey.cam.distance);
 
+  /** The blockout as a picture to send: what the grey frame shows right now. */
+  async function blockoutFrame(): Promise<string> {
+    const el = svg.current!;
+    const xml = new XMLSerializer().serializeToString(el);
+    const img = new Image();
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("The blockout couldn't be drawn.")); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`; });
+    const canvas = document.createElement("canvas");
+    canvas.width = vertical ? 864 : 1536;
+    canvas.height = vertical ? 1536 : 864;
+    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.92);
+  }
+
   async function makeReal() {
     setBusy(true);
+    setMaking("real");
     setProblem(null);
     try {
-      const el = svg.current!;
-      const xml = new XMLSerializer().serializeToString(el);
-      const img = new Image();
-      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("The blockout couldn't be drawn.")); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`; });
-      const canvas = document.createElement("canvas");
-      canvas.width = vertical ? 864 : 1536;
-      canvas.height = vertical ? 1536 : 864;
-      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const frame = canvas.toDataURL("image/jpeg", 0.92);
+      const frame = await blockoutFrame();
       const r = await inHeader({ label: `Making a real picture from the grey room`, href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit(realPrompt(shot.beat, grey)) }, () => runEdit({ tool: "kontext", frame, prompt: realPrompt(shot.beat, grey), ratio: vertical ? "9:16" : "16:9" }));
       if (!r.ok) return setProblem(r.reason);
       onTake(r.url, r.usd);
@@ -200,6 +210,33 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
       setProblem(e instanceof Error ? e.message : "That didn't work.");
     } finally {
       setBusy(false);
+      setMaking(null);
+    }
+  }
+
+  /** The blockout, camera move and all, made into the finished shot: a real first frame, then a video that follows the grey one. */
+  async function makeShot() {
+    if (!onShot) return;
+    setBusy(true);
+    setMaking("shot");
+    setProblem(null);
+    const href = window.location.pathname + window.location.search;
+    try {
+      const frame = await blockoutFrame();
+      const first = await inHeader({ label: "Making the first frame", href, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit(realPrompt(shot.beat, grey)) }, () => runEdit({ tool: "kontext", frame, prompt: realPrompt(shot.beat, grey), ratio: vertical ? "9:16" : "16:9" }));
+      if (!first.ok) return setProblem(first.reason);
+      onTake(first.url, first.usd);
+      const made = await inHeader({ label: "Making the shot from the blockout", href, failure: (x) => (x.ok ? null : x.reason) }, () => makeGreyShot({ grey: saved, frame: first.url, beat: shot.beat, vertical }));
+      if (!made.ok) {
+        if (made.needsKey) openKeys();
+        return setProblem(`${made.reason} The first frame is kept as a take.`);
+      }
+      onShot(made.url, first.usd + made.usd);
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : "That didn't work.");
+    } finally {
+      setBusy(false);
+      setMaking(null);
     }
   }
 
@@ -276,8 +313,14 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake }: {
         </div>
       ) : (
         <div className="gr-make">
-          <button className="fire" disabled={busy || grey.subjects.length === 0} onClick={() => void makeReal()}>{busy ? "Making it real…" : "Make it real"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }))}</span></button>
+          <button className="fire" disabled={busy || grey.subjects.length === 0} onClick={() => void makeReal()}>{making === "real" ? "Making it real…" : "Make it real"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }))}</span></button>
           <small>Keeps this framing, this camera and where everyone stands. Lands as a new take.</small>
+          {onShot && (
+            <>
+              <button className="pill on" disabled={busy || grey.subjects.length === 0} onClick={() => void makeShot()}>{making === "shot" ? "Making the shot… about two minutes" : "Make the shot"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }) + GREY_SHOT_USD)}</span></button>
+              <small>{saved.camKeys?.length ? "Makes the first frame, then a video that follows your camera move and where everyone stands." : "Makes the first frame, then a short video from this camera. Draw a camera path above and the video follows it."} Open weights, so no partner credits; the GPU time is billed by Comfy. Lands as a video take.</small>
+            </>
+          )}
         </div>
       )}
       {problem && <p className="library-error" role="alert">{problem}</p>}
