@@ -28,6 +28,15 @@ export function previewTemplate(name: string): UiWorkflow | null {
   }
   return ui;
 }
+/** Only exact bundled graphs inherit CPU preview eligibility when saved as an app. */
+export function savedHaggsPreviewName(file: string): string | null {
+  if (file.length > 5_000_000) return null;
+  try {
+    const candidate = JSON.stringify(JSON.parse(file));
+    return HAGGS_PREVIEWS.find(item => candidate === JSON.stringify(previewTemplate(item.name)))?.name ?? null;
+  } catch { return null; }
+}
+export const isSavedHaggsPreview = (file: string) => savedHaggsPreviewName(file) !== null;
 export function previewEntries(): Entry[] {
   return HAGGS_PREVIEWS.map(e => ({ name:e.name, title:e.title, description:e.description, category:'Video Tools', kind:'video', tags:['Haggs', 'Preview', 'Local'], models:['No model'], thumb:`/workflows/${e.pack}/${e.image}`, usage:0, inputs:[], runnable:null, open:true }));
 }

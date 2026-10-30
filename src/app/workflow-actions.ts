@@ -26,7 +26,7 @@ import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "
 import { contestVariant } from "../comfy/contest-lab";
 import { openContest, openContestForDisplay } from "../server/contest-workflows";
 import { haggsPreview } from "../comfy/haggs-preview";
-import { openHaggsPreview, openHaggsPreviewForDisplay } from "../server/haggs-preview-workflows";
+import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay } from "../server/haggs-preview-workflows";
 import { ltxWorkflow } from "../comfy/ltx";
 import { openLtx } from "../server/ltx-workflows";
 import { STEPS } from "../comfy/recipe";
@@ -85,6 +85,11 @@ async function open(key: string | undefined, source: Source): Promise<Opened> {
     if (!response.ok) throw new Error("Your local ComfyUI node catalog could not be loaded.");
     catalog = await response.json() as Catalog;
   } else { if (!key) throw new Error("Connect your local ComfyUI or add a Comfy key first."); catalog = await catalogOf(root(), key); }
+  const savedPreview = savedHaggsPreviewName(source.file);
+  if (savedPreview) {
+    if (!address) throw new Error("This Haggs preview requires a connected local ComfyUI with the matching custom nodes installed.");
+    return openHaggsPreview(savedPreview, catalog);
+  }
   // An API-format file is already a prompt: wrap each node so the editor-format path can read it unchanged.
   const ui = (raw as { nodes?: unknown }).nodes ? (raw as UiWorkflow) : apiToUi(raw as Record<string, { class_type: string; inputs: Record<string, unknown> }>);
   const { prompt, problems } = prepare(ui, catalog);
@@ -248,7 +253,7 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
       const data = await stats.json() as {devices?:{name?:string;type?:string;vram_free?:number}[]};
       const devices = data.devices?.filter(d => d.type && d.type !== "cpu") ?? [];
       if (!devices.length) {
-        if ("template" in source && haggsPreview(source.template)) report.notes.push("CPU preview · no model generation. This can take longer than a GPU.");
+        if (("template" in source && haggsPreview(source.template)) || ("file" in source && isSavedHaggsPreview(source.file))) report.notes.push("CPU preview · no model generation. This can take longer than a GPU.");
         else report.issues.push("No GPU reported by ComfyUI. Start ComfyUI with GPU support before generating.");
       }
       report.notes.push(...devices.map(d => `${d.name ?? d.type}: ${typeof d.vram_free === "number" ? (d.vram_free/2**30).toFixed(1)+" GiB free" : "free memory unknown"}`));
