@@ -46,3 +46,5 @@ The `scripts/local-room` SQLite backend is solely a disposable local integration
 - A user-owned compatible Comfy deployment and an explicitly bounded test budget are needed to verify deployment capabilities, user billing, actual jobs, all output types and recovery. Keep customer execution disabled until these checks pass.
 
 `prepareOwnedGameAction` maps the bundled Drag to Action and Boss Fight no-model graph nodes and checks basic input bounds and actor count. It is not connected to submission or artifact recovery; timeline details and actual runtime compatibility still require validation. It returns an explicit unverified status and does not enable execution.
+
+The two Action Guide mappings now have a draft service connection to the existing journaled submit/recover interface, tested with in-memory fake dependencies. It is not mounted in a browser route, has no polling implementation of its own, and the test output is a string, not a media artifact. Mode identity is not yet bound in the journal, so this service must not be enabled until that is addressed along with full timeline validation and real storage.
