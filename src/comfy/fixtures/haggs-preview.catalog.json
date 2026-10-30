@@ -1121,5 +1121,151 @@
     ],
     "essentials_category": "Basics",
     "has_intermediate_output": false
+  },
+  "HaggsLoadMotionNPZ": {
+    "input": {
+      "required": {
+        "file": [
+          "STRING",
+          {
+            "default": "haggs-studio-synthetic-motion.npz"
+          }
+        ],
+        "duration": [
+          "FLOAT",
+          {
+            "default": 5.0,
+            "min": 0.5,
+            "max": 12.0
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "file",
+        "duration"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "HYMOTION_DATA"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "HYMOTION_DATA"
+    ],
+    "name": "HaggsLoadMotionNPZ",
+    "display_name": "Haggs \u00b7 Load Saved Motion",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsStudio",
+    "category": "Haggs/World Motion VFX",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "HaggsMotionToMovie": {
+    "input": {
+      "required": {
+        "motion_data": [
+          "HYMOTION_DATA"
+        ],
+        "scene": [
+          "STRING",
+          {
+            "default": "A full-body knight performs the supplied motion, same identity and outfit, stable camera, no cuts.",
+            "multiline": true
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 512,
+            "min": 128,
+            "max": 1280,
+            "step": 32
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 320,
+            "min": 128,
+            "max": 768,
+            "step": 32
+          }
+        ],
+        "yaw_degrees": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": -180.0,
+            "max": 180.0
+          }
+        ],
+        "speed": [
+          "FLOAT",
+          {
+            "default": 1.0,
+            "min": 0.25,
+            "max": 4.0
+          }
+        ],
+        "sample_index": [
+          "INT",
+          {
+            "default": 0,
+            "min": 0,
+            "max": 3
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "motion_data",
+        "scene",
+        "width",
+        "height",
+        "yaw_degrees",
+        "speed",
+        "sample_index"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE",
+      "STRING",
+      "STRING",
+      "INT",
+      "INT",
+      "INT"
+    ],
+    "output_is_list": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_name": [
+      "pose_guides",
+      "prompt",
+      "export_directory",
+      "length",
+      "width",
+      "height"
+    ],
+    "name": "HaggsMotionToMovie",
+    "display_name": "Haggs \u00b7 Motion-to-Movie Bridge",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsStudio",
+    "category": "Haggs/World Motion VFX",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
   }
 }

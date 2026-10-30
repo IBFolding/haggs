@@ -207,10 +207,11 @@ export function Workflows() {
               <h2>World, motion and directed VFX</h2>
               <p>Ten experimental ComfyUI downloads in three toolsets. Install the supplied HaggsStudio nodes and configure the required models or services. Live ComfyUI and GPU generation remain unverified.</p>
               <div className="wf-grid">
-                {studio.map(w => <HaggsCard key={w.slug} title={w.title} image={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} label={w.slug === 'vfx' ? 'Mask preview · local ComfyUI' : 'Toolset · ComfyUI'} {...(w.slug === 'vfx' ? {href:'/workflows/haggs_preview_vfx_mask'} : {})}>
+                {studio.map(w => <HaggsCard key={w.slug} title={w.title} image={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} label={w.slug === 'vfx' ? 'Mask preview · local ComfyUI' : w.slug === 'motion' ? 'Motion guide · local ComfyUI' : 'Toolset · ComfyUI'} {...(w.slug === 'vfx' ? {href:'/workflows/haggs_preview_vfx_mask'} : w.slug === 'motion' ? {href:'/workflows/haggs_preview_saved_motion'} : {})}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
                   <p>{w.scope}</p><p>{w.limits}</p>
                   {w.slug === 'vfx' && <p><Link href="/workflows/haggs_preview_vfx_mask">Open mask preview app</Link> · <Link href="/workflows/haggs_preview_vfx_reuse">Open combine-takes app</Link></p>}
+                  {w.slug === 'motion' && <p><Link href="/workflows/haggs_preview_saved_motion">Open saved-motion guide app</Link></p>}
                   <details><summary>Workflow downloads and supplied preview</summary>
                     <p>Deterministic proxy or synthetic fixture; not a neural generation result.</p>
                     <video src={`/workflows/world-motion-vfx/previews/${w.preview}`} controls preload="none" style={{width:'100%'}} />
