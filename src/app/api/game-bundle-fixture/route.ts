@@ -1,5 +1,5 @@
 import {DatabaseSync} from 'node:sqlite';import {createHash} from 'node:crypto';import {mkdir,readFile,writeFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';
-import {createComfyManaged} from '../../../providers/comfy-managed';import {submitJournaled,type Journal,type JournalEntry} from '../../../server/managed-job-journal';import {saveManagedArtifact,type Artifact,type ArtifactJournal,type ArtifactRole} from '../../../server/managed-artifact-save';import {ownedGameBundleExecution} from '../../../server/owned-game-bundle-execution';import {bindActionJournal,type ActionJournalStore,type ActionMode} from '../../../server/owned-game-action-journal';import type {Journal as InputJournal} from '../../../server/owned-input-upload';
+import {createComfyManaged} from '../../../providers/comfy-managed';import {submitJournaled,type Journal,type JournalEntry} from '../../../server/managed-job-journal';import {saveManagedArtifact,type Artifact,type ArtifactJournal,type ArtifactRole} from '../../../server/managed-artifact-save';import {ownedStudioVfxExecution} from '../../../server/owned-studio-vfx-execution';import {ownedGameBundleExecution} from '../../../server/owned-game-bundle-execution';import {bindActionJournal,type ActionJournalStore,type ActionMode} from '../../../server/owned-game-action-journal';import type {Journal as InputJournal} from '../../../server/owned-input-upload';
 const enabled=()=>process.env.NODE_ENV!=='production'&&process.env.HAGGS_GAME_FIXTURE==='1';
 const owner='11111111-1111-4111-8111-111111111111',deployment='https://fixture.run.comfy.app',dir=join(tmpdir(),'haggs-game-bundle-fixture');
 const valid=(x:unknown):x is string=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
@@ -18,10 +18,19 @@ async function factory(ref:string){
 }
 export async function POST(request:Request){
  if(!enabled())return json({error:'Unavailable'},404);let body:{ref?:unknown;action?:unknown;kind?:unknown};try{body=await request.json();}catch{return json({error:'Invalid'},400);}
- if(!valid(body.ref)||!['start','status','recover'].includes(String(body.action))||!['moveset','telegraph','reskin','branches'].includes(String(body.kind)))return json({error:'Invalid'},400);
- const ref=body.ref,kind=body.kind as 'moveset'|'telegraph'|'reskin'|'branches',ctx=await factory(ref);
+ if(!valid(body.ref)||!['start','status','recover'].includes(String(body.action))||!['moveset','telegraph','reskin','branches','vfx-mask','vfx-reuse'].includes(String(body.kind)))return json({error:'Invalid'},400);
+ const ref=body.ref,kind=body.kind as 'moveset'|'telegraph'|'reskin'|'branches'|'vfx-mask'|'vfx-reuse',ctx=await factory(ref);
  try{
-  const connection=async(u:string)=>({ownerId:u,origin:deployment});const base={width:512,height:320,frames:124};const input=kind==='moveset'?{mode:'moveset' as const,...base,scene:'Synthetic guide',timeline:{actors:[{}]},tileSize:128,columns:8}:kind==='telegraph'?{mode:'telegraph' as const,...base,style:'Synthetic guide',timeline:{telegraphs:[{shape:'circle',start:0,impact:1,end:2}]},tileSize:128,columns:8}:kind==='reskin'?{mode:'reskin' as const,...base,style:'Synthetic guide',threshold:.12}:{mode:'branches' as const,labels:['Walk','Dodge','Attack']};
+  const connection=async(u:string)=>({ownerId:u,origin:deployment});
+  if(kind==='vfx-mask'||kind==='vfx-reuse'){
+   const input={mode:kind==='vfx-mask'?'mask-preview' as const:'reuse-take' as const,timeline:{effects:[{type:'burst',start:0,end:1}]},maxSide:512,seconds:5,feather:6,effectIndex:0};
+   const deps={connection,jobs:ctx.jobs,inputs:ctx.inputs,submit:async(_origin:string,prompt:Parameters<typeof ctx.provider.submit>[0],id:string)=>ctx.provider.submit(prompt,id),find:async()=>null,index:ctx.provider.artifactIndex,artifacts:ctx.provider.artifacts,save:ctx.save};
+   if(body.action==='start'){await ownedStudioVfxExecution(owner,ref,kind,'start',input,deps);return json({status:'submitted'});}
+   const entry=await bindActionJournal(ctx.jobs,kind).read(owner,ref);if(!entry||entry.deployment!==deployment||!entry.jobId||!entry.jobUrl)return json({error:'Fixture job not found'},404);
+   if(body.action==='status')return json(await ctx.provider.status({id:entry.jobId,urls:{self:entry.jobUrl}},entry.outputNode));
+   return json(await ownedStudioVfxExecution(owner,ref,kind,'recover',null,deps));
+  }
+const base={width:512,height:320,frames:124};const input=kind==='moveset'?{mode:'moveset' as const,...base,scene:'Synthetic guide',timeline:{actors:[{}]},tileSize:128,columns:8}:kind==='telegraph'?{mode:'telegraph' as const,...base,style:'Synthetic guide',timeline:{telegraphs:[{shape:'circle',start:0,impact:1,end:2}]},tileSize:128,columns:8}:kind==='reskin'?{mode:'reskin' as const,...base,style:'Synthetic guide',threshold:.12}:{mode:'branches' as const,labels:['Walk','Dodge','Attack']};
   const deps={connection,jobs:ctx.jobs,inputs:ctx.inputs,submit:async(_origin:string,prompt:Parameters<typeof ctx.provider.submit>[0],id:string)=>ctx.provider.submit(prompt,id),provider:ctx.provider,save:ctx.save};
   if(body.action==='start'){await ownedGameBundleExecution(owner,ref,kind,'start',input,deps);return json({status:'submitted'});}
   const journal=bindActionJournal(ctx.jobs,kind),entry=await journal.read(owner,ref);if(!entry||entry.deployment!==deployment||!entry.jobId||!entry.jobUrl)return json({error:'Fixture job not found'},404);

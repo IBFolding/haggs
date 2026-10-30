@@ -2,7 +2,7 @@
 create table public.managed_artifacts (
  submission_id uuid not null references public.managed_job_journal(submission_id) on delete cascade,
  user_id uuid not null references auth.users(id) on delete cascade,
- role text not null check(role in ('video','atlas','manifest','branch0','branch1','branch2','branches')),
+ role text not null check(role in ('video','atlas','manifest','branch0','branch1','branch2','branches','vfx-mask','vfx-source')),
  reservation_id uuid not null unique,
  pathname text not null unique,
  extension text not null check(extension in ('mp4','png','json')),
@@ -23,7 +23,7 @@ declare item managed_artifacts; expected text; permitted boolean;
 begin
  if secret is null or secret is distinct from (select value from app_secrets where key='webhook') then raise exception 'not allowed'; end if;
  if target is null or submission is null or reservation is null or p_role is null or extension is null or amount is null or amount<=0 or amount>200000000 or digest is null or digest !~ '^[0-9a-f]{64}$' then raise exception 'invalid artifact'; end if;
- if not ((p_role in ('video','branch0','branch1','branch2') and extension='mp4') or (p_role='atlas' and extension='png') or (p_role in ('manifest','branches') and extension='json')) then raise exception 'invalid role'; end if;
+ if not ((p_role in ('video','branch0','branch1','branch2','vfx-mask','vfx-source') and extension='mp4') or (p_role='atlas' and extension='png') or (p_role in ('manifest','branches') and extension='json')) then raise exception 'invalid role'; end if;
  perform pg_advisory_xact_lock(hashtext('managed-artifact:'||submission::text||':'||p_role));
  if not exists(select 1 from managed_job_journal where submission_id=submission and user_id=target and state='accepted') then raise exception 'job unavailable'; end if;
  select * into item from managed_artifacts where submission_id=submission and role=p_role;
