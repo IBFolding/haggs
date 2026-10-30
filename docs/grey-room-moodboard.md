@@ -29,3 +29,8 @@ Generation prompt constraints: photorealistic architectural material library qua
 - Lighting links to the existing lights, grading and atmosphere controls.
 
 Follow-up verification: 990 tests passed; TypeScript passed; the real FFmpeg check in scripts/check-grey-area-render.ts confirms replacement pixels inside the selection and unchanged pixels outside it. Browser checks exercised polygon creation and local upload, replacement assignment, couch prompt starter, actor entry and lighting navigation. No paid generation was submitted.
+
+## Visual tray
+The editor Grey Room and local preview use the same SetPanel, ReferenceBoard and Compositor. Reference thumbnails apply with one click after choosing a target once. Saved furniture and actor cards drag onto the canvas; dropping on a prop swaps its image while preserving placement and animation. Selected objects have duplicate/hide/remove actions on the canvas, and manually outlined surfaces expose a swap target there. Existing cut-out, light, animation and export stages retain the same scene model.
+
+Verification: 992 tests pass and TypeScript passes. Browser verified click-to-add, click-to-swap, duplication, drag-to-place at the drop position and drag-to-swap without movement. Touch/keyboard users can click thumbnails and use the existing position controls. This change does not add AI reconstruction.

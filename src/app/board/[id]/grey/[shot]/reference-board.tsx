@@ -3,12 +3,13 @@ import { useRef, useState } from "react";
 import { addRoomReference, assignObjectReference, assignSurfaceReference, removeRoomReference, referenceUses, updateProp, type GreyScene, type RoomReference } from "../../../../../story/grey-scene";
 import { uploadFile } from "../../../../upload-client";
 
-export function ReferenceBoard({ scene, onChange, onEdit }: { scene: GreyScene; onChange: (scene: GreyScene) => void; onEdit: (objectId?: string) => void }) {
+export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: GreyScene; selected?: string | null; onChange: (scene: GreyScene) => void; onEdit: (objectId?: string) => void }) {
   const picker = useRef<HTMLInputElement>(null);
   const live = useRef(scene); live.current = scene;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [targets, setTargets] = useState<Record<string, string>>({});
+  const [target, setTarget] = useState("Floor");
+  const activeTarget = scene.props?.some(p => p.id === selected) ? `object:${selected}` : scene.surfaces?.some(s => s.id === selected) ? selected! : scene.surfaces?.find(s => s.label === target)?.id ?? target;
   async function upload(files: FileList | null) {
     if (!files) return;
     setBusy(true); setError(null);
@@ -38,7 +39,7 @@ export function ReferenceBoard({ scene, onChange, onEdit }: { scene: GreyScene; 
     finally { setBusy(false); }
   }
   function assign(ref: RoomReference) {
-    const target = targets[ref.id] ?? "Floor";
+    const target = activeTarget;
     const actor = target === "actor:";
     const object = target.startsWith("object:") || actor;
     let next = object ? assignObjectReference(live.current, actor ? null : target.slice(7) || null, ref) : assignSurfaceReference(live.current, target, ref);
@@ -47,7 +48,7 @@ export function ReferenceBoard({ scene, onChange, onEdit }: { scene: GreyScene; 
   }
   return <section className="gs-sec gs-moodboard" aria-label="Room reference board">
     <div className="gs-surf-head"><div><span className="gs-board-kicker">YOUR CREATIVE DIRECTION</span><h3>Mood board <span className="gs-board-count">{scene.references?.length ?? 0}</span></h3></div><button className="pill on" disabled={busy || (scene.references?.length ?? 0) >= 60} onClick={() => picker.current?.click()}>{busy ? "Adding…" : "+ Add photos"}</button></div>
-    <p className="gs-soft">Your references. One room. Choose where each idea belongs.</p>
+    <p className="gs-soft">Pick a target once, then click thumbnails to audition looks. Drag a card onto the scene to place it, or onto an object to swap it.</p>
     <input ref={picker} type="file" multiple accept="image/*" hidden onChange={e => { void upload(e.target.files); e.target.value = ""; }} />
     {!scene.references?.length && <div className="gs-board-welcome">
       <img src="/grey-room/room-inspiration.webp" alt="Warm contemporary room with natural materials" />
@@ -55,20 +56,17 @@ export function ReferenceBoard({ scene, onChange, onEdit }: { scene: GreyScene; 
       <div><strong>Start with a feeling.</strong><p>Add a material close-up or a cut-out object. Then assign it to your room.</p><button className="pill on" disabled={busy} onClick={() => picker.current?.click()}>Add your first reference</button></div>
     </div>}
     {!scene.references?.length && <div className="gs-starter-materials"><span>Or try a sample material</span><div>{[{ name: "Smoked oak", url: "/grey-room/smoked-oak.webp" }, { name: "Ivory travertine", url: "/grey-room/travertine.webp" }].map(ref => <button key={ref.url} disabled={busy} onClick={() => void addSample(ref)}><img src={ref.url} alt="" /><span>{ref.name}</span><b aria-hidden="true">+</b></button>)}</div></div>}
-    <div className="gs-board-steps" aria-label="Mood board steps"><span><b>1</b> Collect</span><span><b>2</b> Assign</span><span><b>3</b> Review</span></div>
+    <div className="gs-tray-targets" aria-label="Reference target">
+      <span>Apply to</span>
+      {[...(scene.surfaces ?? []).map(s => ({id:s.id,name:s.label})), ...[{id:"Floor",name:"Floor"},{id:"Wall",name:"Wall"},{id:"Door",name:"Door"},{id:"Window",name:"Window"}].filter(t => !scene.surfaces?.some(s => s.label === t.name)), {id:"object:",name:"New object"},{id:"actor:",name:"New actor"}].map(t => <button className={`pill${activeTarget === t.id ? " on" : ""}`} key={t.id} aria-pressed={activeTarget === t.id} onClick={() => { setTarget(t.id); onEdit(); }}>{t.name}</button>)}
+      {selected && scene.props?.some(p => p.id === selected) && <strong>Swap {scene.props.find(p => p.id === selected)?.name}</strong>}
+    </div>
     <div className="gs-reference-cards">{scene.references?.map(ref => {
       const uses = referenceUses(scene, ref.url);
       return <article className={`gs-reference-card${uses.length ? " assigned" : ""}`} key={ref.id}>
-        <div className="gs-reference-image"><img src={ref.url} alt={ref.name} /><button className="gs-card-remove" title="Remove card (keeps assigned edits)" aria-label={`Remove ${ref.name} from board`} onClick={() => { const next = removeRoomReference(live.current, ref.id); live.current = next; onChange(next); }}>×</button></div><strong>{ref.name}</strong>
-        <span className="gs-reference-use">{uses.length ? `Used on: ${uses.join(", ")}` : "Ready to assign"}</span>
-        <label>Use on<select aria-label={`Use ${ref.name} on`} value={targets[ref.id] ?? "Floor"} onChange={e => setTargets({ ...targets, [ref.id]: e.target.value })}>
-          {(scene.surfaces ?? []).map(s => <option key={s.id} value={s.id}>{s.label} · swap material</option>)}
-          {(scene.props ?? []).map(p => <option key={p.id} value={`object:${p.id}`}>{p.name} · swap object image</option>)}
-          <option value="object:">New furniture / object layer</option><option value="actor:">New actor layer</option>
-          <option value="Floor">Floor</option><option value="Wall">Wall</option><option value="Door">Door</option><option value="Window">Window</option><option value="Sofa">Sofa upholstery</option><option value="Table">Table surface</option><option value="Other surface">Another surface</option>
-        </select></label>
-        <button className="pill" onClick={() => assign(ref)}>Apply reference <span aria-hidden="true">↗</span></button>
-        {(["object:", "actor:"].some(prefix => (targets[ref.id] ?? "").startsWith(prefix))) && <small>Use a transparent cut-out. A full photo appears as a rectangular layer.</small>}
+        <button className="gs-reference-pick" draggable onDragStart={e => { e.dataTransfer.setData("application/x-haggs-asset", JSON.stringify({url:ref.url,name:ref.name,role:activeTarget === "actor:" ? "actor" : "object"})); e.dataTransfer.effectAllowed="copy"; }} onClick={() => assign(ref)} aria-label={`Use ${ref.name}`}><img src={ref.url} alt="" draggable={false} /><strong>{ref.name}</strong></button>
+        <span className="gs-reference-use">{uses.length ? `Used on: ${uses.join(", ")}` : "Click to try · drag to place"}</span>
+        <button className="gs-card-remove" title="Remove card (keeps assigned edits)" aria-label={`Remove ${ref.name} from board`} onClick={() => { const next = removeRoomReference(live.current, ref.id); live.current = next; onChange(next); }}>×</button>
       </article>;
     })}</div>
     {error && <p role="alert" className="library-error">{error}</p>}
