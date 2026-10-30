@@ -27,7 +27,7 @@ import { contestVariant } from "../comfy/contest-lab";
 import { addContestMasks, isContestMaskField } from "../comfy/contest-masks";
 import { openContest, openContestForDisplay, savedContestName } from "../server/contest-workflows";
 import { haggsPreview } from "../comfy/haggs-preview";
-import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay } from "../server/haggs-preview-workflows";
+import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem } from "../server/haggs-preview-workflows";
 import { ltxWorkflow } from "../comfy/ltx";
 import { openLtx } from "../server/ltx-workflows";
 import { STEPS } from "../comfy/recipe";
@@ -249,6 +249,9 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
     report.connection = "Connected · catalog checked now";
     const prepared = prepare(opened.ui,catalog);
     prompt = fill(prepared.prompt,opened.app,values);
+    const previewName = 'template' in source ? source.template : savedHaggsPreviewName(source.file);
+    const inputProblem = previewInputProblem(previewName, values);
+    if (inputProblem) report.issues.push(inputProblem);
     report.issues.push(...prepared.swaps.map(s => `Model substitution requires an explicit workflow edit: ${s}. No generation started.`), ...prepared.problems, ...validate(prompt,catalog), ...modelRequirements(prompt,catalog));
     const refusal = workflowRefusal(openOnlyIn(await cookies()),partnerNodes(prompt,catalog));
     if (refusal) report.issues.push(refusal);
