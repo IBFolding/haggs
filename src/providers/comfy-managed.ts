@@ -133,6 +133,14 @@ export function createComfyManaged(settings: Settings) {
     }
     throw new Error(`Comfy job ${job.id} is still running or queued; check it before retrying.`);
   }
+  /** Inspect names and types only; never expose provider or signed URLs to clients. */
+  async function artifactIndex(job:ManagedJob) {
+    if(!job.id||!ID.test(job.id)||!job.urls?.self)throw new Error('Invalid managed job reference.');
+    const url=new URL(sameOrigin(job.urls.self));if(url.pathname!==`/api/v2/jobs/${job.id}`||url.search||url.hash)throw new Error('Invalid managed job reference.');
+    const response=await request(url.href);if(!response.ok)throw new Error('Could not inspect managed outputs.');
+    const current=await response.json() as ManagedJob;if(current.id!==job.id||current.status!=='succeeded'||!Array.isArray(current.outputs)||current.outputs.length>32)throw new Error('Managed outputs are unavailable.');
+    return current.outputs.filter(o=>o.node_id&&ID.test(o.node_id)&&o.name&&/^[-a-zA-Z0-9_.]{1,128}$/.test(o.name)&&o.content_type&&['video/mp4','image/png','application/json'].includes(o.content_type)&&o.url).map(o=>({node:o.node_id!,name:o.name!,mime:o.content_type!}));
+  }
   /** Retrieve an exact server-defined artifact set; callers must persist it safely. */
   async function artifacts(job:ManagedJob, expected:readonly {node:string;name:string;mime:string}[]) {
     if (!job.id || !ID.test(job.id) || !job.urls?.self || expected.length<1 || expected.length>5) throw new Error('Invalid artifact request.');
@@ -191,5 +199,5 @@ export function createComfyManaged(settings: Settings) {
     }
     throw new Error("Job listing is incomplete. Do not resubmit.");
   }
-  return { upload, submit, result, artifacts, status, findByReference };
+  return { upload, submit, result, artifactIndex, artifacts, status, findByReference };
 }
