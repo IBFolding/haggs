@@ -53,10 +53,10 @@ export function CodeFrame({ spec, onBug }: { spec: CodeSpec; onBug: (message: st
   const [score, setScore] = useState<number | null>(null);
   const [ended, setEnded] = useState<{ won: boolean; score: number } | null>(null);
 
-  const made = spec.art.assets.filter((a) => a.url).map((a) => `${a.id}=${a.url!.slice(0, 80)}:${a.url!.length}`).join("|");
+  const made = spec.art.assets.filter((a) => a.url).map((a) => `${a.id}=${a.url!}:${Boolean(a.atlas)}`).join("|");
   useEffect(() => {
     let live = true;
-    void Promise.all(spec.art.assets.filter((a) => a.url).map(async (a) => [a.id, await framePicture(a.url!, a.kind === "sprite")] as const)).then((pairs) => {
+    void Promise.all(spec.art.assets.filter((a) => a.url).map(async (a) => [a.id, a.atlas ? a.url! : await framePicture(a.url!, a.kind === "sprite")] as const)).then((pairs) => {
       if (live) setPictures(Object.fromEntries(pairs));
     });
     return () => { live = false; };

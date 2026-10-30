@@ -38,6 +38,7 @@ export function shadowSize(p: Pick<Prop, "w">, size: { w: number; h: number }, a
 export function greyPlan(scene: GreyScene, size: { w: number; h: number }, seconds: number, footageUrl: string, aspects: Record<string, number> = {}): Plan {
   const { w: W, h: H } = size;
   const inputs: PlanInput[] = [];
+  const seek = Number.isFinite(scene.source?.trimIn) && scene.source!.trimIn! > 0 ? ["-ss", String(scene.source!.trimIn)] : [];
   const notes: string[] = [];
   const loop = ["-loop", "1", "-t", String(seconds)];
   const parts: string[] = [];
@@ -61,7 +62,7 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
   // Without a matte, footage is the base; surface edits must remain above it.
   if (!scene.matte) {
     notes.push("The original shot is the base. Surface edits sit over it; replacing the background needs a subject cut-out.");
-    inputs.push({ role: "footage-picture", ref: footageUrl, args: scene.source?.kind === "image" ? loop : [] });
+    inputs.push({ role: "footage-picture", ref: footageUrl, args: scene.source?.kind === "image" ? loop : seek });
     const i = inputs.length - 1;
     parts.push(`[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease[ac]`);
     parts.push(`[${at}][ac]overlay=x=(${W}-overlay_w)/2:y=(${H}-overlay_h)/2:shortest=1[wa]`);
@@ -71,7 +72,7 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
   // Surfaces from the footage (a wall, a floor) with a new texture: blend the texture into the surface, keep the surface's own shape.
   for (const sf of scene.surfaces ?? []) {
     if (sf.hidden || !sf.mask || !sf.texture) continue;
-    inputs.push({ role: "surface", ref: sf.mask.url, args: sf.mask.kind === "image" ? loop : ["-c:v", "libvpx-vp9"] });
+    inputs.push({ role: "surface", ref: sf.mask.url, args: sf.mask.kind === "image" ? loop : [...seek, "-c:v", "libvpx-vp9"] });
     const si = inputs.length - 1;
     inputs.push({ role: "texture", ref: sf.texture.url, args: loop, ...(sf.mode === "replace" && validSelection(sf.selection) ? { fit: selectionFrame(sf.selection, size) } : { tile: Math.round(W * 0.25 * sf.texture.scale) }) });
     const ti = inputs.length - 1;
@@ -122,7 +123,7 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
 
   if (scene.matte) {
     // The cut-out has an alpha channel; only the libvpx decoder keeps it.
-    inputs.push({ role: "actor", ref: scene.matte.url, args: ["-c:v", "libvpx-vp9"] });
+    inputs.push({ role: "actor", ref: scene.matte.url, args: [...seek, "-c:v", "libvpx-vp9"] });
     const i = inputs.length - 1;
     const sh = actorShadow(scene);
     if (sh.amount > 0) {
@@ -175,6 +176,6 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
 
   if ((scene.lights ?? []).length) notes.push("Lights are soft glows; they don't cast real shadows.");
 
-  inputs.push({ role: "footage", ref: footageUrl, args: [] });
+  inputs.push({ role: "footage", ref: footageUrl, args: seek });
   return { inputs, filter: parts.join(";"), audioFrom: inputs.length - 1, notes };
 }

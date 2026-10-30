@@ -21,3 +21,9 @@ test("current results preserve newer material edits and removed targets stay rem
  const removed={...scene,surfaces:[]};assert.equal(applyOutline(removed,id,source,source,patch),removed);
  assert.equal(applyOutline(scene,id,source,outlineSource(scene,"/a.png",true),patch),scene);
 });
+test('a pending static video outline is invalid after changing the source trim',()=>{
+ const scene=addSurface({source:{url:'/clip.mp4',kind:'video',trimIn:2}},'Floor');
+ const before=outlineSource(scene,'/clip.mp4',true);
+ const changed={...scene,source:{...scene.source!,trimIn:4}};
+ assert.equal(applyOutline(changed,scene.surfaces![0]!.id,before,outlineSource(changed,'/clip.mp4',true),patch),changed);
+});

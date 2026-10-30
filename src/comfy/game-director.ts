@@ -1,0 +1,9 @@
+/** Download-only prototypes: require ComfyUI's custom widgets and file outputs. */
+export const GAME_DIRECTOR = [
+  { slug: '01-drag-to-action', title: 'Drag to Action', scope: 'Draw a root-motion path and planned actions to guide a character take. No prop dragging or real-time editing.', output: 'Pose guides + video', preview: '01-drag-to-action-guide.mp4' },
+  { slug: '02-boss-fight-choreographer', title: 'Boss Fight Choreographer', scope: 'Plan two actors and timed actions. Choreography guides do not simulate collisions or guarantee character identity.', output: 'Two-actor pose guides + video', preview: '02-boss-fight-choreographer-guide.mp4' },
+  { slug: '03-playable-scene-forge', title: 'Playable Scene Forge', scope: 'Prepare three video outcomes and a choice player. One decision, no persistent world state. The H3 graph renders three takes.', output: 'Three MP4s + HTML player + branch JSON', preview: null },
+  { slug: '04-game-reskin-director', title: 'Game Reskin Director', scope: 'Guide a new visual style with gameplay edges and restore a HUD strip. This changes recorded footage, not a running game.', output: 'Restyled video', preview: '04-game-reskin-director-edges.mp4' },
+  { slug: '05-animation-moveset-builder', title: 'Animation Moveset Builder', scope: 'Export rendered frames and planned action ranges. Background removal needs a mask; loops and timing need review.', output: 'PNG atlas + frame rectangles, FPS and action JSON', preview: '05-animation-moveset-builder-guide.mp4' },
+  { slug: '06-enemy-intent-painter', title: 'Enemy Intent Painter', scope: 'Plan danger-zone geometry and timing, then export masked VFX frames. Planned metadata, not generated pixels, defines gameplay intent.', output: 'Masked PNG atlas + geometry/timing JSON', preview: '06-enemy-intent-painter-guide.mp4' },
+] as const;

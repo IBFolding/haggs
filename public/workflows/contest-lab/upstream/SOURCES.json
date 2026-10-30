@@ -1,0 +1,8 @@
+{
+  "retrieved": "2026-10-29",
+  "templates": "https://github.com/Comfy-Org/workflow_templates",
+  "ltx_template": "templates/video_ltx2_5_flf2v.json",
+  "h3_template": "templates/api_minimax_h3_max_i2v.json",
+  "sam2_schema": "https://github.com/kijai/ComfyUI-segment-anything-2/blob/main/nodes.py",
+  "video_interface": "https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_extras/nodes_video.py"
+}

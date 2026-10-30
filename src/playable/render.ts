@@ -1,3 +1,4 @@
+import { atlasFrame } from "./atlas";
 import type { Art, TemplateSpec as GameSpec, Shape } from "./spec";
 import type { GameState } from "./templates";
 import type { CollectorState } from "./templates/collector";
@@ -61,10 +62,13 @@ function shapePath(ctx: CanvasRenderingContext2D, shape: Shape, x: number, y: nu
 }
 
 /** One piece of art in a box: its picture if loaded, else its shape. */
-function piece(ctx: CanvasRenderingContext2D, pictures: Pictures, key: string, art: Art, x: number, y: number, w: number, h: number) {
+function piece(ctx: CanvasRenderingContext2D, pictures: Pictures, key: string, art: Art, x: number, y: number, w: number, h: number, seconds = 0) {
   const picture = pictures.get(key);
   if (picture) {
-    ctx.drawImage(picture, x, y, w, h);
+    if (art.atlas) {
+      const frame = atlasFrame(art.atlas, seconds);
+      ctx.drawImage(picture, frame.x, frame.y, frame.width, frame.height, x, y, w, h);
+    } else ctx.drawImage(picture, x, y, w, h);
     return;
   }
   shapePath(ctx, art.shape, x, y, w, h);
@@ -134,13 +138,13 @@ function drawRunner(ctx: CanvasRenderingContext2D, spec: Extract<GameSpec, { tem
   ctx.fillStyle = "rgba(255,255,255,0.08)";
   for (let x = -((s.run * 1) % 48); x < WORLD.w; x += 48) ctx.fillRect(x, GROUND + 14, 22, 4);
 
-  for (const k of s.pickups) piece(ctx, pictures, "pickup", spec.art.pickup, k.x, k.y + Math.sin((s.t + k.x / 90) * 4) * 4, k.w, k.h);
-  for (const h of s.hazards) piece(ctx, pictures, "hazard", spec.art.hazard, h.x, h.y, h.w, h.h);
+  for (const k of s.pickups) piece(ctx, pictures, "pickup", spec.art.pickup, k.x, k.y + Math.sin((s.t + k.x / 90) * 4) * 4, k.w, k.h, s.t);
+  for (const h of s.hazards) piece(ctx, pictures, "hazard", spec.art.hazard, h.x, h.y, h.w, h.h, s.t);
   if (!blink(s.safe, s.t)) {
     const p = s.player;
     // Sprites are square pictures; draw them a little larger than the hit box so they read.
     const pad = pictures.has("player") ? 8 : 0;
-    piece(ctx, pictures, "player", spec.art.player, p.x - pad, p.y - pad * 1.5, p.w + pad * 2, p.h + pad * 1.5);
+    piece(ctx, pictures, "player", spec.art.player, p.x - pad, p.y - pad * 1.5, p.w + pad * 2, p.h + pad * 1.5, s.t);
   }
 }
 
@@ -163,11 +167,11 @@ function drawCollector(ctx: CanvasRenderingContext2D, spec: Extract<GameSpec, { 
     ctx.save();
     ctx.shadowColor = spec.art.pickup.color;
     ctx.shadowBlur = 12 + Math.sin(s.t * 5) * 4;
-    piece(ctx, pictures, "pickup", spec.art.pickup, ...at(k, 1.25));
+    piece(ctx, pictures, "pickup", spec.art.pickup, ...at(k, 1.25), s.t);
     ctx.restore();
   }
-  for (const h of s.hazards) piece(ctx, pictures, "hazard", spec.art.hazard, ...at(h, 1.3));
-  if (!blink(s.safe, s.t)) piece(ctx, pictures, "player", spec.art.player, ...at(s.player, 1.4));
+  for (const h of s.hazards) piece(ctx, pictures, "hazard", spec.art.hazard, ...at(h, 1.3), s.t);
+  if (!blink(s.safe, s.t)) piece(ctx, pictures, "player", spec.art.player, ...at(s.player, 1.4), s.t);
 }
 
 function drawMatch(ctx: CanvasRenderingContext2D, spec: Extract<GameSpec, { template: "match" }>, s: MatchState, pictures: Pictures) {
@@ -193,7 +197,7 @@ function drawMatch(ctx: CanvasRenderingContext2D, spec: Extract<GameSpec, { temp
       if (!art) continue;
       const fallen = (s.fell[r]?.[c] ?? 0) * size * drop * drop;
       const pad = size * 0.12;
-      piece(ctx, pictures, `tiles.${kind}`, art, x + c * size + pad, y + r * size + pad - fallen, size - pad * 2, size - pad * 2);
+      piece(ctx, pictures, `tiles.${kind}`, art, x + c * size + pad, y + r * size + pad - fallen, size - pad * 2, size - pad * 2, s.t);
     }
   }
   ctx.restore();

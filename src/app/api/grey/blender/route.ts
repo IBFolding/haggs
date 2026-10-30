@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { bridgeAllowed } from "../../../../server/bridge-guard";
+import { ffmpegBin } from "../../../../server/ffmpeg";
 import { hosted } from "../../../../server/blob";
 import { localFile } from "../../../../server/local-media";
 import { frameOf } from "../../../../story/cut";
@@ -39,6 +40,15 @@ export async function POST(request: Request) {
       if (!found) throw new Error(`A file in this set isn't in the media folder: ${url.split("/").at(-1)}`);
       await mkdir(dirname(join(dir, rel)), { recursive: true });
       await copyFile(found.path, join(dir, rel));
+      // Normalize the original movie to the shot start and bundle frame rate.
+      // A prepared matte already starts at zero; never trim it a second time.
+      if (manifest.actor?.file === rel && manifest.actor.kind === "movie" && !scene.matte) {
+        const trimmed = "assets/actor-shot.mp4";
+        const start = scene.source?.trimIn ?? 0;
+        await run(ffmpegBin(), ["-y", "-v", "error", "-ss", String(start), "-i", found.path, "-t", String(seconds), "-an", "-vf", `fps=${manifest.fps}`, "-c:v", "libx264", "-pix_fmt", "yuv420p", join(dir, trimmed)]);
+        manifest.actor.file = trimmed;
+        manifest.assets[trimmed] = url;
+      }
     }
     await writeFile(join(dir, "scene.json"), JSON.stringify(manifest, null, 1));
     await writeFile(join(dir, "build_scene.py"), BLENDER_SCRIPT);

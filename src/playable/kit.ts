@@ -24,6 +24,7 @@ Size and drawing
 - HAGGS.W, HAGGS.H: the logical size you draw in (for example 960×540 for 16:9). The kit scales it to fit any screen.
 - HAGGS.ctx: a 2D canvas context in logical units. Clear and draw the whole frame yourself each draw().
 - HAGGS.img(id): the picture for an asset id from your manifest. It is always drawable: the made picture once there is one, its emoji (or a coloured shape) until then. Sprites have transparent backgrounds and fill their square, so draw them at the size you want them seen.
+- Imported Game Director atlases animate automatically in HAGGS.img/draw/texture using the action and looping chosen in the Art panel. Playback follows HAGGS.time and resets on Replay. These are visual sprites, not automatic collision or combat logic.
 - HAGGS.draw(id, x, y, w, h, { rot = 0, flipX = false, alpha = 1, center = true }): draw an asset, centred on x, y by default.
 - HAGGS.text(str, x, y, { size = 24, color = "#fff", align = "left", bold = true, shadow = true }): text in a clean system font.
 - HAGGS.palette: { sky, ground, accent, text } from your manifest.
@@ -76,7 +77,23 @@ export const KIT_SOURCE = String.raw`(function () {
   var ctx2d = null, hud = hudCanvas.getContext("2d"); hud.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   // ── assets ──
-  var pictures = {}, textures = {};
+  var pictures = {}, textures = {}, atlases = {};
+  function animateAtlases(seconds) {
+    Object.keys(atlases).forEach(function (id) {
+      var item = atlases[id], a = item.atlas;
+      var clip = a.animations.find(function (c) { return c.name === a.selected; }) || a.animations[0];
+      var count = clip.end_frame_exclusive - clip.start_frame;
+      var elapsed = Math.floor(Math.max(0, seconds) * a.fps);
+      var index = clip.start_frame + (a.loop ? elapsed % count : Math.min(count - 1, elapsed));
+      if (index === item.last) return;
+      item.last = index;
+      var f = a.frames[index], c = pictures[id], g = c.getContext('2d');
+      if (c.width !== f.width || c.height !== f.height) { c.width = f.width; c.height = f.height; }
+      g.clearRect(0, 0, c.width, c.height);
+      g.drawImage(item.image, f.x, f.y, f.width, f.height, 0, 0, c.width, c.height);
+      if (textures[id]) textures[id].needsUpdate = true;
+    });
+  }
   function placeholder(a) {
     var sprite = a.kind !== "background";
     var c = document.createElement("canvas"); c.width = sprite ? 256 : W; c.height = sprite ? 256 : H;
@@ -112,7 +129,14 @@ export const KIT_SOURCE = String.raw`(function () {
     if (!a.src) return Promise.resolve();
     return new Promise(function (done) {
       var im = new Image();
-      im.onload = function () { pictures[a.id] = im; if (textures[a.id]) { textures[a.id].image = im; textures[a.id].needsUpdate = true; } done(); };
+      im.onload = function () {
+        if (a.atlas) {
+          if (im.naturalWidth !== a.atlas.width || im.naturalHeight !== a.atlas.height) { done(); return; }
+          pictures[a.id] = document.createElement('canvas');
+          atlases[a.id] = { image: im, atlas: a.atlas, last: -1 }; animateAtlases(0);
+        } else pictures[a.id] = im;
+        if (textures[a.id]) { textures[a.id].image = pictures[a.id]; textures[a.id].needsUpdate = true; } done();
+      };
       im.onerror = function () { done(); };
       im.src = a.src;
     });
@@ -192,6 +216,7 @@ export const KIT_SOURCE = String.raw`(function () {
     try {
       while (acc >= step) { acc -= step; HAGGS.time += step; game.update && game.update(step); fxUpdate(step); down = {}; pointer.pressed = false; pointer.released = false; if (!running) return; }
       hud.clearRect(0, 0, W, H);
+      animateAtlases(HAGGS.time);
       game.draw && game.draw();
       fxDraw();
     } catch (e) { running = false; fail(e && e.message ? e.message : String(e)); return; }
@@ -297,7 +322,7 @@ export function srcdoc(spec: CodeSpec, pictures: Record<string, string>, imageHo
     palette: spec.palette,
     three: spec.three,
     touch: spec.touch,
-    assets: spec.art.assets.map((a) => ({ id: a.id, kind: a.kind, color: a.color, shape: a.shape, ...(a.emoji ? { emoji: a.emoji } : {}), ...(pictures[a.id] ? { src: pictures[a.id] } : {}) })),
+    assets: spec.art.assets.map((a) => ({ id: a.id, kind: a.kind, color: a.color, shape: a.shape, ...(a.emoji ? { emoji: a.emoji } : {}), ...(a.atlas ? { atlas: a.atlas } : {}), ...(pictures[a.id] ? { src: pictures[a.id] } : {}) })),
   };
   const hosts = imageHosts.filter((h) => /^https?:\/\/[a-z0-9.*:-]+$/i.test(h)).join(" ");
   const csp = [

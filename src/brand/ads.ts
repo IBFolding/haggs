@@ -19,14 +19,19 @@ export const AD_FORMATS: AdFormat[] = [
 export const MAX_BATCH = 20;
 
 /** The picture prompt for one product in one format, for one audience (or everyone, when it is empty). */
-export function adPrompt(format: AdFormat, product: Pick<Product, "name" | "words">, kit: BrandKit | null, audience: string): string {
+export function adPrompt(format: AdFormat, product: Pick<Product, "name" | "words"> & Partial<Pick<Product, "price" | "picture">>, kit: BrandKit | null, audience: string, brief: AdBrief = EMPTY_AD_BRIEF): string {
   const item = product.words.trim() || product.name.trim();
   return [
     `${format.name === "Poster" ? "Poster" : "Advertisement"} for ${product.name.trim()}: ${item.replace(/[.\s]+$/, "")}.`,
-    format.direction,
+    format.text && brief.direction.trim() ? `Creative direction: ${brief.direction.trim()}` : format.direction,
+    brief.notes.trim() ? `Campaign brief: ${brief.notes.trim()}` : "",
+    format.text && brief.headline.trim() ? `Use this headline: ${JSON.stringify(brief.headline.trim())}.` : "",
+    format.text && brief.cta.trim() ? `Call to action: ${JSON.stringify(brief.cta.trim())}.` : "",
+    format.text && product.price?.trim() ? `The supplied price or offer is ${JSON.stringify(product.price.trim())}.` : "",
+    "Do not invent prices, discounts, testimonials, certifications or performance claims.",
     audience.trim() ? `Made for ${audience.trim()}: set the scene, people and mood to speak to them.` : "",
     kit ? brandWords(kit) : "",
-    "Keep the product exactly as in the reference picture.",
+    product.picture ? "Keep the product exactly as in the reference picture." : "Draw the product from its supplied description; no product reference photo was supplied.",
     format.text ? "" : "No text, no watermark.",
   ].filter(Boolean).join(" ");
 }
@@ -40,4 +45,12 @@ export function adJobs(products: Product[], formats: AdFormat[], audiences: stri
   const out: AdJob[] = [];
   for (const product of products) for (const audience of list) for (const format of formats) out.push({ product, format, audience });
   return out.slice(0, MAX_BATCH);
+}
+
+/** Shared campaign direction; optional so existing saved drafts keep working. */
+export type AdBrief = { templateId: string; direction: string; headline: string; cta: string; notes: string };
+export const EMPTY_AD_BRIEF: AdBrief = { templateId: "", direction: "", headline: "", cta: "", notes: "" };
+
+export function plannedAdCount(products: number, formats: number, audiences: string[]): number {
+  return products * formats * Math.max(1, audiences.filter((a) => a.trim()).length);
 }

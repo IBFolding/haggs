@@ -1,0 +1,162 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "type": "PrimitiveStringMultiline",
+      "title": "Paste session id from Playable World output",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PrimitiveStringMultiline"
+      },
+      "widgets_values": [
+        "PASTE_SESSION_ID"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "HaggsEdenReplay",
+      "title": "Render recorded proxy with real Eden inference",
+      "pos": [
+        600,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "session_id",
+          "type": "STRING",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsEdenReplay"
+      },
+      "widgets_values": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "id": 3,
+      "type": "SaveVideo",
+      "title": "Save output",
+      "pos": [
+        1100,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs/eden-replay",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "MarkdownNote",
+      "title": "GPU setup required",
+      "pos": [
+        0,
+        900
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "Set Eden repository, the Python executable in its configured GPU environment, and weights root. Uses the official 5B few-step inference CLI with an actual recorded proxy and target first frame. This is offline neural replay, separate from the live service. Weights are required locally; network downloads are disabled. No inference has been tested on this Mac."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "STRING"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4,
+  "last_node_id": 4,
+  "last_link_id": 2
+}

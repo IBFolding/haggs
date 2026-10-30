@@ -73,3 +73,27 @@ test("trimming the head moves where the footage starts and shortens the shot; th
   assert.throws(() => trimTail(p, "s", 0.1), /0\.2/);
   assert.throws(() => trimTail(p, "nope", 2), /not on the board/);
 });
+
+
+test("take switching restores independent Grey Room scenes and trim offsets", () => {
+  const original = {...base(), trimIn:2, greyScene:{source:{url:"a.mp4",kind:"video" as const,trimIn:2},look:{warmth:.4,exposure:0,contrast:0,saturation:0,vignette:0}}};
+  const fresh=addTake(original,render("fresh.mp4"));
+  assert.equal(fresh.greyScene,undefined);
+  assert.equal(fresh.trimIn,0);
+  const restored=chooseTake(fresh,fresh.takes![0]!.id);
+  assert.deepEqual(restored.greyScene,original.greyScene);
+  assert.equal(restored.trimIn,2);
+  const edited={...fresh,greyScene:{source:{url:"fresh.mp4",kind:"video" as const},look:{warmth:-.2,exposure:0,contrast:0,saturation:0,vignette:0}}};
+  const back=chooseTake(chooseTake(edited,edited.takes![0]!.id),edited.takes![1]!.id);
+  assert.deepEqual(back.greyScene,edited.greyScene);
+});
+
+test("Grey Room output retains editable source without inheriting other takes",()=>{
+  const original={...base(),trimIn:2,greyScene:{source:{url:"a.mp4",kind:"video" as const,trimIn:2}}};
+  const output=addTake(original,render("composite.mp4"),"Grey Room draft",original.greyScene);
+  assert.deepEqual(output.greyScene,original.greyScene);
+  assert.equal(output.trimIn,0);
+  const restored=removeTake(output,output.takes!.at(-1)!.id);
+  assert.equal(restored.trimIn,2);
+  assert.deepEqual(restored.greyScene,original.greyScene);
+});

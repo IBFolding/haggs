@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { appOf, type App } from "../comfy/apps";
 import { prepare, type Catalog, type UiWorkflow } from "../comfy/convert";
+import { contestEntries, contestTemplate } from "./contest-workflows";
+import { ltxEntries, ltxTemplate } from "./ltx-workflows";
 import { partnerNodes } from "../comfy/partner";
 
 /**
@@ -111,13 +113,15 @@ export function catalogOf(root: string, apiKey: string): Promise<Catalog> {
 
 export function templateOf(root: string, name: string): Promise<UiWorkflow> {
   if (!NAME.test(name)) throw new Error("That isn't a template name.");
+  const bundled = ltxTemplate(name) ?? contestTemplate(name);
+  if (bundled) return Promise.resolve(bundled);
   return cached(root, `templates/${name}.json`, 7 * DAY, () => getJson(`${TEMPLATES}/${encodeURIComponent(name)}.json`) as Promise<UiWorkflow>);
 }
 
 type IndexCategory = { title: string; type?: string; templates: { name: string; title?: string; description?: string; tags?: string[]; models?: string[]; mediaSubtype?: string; usage?: number; io?: { inputs?: { file: string; mediaType: string }[] } }[] };
 
 export async function indexOf(root: string): Promise<Entry[]> {
-  const raw = await cached(root, "index.json", DAY, () => getJson(`${TEMPLATES}/index.json`) as Promise<IndexCategory[]>);
+  const raw = await cached(root, "index.json", DAY, () => getJson(`${TEMPLATES}/index.json`) as Promise<IndexCategory[]>).catch(() => []);
   const seen = new Map<string, Entry>();
   for (const cat of raw) {
     for (const t of cat.templates) {
@@ -137,7 +141,7 @@ export async function indexOf(root: string): Promise<Entry[]> {
       });
     }
   }
-  return [...seen.values()];
+  return [...ltxEntries(), ...contestEntries(), ...[...seen.values()].filter(e => !ltxTemplate(e.name) && !contestTemplate(e.name))];
 }
 
 /** The example input files a template ships with, so it can be tried in one click. */

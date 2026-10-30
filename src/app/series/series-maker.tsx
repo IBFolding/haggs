@@ -5,6 +5,8 @@ import { galleryAudio } from "../gallery-log";
 import { ExtrasRow } from "../bank-picker";
 import { allocateRefs, wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
+import styles from "../studio-polish.module.css";
+import { seriesProgress } from "../../series/progress";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -261,6 +263,7 @@ export function SeriesMaker() {
 
   const change = (e: number, s: number, patch: Partial<Series["episodes"][number]["shots"][number]>) =>
     setSeries((cur) => cur && { ...cur, episodes: cur.episodes.map((ep, i) => (i === e ? { ...ep, shots: ep.shots.map((sh, k) => (k === s ? { ...sh, ...patch } : sh)) } : ep)) });
+  const progress = series ? seriesProgress(series, pictures, clips, spoken) : [];
   const total = series?.episodes.reduce((n, e) => n + e.shots.length, 0) ?? 0;
   const done = Object.keys(pictures).length;
   const left = total - done;
@@ -279,9 +282,10 @@ export function SeriesMaker() {
       {makingTemplate && <TemplateMaker {...(makingTemplate !== "new" && mine.find((t) => t.id === makingTemplate) ? { start: mine.find((t) => t.id === makingTemplate)! } : {})} onClose={() => setMakingTemplate(null)} onSaved={(t) => { setMakingTemplate(null); refreshTemplates(); setTopic(t.topic); setCount(t.count); setFormat(`${MY_FORMAT}${t.id}`); }} />}
       {makingLook && <StyleMaker {...(makingLook !== "new" && looks.custom.find((c) => c.id === makingLook) ? { start: looks.custom.find((c) => c.id === makingLook)! } : {})} onClose={() => setMakingLook(null)} onSaved={(c) => { setMakingLook(null); looks.refresh(); setLookId(`my-${c.id}`); }} />}
       <div className="canvas">
-        <div className="swap">
+        <div className={`swap ${styles.series}`}>
           <ModeTabs group="Video" current="/series" />
 
+          <ol className={styles.steps} aria-label="Series workflow"><li data-ready={Boolean(series)}><b>01 · Write</b><span>Topic, format and cast</span></li><li data-ready={Boolean(series)}><b>02 · Review</b><span>Episode scripts and shots</span></li><li data-ready={done > 0}><b>03 · Make</b><span>Pictures, voices and clips</span></li><li><b>04 · Finish</b><span>Save to a project and edit</span></li></ol>
           {sent.length > 0 && (
             <div className="cv-sent series-sent" role="status">
               {sent.map((i) => (
@@ -298,7 +302,7 @@ export function SeriesMaker() {
               <header className="sx-head">
                 <span className="eyebrow">Series</span>
                 <h1>Pick a style. Type a topic.</h1>
-                <p>A run of short vertical videos, written for you, then made into pictures and clips right here.</p>
+                <p>Shape the idea, review each episode, then make the pictures, voices and clips you need.</p>
               </header>
 
               <div className="sx-composer" ref={composerRef}>
@@ -423,6 +427,8 @@ export function SeriesMaker() {
             </div>
           ) : (
             <div className="series-draft">
+              <div className={styles.sectionHeading}><div><span className="eyebrow">Series overview</span><h1>One episode at a time.</h1></div><span>{series.episodes.length} episodes · {total} shots</span></div>
+              <nav className={styles.episodes} aria-label="Episode progress">{series.episodes.map((episode, e) => { const p = progress[e]!; return <a key={e} href={`#episode-${e}`}><span className="eyebrow">Episode {e + 1}</span><b>{episode.hook || `Video ${e + 1}`}</b><span>{p.images}/{p.total} pictures · {p.videos}/{p.total} clips</span><small>{p.narrationTotal ? `${p.narration}/${p.narrationTotal} voice lines` : "No narration in this episode"}</small><progress aria-label={`Episode ${e + 1} clips`} value={p.videos} max={p.total} /></a>; })}</nav>
               <header className="series-bar">
                 <input value={series.title} maxLength={80} aria-label="Series name" onChange={(e) => setSeries({ ...series, title: e.target.value })} />
                 <span>{done}/{total} pictures</span>
@@ -435,12 +441,12 @@ export function SeriesMaker() {
                 )}
                 {!making && everything > 0.001 && <button className="fire" onClick={() => void makeWholeVideo()} title="Pictures, narration and clips in order, then the editor. Stops at the first problem.">Make the whole video · {money(everything)}</button>}
                 {done > 0 && !making && <button className="pill" disabled={toAnimate.length === 0} onClick={() => void animateAll()}>{toAnimate.length === 0 ? "All animated" : `Animate ${toAnimate.length} · ${money(animatePrice)}`}</button>}
-                <button className="pill on" onClick={() => void open()}>Open in the editor</button>
-                <button className="plain" onClick={() => setSeries(null)}>Start again</button>
+                <button className="pill on" disabled={making !== null} onClick={() => void open()}>Save & open editor</button>
+                <button className="plain" disabled={making !== null} onClick={() => { if (window.confirm("Start a new series? Save this one to a project first if you want to keep its progress.")) setSeries(null); }}>Start again</button>
               </header>
-              {error && <p className="library-error" role="alert">{error}</p>}
+              {error && <div className="library-error" role="alert"><b>This run needs attention</b><p>{error}</p><small>Review the message before submitting again. Completed media is still shown below.</small></div>}
               {series.episodes.map((ep, e) => (
-                <section key={e} className="series-ep">
+                <section key={e} id={`episode-${e}`} className="series-ep">
                   <h2><span>{e + 1}</span>{ep.hook || `Video ${e + 1}`}</h2>
                   <div className="series-row">
                     {ep.shots.map((sh, s) => {

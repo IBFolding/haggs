@@ -1,4 +1,5 @@
 "use client";
+import {OpenWeightsStudio} from "./open-weights-studio";
 
 import { sendStudioGeneration } from "../story/studio-request";
 import { UploadImage } from "./board/upload-image";
@@ -22,7 +23,7 @@ import { defaultKv, idbKv } from "../story/kv";
 import { currentWork, workSince } from "../story/current-work";
 import { looksTooBig, shrinkAll } from "./shrink";
 import { createRunStore, isPicture, type PictureRun, type Run } from "../story/runs";
-import { rates, run, type Rate, type RunResult } from "./actions";
+import { run, type RunResult } from "./actions";
 import { improvePrompt } from "./improve-actions";
 import { Nav, openKeys } from "./nav";
 import { BankPicker, loadBank } from "./bank-picker";
@@ -40,7 +41,7 @@ import { RunTile } from "./run-tile";
 import { SaveToProject } from "./save-to-project";
 import { SettingsRail } from "./settings-rail";
 import { usePrefs } from "./prefs";
-import { creditsText } from "../story/price-text";
+import { studioPrice, H3_RATE_SOURCE, COMFY_UNIT_SOURCE } from "../story/studio-price";
 
 /** In-flight work only. Anything finished is a Run and lives in storage. */
 type Slot =
@@ -95,10 +96,13 @@ const hashOf = (text: string) => {
 };
 
 export function Studio(props: { surface?: Surface }) {
+  const {openOnly} = usePrefs();
+  if (openOnly && (!props.surface || props.surface === "Create" || props.surface === "Video")) return <OpenWeightsStudio kind={props.surface === "Video" ? "video" : "image"} />;
   return surfaceAvailable(props.surface ?? "Create") ? <StudioBody key={props.surface ?? "Create"} {...props} /> : <Waiting />;
 }
 
 function Waiting() {
+
   return (
     <div className="app studio-app">
       <Nav current="Photos" />
@@ -190,8 +194,6 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const [picking, setPicking] = useState(false);
   const [hunt, setHunt] = useState("");
 
-  const [rateMap, setRateMap] = useState<Record<string, Rate>>({});
-
   const [slots, setSlots] = useState<Slot[]>([]);
   const [history, setHistory] = useState<PictureRun[]>([]);
   /* Photos and Video show this stretch of work; the Gallery keeps the rest. */
@@ -257,7 +259,6 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
   const card = useMemo(() => getModelCard(modelId), [modelId]);
   const { pro, openOnly } = usePrefs();
   const hasPro = Object.values(card.settings).some((f) => f.advanced);
-  const rate = rateMap[modelId];
   const workItems = useMemo<(WorkItem & { kind: "image" | "video" })[]>(
     () => [
       ...images.map((src) => ({ id: `ref:${hashOf(src)}`, src, kind: "image" as const, tag: "Reference" })),
@@ -300,7 +301,6 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
 
   useEffect(() => {
     if(!draftReady)return;
-    void rates().then((list) => setRateMap(Object.fromEntries(list.map((r) => [r.id, r]))));
     void runs
       .list()
       .then((list) => {
@@ -329,17 +329,13 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
     setSettings((held) => coerceSettings(getModelCard(modelId).settings, held));
   }, [modelId]);
 
-  /** What the run will cost, in dollars underneath, before it runs. It is shown to people in credits. */
-  const cost = useMemo(() => {
-    // A model that runs as a Comfy workflow is priced from its own settings: length, resolution, sound.
-    const cloud = card.provider === "comfy" ? cloudPrice(card.id, toWireSettings(card.settings, settings), outputCount(card, settings)) : null;
-    if (cloud !== null) return cloud;
-    if (!rate || rate.usd === null) return null;
-    const perOutput = rate.unit === "image" || rate.unit === "video";
-    return rate.usd * (perOutput ? outputCount(card, settings) : 1);
-  }, [rate, card, settings]);
-
-  const costLabel = cost === null ? (rate ? rate.label : "···") : `${creditsText(cost)}`;
+  // Use the same reference selection as submission; attached images are first frames.
+  const priceReferences = surface === "Edit" ? [] : castReferences({ attached: images, character: who?.sheet ?? null, place: where?.plate ?? null, accessories: outfit.map((w) => outfitPics[w]).filter((x): x is string => Boolean(x)), max: card.inputImages });
+  const price = studioPrice({
+    modelId, settings, firstFrame: images.length > 0, referenceCount: priceReferences.length,
+    otherUsd: card.provider === "comfy" ? cloudPrice(card.id, toWireSettings(card.settings, settings), outputCount(card, settings)) : null,
+  });
+  const costLabel = price.label;
   const needsImage = card.inputImages > 0 && images.length === 0;
 
   const attach = useCallback((files: File[]) => {
@@ -503,7 +499,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </h1>
             <p>{needsImage ? (surface === "Video" ? "Upload a starting image, describe the motion, then Generate." : surface === "Edit" ? "Upload an image, describe your changes, then Generate." : "Upload a reference, describe your image, then Generate.") : BLURB[surface]}</p>
             <p className="blank-rate">
-              {card.name} · <b>{rate?.label ?? "Loading price…"}</b> · <Link href="/gallery">Earlier work in Gallery</Link>
+              {card.name} · <b>{costLabel}</b> · <Link href="/gallery">Earlier work in Gallery</Link>
             </p>
             <Examples surface={surface} onUse={setPrompt} />
           </div>
@@ -538,6 +534,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
       </div>
 
       <div className="dock">
+        <p id="studio-price-detail" className="wf-small" role="status" style={{ pointerEvents: "auto", background: "var(--surface)", padding: "8px 12px", borderRadius: 8, margin: "0 auto 8px", maxWidth: 980 }}>{price.detail} {modelId === "minimax/minimax-h3" && <><a href={H3_RATE_SOURCE} target="_blank" rel="noreferrer">Provider rates</a> · <a href={COMFY_UNIT_SOURCE} target="_blank" rel="noreferrer">Credit units</a></>}</p>
         {mini ? (
           <div className="composer mini">
             {images.length > 0 && (
@@ -552,7 +549,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             </button>
             <button className="fire" onClick={() => void fire()} disabled={busy || openOnly || !prompt.trim() || needsImage} title={openOnly ? "Open weights only is on: these models are partner APIs" : needsImage ? "Attach an image first" : undefined}>
               {busy ? "Generating…" : "Generate"}
-              <span className="cost">{costLabel}</span>
+              <span className="cost" aria-describedby="studio-price-detail">{costLabel}</span>
             </button>
             <button className="mini-toggle" onClick={() => chooseMini(false)} title="Open the box" aria-label="Open the box">▴</button>
           </div>
@@ -569,11 +566,10 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
                 placeholder="Search…"
               />
               <div className="picker-list">
-                <div className="picker-head">Models · live rates from fal</div>
+                <div className="picker-head">Models · select to estimate</div>
                 {searchModels(hunt)
                   .filter((model) => catalog.includes(model))
                   .map((model) => {
-                    const modelRate = rateMap[model.id];
                     return (
                       <button
                         key={model.id}
@@ -593,8 +589,8 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
                           </span>
                           <span className="opt-blurb">{model.blurb}</span>
                         </span>
-                        <span className={`opt-rate${modelRate?.usd == null ? " dim" : ""}`}>
-                          {modelRate?.label ?? "···"}
+                        <span className="opt-rate">
+                          {model.id === modelId ? costLabel : "Select to estimate"}
                         </span>
                         {model.id === modelId && <span className="tick">✓</span>}
                       </button>
@@ -754,7 +750,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
               title={openOnly ? "Open weights only is on: these models are partner APIs" : needsImage ? "Attach an image first" : undefined}
             >
               {busy ? "Generating…" : "Generate"}
-              <span className="cost">{costLabel}</span>
+              <span className="cost" aria-describedby="studio-price-detail">{costLabel}</span>
             </button>
           </div>
         </div>

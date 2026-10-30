@@ -1,0 +1,442 @@
+{
+  "last_node_id": 10005,
+  "last_link_id": 7,
+  "nodes": [
+    {
+      "id": 25,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        410,
+        390
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "haggs/layer-first.png",
+        "image"
+      ],
+      "title": "H3 reference effect layer"
+    },
+    {
+      "id": 24,
+      "type": "MinimaxHailuo03FirstLastFrameNode",
+      "pos": [
+        650,
+        0
+      ],
+      "size": [
+        400,
+        315
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "last_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "model.prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "model.prompt"
+          },
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MinimaxHailuo03FirstLastFrameNode"
+      },
+      "widgets_values": [
+        "MiniMax H3 Max",
+        "",
+        "768P",
+        5,
+        "balanced",
+        42,
+        "fixed",
+        false
+      ],
+      "color": "#432",
+      "bgcolor": "#653",
+      "title": "Official MiniMax H3 Max \u2014 one paid take"
+    },
+    {
+      "id": 14,
+      "type": "HaggsH3PromptGate",
+      "title": "REVIEW PRICE \u2192 enable one paid H3 take",
+      "pos": [
+        0,
+        500
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "shot_contract",
+          "type": "STRING",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsH3PromptGate"
+      },
+      "widgets_values": [
+        false,
+        "A single bright mechanical percussion object makes one clear striking motion near the middle of the shot, static camera, clean readable action and plain background.",
+        "Preserve reference composition, subject identity and lighting.",
+        "Locked camera, stable focal length, no cuts.",
+        "One continuous readable action. Hold a clean opening and ending for compositing."
+      ]
+    },
+    {
+      "id": 10000,
+      "type": "HaggsFoleyOrchestra",
+      "title": "HAGGS \u2014 Foley Orchestra",
+      "pos": [
+        1300,
+        0
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10000,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "generated_video",
+          "type": "VIDEO",
+          "link": 3
+        },
+        {
+          "name": "source_video",
+          "type": "VIDEO",
+          "link": 4
+        },
+        {
+          "name": "music",
+          "type": "AUDIO",
+          "link": 5
+        },
+        {
+          "name": "subject_mask",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "region_mask",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "band_map",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "finished_video",
+          "type": "VIDEO",
+          "links": [
+            6
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsFoleyOrchestra"
+      },
+      "widgets_values": [
+        0.85,
+        120.0,
+        0.0,
+        "",
+        0.35,
+        0.12,
+        "0:0,0.5:1,1:0",
+        0.5
+      ]
+    },
+    {
+      "id": 10001,
+      "type": "LoadVideo",
+      "title": "Original performance / source clip",
+      "pos": [
+        650,
+        600
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10001,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadVideo"
+      },
+      "widgets_values": [
+        "haggs/source.mp4"
+      ]
+    },
+    {
+      "id": 10002,
+      "type": "LoadAudio",
+      "title": "Original song (preserved)",
+      "pos": [
+        1050,
+        600
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10002,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadAudio"
+      },
+      "widgets_values": [
+        "haggs/music.wav",
+        null,
+        null
+      ]
+    },
+    {
+      "id": 10003,
+      "type": "HaggsTakeAudit",
+      "title": "Diagnostic report \u2192 output/haggs-reports",
+      "pos": [
+        1750,
+        0
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10003,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "diagnostic_report",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsTakeAudit"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 10004,
+      "type": "SaveVideo",
+      "title": "Finished Foley Orchestra",
+      "pos": [
+        2150,
+        0
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10004,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs/05-foley-orchestra",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 10005,
+      "type": "MarkdownNote",
+      "title": "READ FIRST \u2014 scope and mask setup",
+      "pos": [
+        1300,
+        1000
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10005,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "# Foley Orchestra\n\nSet source_impact_seconds to the visible impact in both banks. The compositor alternates source/generated action snippets, aligning that marked event to BPM or explicit beats. Original music is preserved. It does not detect impacts or compose new musical audio.\n\nUse short, low-resolution shots first. For tracked silhouettes, use the included SAM2 helper. Connect matching mask batches at the generated-video FPS. Core compositor is capped at 1200 frames and 1080p. These workflows have not been run inside ComfyUI or GPU-generation tested."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      25,
+      0,
+      24,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      14,
+      0,
+      24,
+      2,
+      "STRING"
+    ],
+    [
+      3,
+      24,
+      0,
+      10000,
+      0,
+      "VIDEO"
+    ],
+    [
+      4,
+      10001,
+      0,
+      10000,
+      1,
+      "VIDEO"
+    ],
+    [
+      5,
+      10002,
+      0,
+      10000,
+      2,
+      "AUDIO"
+    ],
+    [
+      6,
+      10000,
+      0,
+      10003,
+      0,
+      "VIDEO"
+    ],
+    [
+      7,
+      10003,
+      0,
+      10004,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

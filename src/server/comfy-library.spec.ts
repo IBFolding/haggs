@@ -11,8 +11,9 @@ test("the workflow list still loads when the disk cannot be written", async () =
   try {
     // A path under a file cannot be created: the same as a read-only host.
     const entries = await indexOf("/dev/null/read-only");
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0]!.thumb, "https://cloud.comfy.org/templates/one-1.webp");
+    assert.equal(entries.length, 19);
+    assert.equal(entries.filter(e => e.name.startsWith("haggs_ltx_")).length, 4);
+    assert.equal(entries.find(e => e.name === "one")!.thumb, "https://cloud.comfy.org/templates/one-1.webp");
   } finally {
     globalThis.fetch = real;
   }
@@ -29,4 +30,17 @@ test("a second read comes from memory without asking Comfy again", async () => {
   } finally {
     globalThis.fetch = real;
   }
+});
+
+
+test("bundled LTX entries and graphs remain available when the cloud library is offline", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new Error("offline"); }) as typeof fetch;
+  try {
+    const entries = await indexOf("/dev/null/ltx-offline");
+    assert.equal(entries.length, 18);
+    const { templateOf } = await import("./comfy-library");
+    const ui = await templateOf("/dev/null/ltx-offline", entries[0]!.name);
+    assert.ok(ui.nodes.length > 0);
+  } finally { globalThis.fetch = real; }
 });

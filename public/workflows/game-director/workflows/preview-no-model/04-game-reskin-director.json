@@ -1,0 +1,242 @@
+{
+  "last_node_id": 990,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 900,
+      "type": "HaggsGameplayGuide",
+      "title": "Gameplay footage \u2192 structural guides",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 900,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source_video",
+          "type": "VIDEO",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "edge_guides",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "source_frames",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsGameplayGuide"
+      },
+      "widgets_values": [
+        "A hand-painted dark fantasy game world. Preserve camera movement and major architecture. No additional UI, no text.",
+        512,
+        320,
+        124,
+        0.12
+      ]
+    },
+    {
+      "id": 910,
+      "type": "CreateVideo",
+      "title": "Guide video \u2014 no model inference",
+      "pos": [
+        650,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 910,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB"
+      ]
+    },
+    {
+      "id": 911,
+      "type": "SaveVideo",
+      "title": "Save deterministic guide preview",
+      "pos": [
+        1100,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 911,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs-game/04-game-reskin-director-guide",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 990,
+      "type": "MarkdownNote",
+      "title": "Preview mode",
+      "pos": [
+        0,
+        1300
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 990,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "No H3 model is used in this graph. These are procedural control guides, not generated characters or finished game animations. Use the matching H3-local graph to generate a styled take."
+      ]
+    },
+    {
+      "id": 899,
+      "type": "LoadVideo",
+      "title": "Replace with your gameplay clip",
+      "pos": [
+        -500,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 899,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadVideo"
+      },
+      "widgets_values": [
+        "haggs-game/gameplay.mp4"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      900,
+      0,
+      910,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      910,
+      0,
+      911,
+      0,
+      "VIDEO"
+    ],
+    [
+      3,
+      899,
+      0,
+      900,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

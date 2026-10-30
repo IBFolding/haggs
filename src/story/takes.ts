@@ -17,18 +17,30 @@ export function takesOf(shot: Shot): Take[] {
   return shot.render ? [{ id: "take-first", ...shot.render }] : [];
 }
 
-/** Adds a new take and puts it on the shot. */
-export function addTake(shot: Shot, render: NonNullable<Shot["render"]>, origin?: string): Shot {
-  const take: Take = { id: id(), ...render, ...(origin ? { origin } : {}) };
-  return { ...shot, takes: [...takesOf(shot), take], render };
+/** Snapshot the active take before leaving it; other takes keep their own edits. */
+function rememberedTakes(shot: Shot): Take[] {
+  return takesOf(shot).map(t => {
+    if (t.url !== shot.render?.url || t.at !== shot.render?.at) return t;
+    const { greyScene: _previous, ...rest } = t;
+    return { ...rest, trimIn: shot.trimIn ?? 0, ...(shot.greyScene ? {greyScene: shot.greyScene} : {}) };
+  });
+}
+
+/** Adds a new take and puts it on the shot. New footage starts its own scene. */
+export function addTake(shot: Shot, render: NonNullable<Shot["render"]>, origin?: string, greyScene?: Shot["greyScene"]): Shot {
+  const take: Take = { id: id(), ...render, trimIn: 0, ...(origin ? { origin } : {}), ...(greyScene ? {greyScene} : {}) };
+  const { greyScene: _oldScene, ...rest } = shot;
+  return { ...rest, takes: [...rememberedTakes(shot), take], render, trimIn: 0, ...(greyScene ? {greyScene} : {}) };
 }
 
 const asRender = ({ url, kind, usd, promptHash, at }: Take) => ({ url, kind, usd, promptHash, at });
 
 export function chooseTake(shot: Shot, takeId: string): Shot {
-  const take = takesOf(shot).find((t) => t.id === takeId);
+  const takes = rememberedTakes(shot);
+  const take = takes.find((t) => t.id === takeId);
   if (!take) throw new Error("That take is not on this shot any more.");
-  return { ...shot, takes: takesOf(shot), render: asRender(take) };
+  const {greyScene: _oldScene, ...rest} = shot;
+  return { ...rest, takes, render: asRender(take), trimIn: take.trimIn ?? 0, ...(take.greyScene ? {greyScene:take.greyScene} : {}) };
 }
 
 export function toggleFavorite(shot: Shot, takeId: string): Shot {
@@ -50,7 +62,7 @@ export function removeTake(shot: Shot, takeId: string): Shot {
   const wasOn = gone && gone.url === shot.render?.url && gone.at === shot.render?.at;
   const { render: _old, ...without } = shot;
   if (!rest.length) return { ...without, takes: [] };
-  return { ...shot, takes: rest, render: wasOn ? asRender(rest[0]!) : shot.render! };
+  return wasOn ? { ...chooseTake(shot, rest[0]!.id), takes: rest } : { ...shot, takes: rest };
 }
 
 /** Splits a shot at `at` seconds into two shots of the same footage. */

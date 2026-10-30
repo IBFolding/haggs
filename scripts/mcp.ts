@@ -22,7 +22,8 @@ import { cameraMoves } from "../src/sheets/camera";
 import { FORMATS, formatById } from "../src/sheets/formats";
 import { fixCell, normalizeSheets, promptRows, qaSheet, sheetsView, type Sheets } from "../src/sheets/sheets";
 import { bridgeRoot } from "../src/server/bridge";
-import { createAgentStore } from "../src/server/agent-remote";
+import { registerGreyTools } from "./grey-mcp";
+import { createAgentStore, agentMode } from "../src/server/agent-remote";
 import { loadEnvFile } from "node:process";
 import { checkPlan } from "../src/comfy/canvas";
 import { FORMATS as SERIES_FORMATS, validateSeries } from "../src/series/series";
@@ -40,6 +41,7 @@ try { loadEnvFile(join(dirname(fileURLToPath(import.meta.url)), "../.env.local")
 const root = bridgeRoot(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const store = createAgentStore(root);
 const server = new McpServer({ name: "haggs", version: "1.0.0" });
+registerGreyTools(server, store, agentMode(process.env) === "local");
 
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 1) }] });
 const fail = (message: string) => ({ isError: true, content: [{ type: "text" as const, text: message }] });

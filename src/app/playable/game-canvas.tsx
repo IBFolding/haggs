@@ -51,13 +51,14 @@ export function GameCanvas({ spec }: { spec: TemplateSpec }) {
   }, [spec, setPhase]);
 
   // Pictures for every slot that has one; a slot whose art is removed goes back to its shape.
-  const urls = JSON.stringify(slotsOf(spec).map((s) => [s.key, s.kind === "sprite", s.art.url ?? ""]));
+  const urls = JSON.stringify(slotsOf(spec).map((s) => [s.key, s.kind === "sprite" && !s.art.atlas, s.art.url ?? ""]));
   useEffect(() => {
     let live = true;
     const wanted = new Map((JSON.parse(urls) as [string, boolean, string][]).map(([key, sprite, url]) => [key, { sprite, url }]));
     const pictures = picturesRef.current;
     for (const key of [...pictures.keys()]) if (!wanted.get(key)?.url) pictures.delete(key);
     for (const [key, { sprite, url }] of wanted) {
+      pictures.delete(key);
       if (!url) continue;
       void loadPicture(url, sprite, keyOut).then((p) => { if (live) pictures.set(key, p); }, () => undefined);
     }

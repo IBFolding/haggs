@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { StudioIcon } from "./studio-icon";
 import { addUploadedLayer } from "../../../../../story/grey-tray";
 import { track } from "../../../../../activity/activity";
 import { propCutoutPrompt, propPrompt, PROP_INPUT } from "../../../../../comfy/prop-cutout";
@@ -12,6 +13,7 @@ import { runWorkflow } from "../../../../workflow-actions";
 import { uploadFile } from "../../../../upload-client";
 import { BuildLink } from "../../../../return-bar";
 import type { BankItem } from "../../../../../story/bank";
+import { LightPanel } from "./light-panel";
 import { SetsPanel } from "./sets-panel";
 import { ReferenceBoard } from "./reference-board";
 import { SurfacesPanel } from "./surfaces-panel";
@@ -32,13 +34,14 @@ async function coverScale(url: string, vertical: boolean): Promise<number> {
   return Math.min(4, Math.max(1, +(size.w / size.h / frame).toFixed(2)));
 }
 
-export function SetPanel({ scene, places, props, actors = [], selected, vertical, footageUrl, isVideo, others, onSelect, onChange, onReplace, onUseEverywhere, onLights }: {
+export function SetPanel({ compact = false, taskChoice, scene, places, props, actors = [], selected, vertical, footageUrl, isVideo, others, onSelect, onChange, onReplace, onUseEverywhere }: {
+  compact?: boolean;
+  taskChoice?: "surface" | "background" | "objects" | "actors" | "sets" | "lights";
   scene: GreyScene;
   places: BankItem[];
   /** Props you can drop in: your saved accessories with a picture. */
   props: BankItem[];
   actors?: BankItem[];
-  onLights?: () => void;
   selected: string | null;
   vertical: boolean;
   footageUrl: string | null;
@@ -50,8 +53,9 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
   onReplace: (next: GreyScene) => void;
   onUseEverywhere: (set: SavedSet) => void;
 }) {
-  const [task, setTask] = useState<"surface" | "background" | "objects" | "actors" | "sets">("surface");
-  useEffect(() => { if (selected && scene.props?.some(p => p.id === selected)) setTask(scene.props.find(p => p.id === selected)?.role === "actor" ? "actors" : "objects"); else if (selected && scene.surfaces?.some(s => s.id === selected)) setTask("surface"); }, [selected]);
+  const [task, setTask] = useState<"surface" | "background" | "objects" | "actors" | "sets" | "lights">("surface");
+  useEffect(() => { if (selected && scene.props?.some(p => p.id === selected)) setTask(scene.props.find(p => p.id === selected)?.role === "actor" ? "actors" : "objects"); else if (selected && scene.lights?.some(l => l.id === selected)) setTask("lights"); else if (selected && scene.surfaces?.some(s => s.id === selected)) setTask("surface"); }, [selected]);
+  useEffect(() => { if (taskChoice) setTask(taskChoice); }, [taskChoice]);
   const sourcePick = useRef<HTMLInputElement>(null);
   const pick = useRef<HTMLInputElement>(null);
   const propPick = useRef<HTMLInputElement>(null);
@@ -128,13 +132,14 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
   }
 
   return (
-    <div className="gs-panel">
+    <div className={`gs-panel${compact ? " gw-inspector" : ""}`}>
       <section className="gs-sec gs-source-tools"><div className="gs-surf-head"><h3>Your starting image</h3><button className="pill" disabled={busy !== null} onClick={() => sourcePick.current?.click()}>{busy === "room" ? "Adding…" : footageUrl ? "Change photo" : "Upload a photo"}</button></div><p className="gs-soft">Bring your own room or scene. Changing the photo clears old outlines; your reference cards and placed layers stay.</p><input ref={sourcePick} type="file" accept="image/*" hidden onChange={e => { void uploadRoom(e.target.files?.[0]); e.target.value = ""; }} /></section>
       <div className="gs-edit-choices" role="group" aria-label="What would you like to change?">
-        {([ ["surface", "Edit an area"], ["objects", "Furniture & props"], ["actors", "Actors"], ["background", "Background"], ["sets", "Saved looks"] ] as const).map(([id, label]) => <button key={id} className={`pill${task === id ? " on" : ""}`} aria-pressed={task === id} onClick={() => setTask(id)}>{label}</button>)}
-        {onLights && <button className="pill" onClick={onLights}>Lights & atmosphere ↗</button>}
+        {([ ["surface", "Edit an area"], ["objects", "Furniture & props"], ["actors", "Actors"], ["background", "Background"], ["sets", "Saved looks"], ["lights", "Lights & atmosphere"] ] as const).map(([id, label]) => <button key={id} className={`pill${task === id ? " on" : ""}`} aria-pressed={task === id} onClick={() => setTask(id)}>{label}</button>)}
+
       </div>
-      <ReferenceBoard selected={selected} scene={scene} onChange={onChange} onEdit={(id, kind) => { setTask(kind ?? "surface"); onSelect(id ?? null); }} />
+      {task === "lights" && <LightPanel compact={compact} scene={scene} selected={selected} onSelect={onSelect} onChange={onChange} />}
+      {!compact && <ReferenceBoard selected={selected} scene={scene} onChange={onChange} onEdit={(id, kind) => { setTask(kind ?? "surface"); onSelect(id ?? null); }} />}
       {task === "background" && <section className="gs-sec">
         <h3>Background reference</h3>
         <p className="gs-soft">Choose the place around your subject. Cut out the subject first to reveal this background.</p>
@@ -170,6 +175,32 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
       {task === "surface" && <SurfacesPanel scene={scene} footageUrl={footageUrl} isVideo={isVideo} references={[...(scene.references ?? []).map(r => ({ ...r, image: r.url })), ...places, ...props]} onChange={onChange} />}
 
       {(task === "objects" || task === "actors") && <section className="gs-sec">
+        {compact && !sel && <div className="gw-empty-inspector"><StudioIcon name="cube" size={32}/><h3>Build your scene</h3><p>Drag an asset into the picture. Select it to move, resize, or swap it.</p></div>}
+        {sel && (
+          <div className="gs-sliders" aria-label={`${sel.name} controls`}>
+            <div className="gw-selected-object"><img src={sel.url} alt=""/><div><h3>{sel.name}</h3><p>Image layer · {sel.role === "actor" ? "Character" : "Object"}</p></div></div><div className="gw-transform-title"><h4>Transform</h4></div>
+            <button className="pill" disabled={sel.locked} onClick={() => onChange(updateProp(scene, sel.id, {x:.5,y:.5,w:.25,rotate:0}))}>Reset transform</button>
+            <Slide disabled={sel.locked} label="Position X (%)" min={0} max={100} step={0.1} value={sel.x*100} onChange={v => onChange(updateProp(scene, sel.id, { x: v/100 }))} />
+            <Slide disabled={sel.locked} label="Position Y (%)" min={0} max={100} step={0.1} value={sel.y*100} onChange={v => onChange(updateProp(scene, sel.id, { y: v/100 }))} />
+            <Slide disabled={sel.locked} label="Width (%)" min={3} max={150} step={0.1} value={sel.w*100} onChange={(v) => onChange(updateProp(scene, sel.id, { w: v/100 }))} />
+            <Slide disabled={sel.locked} label="Turn" min={0} max={359} step={1} value={sel.rotate} onChange={(v) => onChange(updateProp(scene, sel.id, { rotate: v }))} />
+            <Slide disabled={sel.locked} label="Opacity" min={0.1} max={1} step={0.01} value={sel.opacity} onChange={(v) => onChange(updateProp(scene, sel.id, { opacity: v }))} />
+            <Slide disabled={sel.locked} label="Shadow" min={0} max={1} step={0.05} value={propShadow(sel)} onChange={(v) => onChange(updateProp(scene, sel.id, { shadow: v }))} />
+            <div className="gs-row">
+              <button className={`pill${sel.behind ? " on" : ""}`} aria-pressed={sel.behind} onClick={() => onChange(updateProp(scene, sel.id, { behind: !sel.behind }))}>Behind the actor</button>
+              <button className={`pill${sel.flip ? " on" : ""}`} aria-pressed={sel.flip === true} onClick={() => onChange(updateProp(scene, sel.id, { flip: !sel.flip }))}>Flip</button>
+            </div>
+            {process.env.NEXT_PUBLIC_HOSTED !== "1" && (
+              <details className="gw-model-tools"><summary>3D model attachment</summary><div className="gs-row">
+                <button className="pill" disabled={busy === "model"} onClick={() => modelPick.current?.click()}>{busy === "model" ? "Adding…" : sel.model ? "Change 3D model" : "Add a 3D model"}</button>
+                {sel.model && <button className="plain" onClick={() => onChange(setPropModel(scene, sel.id, null))}>Remove {sel.model.name}</button>}
+                <input ref={modelPick} type="file" accept=".glb,.gltf,.obj,.fbx" hidden onChange={(e) => { void uploadModel(e.target.files?.[0], sel.id); e.target.value = ""; }} />
+                <small className="gs-soft">For the Blender set only. The picture above is still what you see here.</small>
+              </div></details>
+            )}
+          </div>
+        )}
+      <details open={compact ? undefined : true}><summary>{sel ? "Swap image, add assets & layers" : "Add an object"}</summary>
         <h3>{task === "actors" ? "Place an actor" : "Furniture & props"}</h3>
         <p className="gs-soft">{task === "actors" ? "Choose a saved character or upload an actor cut-out. Drag to place them, then adjust size and depth. A character sheet stays a flat image; use a transparent single-pose cut-out for compositing." : "Bring in a couch, table, lamp or other saved accessory. Drag to place it. Use a transparent cut-out; a full photograph appears as a rectangle."}</p>
         <p className="gs-soft">{sel ? `Click a thumbnail to swap ${sel.name}, or drag to add another.` : "Click to add. Drag onto the scene to choose its position."}</p>{sel && <button className="pill" onClick={() => onSelect(null)}>Add another instead</button>}
@@ -212,40 +243,20 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
           </ul>
         )}
 
-        {sel && (
-          <div className="gs-sliders" aria-label={`${sel.name} controls`}>
-            <Slide label="Across" min={0} max={1} step={0.01} value={sel.x} onChange={v => onChange(updateProp(scene, sel.id, { x: v }))} />
-            <Slide label="Down" min={0} max={1} step={0.01} value={sel.y} onChange={v => onChange(updateProp(scene, sel.id, { y: v }))} />
-            <Slide label="Size" min={0.03} max={1.5} step={0.01} value={sel.w} onChange={(v) => onChange(updateProp(scene, sel.id, { w: v }))} />
-            <Slide label="Turn" min={0} max={359} step={1} value={sel.rotate} onChange={(v) => onChange(updateProp(scene, sel.id, { rotate: v }))} />
-            <Slide label="Opacity" min={0.1} max={1} step={0.01} value={sel.opacity} onChange={(v) => onChange(updateProp(scene, sel.id, { opacity: v }))} />
-            <Slide label="Shadow" min={0} max={1} step={0.05} value={propShadow(sel)} onChange={(v) => onChange(updateProp(scene, sel.id, { shadow: v }))} />
-            <div className="gs-row">
-              <button className={`pill${sel.behind ? " on" : ""}`} aria-pressed={sel.behind} onClick={() => onChange(updateProp(scene, sel.id, { behind: !sel.behind }))}>Behind the actor</button>
-              <button className={`pill${sel.flip ? " on" : ""}`} aria-pressed={sel.flip === true} onClick={() => onChange(updateProp(scene, sel.id, { flip: !sel.flip }))}>Flip</button>
-            </div>
-            {process.env.NEXT_PUBLIC_HOSTED !== "1" && (
-              <div className="gs-row">
-                <button className="pill" disabled={busy === "model"} onClick={() => modelPick.current?.click()}>{busy === "model" ? "Adding…" : sel.model ? "Change 3D model" : "Add a 3D model"}</button>
-                {sel.model && <button className="plain" onClick={() => onChange(setPropModel(scene, sel.id, null))}>Remove {sel.model.name}</button>}
-                <input ref={modelPick} type="file" accept=".glb,.gltf,.obj,.fbx" hidden onChange={(e) => { void uploadModel(e.target.files?.[0], sel.id); e.target.value = ""; }} />
-                <small className="gs-soft">For the Blender set only. The picture above is still what you see here.</small>
-              </div>
-            )}
-          </div>
-        )}
-      </section>}
+
+      </details></section>}
       {task === "sets" && <SetsPanel scene={scene} others={others} onUse={onReplace} onUseEverywhere={onUseEverywhere} />}
       {problem && <p className="library-error" role="alert">{problem}</p>}
     </div>
   );
 }
 
-export function Slide({ label, min, max, step, value, onChange }: { label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void }) {
+export function Slide({ label, min, max, step, value, onChange, disabled = false }: { disabled?: boolean | undefined; label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void }) {
   return (
     <label className="gs-slide">
       <span>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <input disabled={disabled} type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <input disabled={disabled} className="gw-number" type="number" aria-label={`${label} value`} min={min} max={max} step={step} value={Number(value.toFixed(3))} onChange={e => { const n=e.target.valueAsNumber; if(Number.isFinite(n)) onChange(Math.max(min,Math.min(max,n))); }} />
     </label>
   );
 }

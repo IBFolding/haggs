@@ -3,6 +3,7 @@
 import { ExtrasRow } from "../bank-picker";
 import { allocateRefs, wordsOf, type BankItem } from "../../story/bank";
 import Link from "next/link";
+import styles from "../studio-polish.module.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -21,8 +22,8 @@ import { creditsText } from "../../story/price-text";
 
 /**
  * Recreate an edit: drop a reference video (an edit you love), say who is in
- * yours and where it happens, and haggs rebuilds it shot for shot: the same
- * count, the same lengths, the same words on screen, the same camera moves.
+ * yours and where it happens, then review a proposed shot list before making
+ * a board. Reference audio and exact transitions are not reconstructed.
  * A video model reads the reference first (a few cents); the pictures and
  * clips are made afterwards on the board, each priced first.
  */
@@ -123,10 +124,13 @@ export function Recreate() {
           <ModeTabs group="Video" current="/recreate" />
           <div className="rx">
             <aside className="rx-panel" aria-label="Recreate an edit">
-              <span className="eyebrow">Recreate an edit</span>
+              <span className="eyebrow">Your edit studio</span>
+              <h2 className="rx-panel-title">Make an edit<br />your own.</h2>
+              <p className="rx-panel-intro">Start with a video you love, then bring your world into each shot.</p>
+              <div className="rx-progress" aria-label="Your progress"><span className={video || shots ? "is-ready" : "is-current"}>01 Reference</span><span className={shots ? "is-current" : ""}>02 Review</span><span>03 Create</span></div>
 
               <section className="rx-step">
-                <b><i>1</i> The edit to copy</b>
+                <b><i>1</i> Add a reference edit</b>
                 {video ? (
                   <div className="rx-picked">
                     <video src={video.url} muted playsInline preload="metadata" />
@@ -155,15 +159,15 @@ export function Recreate() {
                 <input ref={file} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void add(f); }} />
               </section>
 
-              <section className="rx-step">
-                <b><i>2</i> Who is in yours</b>
+              <details className="rx-step rx-notes">
+                <summary>Make it yours <small>people, places and accessories · optional</small></summary>
                 <div className="series-chips">
                   <button className={!who ? "on" : ""} onClick={() => setWho(null)}>Nobody in particular</button>
                   {cast.map((c) => <button key={c.id} className={who === c.id ? "on" : ""} onClick={() => setWho(c.id)}><img src={c.sheet} alt="" />{c.traits.name}</button>)}
                   <BuildLink className="plain" href="/characters" label="Recreate an edit">+ Build a character</BuildLink>
                 </div>
                 <ExtrasRow items={extras} onChange={setExtras} label="Recreate an edit" title="Where it is set and what they wear" />
-              </section>
+              </details>
 
               <details className="rx-step rx-notes" open={instructions.length > 0}>
                 <summary>Instructions <small>optional</small></summary>
@@ -180,13 +184,13 @@ export function Recreate() {
               <div className="rx-go">
                 {shots ? (
                   <>
-                    <button className="fire" onClick={() => void make()}>Make the board <span className="cost">{shots.length} shots · {total.toFixed(1)}s</span></button>
-                    <small>Then on the board: pictures about {money(shots.length * PICTURE)}, clips about {money(shots.reduce((n, s) => n + Math.max(4, Math.round(s.seconds)) * CLIP, 0))}. Each priced before you press it.</small>
+                    <button className="fire" onClick={() => void make()}>3. Create the shot board <span className="cost">{shots.length} shots · {total.toFixed(1)}s</span></button>
+                    <small>Review the proposed shots first. On the board, generate pictures (about {money(shots.length * PICTURE)}) and clips (about {money(shots.reduce((n, s) => n + Math.max(4, Math.round(s.seconds)) * CLIP, 0))}), then open Cut to edit and render. Estimates; each run is priced before you start it.</small>
                   </>
                 ) : video ? (
                   <>
                     <button className="fire" disabled={busy !== null} onClick={() => void read()}>{busy ?? "Find the shots"} <span className="cost">about 3 credits</span></button>
-                    <small>It stays on this computer; only a few seconds of reading go to Comfy.</small>
+                    <small>Your video is uploaded for analysis by a video model on Comfy. Check the proposed shots before building your board.</small>
                   </>
                 ) : (
                   <>
@@ -203,12 +207,15 @@ export function Recreate() {
                 <>
                   <div className="rx-hero">
                     <div>
+                      <span className="rx-hero-kicker">REFERENCE → YOUR WORLD</span>
                       <h1>Recreate the edit. <b>Make it yours.</b></h1>
-                      <p>Drop an edit you love. haggs finds every shot, then rebuilds the same edit around your character and your place.</p>
+                      <p>Add a reference edit and your own people or places. Review the proposed shots, then build them on your board.</p>
+                      <p>Reference audio and exact transitions are not recreated. Add sound and finish the cut in the editor.</p>
                     </div>
                     <video src="/brand/hero.mp4" muted loop autoPlay playsInline preload="metadata" aria-label="An edit and its recreation with a new cast" />
                   </div>
 
+                  <div className="rx-shelf-heading"><div><span className="rx-hero-kicker">NEED A STARTING POINT?</span><h2>Pick a structure.</h2></div><p>Choose a rhythm, then make every shot yours.</p></div>
                   <div className="rx-filter" role="tablist" aria-label="Structures">
                     {(mine.length ? (["All", "Vertical", "Landscape", "Yours"] as const) : (["All", "Vertical", "Landscape"] as const)).map((f) => (
                       <button key={f} role="tab" aria-selected={shelf === f} onClick={() => setShelf(f)}>{f}</button>
@@ -232,15 +239,22 @@ export function Recreate() {
               )}
               {video && !shots && <video className="recreate-ref" src={video.url} controls muted playsInline />}
           {shots && (
+            <div className={`rx-review ${styles.recreateReview}`}>
+            <div className={styles.reviewStats}><span><b>{shots.length}</b> planned shots</span><span><b>{total.toFixed(1)}s</b> target duration</span><span><b>Next</b> Create a shot board</span></div>
+            <h2>Review your shots</h2>
+            <p>Adjust the description, camera, duration and on-screen words. The detected transitions are notes; they are not automatically reproduced. Reference audio is not carried over.</p>
             <ol className="recreate-shots">
               {shots.map((s, i) => (
                 <li key={i}>
-                  <header><b>{i + 1}</b><span>{s.start.toFixed(1)}–{s.end.toFixed(1)}s</span><small>{s.transition}{s.camera ? ` · ${s.camera}` : ""}</small></header>
+                  <header><b>{i + 1}</b><span>Reference {s.start.toFixed(1)}–{s.end.toFixed(1)}s</span><small>{s.transition}{s.camera ? ` · ${s.camera}` : ""}</small></header>
                   <textarea rows={2} value={s.what} aria-label={`Shot ${i + 1}: what the camera sees`} onChange={(e) => change(i, { what: e.target.value })} />
+                  <label>Camera <input value={s.camera} maxLength={80} aria-label={`Shot ${i + 1}: camera`} onChange={(e) => change(i, { camera: e.target.value })} /></label>
+                  <label>Duration (seconds) <input type="number" min={0.5} max={15} step={0.1} value={s.seconds} aria-label={`Shot ${i + 1}: duration`} onChange={(e) => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) change(i, { seconds: Math.min(15, Math.max(0.5, value)) }); }} /></label>
                   <input value={s.text} placeholder="On-screen words" aria-label={`Shot ${i + 1}: on-screen words`} onChange={(e) => change(i, { text: e.target.value })} />
                 </li>
               ))}
             </ol>
+            </div>
           )}
             </div>
           </div>

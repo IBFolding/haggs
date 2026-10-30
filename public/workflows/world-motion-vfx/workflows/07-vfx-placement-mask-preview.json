@@ -1,0 +1,237 @@
+{
+  "nodes": [
+    {
+      "id": 10000,
+      "type": "HaggsVFXTimeline",
+      "title": "Place, time and track LTX effects",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 10000,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source_video",
+          "type": "VIDEO",
+          "link": 1
+        },
+        {
+          "name": "tracking_masks",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "protected_masks",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "prepared_source",
+          "type": "VIDEO",
+          "links": [
+            3
+          ]
+        },
+        {
+          "name": "mask_video",
+          "type": "VIDEO",
+          "links": [
+            2
+          ]
+        },
+        {
+          "name": "effect_mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "name": "effect_prompt",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsVFXTimeline"
+      },
+      "widgets_values": [
+        "{\n  \"effects\": [\n    {\n      \"type\": \"burst\",\n      \"start\": 1.0,\n      \"end\": 2.0,\n      \"radius\": 0.18,\n      \"path\": [\n        [\n          1.0,\n          0.6,\n          0.55\n        ]\n      ],\n      \"description\": \"a bright orange fireball with sparks and smoke\"\n    },\n    {\n      \"type\": \"trail\",\n      \"start\": 2.2,\n      \"end\": 4.5,\n      \"radius\": 0.08,\n      \"path\": [\n        [\n          2.2,\n          0.2,\n          0.7\n        ],\n        [\n          3.2,\n          0.5,\n          0.4\n        ],\n        [\n          4.5,\n          0.8,\n          0.65\n        ]\n      ],\n      \"description\": \"a luminous blue magic trail\"\n    }\n  ]\n}",
+        512,
+        5.0,
+        6.0,
+        -1
+      ]
+    },
+    {
+      "id": 10001,
+      "type": "LoadVideo",
+      "title": "Original footage",
+      "pos": [
+        -500,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 10001,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadVideo"
+      },
+      "widgets_values": [
+        "haggs-studio-source.mp4"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "SaveVideo",
+      "title": "Save output",
+      "pos": [
+        1100,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs/vfx-mask-preview",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "SaveVideo",
+      "title": "Save output",
+      "pos": [
+        1100,
+        500
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs/vfx-prepared-source",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "MarkdownNote",
+      "title": "Place effects before inference",
+      "pos": [
+        0,
+        900
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "No model generation here. Inspect the moving mask and source timing. After queueing, the placement widget shows the first prepared source frame. Choose an effect, select a time inside its interval, and click a position. Add/delete events or change descriptions/radius in timeline_json. follow_tracking=true uses a supplied tracked MASK centroid at the same output FPS."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      10001,
+      0,
+      10000,
+      0,
+      "VIDEO"
+    ],
+    [
+      2,
+      10000,
+      1,
+      2,
+      0,
+      "VIDEO"
+    ],
+    [
+      3,
+      10000,
+      0,
+      3,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4,
+  "last_node_id": 10001,
+  "last_link_id": 3
+}

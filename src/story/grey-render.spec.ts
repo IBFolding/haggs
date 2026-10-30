@@ -130,3 +130,8 @@ describe("greyPlan surfaces", () => {
   assert.ok(p.filter.indexOf("[wa]") < p.filter.indexOf("alphamerge"));
   assert.match(p.filter, /\[wa\]\[sf1\]overlay/);
  });
+
+it("trimmed footage seeks both picture and audio to the selected clip start",()=>{
+ const plan=greyPlan({source:{url:'/clip.mp4',kind:'video',trimIn:2}},{w:64,h:64},3,'/clip.mp4');
+ for(const input of plan.inputs.filter(i=>i.role==='footage-picture'||i.role==='footage')) assert.deepEqual(input.args,['-ss','2']);
+});

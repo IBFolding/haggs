@@ -1,0 +1,18 @@
+{
+  "01-repair-this-cut": {
+    "upstream": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_ltx2_5_flf2v.json",
+    "scope": "Load the last frame of clip A and first frame of clip B into the two image loaders. Generate the bridge, then assemble it between the original clips in Haggs. This workflow does not extract frames or assemble source clips automatically."
+  },
+  "02-give-this-shot-handles": {
+    "upstream": "https://github.com/Lightricks/ComfyUI-LTXVideo/blob/master/example_workflows/2.5/LTX-2.5_T2V_I2V_Single_Stage_Distilled.json",
+    "scope": "Load the final frame of your source clip. Describe the continuing action in the positive prompt. Generate an ending extension, then trim its shared first frame and append in Haggs. This is image-anchored extension, not motion-context continuation. Beginning handles are not implemented."
+  },
+  "03-continuity-brief": {
+    "upstream": "https://github.com/Lightricks/ComfyUI-LTXVideo/blob/master/example_workflows/2.5/LTX-2.5_ICLoRA_Ingredients_Single_Stage_Distilled.json",
+    "scope": "Load a character/scene reference image. In the positive prompt describe persistent wardrobe, props, lighting and the next action. This uses the upstream Ingredients reference workflow; identity is not guaranteed. Additional Ingredients LoRA weights are required as specified by the model loader."
+  },
+  "04-action-on-this-beat-music-video": {
+    "upstream": "https://github.com/Lightricks/ComfyUI-LTXVideo/blob/master/example_workflows/2.5/LTX-2.5_A2V_Two_Stage_Distilled.json",
+    "scope": "Load your original song in LoadAudio. Set audio start and duration for one short section. Supply a reference image if desired. Describe the action and musical energy in the positive prompt. Generate sections separately and assemble against the original song in Haggs. Audio conditioning is real; automatic beat detection, exact action timing and full-song assembly are not implemented."
+  }
+}

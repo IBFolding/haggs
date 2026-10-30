@@ -1,0 +1,112 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "type": "PrimitiveStringMultiline",
+      "title": "Paste session id from Playable World output",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PrimitiveStringMultiline"
+      },
+      "widgets_values": [
+        "PASTE_SESSION_ID"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "HaggsRegisterEdenRoom",
+      "title": "Register recorded room in native Eden",
+      "pos": [
+        600,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "session_id",
+          "type": "STRING",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "registered_game_slug",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsRegisterEdenRoom"
+      },
+      "widgets_values": [
+        ""
+      ]
+    },
+    {
+      "id": 3,
+      "type": "MarkdownNote",
+      "title": "Live bridge",
+      "pos": [
+        0,
+        900
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "Record the room in workflow 01 first. Set your official Eden checkout path. This registers a standalone game in realtime/games with a registry backup. In workflow 01, Connect Eden Live, connect the native backend and select the returned game slug. This uses Eden\u2019s actual live service; it does not emulate neural results. Native GPU deployment is required."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4,
+  "last_node_id": 3,
+  "last_link_id": 1
+}

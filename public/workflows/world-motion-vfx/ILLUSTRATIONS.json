@@ -1,0 +1,20 @@
+{
+  "world": {
+    "file": "world-illustrative.webp",
+    "kind": "AI-created illustrative concept; not actual workflow output",
+    "tool": "built-in imagegen",
+    "original": "exec-21a882e0-62f5-47e8-96bb-1e6ad090a3d5.png"
+  },
+  "motion": {
+    "file": "motion-illustrative.webp",
+    "kind": "AI-created illustrative concept; not actual workflow output",
+    "tool": "built-in imagegen",
+    "original": "exec-8daccbcc-eb62-4d41-92da-a017759e20b2.png"
+  },
+  "vfx": {
+    "file": "vfx-illustrative.webp",
+    "kind": "AI-created illustrative concept; not actual workflow output",
+    "tool": "built-in imagegen",
+    "original": "exec-f69e656c-1271-41b1-8ca3-9f5150927bf9.png"
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "workflow_count": 12,
+  "core_test_result": ".......................                                                  [100%]\n23 passed in 0.07s",
+  "python_syntax_valid": true,
+  "javascript_syntax_valid": true,
+  "workflow_links_and_dag_valid": true,
+  "fixtures_present": true,
+  "comfyui_runtime_tested": false,
+  "browser_extension_tested": false,
+  "video_wrapper_tested": false,
+  "h3_model_generation_tested": false,
+  "generation_jobs_submitted": 0,
+  "workflows": [
+    {
+      "file": "workflows/H3-local/03-playable-scene-forge.json",
+      "nodes": 45,
+      "links": 72,
+      "sha256": "73936ba7fbf627c7af8458bef1f6a55e58bf2c2d4d1979ea0ac7eee03b33ad6c"
+    },
+    {
+      "file": "workflows/H3-local/02-boss-fight-choreographer.json",
+      "nodes": 20,
+      "links": 28,
+      "sha256": "b5739580e71aa3434a9bf6b8dfd97de58f0b46dd9528e5f15ae10296b815375b"
+    },
+    {
+      "file": "workflows/H3-local/01-drag-to-action.json",
+      "nodes": 20,
+      "links": 28,
+      "sha256": "a847c1e435e4a4c0b1b7e9b241853c3578ee076783ae263ef86302529ab5140f"
+    },
+    {
+      "file": "workflows/H3-local/05-animation-moveset-builder.json",
+      "nodes": 21,
+      "links": 30,
+      "sha256": "ead865dac2d3be5ad75b0f632323c331411e44d5f2bbcfe73c2de77d735cb73d"
+    },
+    {
+      "file": "workflows/H3-local/06-enemy-intent-painter.json",
+      "nodes": 21,
+      "links": 31,
+      "sha256": "9624cd996cdf6176e3cf0b7eb70b03133a6777903a5a3c8a1cc22f879770a3a4"
+    },
+    {
+      "file": "workflows/H3-local/04-game-reskin-director.json",
+      "nodes": 22,
+      "links": 31,
+      "sha256": "cb840d04e36e9c437904ff9482e264473022dc8493477a3328e2754dfdb5edf8"
+    },
+    {
+      "file": "workflows/preview-no-model/03-playable-scene-forge.json",
+      "nodes": 4,
+      "links": 3,
+      "sha256": "16c1b616f72ef944fda1f9b8469e4a2962b990aba2e49a7d55acf0e9f4b3dd3f"
+    },
+    {
+      "file": "workflows/preview-no-model/02-boss-fight-choreographer.json",
+      "nodes": 4,
+      "links": 2,
+      "sha256": "7da0ecc4ab4119f139074642976b9a0e933611c49ca8fb3f48df6c3d7f14e1f2"
+    },
+    {
+      "file": "workflows/preview-no-model/01-drag-to-action.json",
+      "nodes": 4,
+      "links": 2,
+      "sha256": "c6eb90e75c246dfc6b4ed067cd7053cd548f5433c5a5dbd1297d3f400ca24a46"
+    },
+    {
+      "file": "workflows/preview-no-model/05-animation-moveset-builder.json",
+      "nodes": 5,
+      "links": 4,
+      "sha256": "18020ab3faf62e4334001b344552c7a85168ba9a498edc07d63cf6eb18c70d71"
+    },
+    {
+      "file": "workflows/preview-no-model/06-enemy-intent-painter.json",
+      "nodes": 5,
+      "links": 5,
+      "sha256": "ccfd77bb3e07955540456ad13f8d0058b56030256c824594a7deb4bc18358efc"
+    },
+    {
+      "file": "workflows/preview-no-model/04-game-reskin-director.json",
+      "nodes": 5,
+      "links": 3,
+      "sha256": "f9e5d1606aae51120d53e792486ae9fb846070dda9b5435413afe9ec9e884556"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "slug": "world-orchestra",
+    "tool": "built-in image_gen",
+    "prompt": "Use case: photorealistic-natural. Asset: illustrative workflow thumbnail, landscape 1536x1024. A photorealistic music-video scene, an adult singer standing on a dark rooftop overlooking a city, three broad horizontal zones in the background showing different luminous alternate city textures, cyan rooftops amber skyline violet sky. Singer remains natural and sharply silhouetted. Suggest audio-reactive region reveals without any diagrams. No words, labels, logos, diagrams or UI. Polished cinematic photography; this is an illustrative concept, not proof of software output."
+  },
+  {
+    "slug": "impossible-duet",
+    "tool": "built-in image_gen",
+    "prompt": "Use case: photorealistic-natural. Asset: illustrative workflow thumbnail, landscape 1536x1024. A photorealistic dance-studio music-video still: one adult dancer in black clothing on the left, beside them a displaced translucent silhouette echo filled with a glowing forest texture. It is visibly a composited delayed copy of the same pose, not a separate person. Realistic wood floor and soft evening light. No words, labels, logos, diagrams or UI. Polished cinematic photography; this is an illustrative concept, not proof of software output."
+  },
+  {
+    "slug": "portal-paint",
+    "tool": "built-in image_gen",
+    "prompt": "Use case: photorealistic-natural. Asset: illustrative workflow thumbnail, landscape 1536x1024. A photorealistic cinematic wide view of an adult woman in a coat standing in an ordinary concrete gallery, with a large elliptical portal cutout in the wall showing a lush waterfall scene, a thin luminous blue rim. Woman remains naturally in the foreground outside the portal. Clearly an artistic video compositing concept. No words, labels, logos, diagrams or UI. Polished cinematic photography; this is an illustrative concept, not proof of software output."
+  },
+  {
+    "slug": "reality-scrubber",
+    "tool": "built-in image_gen",
+    "prompt": "Use case: photorealistic-natural. Asset: illustrative workflow thumbnail, landscape 1536x1024. A photographic double-exposure scene: same empty urban street transitioning from ordinary rainy dusk on the left to an alternate lush bioluminescent garden street on the right, with a visible soft crossfade through the middle. Realistic surfaces and camera perspective. Explain crossfading two takes, not geometric morphing. No words, labels, logos, diagrams or UI. Polished cinematic photography; this is an illustrative concept, not proof of software output."
+  },
+  {
+    "slug": "foley-orchestra",
+    "tool": "built-in image_gen",
+    "prompt": "Use case: photorealistic-natural. Asset: illustrative workflow thumbnail, landscape 1536x1024. A three-panel photographic contact sheet: same adult musician's hands hitting a wooden tabletop with drumsticks in a warm recording studio, a second take with glowing stylized percussion surfaces, then the original tabletop impact. All show the marked impact moment. Cinematic practical light, detailed textures, expressive readable action. No words, labels, logos, diagrams or UI. Polished cinematic photography; this is an illustrative concept, not proof of software output."
+  },
+  {
+    "slug": "future-echo",
+    "tool": "built-in image_gen",
+    "prompt": "Use case: photorealistic-natural. Asset: illustrative workflow thumbnail, landscape 1536x1024. Photorealistic dance music-video still of an adult performer on a dark studio stage, four faint displaced silhouette echoes trailing horizontally behind in cyan magenta amber and violet, filled with alternate textured imagery. Main performer sharply photographic. This is a visible artistic delayed-echo composite, no separate independently posed people. No words, labels, logos, diagrams or UI. Polished cinematic photography; this is an illustrative concept, not proof of software output."
+  },
+  {
+    "slug": "motion-becomes-matter",
+    "tool": "built-in image_gen",
+    "prompt": "Use case: photorealistic-natural. Asset: illustrative workflow thumbnail, landscape 1536x1024. Photorealistic cinematic still of an adult dancer moving across a concrete studio, leaving a narrow fading ribbon of luminous ocean texture revealed along their movement path on the image plane. Main dancer natural and unchanged. Artistic 2D composited trail, not simulated water splashing physically. No words, labels, logos, diagrams or UI. Polished cinematic photography; this is an illustrative concept, not proof of software output."
+  }
+]

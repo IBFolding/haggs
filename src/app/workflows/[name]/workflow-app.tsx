@@ -1,5 +1,7 @@
 "use client";
 
+import { contestVariant } from "../../../comfy/contest-lab";
+import { ltxWorkflow } from "../../../comfy/ltx";
 import { track } from "../../../activity/activity";
 import { BankPicker, useReturnedPick } from "../../bank-picker";
 import type { BankItem } from "../../../story/bank";
@@ -18,7 +20,7 @@ import { dbOf } from "../../../community/supabase-db";
 import { Nav, openKeys } from "../../nav";
 import { supabase } from "../../session";
 import { SaveToProject } from "../../save-to-project";
-import { openWorkflow, quoteWorkflow, runWorkflow, type Graph, type OpenedApp, type Quote, type Source, type WorkflowResult } from "../../workflow-actions";
+import { preflightWorkflow, type Preflight, openWorkflow, quoteWorkflow, runWorkflow, type Graph, type OpenedApp, type Quote, type Source, type WorkflowResult } from "../../workflow-actions";
 import { creditsText } from "../../../story/price-text";
 
 /**
@@ -147,7 +149,12 @@ async function embed(url: string): Promise<string | null> {
 }
 
 export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBack }: { name: string; file?: string; recipe?: Recipe; canvas?: Canvas; saved?: SavedApp; onBack?: () => void }) {
-  const source: Source = useMemo(() => (file ? { file } : { template: name }), [name, file]);
+  const [destination, setDestination] = useState<"local" | "cloud">("local");
+  const source: Source = useMemo(() => ({...(file ? { file } : { template: name }), destination}), [name, file, destination]);
+  const [preflight, setPreflight] = useState<Preflight | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkVersion,setCheckVersion] = useState(0);
+
   const [opened, setOpened] = useState<OpenedApp | null>(null);
   const [tab, setTab] = useState<"app" | "nodes">("app");
   const [values, setValues] = useState<Record<string, string | number>>({});
@@ -163,6 +170,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
   const apps = useMemo(() => createAppStore(defaultKv()), []);
   const [mine, setMine] = useState<SavedApp | null>(savedApp ?? null);
   const [appNote, setAppNote] = useState<string | null>(null);
+  const destinationPicker = <div className="wf-field"><label>Run location<select value={destination} disabled={running} onChange={e=>{setPreflight(null);setOpened(null);setResult(null);setDestination(e.target.value as "local"|"cloud");}}><option value="local">Your GPU</option><option value="cloud">Comfy Cloud</option></select></label><span>Your GPU requires ComfyUI reachable from the Haggs server. Cloud GPU time may be charged.</span><button className="plain" onClick={()=>openKeys()}>Connection settings</button></div>;
   // Back from building a character, place or accessory: it goes into the first empty picture slot.
   const [returned, setReturned] = useState<BankItem | null>(null);
   useReturnedPick(["character", "place", "accessory"], setReturned);
@@ -203,6 +211,8 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
 
   useEffect(() => {
     let live = true;
+    setOpened(null);
+    setQuote(null);
     void openWorkflow(source).then((o) => {
       if (!live) return;
       setOpened(o);
@@ -211,13 +221,22 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     return () => {
       live = false;
     };
-  }, [source]);
+  }, [source, checkVersion]);
+
+  useEffect(() => {
+    let live = true;
+    setPreflight(null);
+    setChecking(true);
+    const timer = setTimeout(() => { void preflightWorkflow(source,values).then(r=>{if(live)setPreflight(r);}).catch(()=>{if(live)setPreflight({ok:false,destination,connection:"Check failed",cost:"Unknown",issues:["Connection check failed. Retry or update settings."],notes:[]});}).finally(()=>{if(live)setChecking(false);}); },300);
+    return ()=>{live=false;clearTimeout(timer);};
+  },[source,values,destination,checkVersion]);
 
   // Re-price when a setting changes; the words never change the price, but resolution and length do.
   useEffect(() => {
     if (!opened?.ok) return;
-    const timer = setTimeout(() => void quoteWorkflow(source, values).then(setQuote), 300);
-    return () => clearTimeout(timer);
+    let live = true;
+    const timer = setTimeout(() => { void quoteWorkflow(source, values).then(q=>{if(live)setQuote(q);}).catch(()=>{if(live)setQuote(null);}); }, 300);
+    return () => {live=false;clearTimeout(timer);};
   }, [values, opened, source]);
 
   // A per-second price becomes a total once the source video's length is known.
@@ -235,12 +254,12 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     };
   }, [videoUrl]);
   const money = (n: number) => creditsText(n);
-  const price = !quote ? null : quote.perSecond && seconds && quote.min > 0
+  const price = preflight?.cost ?? (!quote ? null : quote.perSecond && seconds && quote.min > 0
     ? `about ${money(quote.min * seconds)} for ${Math.round(seconds)}s`
-    : quote.label;
+    : quote.label);
 
   async function run() {
-    if (!opened?.ok) return;
+    if (!opened?.ok || !preflight?.ok || checking) return;
     setRunning(true);
     setResult(null);
     setKept(null);
@@ -268,22 +287,23 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     }
   }
 
-  if (!opened) return <div className="app"><Nav current="Workflows" /><div className="canvas"><div className="wf"><p className="wf-note" role="status">Opening the workflow…</p></div></div></div>;
+  if (!opened) return <div className="app"><Nav current="Workflows" /><div className="canvas"><div className="wf">{destinationPicker}<p className="wf-note" role="status">Opening the workflow…</p></div></div></div>;
   if (!opened.ok) {
     return (
       <div className="app">
         <Nav current="Workflows" />
         <div className="canvas"><div className="wf">
+          {destinationPicker}
+          <p role="alert">{opened.reason}</p>
+          <button onClick={()=>setCheckVersion(v=>v+1)}>Check again</button>
           {opened.needsKey ? (
             <div className="key-callout">
-              <b>Choose how to run this first.</b>
-              <span>Looking around is free. To open and run a workflow, buy credits, add your Comfy key or connect your own GPU.</span>
-              <button className="ph-go" onClick={() => openKeys()}>Choose how to run</button>
+              <b>{contestVariant(name) ? "Connect local ComfyUI first." : "Choose how to run this first."}</b>
+              <span>{contestVariant(name) ? "These experimental effects need ComfyUI-HaggsContestLab installed on your local ComfyUI. A cloud key or plan credits alone will not run them." : "Looking around is free. To open and run a workflow, buy credits, add your Comfy key or connect your own GPU."}</span>
+              <button className="ph-go" onClick={() => openKeys()}>{contestVariant(name) ? "Connect local ComfyUI" : "Choose how to run"}</button>
             </div>
-          ) : (
-            <p className="library-error" role="alert">{opened.reason}</p>
-          )}
-          <Link className="pill" href="/workflows">Back to workflows</Link>
+          ) : null}
+          {onBack ? <button className="pill" onClick={onBack}>Back to choices</button> : <Link className="pill" href="/workflows">Back to workflows</Link>}
         </div></div>
       </div>
     );
@@ -298,9 +318,10 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
         <div className="wf wf-one">
           <header className="wf-head">
             <div>
-              {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to the canvas</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
+              {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to choices</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
               <h1>{opened.title === "your workflow" ? name : opened.title}</h1>
               {opened.description && <p>{opened.description}</p>}
+              {ltxWorkflow(opened.name) && <p>Requires current ComfyUI, ComfyUI-LTXVideo and the named model weights. Live generation remains unverified. <a href="/workflows/ltx/README.txt">Setup and licenses</a></p>}
             </div>
             <div className="wf-appbar">
               <button className="pill" onClick={() => void saveApp()}>{mine ? "Save app" : "Save as my app"}</button>
@@ -317,11 +338,15 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
             <Nodes
               graph={opened.graph}
               media={Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && (files[keyOf(f)] ?? f.sample) ? [[f.node, (files[keyOf(f)] ?? f.sample)!]] : [])))}
-              output={{ node: opened.app.output, url: result?.ok ? result.url : opened.thumb }}
+              output={{ node: opened.app.output, url: result?.ok ? result.url : (ltxWorkflow(opened.name) || contestVariant(opened.name)) ? null : opened.thumb }}
             />
           ) : (
             <div className="wf-body">
               <div className="wf-form">
+                {destinationPicker}
+                <section aria-live="polite"><h2>Before you generate</h2>
+                {checking ? <p>Checking connection, nodes, models, GPU and charges…</p> : preflight && <><p>{preflight.destination} · {preflight.connection}</p><p>{preflight.cost}</p>{preflight.issues.map((issue,i)=><p role="alert" key={i}>{issue}</p>)}{preflight.notes.map((note,i)=><p key={i}>{note}</p>)}</>}
+                <button className="pill" disabled={checking || running} onClick={()=>setCheckVersion(v=>v+1)}>Check again</button></section>
                 {opened.app.fields.filter((f) => f.kind === "media").length > 0 && (
                   <div className="wf-drops">
                     {opened.app.fields.map((f) => f.kind === "media" && (
@@ -354,10 +379,10 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                   return null;
                 })}
                 {blocked && <p className="library-error" role="alert">This one can&rsquo;t run here yet: {blocked}</p>}
-                <button className="fire wf-run" disabled={running || adding > 0 || Boolean(blocked)} onClick={() => void run()}>
-                  {running ? "Running on Comfy Cloud…" : "Run"} <span className="cost">{price ?? "···"}</span>
+                <button className="fire wf-run" disabled={running || checking || !preflight?.ok || adding > 0 || Boolean(blocked)} onClick={() => void run()}>
+                  {running ? `Running on ${preflight?.destination ?? "Comfy"}…` : "Run"} <span className="cost">{price ?? "···"}</span>
                 </button>
-                <p className="wf-small">Priced from each node&rsquo;s own rate on Comfy, billed to your Comfy credits. An estimate, not an invoice.</p>
+                <p className="wf-small">Your selected location is checked again before submission. No automatic fallback to another provider.</p>
               </div>
 
               <div className="wf-result" aria-live="polite">
@@ -376,7 +401,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 ) : result && !result.ok ? (
                   <p className="library-error" role="alert">{result.reason}</p>
                 ) : opened.thumb ? (
-                  <figure className="wf-example"><img src={opened.thumb} alt="" /><figcaption>The example result. Yours appears here.</figcaption></figure>
+                  <figure className="wf-example"><img src={opened.thumb} alt="" /><figcaption>{(ltxWorkflow(opened.name) || contestVariant(opened.name)) ? "Illustrative example made with image generation, not a verified workflow output. Yours appears here after a successful run." : "The example result. Yours appears here."}</figcaption></figure>
                 ) : (
                   <div className="wf-result-wait">Your result appears here.</div>
                 )}

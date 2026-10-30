@@ -1,0 +1,92 @@
+{
+  "actors": [
+    {
+      "name": "hero",
+      "scale": 0.8,
+      "facing": 1,
+      "path": [
+        [
+          0,
+          0.3,
+          0.55
+        ],
+        [
+          1,
+          0.4,
+          0.55
+        ],
+        [
+          2,
+          0.25,
+          0.6
+        ],
+        [
+          3,
+          0.5,
+          0.55
+        ],
+        [
+          5,
+          0.5,
+          0.55
+        ]
+      ],
+      "events": [
+        {
+          "start": 0,
+          "end": 1,
+          "action": "walk"
+        },
+        {
+          "start": 1,
+          "end": 2.4,
+          "action": "dodge"
+        },
+        {
+          "start": 2.4,
+          "end": 3.6,
+          "action": "attack"
+        },
+        {
+          "start": 3.6,
+          "end": 5.17,
+          "action": "victory"
+        }
+      ]
+    },
+    {
+      "name": "boss",
+      "scale": 1.0,
+      "facing": -1,
+      "path": [
+        [
+          0,
+          0.75,
+          0.52
+        ],
+        [
+          2,
+          0.65,
+          0.52
+        ],
+        [
+          5,
+          0.72,
+          0.52
+        ]
+      ],
+      "events": [
+        {
+          "start": 0.8,
+          "end": 2.0,
+          "action": "attack"
+        },
+        {
+          "start": 2.8,
+          "end": 3.8,
+          "action": "hit"
+        }
+      ]
+    }
+  ]
+}

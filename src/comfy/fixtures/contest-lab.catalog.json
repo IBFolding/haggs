@@ -1,0 +1,660 @@
+{
+  "HaggsWorldOrchestra": {
+    "input": {
+      "required": {
+        "generated_video": [
+          "VIDEO"
+        ],
+        "amount": [
+          "FLOAT",
+          {
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "bpm": [
+          "FLOAT",
+          {
+            "default": 120.0,
+            "min": 20.0,
+            "max": 300.0
+          }
+        ],
+        "beat_offset_seconds": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ],
+        "beat_times_seconds": [
+          "STRING",
+          {
+            "default": "",
+            "multiline": true
+          }
+        ],
+        "delay_seconds": [
+          "FLOAT",
+          {
+            "default": 0.35,
+            "min": 0.01,
+            "max": 10.0
+          }
+        ],
+        "spread_fraction": [
+          "FLOAT",
+          {
+            "default": 0.12,
+            "min": -0.5,
+            "max": 0.5,
+            "step": 0.01
+          }
+        ],
+        "reality_schedule": [
+          "STRING",
+          {
+            "default": "0:0,0.5:1,1:0"
+          }
+        ],
+        "source_impact_seconds": [
+          "FLOAT",
+          {
+            "default": 0.5,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ]
+      },
+      "optional": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "music": [
+          "AUDIO"
+        ],
+        "subject_mask": [
+          "MASK"
+        ],
+        "region_mask": [
+          "MASK"
+        ],
+        "band_map": [
+          "IMAGE"
+        ]
+      }
+    },
+    "output": [
+      "VIDEO"
+    ]
+  },
+  "HaggsImpossibleDuet": {
+    "input": {
+      "required": {
+        "generated_video": [
+          "VIDEO"
+        ],
+        "amount": [
+          "FLOAT",
+          {
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "bpm": [
+          "FLOAT",
+          {
+            "default": 120.0,
+            "min": 20.0,
+            "max": 300.0
+          }
+        ],
+        "beat_offset_seconds": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ],
+        "beat_times_seconds": [
+          "STRING",
+          {
+            "default": "",
+            "multiline": true
+          }
+        ],
+        "delay_seconds": [
+          "FLOAT",
+          {
+            "default": 0.35,
+            "min": 0.01,
+            "max": 10.0
+          }
+        ],
+        "spread_fraction": [
+          "FLOAT",
+          {
+            "default": 0.12,
+            "min": -0.5,
+            "max": 0.5,
+            "step": 0.01
+          }
+        ],
+        "reality_schedule": [
+          "STRING",
+          {
+            "default": "0:0,0.5:1,1:0"
+          }
+        ],
+        "source_impact_seconds": [
+          "FLOAT",
+          {
+            "default": 0.5,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ]
+      },
+      "optional": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "music": [
+          "AUDIO"
+        ],
+        "subject_mask": [
+          "MASK"
+        ],
+        "region_mask": [
+          "MASK"
+        ],
+        "band_map": [
+          "IMAGE"
+        ]
+      }
+    },
+    "output": [
+      "VIDEO"
+    ]
+  },
+  "HaggsPortalPaint": {
+    "input": {
+      "required": {
+        "generated_video": [
+          "VIDEO"
+        ],
+        "amount": [
+          "FLOAT",
+          {
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "bpm": [
+          "FLOAT",
+          {
+            "default": 120.0,
+            "min": 20.0,
+            "max": 300.0
+          }
+        ],
+        "beat_offset_seconds": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ],
+        "beat_times_seconds": [
+          "STRING",
+          {
+            "default": "",
+            "multiline": true
+          }
+        ],
+        "delay_seconds": [
+          "FLOAT",
+          {
+            "default": 0.35,
+            "min": 0.01,
+            "max": 10.0
+          }
+        ],
+        "spread_fraction": [
+          "FLOAT",
+          {
+            "default": 0.12,
+            "min": -0.5,
+            "max": 0.5,
+            "step": 0.01
+          }
+        ],
+        "reality_schedule": [
+          "STRING",
+          {
+            "default": "0:0,0.5:1,1:0"
+          }
+        ],
+        "source_impact_seconds": [
+          "FLOAT",
+          {
+            "default": 0.5,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ]
+      },
+      "optional": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "music": [
+          "AUDIO"
+        ],
+        "subject_mask": [
+          "MASK"
+        ],
+        "region_mask": [
+          "MASK"
+        ],
+        "band_map": [
+          "IMAGE"
+        ]
+      }
+    },
+    "output": [
+      "VIDEO"
+    ]
+  },
+  "HaggsRealityScrubber": {
+    "input": {
+      "required": {
+        "generated_video": [
+          "VIDEO"
+        ],
+        "amount": [
+          "FLOAT",
+          {
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "bpm": [
+          "FLOAT",
+          {
+            "default": 120.0,
+            "min": 20.0,
+            "max": 300.0
+          }
+        ],
+        "beat_offset_seconds": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ],
+        "beat_times_seconds": [
+          "STRING",
+          {
+            "default": "",
+            "multiline": true
+          }
+        ],
+        "delay_seconds": [
+          "FLOAT",
+          {
+            "default": 0.35,
+            "min": 0.01,
+            "max": 10.0
+          }
+        ],
+        "spread_fraction": [
+          "FLOAT",
+          {
+            "default": 0.12,
+            "min": -0.5,
+            "max": 0.5,
+            "step": 0.01
+          }
+        ],
+        "reality_schedule": [
+          "STRING",
+          {
+            "default": "0:0,0.5:1,1:0"
+          }
+        ],
+        "source_impact_seconds": [
+          "FLOAT",
+          {
+            "default": 0.5,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ]
+      },
+      "optional": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "music": [
+          "AUDIO"
+        ],
+        "subject_mask": [
+          "MASK"
+        ],
+        "region_mask": [
+          "MASK"
+        ],
+        "band_map": [
+          "IMAGE"
+        ]
+      }
+    },
+    "output": [
+      "VIDEO"
+    ]
+  },
+  "HaggsFoleyOrchestra": {
+    "input": {
+      "required": {
+        "generated_video": [
+          "VIDEO"
+        ],
+        "amount": [
+          "FLOAT",
+          {
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "bpm": [
+          "FLOAT",
+          {
+            "default": 120.0,
+            "min": 20.0,
+            "max": 300.0
+          }
+        ],
+        "beat_offset_seconds": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ],
+        "beat_times_seconds": [
+          "STRING",
+          {
+            "default": "",
+            "multiline": true
+          }
+        ],
+        "delay_seconds": [
+          "FLOAT",
+          {
+            "default": 0.35,
+            "min": 0.01,
+            "max": 10.0
+          }
+        ],
+        "spread_fraction": [
+          "FLOAT",
+          {
+            "default": 0.12,
+            "min": -0.5,
+            "max": 0.5,
+            "step": 0.01
+          }
+        ],
+        "reality_schedule": [
+          "STRING",
+          {
+            "default": "0:0,0.5:1,1:0"
+          }
+        ],
+        "source_impact_seconds": [
+          "FLOAT",
+          {
+            "default": 0.5,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ]
+      },
+      "optional": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "music": [
+          "AUDIO"
+        ],
+        "subject_mask": [
+          "MASK"
+        ],
+        "region_mask": [
+          "MASK"
+        ],
+        "band_map": [
+          "IMAGE"
+        ]
+      }
+    },
+    "output": [
+      "VIDEO"
+    ]
+  },
+  "HaggsFutureEcho": {
+    "input": {
+      "required": {
+        "generated_video": [
+          "VIDEO"
+        ],
+        "amount": [
+          "FLOAT",
+          {
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "bpm": [
+          "FLOAT",
+          {
+            "default": 120.0,
+            "min": 20.0,
+            "max": 300.0
+          }
+        ],
+        "beat_offset_seconds": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ],
+        "beat_times_seconds": [
+          "STRING",
+          {
+            "default": "",
+            "multiline": true
+          }
+        ],
+        "delay_seconds": [
+          "FLOAT",
+          {
+            "default": 0.35,
+            "min": 0.01,
+            "max": 10.0
+          }
+        ],
+        "spread_fraction": [
+          "FLOAT",
+          {
+            "default": 0.12,
+            "min": -0.5,
+            "max": 0.5,
+            "step": 0.01
+          }
+        ],
+        "reality_schedule": [
+          "STRING",
+          {
+            "default": "0:0,0.5:1,1:0"
+          }
+        ],
+        "source_impact_seconds": [
+          "FLOAT",
+          {
+            "default": 0.5,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ]
+      },
+      "optional": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "music": [
+          "AUDIO"
+        ],
+        "subject_mask": [
+          "MASK"
+        ],
+        "region_mask": [
+          "MASK"
+        ],
+        "band_map": [
+          "IMAGE"
+        ]
+      }
+    },
+    "output": [
+      "VIDEO"
+    ]
+  },
+  "HaggsMotionBecomesMatter": {
+    "input": {
+      "required": {
+        "generated_video": [
+          "VIDEO"
+        ],
+        "amount": [
+          "FLOAT",
+          {
+            "default": 0.8,
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ],
+        "bpm": [
+          "FLOAT",
+          {
+            "default": 120.0,
+            "min": 20.0,
+            "max": 300.0
+          }
+        ],
+        "beat_offset_seconds": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ],
+        "beat_times_seconds": [
+          "STRING",
+          {
+            "default": "",
+            "multiline": true
+          }
+        ],
+        "delay_seconds": [
+          "FLOAT",
+          {
+            "default": 0.35,
+            "min": 0.01,
+            "max": 10.0
+          }
+        ],
+        "spread_fraction": [
+          "FLOAT",
+          {
+            "default": 0.12,
+            "min": -0.5,
+            "max": 0.5,
+            "step": 0.01
+          }
+        ],
+        "reality_schedule": [
+          "STRING",
+          {
+            "default": "0:0,0.5:1,1:0"
+          }
+        ],
+        "source_impact_seconds": [
+          "FLOAT",
+          {
+            "default": 0.5,
+            "min": 0.0,
+            "max": 600.0
+          }
+        ]
+      },
+      "optional": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "music": [
+          "AUDIO"
+        ],
+        "subject_mask": [
+          "MASK"
+        ],
+        "region_mask": [
+          "MASK"
+        ],
+        "band_map": [
+          "IMAGE"
+        ]
+      }
+    },
+    "output": [
+      "VIDEO"
+    ]
+  },
+  "HaggsTakeAudit": {
+    "input": {
+      "required": {
+        "video": [
+          "VIDEO"
+        ]
+      }
+    },
+    "output": [
+      "VIDEO",
+      "STRING"
+    ],
+    "output_node": true
+  }
+}
