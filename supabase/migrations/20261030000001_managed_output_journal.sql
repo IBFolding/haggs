@@ -51,7 +51,7 @@ begin
  expected_path := format('haggs/u-%s/uploads/%s/managed-%s.%s',target,reservation,submission,extension);
  select * into item from managed_output_journal where submission_id=submission;
  if found then
-  if item.user_id<>target or item.reservation_id<>reservation or item.pathname<>expected_path or item.bytes<>amount or item.sha256<>digest then raise exception 'output claim conflict'; end if;
+  if item.user_id<>target or item.extension<>extension or item.bytes<>amount or item.sha256<>digest then raise exception 'output claim conflict'; end if;
   return 'existing';
  end if;
  allowed := storage_reserve(target,reservation,amount,allowance,existing_files,secret);
