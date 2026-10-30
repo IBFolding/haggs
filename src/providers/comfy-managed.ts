@@ -133,6 +133,22 @@ export function createComfyManaged(settings: Settings) {
     }
     throw new Error(`Comfy job ${job.id} is still running or queued; check it before retrying.`);
   }
+  /** Retrieve an exact server-defined artifact set; callers must persist it safely. */
+  async function artifacts(job:ManagedJob, expected:readonly {node:string;name:string;mime:string}[]) {
+    if (!job.id || !ID.test(job.id) || !job.urls?.self || expected.length<1 || expected.length>5) throw new Error('Invalid artifact request.');
+    const url=new URL(sameOrigin(job.urls.self));
+    if(url.pathname!==`/api/v2/jobs/${job.id}` || url.search || url.hash) throw new Error('Invalid managed job reference.');
+    if(expected.some(e=>!ID.test(e.node)||!/^[-a-zA-Z0-9_.]{1,128}$/.test(e.name)||!['video/mp4','image/png','application/json'].includes(e.mime)) || new Set(expected.map(e=>`${e.node}/${e.name}`)).size!==expected.length)throw new Error('Invalid artifact request.');
+    const response=await request(url.href);if(!response.ok)throw new Error('Could not inspect managed outputs.');
+    const current=await response.json() as ManagedJob;if(current.id!==job.id || current.status!=='succeeded' || !Array.isArray(current.outputs))throw new Error('Managed output is not ready.');
+    const saved:{node:string;name:string;mime:string;bytes:Uint8Array}[]=[];let total=0;
+    for(const want of expected){const matches=current.outputs.filter(o=>o.node_id===want.node&&o.name===want.name&&o.content_type===want.mime&&o.url);
+      if(matches.length!==1 || !matches[0]?.url)throw new Error('Managed output set is incomplete or ambiguous.');
+      const bytes=await outputBytes(matches[0].url,want.mime);total+=bytes.byteLength;if(total>200_000_000)throw new Error('Managed output set exceeds the size limit.');
+      saved.push({...want,bytes});
+    }
+    return saved;
+  }
   /** Read status only. Never expose provider links, metadata or signed asset URLs. */
   async function status(job: ManagedJob, outputNode: string) {
     if (!job.id || !ID.test(job.id) || !job.urls?.self) throw new Error('Invalid managed job reference.');
@@ -175,5 +191,5 @@ export function createComfyManaged(settings: Settings) {
     }
     throw new Error("Job listing is incomplete. Do not resubmit.");
   }
-  return { upload, submit, result, status, findByReference };
+  return { upload, submit, result, artifacts, status, findByReference };
 }

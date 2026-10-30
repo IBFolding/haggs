@@ -88,3 +88,8 @@ def test_output_slug_cannot_escape_directory():
 
 def test_memory_budget_rejects_huge_guide():
     with pytest.raises(ValueError):c.size_check(1920,1080,600)
+
+def test_output_descriptors_are_relative_and_whitelisted():
+    assert c.output_descriptor('abc-123','atlas.json') == {'filename':'atlas.json','subfolder':'haggs-game-director/abc-123','type':'output'}
+    with pytest.raises(ValueError): c.output_descriptor('../outside','atlas.json')
+    with pytest.raises(ValueError): c.output_descriptor('abc','player.html')

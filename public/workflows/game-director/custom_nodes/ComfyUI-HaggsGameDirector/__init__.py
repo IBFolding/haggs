@@ -8,7 +8,7 @@ import folder_paths
 from aiohttp import web
 from server import PromptServer
 from comfy_api.latest import Types
-from .core import render_poses, edge_guide, restore_hud, telegraph, atlas, safe_slug, branch_html, parse_object, size_check
+from .core import render_poses, edge_guide, restore_hud, telegraph, atlas, safe_slug, branch_html, parse_object, size_check, output_descriptor
 
 WEB_DIRECTORY = './web'
 
@@ -150,7 +150,7 @@ class HaggsAtlasExport:
                 'has_alpha_mask':mask is not None,'timeline':meta,
                 'note':'Rendered image assets, not a rig. Action/collision timing is design intent and must be checked against generated frames.'}
         (directory/'atlas.json').write_text(json.dumps(report,indent=2))
-        return {'ui':{'text':[str(directory)]},'result':(str(directory),)}
+        return {'ui':{'text':[str(directory)],'images':[output_descriptor(directory.name,'atlas.png')],'files':[output_descriptor(directory.name,'atlas.json')]},'result':(str(directory),)}
 
 
 def math_floor(x):
@@ -182,7 +182,7 @@ class HaggsBranchPlayer:
         labels=[choice_a,choice_b,choice_c]
         (directory/'player.html').write_text(branch_html(labels))
         (directory/'branches.json').write_text(json.dumps({'choices':labels,'prepared_branches':True,'persistent_world_state':False},indent=2))
-        return {'ui':{'player_url':['/haggs-game-director/'+ident+'/player.html'],'text':[str(directory)]},'result':(str(directory),)}
+        return {'ui':{'player_url':['/haggs-game-director/'+ident+'/player.html'],'text':[str(directory)],'gifs':[output_descriptor(ident,f'branch-{i}.mp4') for i in range(3)],'files':[output_descriptor(ident,'branches.json')]},'result':(str(directory),)}
 
 
 @PromptServer.instance.routes.get('/haggs-game-director/{ident}/{filename}')

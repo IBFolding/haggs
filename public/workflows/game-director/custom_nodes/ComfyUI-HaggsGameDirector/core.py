@@ -225,3 +225,10 @@ def branch_html(labels):
 <title>Haggs — Playable Scene Forge</title><style>body{background:#10131b;color:#eef;font:16px system-ui;margin:20px}video{width:100%;max-height:65vh;background:#000}button{padding:12px;margin:6px;border:0;border-radius:8px;cursor:pointer;background:#a9f4dc}#status{color:#abc}</style>
 <h2>Playable Scene Forge</h2><video id="v" controls playsinline></video><div id="choices"></div><p id="status">Choose an action. These are prepared video branches.</p><button id="reset">Return to choices</button>
 <script>const labels='''+encoded+''';const v=document.getElementById('v'),c=document.getElementById('choices'),s=document.getElementById('status');labels.forEach((label,i)=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>{v.src='branch-'+i+'.mp4';v.play().catch(()=>{});s.textContent='Choice: '+label;};c.append(b)});document.getElementById('reset').onclick=()=>{v.pause();v.removeAttribute('src');v.load();s.textContent='Choose another prepared branch.'};v.onended=()=>{s.textContent='Outcome reached. Choose another action or return to choices.'};</script>'''
+
+
+def output_descriptor(directory_name, filename):
+    """Comfy history file descriptor for a generated artifact, never an absolute path."""
+    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}',directory_name): raise ValueError('Invalid output directory')
+    if filename not in {'atlas.png','atlas.json','branch-0.mp4','branch-1.mp4','branch-2.mp4','branches.json'}: raise ValueError('Invalid output filename')
+    return {'filename':filename,'subfolder':'haggs-game-director/'+directory_name,'type':'output'}

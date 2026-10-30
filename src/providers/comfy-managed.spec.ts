@@ -127,3 +127,27 @@ test("production cannot enable the loopback test path", () => {
     if (old === undefined) Reflect.deleteProperty(process.env, "NODE_ENV"); else Reflect.set(process.env, "NODE_ENV", old);
   }
 });
+
+test('artifact retrieval requires exact node, name and type and refuses ambiguous outputs',async()=>{
+ let duplicate=false;const api=createComfyManaged({base:'http://127.0.0.1:8198',localTest:true,keep,fetch:async(input)=>{
+  if(String(input).endsWith('/content'))return new Response(new Uint8Array([1,2]),{headers:{'content-type':'image/png'}});
+  const out={node_id:'950',name:'atlas.png',content_type:'image/png',url:'/api/v2/assets/one/content'};
+  return Response.json({id:'job-1',status:'succeeded',outputs:duplicate?[out,out]:[out]});
+ }});
+ const job={id:'job-1',urls:{self:'/api/v2/jobs/job-1'}};
+ assert.equal((await api.artifacts(job,[{node:'950',name:'atlas.png',mime:'image/png'}]))[0]?.bytes.length,2);
+ duplicate=true;await assert.rejects(api.artifacts(job,[{node:'950',name:'atlas.png',mime:'image/png'}]),/ambiguous/);
+ await assert.rejects(api.artifacts(job,[{node:'950',name:'../bad',mime:'image/png'}]),/Invalid/);
+});
+
+test('branch artifact collection requires all three clips and JSON, never HTML',async()=>{
+ const expected=[0,1,2].map(i=>({node:'9000',name:`branch-${i}.mp4`,mime:'video/mp4'})).concat({node:'9000',name:'branches.json',mime:'application/json'});
+ let missing=false;const api=createComfyManaged({base:'http://127.0.0.1:8198',localTest:true,keep,fetch:async(input)=>{
+  const u=String(input);if(u.includes('/assets/'))return new Response(new Uint8Array([1]),{headers:{'content-type':u.includes('json')?'application/json':'video/mp4'}});
+  return Response.json({id:'job-1',status:'succeeded',outputs:expected.slice(0,missing?3:4).map(e=>({node_id:e.node,name:e.name,content_type:e.mime,url:`/api/v2/assets/${e.name}/content`}))});
+ }});
+ const job={id:'job-1',urls:{self:'/api/v2/jobs/job-1'}};
+ assert.equal((await api.artifacts(job,expected)).length,4);
+ missing=true;await assert.rejects(api.artifacts(job,expected),/incomplete/);
+ await assert.rejects(api.artifacts(job,[{node:'9000',name:'player.html',mime:'text/html'}]),/Invalid/);
+});
