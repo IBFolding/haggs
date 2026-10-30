@@ -133,6 +133,7 @@ export function Workflows() {
 
           {haggs && <section className="quick" id="haggs" aria-label="Haggs custom workflows">
             <h2>Haggs custom workflows</h2>
+            <p><a href="/workflows/haggs-local-node-installer.zip" download>Download Haggs nodes for local ComfyUI</a> · Includes setup instructions. Models and other required nodes are separate; the hosted site cannot reach your computer’s localhost.</p>
             <p>16 tools across Effects, Game Director, and World, Motion &amp; VFX. These packs include Haggs custom-node source and attribution. Their upstream models and templates keep their own credits. <a href="/workflows/PROVENANCE.md">Read provenance</a>.</p>
             <p>Local apps have an open-app link; native ComfyUI tools have downloads and setup instructions. Samples are labeled illustrative or synthetic. GPU generation remains unverified.</p>
             {!hunt && <p><a href="#haggs-effects">7 effects</a> · <a href="#haggs-games">6 Game Director tools</a> · <a href="#haggs-studio">3 world, motion and VFX toolsets</a></p>}
