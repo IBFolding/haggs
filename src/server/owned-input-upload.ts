@@ -27,9 +27,13 @@ export async function uploadOwnedInput(userId:string,submissionId:string,field:s
 
 /** Resolve only ready, unexpired inputs belonging to the authenticated owner and job. */
 export async function resolveOwnedPortalInputs(userId:string,submissionId:string,deployment:string,journal:Journal,now=Date.now()):Promise<Record<string,ComfyAsset>> {
- if(!userId||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(submissionId))throw Error('Invalid input request.');
+ return resolveOwnedInputs(userId,submissionId,deployment,journal,['1/file','10001/file','10002/audio'],now);
+}
+
+export async function resolveOwnedInputs(userId:string,submissionId:string,deployment:string,journal:Journal,fields:readonly string[],now=Date.now()):Promise<Record<string,ComfyAsset>> {
+ if(!userId||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(submissionId)||!fields.length||fields.length>10||new Set(fields).size!==fields.length||fields.some(f=>!/^\d+\/[a-z_]+$/.test(f)))throw Error('Invalid input request.');
  deployment=ownedComfyOrigin(deployment);const result:Record<string,ComfyAsset>={};
- for(const field of ['1/file','10001/file','10002/audio']) {
+ for(const field of fields) {
   const entry=await journal.read(userId,submissionId,field);
   if(!entry||entry.userId!==userId||entry.submissionId!==submissionId||entry.deployment!==deployment||entry.field!==field||entry.state!=='ready'||!entry.assetId||!/^[a-zA-Z0-9_-]{1,128}$/.test(entry.assetId)||!Number.isFinite(entry.expiresAt)||entry.expiresAt<=now)throw Error('A required upload is unavailable or expired.');
   result[field]={__type:'core/ASSET',info:{id:entry.assetId}};
