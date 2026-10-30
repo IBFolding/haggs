@@ -10,3 +10,11 @@ def test_drawn_paths_change_rendered_pose():
 def test_invalid_timing_rejected():
  result=preview({'mode':'telegraph','shape':'cone','impact':2})
  assert result.returncode!=0 and not result.stdout
+def test_boss_and_moveset_outputs():
+ from PIL import Image
+ import io
+ boss=preview({'mode':'boss','action':'attack'})
+ atlas=preview({'mode':'moveset','action':'walk'})
+ assert boss.returncode==atlas.returncode==0
+ assert Image.open(io.BytesIO(boss.stdout)).size==(256,160)
+ assert Image.open(io.BytesIO(atlas.stdout)).size==(256,192)
