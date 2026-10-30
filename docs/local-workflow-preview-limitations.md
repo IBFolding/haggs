@@ -30,3 +30,17 @@ The draft room-session transport and SQL store are not wired to a route or objec
 A draft injectable private-object/quota boundary and fail-closed isolated-validator interface now exist for room recordings. They have only fake-service tests: no private Blob implementation, atomic quota ledger, isolation worker, cleanup lease implementation, or production configuration is connected. A quota implementation must make reserve/commit atomic, owner-bound and idempotent; cleanup must hold an exclusive expired-session lease and use conditional deletion. An uncertain deletion must retain its reservation for reconciliation. The native Comfy `create_session` contract has been checked locally without PyAV; its recording endpoint and cross-worker session bridge remain unverified.
 
 The `scripts/local-room` SQLite backend is solely a disposable local integration test. It exercises quota reservations, private recording bytes, lost-response recovery and conditional cleanup through two database connections. A separate restart test persists session metadata and reopens the database through new connections; this is not a multi-process end-to-end test or a production storage implementation. The disposable SQLite backend can reconcile a claimed cleanup before or after deletion in a single database transaction; mismatched bytes remain reserved as uncertain. This atomic local operation does not establish safe cleanup for an external object store or provider. SQLite's Node API is experimental. No Supabase service or real media sandbox is involved.
+
+## Remaining work checklist
+
+**Can be done locally without model weights or production services:**
+- Convert each Game Director editor graph to a validated Comfy API prompt, map its actual widget inputs and asset links, and connect all declared outputs to the multi-artifact journal. The current `GAME_DIRECTOR_PREVIEW_OUTPUTS` is an inventory, not a graph converter.
+- Connect World/Motion graph inputs and outputs to the same authenticated job and recovery contracts. The room graph mapping alone is not an interactive session bridge.
+- Build a production-appropriate isolated media-validation and transcode worker, bounded upload contracts and a shared object-store cleanup/reconciliation implementation. The disposable SQLite backend cannot establish external deletion outcomes.
+- Complete customer setup, secure secret lifecycle, consent and per-deployment capability checks, and connect the supported apps to the real routes. Review actual provider API contracts before enabling any mode.
+
+**Needs dependencies or external validation:**
+- PyTorch and PyAV, plus a compatible Comfy installation and the node packs, are required to execute the native preview nodes and test the native room recording endpoint. They have not been installed or exercised here.
+- Model-dependent H3, LTX, HY-Motion, SAM2 and Eden modes additionally require their correct models/services and verified licenses and resources. Their local fixture previews do not demonstrate inference.
+- A disposable Supabase-compatible environment and private storage are needed to validate the SQL migrations, real authentication, quota races, owner isolation and object recovery together; no production migration has been applied.
+- A user-owned compatible Comfy deployment and an explicitly bounded test budget are needed to verify deployment capabilities, user billing, actual jobs, all output types and recovery. Keep customer execution disabled until these checks pass.
