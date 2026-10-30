@@ -75,7 +75,9 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   const kv = useMemo(() => defaultKv(), []);
   const store = useMemo(() => createProjectStore(kv), [kv]);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "failed">("saved");
-  const saves = useMemo(() => createSaveQueue(store, 600, () => setSaveState("failed"), () => setSaveState("saved")), [store]);
+  const saveFailed = useRef(false);
+  const saves = useMemo(() => createSaveQueue(store, 600, () => {saveFailed.current=true;setSaveState("failed");}, () => {saveFailed.current=false;setSaveState("saved");}), [store]);
+  const saveBeforeGrey = async () => {await saves.flush();return !saveFailed.current;};
   useEffect(() => {
     const flush = () => { void saves.flush(); };
     window.addEventListener("pagehide", flush);
@@ -626,7 +628,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   return (
     <div className="app">
       <Nav current="Projects" />
-      <ProjectTabs project={full.current ?? project} boardId={boardId} current="cut" />
+      <ProjectTabs project={full.current ?? project} boardId={boardId} current="cut" greyShotId={shot?.id ?? here?.clip.shotId} beforeGreyNavigate={saveBeforeGrey} />
 
       {cut.clips.length === 0 ? (
         <div className="canvas">
@@ -843,7 +845,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                         <LookBar value={shot.look ?? {}} video onChange={(look) => onShot(shot.id, (s2) => setLook(s2, look))} />
                         <p className="takes-note">Its words go into this shot&rsquo;s prompt. Roll again to get a take with it; the takes you have stay.</p>
                       </Section><Section name="More" classic={classic}>
-                        <Link hidden={!advanced} className="pill" href={`/board/${project.id}/grey/${shot.id}${boardId ? `?b=${boardId}` : ""}`} title="Cut out the actor, build a new set around them, place props and lights, then render a new take">Open in Grey Room</Link>
+                        <Link hidden={!advanced} className="pill" href={`/board/${project.id}/grey/${shot.id}${boardId ? `?b=${boardId}` : ""}`} onClick={e=>{e.preventDefault();const href=e.currentTarget.href;void saveBeforeGrey().then(ok=>{if(ok)router.push(href);});}} title="Cut out the actor, build a new set around them, place props and lights, then render a new take">Open in Grey Room</Link>
                         <button className="pill on" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
                       </Section>
                       <div className="takes" role="group" aria-label="Takes">

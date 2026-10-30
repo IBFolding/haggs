@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import styles from "../studio-polish.module.css";
 import { RUNS_SYNCED } from "../run-sync";
 import { useRouter } from "next/navigation";
 import { ALL, UNFILED, cleanFolder, folderNames, inFolder } from "../../story/gallery-folders";
 import { searchRuns } from "../../story/gallery-search";
 import { GROUP_BY, autoFolder, groupRuns, type GroupBy } from "../../story/gallery-groups";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getModelCard } from "../../catalog/models";
 
@@ -81,6 +82,10 @@ export function Gallery() {
   const [all, setAll] = useState<Run[]>([]);
   const [saving, setSaving] = useState<PictureRun | null>(null);
   const startProject = useStartProject();
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDialogElement>(null);
+  const preview = all.find((run) => run.id === previewId);
+  useEffect(() => { if (previewId && previewRef.current && !previewRef.current.open) previewRef.current.showModal(); }, [previewId]);
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<"grid" | "workspace">("grid");
   useEffect(() => { try { if (sessionStorage.getItem("haggs:gallery:view") === "workspace") setView("workspace"); } catch {} }, []);
@@ -197,15 +202,16 @@ export function Gallery() {
     [runs],
   );
 
-  const renderRun = (run: Run) => (
+  const renderRun = (run: Run, previewable = true) => (
                 <div key={run.id} className="gallery-item">
+                {previewable && <button className={styles.previewButton} onClick={() => setPreviewId(run.id)}>Open preview <span>{run.kind}</span></button>}
                 <RunTile
                   key={run.id}
                   run={run}
                   onFavorite={() => void keep(run)}
                   {...(isPicture(run) ? {onReuse:() => reuse(run)} : {})}
                   onDelete={() => void drop(run)}
-                  onSave={isPicture(run) ? () => setSaving(run) : undefined as never}
+                  onSave={isPicture(run) ? () => { previewRef.current?.close(); setPreviewId(null); setSaving(run); } : undefined as never}
                 onStart={isPicture(run) ? () => void startProject(run) : undefined as never}
                 />
                 {isPicture(run) && <ShareToExplore run={run} />}
@@ -227,16 +233,21 @@ export function Gallery() {
       <Nav current="Gallery" />
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
 
+      {preview && <dialog ref={previewRef} className={styles.preview} aria-labelledby="gallery-preview-title" onClose={() => setPreviewId(null)}>
+        <div className={styles.sectionHeading}><div><span className="eyebrow">Your creation</span><h2 id="gallery-preview-title">Preview & choose the next step</h2></div><button className="pill" onClick={() => previewRef.current?.close()} aria-label="Close preview">Close</button></div>
+        {renderRun(preview, false)}
+      </dialog>}
       <div className="canvas">
-        <div className="gallery gl">
+        <div className={`gallery gl ${styles.gallery}`}>
           <header className="gl-head">
             <div>
-              <h1>Gallery <small>{shown.length} run{shown.length === 1 ? "" : "s"} · {spendText} spent</small></h1>
-              <p>Everything you&rsquo;ve made, with what it cost. Star a run and it stays for good.</p>
+              <span className="eyebrow">Gallery</span><h1>Your work. Its next chapter.</h1>
+              <p>Preview your creations, organize them, and take the next step with the ones you love.</p>
             </div>
             <div className="view-toggle" role="tablist" aria-label="Gallery view">{(["grid", "workspace"] as const).map((mode) => <button key={mode} role="tab" aria-selected={view === mode} onClick={() => { setView(mode); try { sessionStorage.setItem("haggs:gallery:view", mode); } catch {} }}>{mode === "grid" ? "Grid" : "Workspace"}</button>)}</div>
           </header>
 
+          {ready && <div className={styles.collectionStats} aria-label="Collection overview">{(["Images", "Video", "Sounds", "Kept"] as const).map((kind) => <button key={kind} aria-pressed={scope === kind} onClick={() => { setScope(kind); setFolder(ALL); setQuery(""); }}><strong>{all.filter((run) => inScope(run, kind)).length}</strong><span>{kind}</span></button>)}</div>}
           <div className="gl-bar">
             <div className="scopes" role="tablist">
               {SCOPES.map((option) => (
@@ -246,6 +257,7 @@ export function Gallery() {
             <input type="search" className="gallery-search" aria-label="Search your work" placeholder={scope === "Scripts" ? "Search titles, loglines and cast" : "Search prompts and models"} value={query} onChange={(e) => setQuery(e.target.value)} />
             {scope !== "Scripts" && <button className="gl-ghost" onClick={() => void findSounds()}>Find sounds in my projects</button>}
           </div>
+          {scope !== "Scripts" && <div className={styles.filterSummary}><span>{ready ? `${shown.length} items shown` : "Loading creations…"} · {folder} · {scope}{ready && ` · ${spendText} recorded cost`}</span>{(query || folder !== ALL || scope !== "All") && <button className="plain" onClick={() => { setQuery(""); setFolder(ALL); setScope("All"); }}>Reset filters</button>}</div>}
           {finding && <p className="gallery-note" role="status">{finding}</p>}
 
           {unfiled.length > 1 && (
@@ -257,8 +269,7 @@ export function Gallery() {
 
           {unpriced > 0 && (
             <p className="gallery-note">
-              {unpriced} of these ran on a rate the provider quotes per second or
-              megapixel, so they are not in the total.
+              Cost is not recorded for {unpriced} of these items. They are excluded from the displayed total.
             </p>
           )}
 

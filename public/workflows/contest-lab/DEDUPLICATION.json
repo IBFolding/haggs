@@ -1,0 +1,16 @@
+{
+  "archive_files": 3,
+  "workflow_occurrences": 52,
+  "unique_graphs": 22,
+  "duplicate_workflow_copies_omitted": 30,
+  "unique_effects": 7,
+  "variants_per_effect": [
+    "LTX open weights",
+    "MiniMax H3 paid",
+    "reuse existing video"
+  ],
+  "optional_helpers": 1,
+  "first_bundle_exact_duplicates": 0,
+  "catalog_name_collisions": [],
+  "dedup_method": "Every byte of both subset ZIPs matches the corresponding ALL ZIP entry. First bundle compared by file bytes. Existing template index checked for name collisions; seven Haggs effect node classes are new custom nodes, though generation backbones reuse upstream LTX/H3 templates."
+}

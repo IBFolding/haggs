@@ -1,0 +1,263 @@
+{
+  "last_node_id": 990,
+  "last_link_id": 4,
+  "nodes": [
+    {
+      "id": 900,
+      "type": "HaggsActionGuide",
+      "title": "Draw path / edit action timeline",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 900,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pose_guides",
+          "type": "IMAGE",
+          "links": [
+            1,
+            3
+          ]
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "timeline_metadata",
+          "type": "STRING",
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsActionGuide"
+      },
+      "widgets_values": [
+        "{\n  \"actors\": [\n    {\n      \"name\": \"hero\",\n      \"scale\": 0.8,\n      \"path\": [\n        [\n          0,\n          0.5,\n          0.55\n        ]\n      ],\n      \"events\": [\n        {\n          \"start\": 0,\n          \"end\": 0.8,\n          \"action\": \"idle\"\n        },\n        {\n          \"start\": 0.8,\n          \"end\": 1.7,\n          \"action\": \"walk\"\n        },\n        {\n          \"start\": 1.7,\n          \"end\": 2.6,\n          \"action\": \"attack\"\n        },\n        {\n          \"start\": 2.6,\n          \"end\": 3.5,\n          \"action\": \"dodge\"\n        },\n        {\n          \"start\": 3.5,\n          \"end\": 4.3,\n          \"action\": \"hit\"\n        },\n        {\n          \"start\": 4.3,\n          \"end\": 5.17,\n          \"action\": \"victory\"\n        }\n      ]\n    }\n  ]\n}",
+        "One full-body fantasy knight performs idle, walk, attack, dodge, hit reaction, then victory. Plain dark background, consistent scale and outfit, centered side-view composition, no cuts.",
+        512,
+        320,
+        124
+      ]
+    },
+    {
+      "id": 910,
+      "type": "CreateVideo",
+      "title": "Guide video \u2014 no model inference",
+      "pos": [
+        650,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 910,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB"
+      ]
+    },
+    {
+      "id": 911,
+      "type": "SaveVideo",
+      "title": "Save deterministic guide preview",
+      "pos": [
+        1100,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 911,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs-game/05-animation-moveset-builder-guide",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 950,
+      "type": "HaggsAtlasExport",
+      "title": "Export sprite atlas + timing metadata",
+      "pos": [
+        2700,
+        600
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 950,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "timeline_metadata",
+          "type": "STRING",
+          "link": 4
+        },
+        {
+          "name": "alpha_mask",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "asset_directory",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsAtlasExport"
+      },
+      "widgets_values": [
+        "game-asset",
+        128,
+        8
+      ]
+    },
+    {
+      "id": 990,
+      "type": "MarkdownNote",
+      "title": "Preview mode",
+      "pos": [
+        0,
+        1300
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 990,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "No H3 model is used in this graph. These are procedural control guides, not generated characters or finished game animations. Use the matching H3-local graph to generate a styled take."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      900,
+      0,
+      910,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      910,
+      0,
+      911,
+      0,
+      "VIDEO"
+    ],
+    [
+      3,
+      900,
+      0,
+      950,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      900,
+      2,
+      950,
+      1,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

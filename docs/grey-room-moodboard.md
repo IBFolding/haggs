@@ -42,3 +42,17 @@ Regression coverage uses deferred detection completion after source replacement,
 
 ## PR58 selection fixes
 Review 5707227452 identified two target bugs. Upload adds a new layer, and now applies the role and selection to that new layer rather than a previously selected prop. Reference assignment now returns and retains the resolved surface ID, so repeated material auditions stay on a canvas-selected surface. Regression tests cover old prop preservation, actor/object roles, new-layer selection, repeated wall material choices without changing the floor, and newly created surface selection. Tests use deterministic scene operations; no paid generation is required.
+
+## Unified scene workspace (pending coordinated release)
+
+Lighting and atmosphere now live alongside areas, actors, furniture, backgrounds and saved looks in Edit scene. The canvas can select and move both props and light handles without switching editing modes. The persistent “In this scene” strip exposes placed layers (including hidden layers), areas and lights; selecting one opens its controls. Mood-board uploads remain reference cards on the current shot, while actor/object uploads become placed layers. Saved characters and accessories remain available through their existing shelves.
+
+The production editor resolves media from the selected shot, retaining an explicitly saved source for original comparison and export. It never falls back to the example living room. The empty mood-board inspiration image has been removed, and the development-only room is explicitly labelled as an example. Source regression tests cover distinct shots, no-media state, reopened scenes and explicit uploaded replacements.
+
+Held locally: do not merge or deploy until coordinated with remaining work. Unit suite: 998 passing; TypeScript clean. These checks do not certify paid AI replacement or relighting.
+
+Local browser checks passed: add key light, add a reference as a prop on the same canvas, select the light from the scene strip, drag the light (position changed to 28.95% / 23.42%), switch back to prop controls, hide/show the prop while retaining its strip entry, and compare original / return to composition with both edits preserved. Read-only production inspection showed the user's robot-and-lighthouse shot as the actual canvas. Two-cut source isolation and reopening are covered by model regression tests, not yet by a new signed-in end-to-end browser test for this pending release. The three supplied Library screenshots exposed descriptions but no image bytes through read; the live production canvas was visually inspected directly.
+
+### Deleted surface target regression (PR #59 review 5708040580)
+
+Confirmed the crash with a failing test: apply a reference to a generated Wall UUID, remove Wall, then apply another reference to the retained UUID. The tray now accepts an existing surface or one of its explicit creation targets; a deleted ID leaves the scene untouched and displays a request to choose an area again. New assignments return the actual newly added surface ID. The regression passes and local browser verification confirmed the message, unchanged remaining Floor, and successful recovery by choosing Wall again. No paid workflows, merges or deployments were performed.

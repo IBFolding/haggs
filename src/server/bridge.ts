@@ -15,7 +15,7 @@ import type { Sheets } from "../sheets/sheets";
  */
 
 export type Snapshot = { project: Project; sheets: Sheets | null; savedAt?: number };
-export type ProposalKind = "draft" | "breakdown" | "fill" | "edits" | "board" | "takes" | "voices" | "canvas" | "series" | "game";
+export type ProposalKind = "draft" | "breakdown" | "fill" | "edits" | "board" | "takes" | "voices" | "canvas" | "series" | "game" | "grey";
 export type Proposal = {
   id: string;
   kind: ProposalKind;
@@ -27,7 +27,7 @@ export type Proposal = {
 };
 
 const ID = /^[\w-]{1,80}$/;
-const KINDS = new Set<ProposalKind>(["draft", "breakdown", "fill", "edits", "board", "takes", "voices", "canvas", "series", "game"]);
+const KINDS = new Set<ProposalKind>(["draft", "breakdown", "fill", "edits", "board", "takes", "voices", "canvas", "series", "game", "grey"]);
 
 function projectId(id: string): string {
   if (!ID.test(id)) throw new Error("That project id isn't valid.");
@@ -76,8 +76,12 @@ export async function listSnapshots(root: string): Promise<{ id: string; name: s
 
 export async function propose(root: string, project: string, item: Omit<Proposal, "id" | "at">): Promise<Proposal> {
   const dir = join(root, "inbox", projectId(project));
-  if (!KINDS.has(item.kind)) throw new Error("A proposal's kind is draft, breakdown, fill, edits, board, takes, voices, canvas, series or game.");
-  const made: Proposal = { ...item, id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`, at: Date.now() };
+  if (!KINDS.has(item.kind)) throw new Error("A proposal's kind is draft, breakdown, fill, edits, board, takes, voices, canvas, series, game or grey.");
+  const at = Date.now();
+  // Wall-clock milliseconds can tie. A monotonic timestamp preserves arrival
+  // order within that millisecond, including across local bridge processes.
+  const order = process.hrtime.bigint().toString().padStart(20, "0");
+  const made: Proposal = { ...item, id: `${at}-${order}-${crypto.randomUUID().slice(0, 8)}`, at };
   await mkdir(dir, { recursive: true });
   await writeAtomic(join(dir, `${made.id}.json`), JSON.stringify(made));
   return made;

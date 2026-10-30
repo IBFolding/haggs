@@ -20,3 +20,13 @@ test("successive materials stay on the canvas-selected wall rather than revertin
  assert.equal(two.selected,wall);assert.equal(two.scene.surfaces!.find(s=>s.id===wall)!.texture!.url,"/b.png");assert.equal(two.scene.surfaces!.find(s=>s.id===floor)!.texture!.url,"/floor.png");
  const newTarget=applyTrayReference(two.scene,"Door",{id:"c",name:"Door",url:"/door.png"});assert.equal(newTarget.scene.surfaces!.at(-1)!.id,newTarget.selected);
 });
+test("removing a selected surface then clicking a reference preserves the scene and requests a new target",()=>{
+ const initial=addSurface({},"Wall");
+ const one=applyTrayReference(initial,initial.surfaces![0]!.id,{id:"a",name:"Paint",url:"/a.png"});
+ const removed={...one.scene,surfaces:[]};
+ const result=applyTrayReference(removed,one.selected,{id:"b",name:"Brick",url:"/b.png"});
+ assert.equal(result.kind,"missing");assert.equal(result.scene,removed);assert.equal(result.scene.surfaces!.length,0);
+ const recovered=applyTrayReference(removed,"Wall",{id:"b",name:"Brick",url:"/b.png"});
+ assert.equal(recovered.kind,"surface");assert.equal(recovered.scene.surfaces!.at(-1)!.id,recovered.selected);
+ assert.equal(recovered.scene.surfaces![0]!.label,"Wall");
+});

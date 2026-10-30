@@ -31,7 +31,7 @@ export const LAST_BOARD = "haggs.last-board";
 const NEW = "__new__";
 const DELETE = "__delete__";
 
-export function ProjectTabs({ project, boardId, current }: { project: Project; boardId?: string | undefined; current: ProjectTab }) {
+export function ProjectTabs({ project, boardId, current, greyShotId, beforeGreyNavigate }: { project: Project; boardId?: string | undefined; current: ProjectTab; greyShotId?: string | undefined; beforeGreyNavigate?: (() => Promise<boolean>) | undefined }) {
   const router = useRouter();
   const waiting = useAgentInbox(project.id).items.length;
   // Remembered so Editor in the header can take you straight back to this board's cut.
@@ -45,6 +45,7 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
   const store = useMemo(() => createProjectStore(defaultKv()), []);
   const boards = normalize(project).boards!;
   const board = boardOf(project, boardId);
+  const greyShot = board.shots.find(s=>s.id===greyShotId) ?? board.shots[0];
   const path = TABS.find((t) => t.id === current)!.path;
   const done = progress(project, board.id);
   const next = nextStep(project, board.id);
@@ -105,8 +106,8 @@ export function ProjectTabs({ project, boardId, current }: { project: Project; b
           </Link>
         ))}
       </nav>
-      {board.shots[0] && (
-        <Link className="ptabs-grey" href={`/board/${project.id}/grey/${board.shots[0].id}?b=${encodeURIComponent(board.id)}`}>
+      {greyShot && (
+        <Link className="ptabs-grey" href={`/board/${project.id}/grey/${greyShot.id}?b=${encodeURIComponent(board.id)}`} onClick={e=>{if(!beforeGreyNavigate)return;e.preventDefault();const href=e.currentTarget.href;void beforeGreyNavigate().then(ok=>{if(ok)router.push(href);});}}>
           ◐ Grey room
         </Link>
       )}

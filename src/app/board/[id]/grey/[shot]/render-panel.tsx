@@ -22,7 +22,7 @@ type Candidate = { kind: "draft" | "relit" | "real" | "blender"; url: string; us
  *   2. Relight: an AI pass that matches the actor's light to the lights you placed.
  *   3. Make it real: an AI pass that blends everything into one filmed picture.
  */
-export function RenderPanel({ scene, project, shot, places, onTake }: { scene: GreyScene; project: Project; shot: Shot; places: BankItem[]; onTake: (url: string, usd: number, origin: string) => void }) {
+export function RenderPanel({ advanced = true, scene, project, shot, places, onTake }: { advanced?: boolean; scene: GreyScene; project: Project; shot: Shot; places: BankItem[]; onTake: (url: string, usd: number, origin: string) => void }) {
   const [busy, setBusy] = useState<Candidate["kind"] | "export" | null>(null);
   const [blenderNotes, setBlenderNotes] = useState<string[]>([]);
   const pickRender = useRef<HTMLInputElement>(null);
@@ -59,7 +59,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
     const r = await track(
       { label: "Draft render of the set", href: href(), failure: (x) => (x.ok ? null : (x.reason ?? "The draft didn't finish.")), result: (x) => (x.ok && x.url ? { url: x.url } : null) },
       async () => {
-        const res = await fetch("/api/grey/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene: { ...scene, source: { url: source!.url, kind: source!.kind } }, footage: source!.url, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
+        const res = await fetch("/api/grey/render", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scene: { ...scene, source: { ...scene.source, url: source!.url, kind: source!.kind } }, footage: source!.url, seconds, aspect: project.aspect ?? "16:9", name: shot.heading || project.name }) }).catch(() => null);
         return ((await res?.json().catch(() => null)) ?? { ok: false, reason: "The render did not return a result. Check your connection and sign-in, then try again." }) as { ok: boolean; url?: string; reason?: string; notes?: string[] };
       },
     ).catch((e: unknown) => ({ ok: false, reason: e instanceof Error ? e.message : "The draft didn't finish.", url: undefined, notes: undefined }));
@@ -125,7 +125,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
     setKept(null);
     const up = await uploadFile(file);
     if (!up.ok || up.kind !== "video") { setBusy(null); return setProblem(up.ok ? "Choose the mp4 Blender made." : up.reason); }
-    const res = await fetch("/api/grey/mux", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ video: up.url, sound: source.url }) }).catch(() => null);
+    const res = await fetch("/api/grey/mux", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ video: up.url, sound: source.url, trimIn: scene.source?.trimIn ?? 0 }) }).catch(() => null);
     const body = (await res?.json().catch(() => null)) as { ok?: boolean; url?: string; reason?: string } | null;
     setBusy(null);
     if (!body?.ok || !body.url) return setProblem(body?.reason ?? "The render couldn't be brought in.");
@@ -154,6 +154,7 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
         {notes.map((n) => <p key={n} className="gs-soft">{n}</p>)}
       </section>
 
+      <details open={advanced}><summary>AI finishing & Blender options</summary>
       <section className="gs-sec">
         <h3>2. Relight the actor <span className="gs-soft">(optional)</span></h3>
         <p className="gs-soft">An AI pass so the light on the people matches the lights you placed{lighting ? `: ${lighting}` : ""}. It can change skin and expression slightly, which is why you look before you keep it.</p>
@@ -169,10 +170,11 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
 
       <section className="gs-sec">
         <h3>Blender <span className="gs-soft">(optional)</span></h3>
+        {process.env.NEXT_PUBLIC_HOSTED === "1" && <p className="gs-soft">Blender export and return require the local app and its media folder.</p>}
         <p className="gs-soft">For a shot that needs real 3D light or a finer render: take the set into Blender, finish it there, and bring the video back as a take.</p>
         <div className="gs-row">
-          <button className="pill" disabled={busy !== null || empty || !source} onClick={() => void exportBlender()}>{busy === "export" ? "Gathering…" : "Export a Blender set"}</button>
-          <button className="pill" disabled={busy !== null || !source} onClick={() => pickRender.current?.click()}>{busy === "blender" ? "Bringing it in…" : "Bring in a Blender render"}</button>
+          <button className="pill" disabled={process.env.NEXT_PUBLIC_HOSTED === "1" || busy !== null || empty || !source} onClick={() => void exportBlender()}>{busy === "export" ? "Gathering…" : "Export a Blender set"}</button>
+          <button className="pill" disabled={process.env.NEXT_PUBLIC_HOSTED === "1" || busy !== null || !source} onClick={() => pickRender.current?.click()}>{busy === "blender" ? "Bringing it in…" : "Bring in a Blender render"}</button>
           <input ref={pickRender} type="file" accept="video/mp4,video/*" hidden onChange={(e) => { void bringBack(e.target.files?.[0]); e.target.value = ""; }} />
         </div>
         <ol className="gs-steps-list">
@@ -182,12 +184,13 @@ export function RenderPanel({ scene, project, shot, places, onTake }: { scene: G
         </ol>
         {blenderNotes.map((n) => <p key={n} className="gs-soft">{n}</p>)}
       </section>
+      </details>
 
       {candidate && (
         <section className="gs-sec gs-review" aria-label="Look before you keep it">
           <h3>{candidate.kind === "draft" ? "Your draft" : candidate.kind === "blender" ? "Your Blender render" : candidate.kind === "relit" ? "Relit: look at the faces" : "Made real: look at the faces"}</h3>
           <div className="gs-pair">
-            {candidate.from && <figure>{candidate.from === source?.url && source.kind === "image" ? <img src={candidate.from} alt="Original room" /> : <video src={candidate.from} controls playsInline muted loop />}<figcaption>Before</figcaption></figure>}
+            {candidate.from && <figure>{candidate.from === source?.url && source.kind === "image" ? <img src={candidate.from} alt="Original room" /> : <video src={candidate.from} onLoadedMetadata={e => { if (candidate.from === scene.source?.url) e.currentTarget.currentTime = scene.source.trimIn ?? 0; }} onTimeUpdate={e => { if (candidate.from === scene.source?.url) { const start = scene.source.trimIn ?? 0; if (e.currentTarget.currentTime >= start + seconds) e.currentTarget.currentTime = start; } }} controls playsInline muted loop />}<figcaption>Before</figcaption></figure>}
             <figure><video src={candidate.url} controls playsInline muted loop autoPlay /><figcaption>{candidate.from ? "After" : "Draft"}</figcaption></figure>
           </div>
           <div className="gs-row">

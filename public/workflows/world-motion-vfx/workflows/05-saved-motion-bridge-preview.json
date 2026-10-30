@@ -1,0 +1,244 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "type": "HaggsLoadMotionNPZ",
+      "title": "Replace synthetic fixture with real saved motion",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "motion_data",
+          "type": "HYMOTION_DATA",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsLoadMotionNPZ"
+      },
+      "widgets_values": [
+        "haggs-studio-synthetic-motion.npz",
+        5.0
+      ]
+    },
+    {
+      "id": 900,
+      "type": "HaggsMotionToMovie",
+      "title": "Actual generated skeletal motion \u2192 H3 guides",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 900,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "motion_data",
+          "type": "HYMOTION_DATA",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "pose_guides",
+          "type": "IMAGE",
+          "links": [
+            2
+          ]
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "export_directory",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsMotionToMovie"
+      },
+      "widgets_values": [
+        "A full-body armored knight performs the supplied action. Consistent identity, outfit and scene; locked camera, no cuts.",
+        512,
+        320,
+        0.0,
+        1.0,
+        0
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CreateVideo",
+      "title": "Pose-guidance preview",
+      "pos": [
+        600,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "SaveVideo",
+      "title": "Save output",
+      "pos": [
+        1000,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs/motion-bridge-preview",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "MarkdownNote",
+      "title": "No model preview",
+      "pos": [
+        0,
+        900
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "The included NPZ is explicitly synthetic test data. Replace it with a genuine HYMotionSaveNPZ file to preview actual generated motion. Set its actual duration. No motion or H3 generation occurs in this graph. The bridge exports raw and retimed arrays as well as projected guides."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      900,
+      0,
+      "HYMOTION_DATA"
+    ],
+    [
+      2,
+      900,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      2,
+      0,
+      3,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4,
+  "last_node_id": 900,
+  "last_link_id": 3
+}

@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "type": "HaggsPlayableWorld",
+      "title": "Playable room \u2022 reference \u2022 Eden Live",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "visual_reference",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "session_id",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsPlayableWorld"
+      },
+      "widgets_values": [
+        "knight",
+        "dungeon",
+        "A single knight explores the same stone dungeon room and collects three luminous crystals. Preserve the camera and fixed obstacles. No text or HUD.",
+        "http://127.0.0.1:8089"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "MarkdownNote",
+      "title": "Start here",
+      "pos": [
+        0,
+        900
+      ],
+      "size": [
+        420,
+        320
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "Queue to create an actual keyboard-controlled proxy room inside ComfyUI. Click the room, use WASD, collect crystals, and record 5 seconds. This is not neural rendering. Set a reference image for Eden; configure a real local Eden GPU service before using Connect Eden Live. Copy the session id from the output for the register/replay workflows."
+      ]
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4,
+  "last_node_id": 2,
+  "last_link_id": 0
+}

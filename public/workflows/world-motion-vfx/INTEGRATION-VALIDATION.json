@@ -1,0 +1,77 @@
+{
+  "archive_sha256": "49ef7b9e7de80e2cf036d5844fc562c2d7f512812b49ae43ad82ff075f35112f",
+  "distinct_primary_graphs": 10,
+  "normalized_duplicates_in_prior_catalog": 0,
+  "graph_checks": [
+    {
+      "file": "01-playable-world-room.json",
+      "nodes": 2,
+      "links": 0,
+      "sha256": "43bd92c97dc66838a446b54372b6da320fa6126cd6b49fdcf4836cbc83b6a2d5"
+    },
+    {
+      "file": "02-register-room-for-eden-live.json",
+      "nodes": 3,
+      "links": 1,
+      "sha256": "ebbadd9990b539204d6a1eac65ef11cf4beb55a157aa103fb8666d67c26c3d8d"
+    },
+    {
+      "file": "03-eden-neural-replay.json",
+      "nodes": 4,
+      "links": 2,
+      "sha256": "0952494553dc8c07b79223aaa5bb13198320f30ba4f9d674663d05707271a882"
+    },
+    {
+      "file": "04-generated-motion-to-h3.json",
+      "nodes": 24,
+      "links": 32,
+      "sha256": "acc0cb8d277c42acb4e5f0d1d7ea6f83cfa0273e38e7017641720bfb30390acd"
+    },
+    {
+      "file": "05-saved-motion-bridge-preview.json",
+      "nodes": 5,
+      "links": 3,
+      "sha256": "c952a208ccf5a5de2ed2493afa476ac9b47788da71b440514054008a7602c14a"
+    },
+    {
+      "file": "06-ltx-directed-vfx-inpainting.json",
+      "nodes": 43,
+      "links": 96,
+      "sha256": "06a29190fdf764153d998470b9f90276cac488b8c7517232d2de39ad59acc283"
+    },
+    {
+      "file": "06a-ltx-single-effect-inpainting.json",
+      "nodes": 22,
+      "links": 48,
+      "sha256": "87c58f0ac351d495821cc5a448f1706a81c8097d879419215da03ff99dd78f88"
+    },
+    {
+      "file": "07-vfx-placement-mask-preview.json",
+      "nodes": 5,
+      "links": 3,
+      "sha256": "9aa806ac0d228e3ede5a3229cb29b7afe3725885d4411f3e971ee105088e6767"
+    },
+    {
+      "file": "08-vfx-reuse-existing-take.json",
+      "nodes": 6,
+      "links": 5,
+      "sha256": "a0a46603862f02df995628e2d657970b7cf0cc2925e88940af85e2f4c1ba1b6f"
+    },
+    {
+      "file": "09-load-room-recording-no-model.json",
+      "nodes": 3,
+      "links": 2,
+      "sha256": "9577f995374869b3f78c31779e55937aa8522aa77ab34d286adbbe55ffd647bb"
+    }
+  ],
+  "python_tests_passed": 21,
+  "room_simulation_passed": true,
+  "new_live_gpu_tests": false,
+  "new_comfyui_wrapper_tests": false,
+  "model_jobs_submitted": 0,
+  "custom_node_instances_matching_source_schema": 16,
+  "javascript_tests_passed": 1059,
+  "production_build_passed": true,
+  "gallery_images_loaded": 3,
+  "supplied_room_preview_playback_verified": true
+}

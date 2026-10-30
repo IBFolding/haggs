@@ -61,9 +61,10 @@ export function createGameStore(kv: Kv, now: () => number = Date.now, newId: () 
   }
 
   async function write(game: SavedGame): Promise<SavedGame> {
-    await kv.set(recordKey(game.id), game);
     const rest = (await index()).filter((s) => s.id !== game.id);
-    await kv.set(INDEX_KEY, [summaryOf(game), ...rest]);
+    const entries = [[recordKey(game.id), game], [INDEX_KEY, [summaryOf(game), ...rest]]] as const;
+    if (kv.setMany) await kv.setMany(entries);
+    else { await kv.set(entries[0][0], entries[0][1]); await kv.set(entries[1][0], entries[1][1]); }
     return game;
   }
 

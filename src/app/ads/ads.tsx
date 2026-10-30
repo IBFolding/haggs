@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import styles from "./ads.module.css";
+import { prepareAdHandoff } from "../../brand/ad-handoff";
+import { TEMPLATES } from "../../brand/marketing";
+import { shrinkPicture, shrinkAll } from "../shrink";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { AD_FORMATS, adJobs, adPrompt, MAX_BATCH, type AdFormat } from "../../brand/ads";
+import { AD_FORMATS, adJobs, adPrompt, MAX_BATCH, EMPTY_AD_BRIEF, plannedAdCount, type AdBrief, type AdFormat } from "../../brand/ads";
 import { SAMPLES } from "../../brand/samples";
 import { createBrandStore, type BrandKit } from "../../brand/brand";
 import { multiplierJobs, multiplyPrompt, nearestRatio, swaps, type Swap } from "../../brand/multiplier";
@@ -22,7 +27,7 @@ import { creditsText } from "../../story/price-text";
 
 const PRICE = 0.07;
 
-type Made = { key: string; format: AdFormat; product: string; audience: string; url?: string; problem?: string };
+type Made = { key: string; format: AdFormat; product: string; audience: string; prompt?: string; url?: string; problem?: string };
 
 /** The shape of a picture, read from the picture itself. */
 function shapeOf(url: string): Promise<ReturnType<typeof nearestRatio>> {
@@ -43,6 +48,9 @@ function shapeOf(url: string): Promise<ReturnType<typeof nearestRatio>> {
 const AD_EXAMPLES = ["/quick/product-ad.webp", "/quick/swap-ad.webp", "/quick/poster.webp", "/quick/product-grid.webp", "/quick/flat-lay.webp", "/quick/mockups.webp", "/quick/ugc-hand.webp", "/quick/product-in-hand.webp", "/quick/product-sequence.webp", "/templates/product-hero.webp", "/samples/ad-kettle.jpg"];
 
 export function Ads() {
+  const router = useRouter();
+  const [brief, setBrief] = useState<AdBrief>(EMPTY_AD_BRIEF);
+  const running = useRef(false);
   const brands = useMemo(() => createBrandStore(defaultKv()), []);
   const products = useMemo(() => createProductStore(defaultKv()), []);
   const [kits, setKits] = useState<BrandKit[]>([]);
@@ -71,9 +79,9 @@ export function Ads() {
   const urlRef = useRef<HTMLInputElement>(null);
   const writes = useRef(Promise.resolve());
   useEffect(() => {
-    void Promise.all([brands.list(), products.list(), idbKv().get<{kit:BrandKit|null;address:string;chosen:string[];formats:string[];audiences:string;draft:typeof draft;source:string|null;again:typeof again;made:Made[];remade:typeof remade}>("ads:draft:v1")]).then(([k,p,d]) => {
+    void Promise.all([brands.list(), products.list(), idbKv().get<{brief?:AdBrief;kit:BrandKit|null;address:string;chosen:string[];formats:string[];audiences:string;draft:typeof draft;source:string|null;again:typeof again;made:Made[];remade:typeof remade}>("ads:draft:v1")]).then(([k,p,d]) => {
       setKits(k); setList(p);
-      if (d) { setKit(d.kit); setAddress(d.address); setChosen(d.chosen); setFormats(d.formats); setAudiences(d.audiences); setDraft(d.draft); setSource(d.source); setAgain({ ...AGAIN, ...d.again }); setMade(d.made); setRemade(d.remade); }
+      if (d) { setBrief({ ...EMPTY_AD_BRIEF, ...d.brief }); setKit(d.kit); setAddress(d.address); setChosen(d.chosen); setFormats(d.formats); setAudiences(d.audiences); setDraft(d.draft); setSource(d.source); setAgain({ ...AGAIN, ...d.again }); setMade(d.made); setRemade(d.remade); }
       else setKit(k[0] ?? null);
       setReady(true);
     }).catch(() => { setProblem("Could not restore the Ads draft. Keep this page open while editing."); setReady(true); });
@@ -81,10 +89,10 @@ export function Ads() {
   useEffect(() => {
     if (!ready) return;
     setSaveStatus("Saving draft…");
-    writes.current = writes.current.catch(() => undefined).then(() => idbKv().set("ads:draft:v1",{kit,address,chosen,formats,audiences,draft,source,again,made,remade}));
+    writes.current = writes.current.catch(() => undefined).then(() => idbKv().set("ads:draft:v1",{brief,kit,address,chosen,formats,audiences,draft,source,again,made,remade}));
     const current=writes.current;
     void current.then(()=>{if(current===writes.current)setSaveStatus("Draft saved on this device");}).catch(()=>setSaveStatus("Draft could not be saved. Keep this page open."));
-  }, [ready,kit,address,chosen,formats,audiences,draft,source,again,made,remade]);
+  }, [ready,brief,kit,address,chosen,formats,audiences,draft,source,again,made,remade]);
 
   async function ownBrand() {
     const k = await brands.save({name:"My brand",url:"",logo:null,colors:[],fonts:[],about:"",tone:""});
@@ -93,6 +101,20 @@ export function Ads() {
 
   const picked = list.filter((p) => chosen.includes(p.id));
   const jobs = adJobs(picked, AD_FORMATS.filter((f) => formats.includes(f.id)), audiences.split("\n"));
+
+  const planned = plannedAdCount(picked.length, formats.length, audiences.split("\n"));
+  const directions = TEMPLATES.filter((t) => ["ads-social", "ads-callout", "poster-bold", "poster-minimal"].includes(t.id));
+
+  async function continueAd(url: string, to: "Video" | "Edit", prompt = "") {
+    setBusy("Preparing the ad…");
+    try {
+      const route = await prepareAdHandoff(url, to, prompt, {
+        shrink: shrinkPicture, save: (key, value) => sessionStorage.setItem(key, value),
+      });
+      router.push(route);
+    } catch { setProblem("Could not pass the ad to the next studio. Your result is still here; try again."); }
+    finally { setBusy(null); }
+  }
 
   async function read() {
     setBusy("Reading the site…");
@@ -147,18 +169,30 @@ export function Ads() {
   }
 
   async function run() {
+    if (!ready || busy || running.current || !kit || !jobs.length) return;
+    running.current = true;
     setProblem(null);
     const stamp = Date.now();
-    setMade(jobs.map((j, i) => ({ key: `${stamp}-${i}`, format: j.format, product: j.product.name, audience: j.audience })));
-    for (const [i, j] of jobs.entries()) {
-      setBusy(`Making ad ${i + 1} of ${jobs.length}…`);
-      const prompt = adPrompt(j.format, j.product, kit, j.audience);
-      const r = await makeStill(prompt, j.format.ratio, j.product.picture ? [j.product.picture] : [], "");
-      galleryStill(prompt, "Ad")(r);
-      if (!r.ok && r.needsKey) { openKeys(); setBusy(null); return setProblem(r.reason); }
-      setMade((cur) => cur.map((m) => (m.key === `${stamp}-${i}` ? (r.ok ? { ...m, url: r.url } : { ...m, problem: r.reason }) : m)));
-    }
-    setBusy(null);
+    const batch = jobs.map((j, i) => ({ key: `${stamp}-${i}`, format: j.format, product: j.product.name, audience: j.audience, prompt: adPrompt(j.format, j.product, kit, j.audience, brief) }));
+    setMade((old) => [...batch, ...old]);
+    try {
+      for (const [i, j] of jobs.entries()) {
+        setBusy(`Making ad ${i + 1} of ${jobs.length}…`);
+        const refs = await shrinkAll(j.product.picture ? [j.product.picture] : []);
+        const r = await makeStill(batch[i]!.prompt, j.format.ratio, refs, "");
+        galleryStill(batch[i]!.prompt, "Ad")(r);
+        setMade((cur) => cur.map((m) => m.key === batch[i]!.key ? (r.ok ? { ...m, url: r.url } : { ...m, problem: r.reason }) : m));
+        if (!r.ok) {
+          if (r.needsKey) openKeys();
+          setMade((cur) => cur.map((m) => batch.slice(i + 1).some((b) => b.key === m.key) ? { ...m, problem: "Not submitted — batch stopped. Review the issue before making another batch." } : m));
+          setProblem(r.reason);
+          break;
+        }
+      }
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : "The batch stopped. Check your library before submitting again.");
+      setMade((cur) => cur.map((m) => batch.some((b) => b.key === m.key) && !m.url && !m.problem ? { ...m, problem: "Interrupted — check your library before submitting again." } : m));
+    } finally { setBusy(null); running.current = false; }
   }
 
   const swapIn = list.find((p) => p.id === again.product);
@@ -172,23 +206,37 @@ export function Ads() {
     setBusy(null);
     if (!r.ok || r.kind !== "image") return setProblem(r.ok ? "Add a picture of the ad." : r.reason);
     setSource(r.url);
+    setRemade([]);
   }
 
   async function remake() {
-    if (!source) return;
+    if (!ready || busy || running.current || !source || !remakes.length) return;
+    running.current = true;
+    setBusy("Preparing versions…");
     setProblem(null);
     const stamp = Date.now();
-    const ratio = await shapeOf(source);
-    setRemade(remakes.map((j, i) => ({ key: `${stamp}-${i}`, label: [j.audience, j.language].filter(Boolean).join(" · ") || "New version" })));
-    for (const [i, j] of remakes.entries()) {
-      setBusy(`Remaking ad ${i + 1} of ${remakes.length}…`);
-      const prompt = multiplyPrompt(j.audience, j.language, swap);
-      const r = await makeStill(prompt, ratio, swapIn?.picture ? [source, swapIn.picture] : [source], "");
-      galleryStill(prompt, "Ad multiplier")(r);
-      if (!r.ok && r.needsKey) { openKeys(); setBusy(null); return setProblem(r.reason); }
-      setRemade((cur) => cur.map((m) => (m.key === `${stamp}-${i}` ? (r.ok ? { ...m, url: r.url } : { ...m, problem: r.reason }) : m)));
-    }
-    setBusy(null);
+    const batch = remakes.map((j, i) => ({ key: `${stamp}-${i}`, label: [j.audience, j.language].filter(Boolean).join(" · ") || "New version" }));
+    setRemade(batch);
+    try {
+      const ratio = await shapeOf(source);
+      const refs = await shrinkAll(swapIn?.picture ? [source, swapIn.picture] : [source]);
+      for (const [i, j] of remakes.entries()) {
+        setBusy(`Remaking ad ${i + 1} of ${remakes.length}…`);
+        const prompt = multiplyPrompt(j.audience, j.language, swap);
+        const r = await makeStill(prompt, ratio, refs, "");
+        galleryStill(prompt, "Ad multiplier")(r);
+        setRemade((cur) => cur.map((m) => m.key === batch[i]!.key ? (r.ok ? { ...m, url: r.url } : { ...m, problem: r.reason }) : m));
+        if (!r.ok) {
+          if (r.needsKey) openKeys();
+          setRemade((cur) => cur.map((m) => batch.slice(i + 1).some((b) => b.key === m.key) ? { ...m, problem: "Not submitted — batch stopped." } : m));
+          setProblem(r.reason);
+          break;
+        }
+      }
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : "The batch stopped. Check your library before submitting again.");
+      setRemade((cur) => cur.map((m) => batch.some((b) => b.key === m.key) && !m.url && !m.problem ? { ...m, problem: "Interrupted — check your library before submitting again." } : m));
+    } finally { setBusy(null); running.current = false; }
   }
 
   const toggle = (set: (f: (c: string[]) => string[]) => void, id: string) => set((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
@@ -197,16 +245,26 @@ export function Ads() {
     <div className="app">
       <Nav current="Photos" />
       <div className="canvas">
-        <div className="swap ads-studio">
+        <div className={`swap ads-studio ${styles.studio}`}>
           <ModeTabs group="Photos" current="/ads" canEdit={surfaceAvailable("Edit")} />
-          <div className="rx-filter ad-views" role="tablist" aria-label="Ads tools">
-            <button role="tab" aria-selected={!remakeOpen} onClick={() => setRemakeOpen(false)}>Make a batch</button>
-            <button role="tab" aria-selected={remakeOpen} onClick={() => setRemakeOpen(true)}>Remake an ad</button>
+          <header className={styles.header}>
+            <div><span className="eyebrow">Ads studio</span><h1>One brand. Your next campaign.</h1><p>Shape the idea, review every variation, then make it yours.</p></div>
+            <Link className="pill" href="/marketing">Explore Marketing templates</Link>
+          </header>
+          {!remakeOpen && <div className={styles.steps} aria-label="Campaign progress">
+            <span data-done={Boolean(kit)}>01 <b>Brand</b><small>{kit?.name || "Import or create"}</small></span>
+            <span data-done={picked.length > 0}>02 <b>Products</b><small>{picked.length ? `${picked.length} selected` : "Use your saved products"}</small></span>
+            <span data-done={jobs.length > 0}>03 <b>Creative & formats</b><small>{jobs.length ? `${jobs.length} planned ads` : "Build your batch"}</small></span>
+            <span data-done={made.some((m) => m.url)}>04 <b>Review & create</b><small>Price before generation</small></span>
+          </div>}
+          <div className="rx-filter ad-views" role="group" aria-label="Ads tools">
+            <button aria-pressed={!remakeOpen} disabled={busy !== null} onClick={() => { setRemakeOpen(false); setProblem(null); }}>Make a batch</button>
+            <button aria-pressed={remakeOpen} disabled={busy !== null} onClick={() => { setRemakeOpen(true); setProblem(null); }}>Remake an ad</button>
           </div>
           {!kit && !remakeOpen && (
             <section className="ad-start" aria-label="Start with your brand">
               <span className="eyebrow">Ads</span>
-              <h1>Ads that look like your brand.</h1>
+              <h2>Start with what makes you, you.</h2>
               <p>Enter your website. haggs reads your name, logo, colours and tone, then makes a batch of ads for your products, up to {MAX_BATCH} at a time.</p>
               <form className="ad-url" onSubmit={(e) => { e.preventDefault(); if (address.trim().length >= 3) void read(); }}>
                 <span aria-hidden>◍</span>
@@ -219,7 +277,7 @@ export function Ads() {
                 {kits.map((k) => <button key={k.id} className="pill" onClick={() => setKit(k)}>{k.name}</button>)}
               </div>
               <div className="ad-alt">
-                <span className="muted">Try a sample:</span>
+                <span className="muted">Sample brand setups:</span>
                 {SAMPLES.map((x) => <button key={x.id} className="pill" disabled={!ready || busy !== null} onClick={() => void useSample(x.id)}>{x.label}</button>)}
               </div>
               {problem && <p className="library-error" role="alert">{problem}</p>}
@@ -234,9 +292,9 @@ export function Ads() {
               <div className="ad-tools">
                 <button className="ad-tool" onClick={() => urlRef.current?.focus()}>
                   <video src="/templates/product-placement.mp4" muted loop autoPlay playsInline preload="metadata" />
-                  <span><b>Make a batch of ads</b><small>Your products in every format, for every audience, in your colours.</small><em>Start with your website</em></span>
+                  <span><b>Make a batch of ads</b><small>Choose products, a creative direction and formats. Review the batch before spending.</small><em>Start with your website</em></span>
                 </button>
-                <button className="ad-tool" onClick={() => setRemakeOpen(true)}>
+                <button className="ad-tool" onClick={() => { setRemakeOpen(true); setProblem(null); }}>
                   <video src="/templates/product-orbit.mp4" muted loop autoPlay playsInline preload="metadata" />
                   <span><b>Remake an ad that works</b><small>The same product and layout, for new audiences and in other languages.</small><em>Add an ad</em></span>
                 </button>
@@ -256,7 +314,7 @@ export function Ads() {
           <div className="cx ad-cx">
             <aside className="cx-builder" aria-label="Set up the batch">
               <fieldset disabled={!ready || busy !== null} className="cx-scroll cm-authoring">
-                <span className="eyebrow">Ads</span>
+                <span className="eyebrow">Campaign setup</span>
                 <div className="ad-brand">
                   {kit.logo ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="ads-logo" src={kit.logo} alt={`${kit.name} logo`} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="ad-brand-mono" aria-hidden>{kit.name.slice(0, 1)}</span>}
                   <span><b>{kit.name}</b><small>{kit.about || "No line yet"}</small></span>
@@ -318,14 +376,31 @@ export function Ads() {
                     <textarea rows={3} value={audiences} onChange={(e) => setAudiences(e.target.value)} placeholder={"students on a budget\nnew parents"} />
                   </label>
                 </details>
+                <details className="cx-sec" open>
+                  <summary><b>4. The campaign brief</b><small>optional</small></summary>
+                  <label className="wf-field"><span>Headline</span><input maxLength={120} value={brief.headline} onChange={(e) => setBrief({ ...brief, headline: e.target.value })} placeholder="Your message, in your words" /></label>
+                  <label className="wf-field"><span>Call to action</span><input maxLength={60} value={brief.cta} onChange={(e) => setBrief({ ...brief, cta: e.target.value })} placeholder="Shop the collection" /></label>
+                  <label className="wf-field"><span>Creative notes</span><textarea rows={3} maxLength={400} value={brief.notes} onChange={(e) => setBrief({ ...brief, notes: e.target.value })} placeholder="The occasion, mood and facts the ad should communicate" /></label>
+                  <p className="wf-small">Copy and product offers apply to text-based ads. Product shots and listings stay text-free. Check generated lettering and claims before publishing.</p>
+                </details>
                 {problem && <p className="library-error" role="alert">{problem}</p>}
               </fieldset>
               <div className="cx-foot">
-                <button className="fire" disabled={busy !== null || jobs.length === 0} onClick={() => void run()}>{busy ?? (jobs.length ? `Make ${jobs.length} ad${jobs.length === 1 ? "" : "s"}` : !picked.length ? "Pick a product" : "Pick a size")} {jobs.length > 0 && <span className="cost">about {creditsText((jobs.length * PRICE))}</span>}</button>
+                <button className="fire" disabled={!ready || busy !== null || jobs.length === 0} onClick={() => void run()}>{busy ?? (jobs.length ? `Make ${jobs.length} ad${jobs.length === 1 ? "" : "s"}` : !picked.length ? "Pick a product" : "Pick a size")} {jobs.length > 0 && <span className="cost">about {creditsText((jobs.length * PRICE))}</span>}</button>
               </div>
             </aside>
 
             <div className="cx-main">
+              <section className={styles.directions} aria-label="Creative direction">
+                <div className={styles.sectionHead}><div><span className="eyebrow">Creative direction</span><h2>Give the campaign a point of view.</h2></div><button className="plain" disabled={busy !== null || !brief.templateId} onClick={() => setBrief({ ...brief, templateId: "", direction: "" })}>Use format defaults</button></div>
+                <p>Start with a direction from Marketing. Applies to posters, social and story ads; product shots and listings keep their format direction. Images below are template examples.</p>
+                <div className={styles.templates}>{directions.map((t) => <button key={t.id} disabled={busy !== null} aria-pressed={brief.templateId === t.id} onClick={() => setBrief({ ...brief, templateId: t.id, direction: t.direction })}>
+                  <img src={t.sample} alt="" loading="lazy" /><span><b>{t.name}</b><small>{brief.templateId === t.id ? "Selected direction" : "Use this direction"}</small></span>
+                </button>)}</div>
+              </section>
+              <div className={styles.summary} role="status"><div><b>{jobs.length} ads in this batch</b><span>{picked.length} products · {formats.length} formats · {Math.max(1, audiences.split("\n").filter((a) => a.trim()).length)} audiences</span></div><strong>{creditsText(jobs.length * PRICE)}<small>estimated total</small></strong></div>
+              {planned > MAX_BATCH && <p className="library-error" role="alert">Your selections describe {planned} ads. Only the first {MAX_BATCH} shown below will run; {planned - MAX_BATCH} are excluded. Narrow your selections to include a different mix.</p>}
+              {picked.some((p) => !p.picture) && <p className="wf-small">Products without photos are drawn from their descriptions. Add a reference photo for a closer product match.</p>}
               {made.length > 0 && (
                 <section className="cx-gallery" aria-label="Your ads">
                   <span className="eyebrow muted">Your ads · {made.filter((m) => m.url).length} of {made.length} made</span>
@@ -333,10 +408,10 @@ export function Ads() {
                     {made.map((m) => (
                       <li key={m.key}>
                         <div className="ad-tile" style={{ aspectRatio: m.format.ratio.replace(":", " / ") }}>
-                          {m.url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={m.url} alt={`${m.product}, ${m.format.name}`} /> : <span className="ad-tile-wait">{m.problem ?? "Making…"}</span>}
+                          {m.url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={m.url} alt={`${m.product}, ${m.format.name}`} /> : <span className="ad-tile-wait">{m.problem ?? (busy ? "Making…" : "Interrupted — check your library before making again.")}</span>}
                         </div>
                         <small>{m.product} · {m.format.name}{m.audience ? ` · ${m.audience}` : ""}</small>
-                        {m.url && <span className="ad-tile-acts"><a href={m.url} download>Download</a><button className="plain" onClick={() => { setSource(m.url!); setRemakeOpen(true); setProblem(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Remake this</button></span>}
+                        {m.url && <span className="ad-tile-acts"><a href={m.url} download>Download</a><button className="plain" disabled={busy !== null} onClick={() => void continueAd(m.url!, "Video")}>Animate in Video</button>{surfaceAvailable("Edit") && <button className="plain" disabled={busy !== null} onClick={() => void continueAd(m.url!, "Edit", m.prompt)}>Edit</button>}<button className="plain" disabled={busy !== null} onClick={() => { setSource(m.url!); setRemade([]); setRemakeOpen(true); setProblem(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Remake this</button></span>}
                       </li>
                     ))}
                   </ul>
@@ -357,7 +432,7 @@ export function Ads() {
                           {j.product.picture ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={j.product.picture} alt="" /> : <span className="ad-tile-mono">{j.product.name.slice(0, 1)}</span>}
                           <em>Planned</em>
                         </div>
-                        <small><b>{j.product.name}</b> · {j.format.name} {j.format.ratio}{j.audience ? ` · ${j.audience}` : ""}</small>
+                        <small><b>{j.product.name}</b> · {j.format.name} {j.format.ratio}{j.audience ? ` · ${j.audience}` : ""}</small><details className={styles.prompt}><summary>Review prompt · {creditsText(PRICE)}</summary><p>{adPrompt(j.format, j.product, kit, j.audience, brief)}</p></details>
                       </li>
                     ))}
                   </ul>
@@ -373,7 +448,7 @@ export function Ads() {
             <aside className="cx-builder" aria-label="Remake an ad">
               <fieldset disabled={!ready || busy !== null} className="cx-scroll cm-authoring">
                 <span className="eyebrow">Remake an ad</span>
-                <h1 className="cx-title">One ad that works. Many versions.</h1>
+                <h2 className="cx-title">One ad that works. Many versions.</h2>
                 <p className="cx-lede">Add an ad you like. Keep its layout and look, and change the product, the words, who it speaks to or the language.</p>
                 <button
                   className={`rx-drop${over ? " over" : ""}`}
@@ -427,7 +502,7 @@ export function Ads() {
                 {problem && <p className="library-error" role="alert">{problem}</p>}
               </fieldset>
               <div className="cx-foot">
-                <button className="fire" disabled={busy !== null || !source || remakes.length === 0} onClick={() => void remake()}>{busy ?? (!source ? "Add an ad first" : remakes.length ? `Make ${remakes.length} version${remakes.length === 1 ? "" : "s"}` : "Change something first")} {source && remakes.length > 0 && <span className="cost">about {creditsText((remakes.length * PRICE))}</span>}</button>
+                <button className="fire" disabled={!ready || busy !== null || !source || remakes.length === 0} onClick={() => void remake()}>{busy ?? (!source ? "Add an ad first" : remakes.length ? `Make ${remakes.length} version${remakes.length === 1 ? "" : "s"}` : "Change something first")} {source && remakes.length > 0 && <span className="cost">about {creditsText((remakes.length * PRICE))}</span>}</button>
               </div>
             </aside>
 
@@ -445,7 +520,7 @@ export function Ads() {
                     {(remade.length ? remade : remakes.map((j, i) => ({ key: `plan-${i}`, label: [j.audience, j.language].filter(Boolean).join(" · ") || "New version", url: undefined as string | undefined, problem: undefined as string | undefined }))).map((m) => (
                       <li key={m.key}>
                         <div className={`ad-tile${m.url ? "" : " plan"}`} style={{ aspectRatio: sourceShape.replace(":", " / ") }}>
-                          {m.url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={m.url} alt={m.label} /> : <span className="ad-tile-wait">{m.problem ?? (remade.length ? "Making…" : "Planned")}</span>}
+                          {m.url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={m.url} alt={m.label} /> : <span className="ad-tile-wait">{m.problem ?? (remade.length ? (busy ? "Making…" : "Interrupted — check your library before making again.") : "Planned")}</span>}
                         </div>
                         <small>{m.label}{swapIn ? ` · ${swapIn.name}` : ""}</small>
                         {m.url && <span className="ad-tile-acts"><a href={m.url} download>Download</a></span>}

@@ -105,7 +105,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
   return (
     <section className="gs-sec">
       <h3>What do you want to replace?</h3>
-      <p className="gs-soft">Choose an area → outline it → apply a reference. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "The outline follows the video." : "Draw your own outline for free, or use AI detection."}</p>
+      <p className="gs-soft">Choose an area → outline it → apply a reference. Only the selected area changes; the rest of the shot stays in place. {isVideo ? "AI outlines can follow the video; manual areas stay fixed for the whole clip." : "Draw your own outline for free, or use AI detection."}</p>
       <div className="gs-row">
         {QUICK.map((q) => <button key={q} className="pill" disabled={!footageUrl} onClick={() => onChange(addSurface(scene, q))}>+ {q}</button>)}
       </div>
@@ -119,7 +119,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
             </span>
           </div>
           <p className="gs-soft">1. Select the exact area you want to change.</p>
-          {!isVideo && footageUrl && <button className="pill on" disabled={busy !== null} onClick={() => setSelecting({id:sf.id,source})}>{sf.selection ? "Redraw area" : "Draw area on photo"} <span className="cost">free</span></button>}
+          {footageUrl && <button className="pill on" disabled={busy !== null} onClick={() => setSelecting({id:sf.id,source})}>{sf.selection ? "Redraw area" : isVideo ? "Draw static area" : "Draw area on photo"} <span className="cost">free</span></button>}
           <div className="gs-row">
             <input className="gs-name" type="text" maxLength={120} value={words[sf.id] ?? sf.words ?? ""} placeholder={surfaceWords(sf.label, "")} onChange={(e) => setWords({ ...words, [sf.id]: e.target.value })} aria-label={`Words to find the ${sf.label}`} />
             <button className="pill" disabled={busy !== null || !footageUrl} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
@@ -152,7 +152,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
           )}
         </div>
       ))}
-      {selecting && selecting.source === source && footageUrl && <AreaSelector key={source} source={footageUrl} label={scene.surfaces?.find(s => s.id === selecting.id)?.label ?? "area"} onClose={() => setSelecting(null)} onSave={(url, selection) => accept(selecting.id, selecting.source, { selection, mask: { kind: "image", url, at: Date.now(), price: "Manual selection · free" } })} />}
+      {selecting && selecting.source === source && footageUrl && <AreaSelector key={source} video={isVideo} start={scene.source?.trimIn ?? 0} source={footageUrl} label={scene.surfaces?.find(s => s.id === selecting.id)?.label ?? "area"} onClose={() => setSelecting(null)} onSave={(url, selection) => accept(selecting.id, selecting.source, { selection, mask: { kind: "image", url, at: Date.now(), price: "Manual selection · free" } })} />}
       {problem && <p className="library-error" role="alert">{problem}</p>}
     </section>
   );

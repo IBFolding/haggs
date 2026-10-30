@@ -24,7 +24,7 @@ const LOOKS: { name: string; look: Look }[] = [
 ];
 
 /** The Light step: lights you drag on the picture, the colour of the whole frame, and what's in the air. */
-export function LightPanel({ scene, selected, onSelect, onChange }: { scene: GreyScene; selected: string | null; onSelect: (id: string | null) => void; onChange: (next: GreyScene) => void }) {
+export function LightPanel({ compact = false, scene, selected, onSelect, onChange }: { compact?: boolean; scene: GreyScene; selected: string | null; onSelect: (id: string | null) => void; onChange: (next: GreyScene) => void }) {
   const look = { ...NEUTRAL, ...scene.look };
   const sel = scene.lights?.find((l) => l.id === selected) ?? null;
   return (
@@ -57,6 +57,7 @@ export function LightPanel({ scene, selected, onSelect, onChange }: { scene: Gre
         )}
       </section>
 
+      <details open={!compact}><summary>Look, shadows & atmosphere</summary>
       <section className="gs-sec">
         <h3>Look</h3>
         <div className="gs-row">
@@ -84,6 +85,7 @@ export function LightPanel({ scene, selected, onSelect, onChange }: { scene: Gre
           {AIR.map((a) => <Slide key={a.kind} label={a.label} min={0} max={1} step={0.05} value={scene.atmos?.find((x) => x.kind === a.kind)?.amount ?? 0} onChange={(v) => onChange(setAtmos(scene, a.kind, v))} />)}
         </div>
       </section>
+      </details>
     </div>
   );
 }

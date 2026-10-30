@@ -1,0 +1,323 @@
+{
+  "last_node_id": 10005,
+  "last_link_id": 5,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadVideo",
+      "title": "Already generated layer \u2014 no generation calls",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadVideo"
+      },
+      "widgets_values": [
+        "haggs/layer.mp4"
+      ]
+    },
+    {
+      "id": 10000,
+      "type": "HaggsPortalPaint",
+      "title": "HAGGS \u2014 Portal Paint",
+      "pos": [
+        1300,
+        0
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10000,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "generated_video",
+          "type": "VIDEO",
+          "link": 1
+        },
+        {
+          "name": "source_video",
+          "type": "VIDEO",
+          "link": 2
+        },
+        {
+          "name": "music",
+          "type": "AUDIO",
+          "link": 3
+        },
+        {
+          "name": "subject_mask",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "region_mask",
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "band_map",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "finished_video",
+          "type": "VIDEO",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsPortalPaint"
+      },
+      "widgets_values": [
+        0.85,
+        120.0,
+        0.0,
+        "",
+        0.35,
+        0.12,
+        "0:0,0.5:1,1:0",
+        0.5
+      ]
+    },
+    {
+      "id": 10001,
+      "type": "LoadVideo",
+      "title": "Original performance / source clip",
+      "pos": [
+        650,
+        600
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10001,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadVideo"
+      },
+      "widgets_values": [
+        "haggs/source.mp4"
+      ]
+    },
+    {
+      "id": 10002,
+      "type": "LoadAudio",
+      "title": "Original song (preserved)",
+      "pos": [
+        1050,
+        600
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10002,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadAudio"
+      },
+      "widgets_values": [
+        "haggs/music.wav",
+        null,
+        null
+      ]
+    },
+    {
+      "id": 10003,
+      "type": "HaggsTakeAudit",
+      "title": "Diagnostic report \u2192 output/haggs-reports",
+      "pos": [
+        1750,
+        0
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10003,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": [
+            5
+          ]
+        },
+        {
+          "name": "diagnostic_report",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsTakeAudit"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 10004,
+      "type": "SaveVideo",
+      "title": "Finished Portal Paint",
+      "pos": [
+        2150,
+        0
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10004,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs/03-portal-paint",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 10005,
+      "type": "MarkdownNote",
+      "title": "READ FIRST \u2014 scope and mask setup",
+      "pos": [
+        1300,
+        1000
+      ],
+      "size": [
+        360,
+        300
+      ],
+      "flags": {},
+      "order": 10005,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "# Portal Paint\n\nGenerated video appears inside region_mask, with a beat-pulsed luminous rim. Default is a centered ellipse. Connect subject_mask to preserve foreground occlusion. Draw your region in ComfyUI Mask Editor on a LoadImage node and connect MASK.\n\nUse short, low-resolution shots first. For tracked silhouettes, use the included SAM2 helper. Connect matching mask batches at the generated-video FPS. Core compositor is capped at 1200 frames and 1080p. These workflows have not been run inside ComfyUI or GPU-generation tested."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      10000,
+      0,
+      "VIDEO"
+    ],
+    [
+      2,
+      10001,
+      0,
+      10000,
+      1,
+      "VIDEO"
+    ],
+    [
+      3,
+      10002,
+      0,
+      10000,
+      2,
+      "AUDIO"
+    ],
+    [
+      4,
+      10000,
+      0,
+      10003,
+      0,
+      "VIDEO"
+    ],
+    [
+      5,
+      10003,
+      0,
+      10004,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

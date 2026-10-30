@@ -10,6 +10,8 @@
 export type Kv = {
   get<T>(key: string): Promise<T | undefined>;
   set(key: string, value: unknown): Promise<void>;
+  /** Optional atomic write for related records (durable imports use this). */
+  setMany?(entries: readonly (readonly [string, unknown])[]): Promise<void>;
   remove(key: string): Promise<void>;
 };
 
@@ -68,6 +70,17 @@ function request<T>(
 
 export function idbKv(): Kv {
   return {
+    async setMany(entries) {
+      const db = await open();
+      return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onabort = () => { db.close(); reject(tx.error ?? new Error("Browser storage write was aborted.")); };
+        tx.onerror = () => { /* onabort reports the final transaction outcome */ };
+        try { for (const [key, value] of entries) tx.objectStore(STORE).put(value, key); }
+        catch (e) { tx.abort(); reject(e); }
+      });
+    },
     get<T>(key: string) {
       return request("readonly", (store) => store.get(key)) as Promise<T | undefined>;
     },

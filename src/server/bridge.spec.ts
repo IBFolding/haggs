@@ -37,6 +37,19 @@ test("proposals wait in the project's inbox, oldest first, until dismissed", asy
   await assert.rejects(propose(dir, "p1", { kind: "nope" as never, summary: "", payload: {} }), /kind/);
 });
 
+test("proposals made in the same millisecond remain in arrival order", async (t) => {
+  const dir = root();
+  t.mock.method(Date, "now", () => 1234567890000);
+  let uuid = 0;
+  t.mock.method(crypto, "randomUUID", () => (++uuid === 1
+    ? "ffffffff-ffff-4fff-8fff-ffffffffffff"
+    : "00000000-0000-4000-8000-000000000000"));
+  const first = await propose(dir, "p1", { kind: "fill", summary: "first", payload: {} });
+  const second = await propose(dir, "p1", { kind: "draft", summary: "second", payload: {} });
+  assert.equal(first.at, second.at);
+  assert.deepEqual((await inbox(dir, "p1")).map((item) => item.id), [first.id, second.id]);
+});
+
 test("removing a project's snapshot takes it off the list Claude sees", async () => {
   const { removeSnapshot } = await import("./bridge");
   const dir = root();

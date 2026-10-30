@@ -31,7 +31,7 @@ export type RoomReference = { id: string; url: string; name: string };
 export type GreyScene = {
   references?: RoomReference[];
   /** The uncomposited source, kept when a rendered draft becomes the active take. */
-  source?: { url: string; kind: "video" | "image"; revision?: string };
+  source?: { url: string; kind: "video" | "image"; revision?: string; trimIn?: number };
   place?: string;
   matte?: Matte;
   backdrop?: Backdrop;
@@ -180,7 +180,7 @@ export function normalizeScene(raw: GreyScene | undefined): GreyScene {
   const isProp = (p: unknown): p is Prop => !!p && typeof p === "object" && typeof (p as Prop).id === "string" && typeof (p as Prop).url === "string" && Number.isFinite((p as Prop).x) && Number.isFinite((p as Prop).y);
   const isLight = (l: unknown): l is Light => !!l && typeof l === "object" && typeof (l as Light).id === "string" && typeof (l as Light).kind === "string";
   return {
-    ...(raw.source && typeof raw.source.url === "string" && (raw.source.kind === "video" || raw.source.kind === "image") ? { source: { url: raw.source.url, kind: raw.source.kind, ...(typeof raw.source.revision === "string" ? {revision:raw.source.revision} : {}) } } : {}),
+    ...(raw.source && typeof raw.source.url === "string" && (raw.source.kind === "video" || raw.source.kind === "image") ? { source: { url: raw.source.url, kind: raw.source.kind, ...(Number.isFinite(raw.source.trimIn) && raw.source.trimIn! > 0 ? {trimIn:raw.source.trimIn} : {}), ...(typeof raw.source.revision === "string" ? {revision:raw.source.revision} : {}) } } : {}),
     ...(Array.isArray(raw.references) ? { references: raw.references.filter(r => r && typeof r.id === "string" && typeof r.url === "string" && typeof r.name === "string").slice(0, 60) } : {}),
     ...(raw.place ? { place: raw.place } : {}),
     ...(raw.matte ? { matte: raw.matte } : {}),

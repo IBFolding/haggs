@@ -41,6 +41,12 @@ export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: G
   }
   function assign(ref: RoomReference) {
     const result = applyTrayReference(live.current, activeTarget, ref);
+    if (result.kind === "missing") {
+      setTarget(""); onEdit();
+      setError("That area was removed. Choose an area or New object before applying a reference.");
+      return;
+    }
+    setError(null);
     setTarget(result.kind === "surface" ? result.selected : `object:${result.selected}`);
     live.current = result.scene; onChange(result.scene); onEdit(result.selected, result.kind);
   }
@@ -49,9 +55,7 @@ export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: G
     <p className="gs-soft">Pick a target once, then click thumbnails to audition looks. Drag a card onto the scene to place it, or onto an object to swap it.</p>
     <input ref={picker} type="file" multiple accept="image/*" hidden onChange={e => { void upload(e.target.files); e.target.value = ""; }} />
     {!scene.references?.length && <div className="gs-board-welcome">
-      <img src="/grey-room/room-inspiration.webp" alt="Warm contemporary room with natural materials" />
-      <span className="gs-board-example">Style inspiration · AI image</span>
-      <div><strong>Start with a feeling.</strong><p>Add a material close-up or a cut-out object. Then assign it to your room.</p><button className="pill on" disabled={busy} onClick={() => picker.current?.click()}>Add your first reference</button></div>
+      <div><strong>Your reference images live here.</strong><p>Add photos, materials or cut-out objects. These cards stay with this shot; click to apply or drag onto the scene.</p><button className="pill on" disabled={busy} onClick={() => picker.current?.click()}>Add your first reference</button></div>
     </div>}
     {!scene.references?.length && <div className="gs-starter-materials"><span>Or try a sample material</span><div>{[{ name: "Smoked oak", url: "/grey-room/smoked-oak.webp" }, { name: "Ivory travertine", url: "/grey-room/travertine.webp" }].map(ref => <button key={ref.url} disabled={busy} onClick={() => void addSample(ref)}><img src={ref.url} alt="" /><span>{ref.name}</span><b aria-hidden="true">+</b></button>)}</div></div>}
     <div className="gs-tray-targets" aria-label="Reference target">

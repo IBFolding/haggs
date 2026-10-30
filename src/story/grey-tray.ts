@@ -15,7 +15,13 @@ export function applyTrayReference(scene: GreyScene, target: string, ref: RoomRe
     const selected = !actor && scene.props?.some(p => p.id === target.slice(7)) ? target.slice(7) : next.props!.at(-1)!.id;
     return {scene:actor ? updateProp(next, selected, {role:"actor"}) : next, selected, kind:"objects" as const};
   }
-  const next = assignSurfaceReference(scene, target, ref);
-  const selected = next.surfaces!.find(s => s.id === target || s.label.toLowerCase() === target.toLowerCase())!.id;
+  const existing = scene.surfaces?.find(s => s.id === target)
+    ?? scene.surfaces?.find(s => s.label.toLowerCase() === target.toLowerCase());
+  // Only the tray's explicit creation chips may create a surface. A deleted ID
+  // must never become a label, or silently redirect the edit to another area.
+  const preset = ["Floor", "Wall", "Door", "Window"].find(label => label.toLowerCase() === target.toLowerCase());
+  if (!existing && !preset) return {scene, selected:target, kind:"missing" as const};
+  const next = assignSurfaceReference(scene, existing?.id ?? preset!, ref);
+  const selected = existing?.id ?? next.surfaces!.at(-1)!.id;
   return {scene:next, selected, kind:"surface" as const};
 }

@@ -1,0 +1,8 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Haggs Playable World</title><style>body{margin:0;background:#111826;color:#edf3ff;font:14px system-ui}header{padding:12px;display:flex;gap:12px;align-items:center}canvas{width:100%;display:block;outline:none}button{padding:9px 14px;border:0;border-radius:8px;background:#9bf4c6;cursor:pointer}#status{padding:12px;color:#c5d7ed}small{color:#aabbd0}</style></head><body><header><b>HAGGS · Playable World</b><button id="record">Record 5 seconds</button><button id="restart">Restart</button><small>Geometry proxy — neural rendering requires Eden.</small></header><div id="app"><canvas width="832" height="480"></canvas></div><div id="status">Loading room…</div><script type="module">
+import {mountRoom} from './room.js';
+const config=await fetch('./config.json').then(r=>r.json());const status=document.querySelector('#status');
+const room=await mountRoom(document.querySelector('canvas'),status,config);
+document.querySelector('#record').onclick=()=>{try{room.startRecording();}catch(e){status.textContent=e.message;}};
+document.querySelector('#restart').onclick=()=>room.reset();
+window.haggsRoom=room;
+</script></body></html>

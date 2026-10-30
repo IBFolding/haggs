@@ -107,7 +107,7 @@ export function Nav({ current }: { current: Place }) {
                 <b>Simple or Pro</b>
                 <span>Pro adds the extra controls a model accepts: a seed to repeat a result, a negative prompt, and CFG. Simple keeps them at the model&rsquo;s defaults. Your runs are the same either way until you change one.</span>
                 <b>Open weights only</b>
-                <span>Nothing runs on a partner model. Photos and Video stop, and only open-weights workflows run: on your own GPU when it&rsquo;s connected (Keys → Connect my GPU), otherwise on Comfy Cloud.</span>
+                <span>Nothing runs on a partner model. Photos and Video offer open-model workflows. Choose Your GPU (configure a reachable ComfyUI in Keys) or Comfy Cloud. Installed models, connection and charges must pass checks before generating.</span>
                 <button className="plain" onClick={() => setExplain(false)}>Got it</button>
               </span>
             )}
@@ -137,7 +137,7 @@ export function Nav({ current }: { current: Place }) {
       </nav>
       {openOnly && (
         <div className="nav-openbar" role="status">
-          Open weights only · no partner model is called · runs on your GPU when connected, otherwise Comfy Cloud
+          Open weights only · no partner model is called · choose a run location and check requirements
           <button onClick={() => setOpenOnly(false)}>Turn off</button>
         </div>
       )}

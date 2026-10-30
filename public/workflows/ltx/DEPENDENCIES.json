@@ -1,0 +1,49 @@
+{
+  "02-give-this-shot-handles": {
+    "model_files_referenced": [
+      "gemma4-12b-with-proj-ltx-2.5-bf16.safetensors",
+      "gemma4_e2b_it_bf16.safetensors",
+      "ltx-2.3-22b-dev.safetensors",
+      "ltx-2.5-22b-distilled-transformer-bf16.safetensors",
+      "ltx-2.5-audio-vae-bf16.safetensors",
+      "ltx-2.5-video-vae-bf16.safetensors"
+    ],
+    "custom_node_pack": "Lightricks/ComfyUI-LTXVideo",
+    "verification": "Static graph checks only; active model requirements and node schemas must be checked against connected runtime."
+  },
+  "03-continuity-brief": {
+    "model_files_referenced": [
+      "gemma4-12b-with-proj-ltx-2.5-bf16.safetensors",
+      "ltx-2.3-22b-ic-lora-ingredients-0.9.safetensors",
+      "ltx-2.5-22b-distilled-transformer-bf16.safetensors",
+      "ltx-2.5-audio-vae-bf16.safetensors",
+      "ltx-2.5-video-vae-bf16.safetensors"
+    ],
+    "custom_node_pack": "Lightricks/ComfyUI-LTXVideo",
+    "verification": "Static graph checks only; active model requirements and node schemas must be checked against connected runtime."
+  },
+  "01-repair-this-cut": {
+    "model_files_referenced": [
+      "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "gemma4_e2b_it_int8_convrot.safetensors",
+      "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "ltx-2.5-audio-vae-bf16.safetensors",
+      "ltx-2.5-video-vae-bf16.safetensors"
+    ],
+    "custom_node_pack": "Lightricks/ComfyUI-LTXVideo",
+    "verification": "Static graph checks only; active model requirements and node schemas must be checked against connected runtime."
+  },
+  "04-action-on-this-beat-music-video": {
+    "model_files_referenced": [
+      "gemma4-12b-with-proj-ltx-2.5-bf16.safetensors",
+      "gemma4_e2b_it_bf16.safetensors",
+      "ltx-2.3-22b-dev.safetensors",
+      "ltx-2.5-22b-distilled-transformer-bf16.safetensors",
+      "ltx-2.5-audio-vae-bf16.safetensors",
+      "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+      "ltx-2.5-video-vae-bf16.safetensors"
+    ],
+    "custom_node_pack": "Lightricks/ComfyUI-LTXVideo",
+    "verification": "Static graph checks only; active model requirements and node schemas must be checked against connected runtime."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "haggs-motion-bridge/v1",
+  "source_joint_count": 22,
+  "source_frames": 150,
+  "source_duration": 5.0,
+  "source_fps_inferred": 30.0,
+  "output_frames": 124,
+  "output_fps": 24.0,
+  "speed": 1.0,
+  "yaw": 0.0,
+  "note": "Raw generated motion is retained separately. Pose projection estimates face points and does not retarget a rig."
+}

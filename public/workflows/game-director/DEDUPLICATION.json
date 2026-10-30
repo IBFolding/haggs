@@ -1,0 +1,7 @@
+{
+  "featured_concepts": 6,
+  "unique_workflow_graphs": 12,
+  "duplicates_against_previous_packs": 0,
+  "upstream_reference_graphs_not_featured": 2,
+  "status": "ComfyUI downloads only; not registered as Haggs executable apps"
+}

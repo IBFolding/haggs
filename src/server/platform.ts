@@ -1,6 +1,6 @@
 import {reserveStorage,finishStorage,reconcileStorage} from "./storage-quota";
 import {jobOutcome,type JobOutcome} from "../providers/job-outcome";
-import { createClient } from "@supabase/supabase-js";
+import { creditOperations } from "./platform-credits";
 
 import { PLANS, creditsFor, status as planStatus, type User } from "./billing";
 import { COMFY_COOKIE, keyIn } from "./keys";
@@ -73,9 +73,7 @@ async function liveDeps(): Promise<Deps> {
   const { cookies } = await import("next/headers");
   const jar = await cookies();
   const token = jar.get(TOKEN_COOKIE)?.value;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
-  const db = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: token ? { Authorization: `Bearer ${token}` } : {} } });
+  const credits = creditOperations(process.env, token);
   const subscribedTo = async (user: User) => {
     const hit = active.get(user.id);
     if (hit && hit.until > Date.now()) return hit.ok;
@@ -97,12 +95,7 @@ async function liveDeps(): Promise<Deps> {
     user: await userNow(),
     platformKey: platformOn() ? process.env.COMFY_PLATFORM_KEY!.trim() : undefined,
     subscribed: subscribedTo,
-    spend: async (cents, memo, ref) => {
-      const { data, error } = await db.rpc("credits_spend", { cents, memo, ref });
-      if (error) throw new Error("Credits couldn't be checked. Try again in a moment.");
-      return data === true;
-    },
-    refund: async (ref) => { const {error}=await db.rpc("credits_refund",{ref});if(error)throw new Error("Credit refund is pending. Check your account before retrying."); },
+    ...credits,
     // HAGGS_GATE=1 turns the studio into a paid seat: your own key or GPU needs the Platform plan. Emails in HAGGS_FREE_EMAILS skip it.
     gate: async (user) => {
       if (process.env.HAGGS_GATE !== "1") return null;
@@ -111,11 +104,6 @@ async function liveDeps(): Promise<Deps> {
       if (free.includes(user.email.toLowerCase())) return null;
       if (await subscribedTo(user)) return null;
       return "Your own key runs on the Platform plan ($15 a month). Pick it, or buy credits to run on haggs.";
-    },
-    hasCredits: async () => {
-      const { data } = await db.rpc("credits_balance");
-      const row = Array.isArray(data) ? data[0] : data;
-      return Number(row?.plan ?? 0) + Number(row?.topup ?? 0) > 0;
     },
     ref: () => crypto.randomUUID(),
   };

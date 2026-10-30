@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import styles from "../studio-polish.module.css";
+import { projectProgress } from "../../story/project-progress";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -57,6 +59,10 @@ export function Library() {
   const store = useMemo(() => createProjectStore(kv), [kv]);
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [projectQuery, setProjectQuery] = useState("");
+  const [startKind, setStartKind] = useState("Idea");
+  const [progress, setProgress] = useState<Record<string, ReturnType<typeof projectProgress>>>({});
+  const visibleProjects = projects.filter((p) => p.name.toLowerCase().includes(projectQuery.trim().toLowerCase()));
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -94,6 +100,15 @@ export function Library() {
     })();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, store]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all(projects.map(async (summary) => {
+      const project = await store.load(summary.id).catch(() => undefined);
+      return project ? [summary.id, projectProgress(project)] as const : null;
+    })).then((items) => { if (active) setProgress(Object.fromEntries(items.filter((item) => item !== null))); });
+    return () => { active = false; };
   }, [projects, store]);
 
   // In development the app keeps a copy of every project on disk. If the browser has started over, offer those back.
@@ -259,25 +274,79 @@ export function Library() {
       <Nav current="Projects" />
 
       <div className="canvas">
-        <div className="library">
+        <div className={`library ${styles.projects}`}>
           <div className="ph-head">
             <span className="eyebrow">Your projects</span>
-            <h1>Start anywhere.</h1>
-            <p>Whatever you begin with ends up in a project, and the project walks you to a finished film.</p>
+            <h1>Keep your story moving.</h1>
+            <p>Pick up a project, or choose a starting point for something new.</p>
           </div>
 
+          <div className="ph-continue">
+            <div><span className="eyebrow">Your work</span><h2>Pick up where you left off.</h2></div>
+            <button className="ph-link" onClick={() => fileInput.current?.click()}>Import a project file</button>
+          </div>
+          {projects.length > 0 && <input className={styles.search} type="search" aria-label="Search projects" placeholder="Find a project by name" value={projectQuery} onChange={(e) => setProjectQuery(e.target.value)} />}
+          {!ready ? <p role="status">Loading your projects…</p> : projects.length === 0 ? (
+            <p className="ph-small">Your projects will appear here as you work. Choose a starting point below, or import a project you already have.</p>
+          ) : (
+            <ul className="ph-projects">
+              {visibleProjects.map((summary) => {
+                const status = progress[summary.id];
+                const found = summary.cover ?? covers[summary.id];
+                // On the live site a file that still lives only on your computer can't play yet; show the letter until it has been copied.
+                const cover = found && !(process.env.NEXT_PUBLIC_HOSTED && found.url.startsWith("/api/local/")) ? found : undefined;
+                return (
+                  <li key={summary.id} className="ph-project">
+                    <Link className="ph-cover" href={`/board/${summary.id}`} tabIndex={-1} aria-hidden>
+                      {!cover ? <span>{summary.name.slice(0, 1).toUpperCase() || "·"}</span> : cover.kind === "video" ? <video src={`${cover.url}#t=0.5`} muted playsInline preload="metadata" /> : <img src={cover.url} alt="" loading="lazy" />}
+                    </Link>
+                    <button className="ph-x" title={`Delete ${summary.name}`} aria-label={`Delete ${summary.name}`} onClick={() => void destroy(summary)}>✕</button>
+                    <div className="ph-project-body">
+                      {editing === summary.id ? (
+                        <input
+                          className="library-rename"
+                          autoFocus
+                          value={draft}
+                          onChange={(event) => setDraft(event.target.value)}
+                          onBlur={() => void commitRename()}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void commitRename();
+                            if (event.key === "Escape") setEditing(null);
+                          }}
+                        />
+                      ) : (
+                        <Link className="ph-name" href={`/board/${summary.id}`}>{summary.name}</Link>
+                      )}
+                      <span className={styles.badge}>{status?.stage ?? "Project"}</span>
+                      <span className="ph-meta">{summary.shotCount} {summary.shotCount === 1 ? "shot" : "shots"} · {ago(summary.updatedAt)}</span>
+                      {status && status.total > 0 && <div className={styles.projectProgress}><progress aria-label={`${summary.name}: shots with media`} value={status.visuals} max={status.total} /><small>{status.visuals}/{status.total} shots with media · {status.clips} clips</small></div>}
+                      <Link className={styles.nextLink} href={status?.href ?? `/board/${summary.id}`}>{status?.action ?? "Open storyboard"} →</Link>
+                      <span className="ph-acts">
+                        <button className="ph-link" onClick={() => { setEditing(summary.id); setDraft(summary.name); }}>Rename</button>
+                        <button className="ph-link" onClick={() => void download(summary)}>Export</button>
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {ready && projects.length > 0 && visibleProjects.length === 0 && <p className={styles.empty}>No projects match “{projectQuery}”. <button className="plain" onClick={() => setProjectQuery("")}>Clear search</button></p>}
+          <section className={styles.start} aria-label="Start a new project">
+          <div className={styles.sectionHeading}><div><span className="eyebrow">Start something new</span><h2>What are you starting with?</h2></div><span>No generation starts here.</span></div>
+          <div className={styles.startTabs} role="group" aria-label="Starting point">{["Idea", "Photo", "Reference video", "Workflow", "Game", "Script"].map((kind) => <button key={kind} aria-pressed={startKind === kind} onClick={() => setStartKind(kind)}>{kind}</button>)}</div>
           <div className="ph-grid">
-            <section className="ph-card">
+            <section className="ph-card" hidden={startKind !== "Idea"}>
               <span className="eyebrow">From an idea</span>
               <textarea value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="A noir trailer about a night-shift nurse…" rows={3} aria-label="Your idea" />
               <div className="ph-chips" role="group" aria-label="Kind of show">
                 {STARTS.map((s) => <button key={s.label} className="ph-chip" aria-pressed={goal === s.label} onClick={() => setGoal(s.label)}>{s.label}</button>)}
               </div>
-              <button className="ph-go" onClick={() => void startIdea()}>Write my script →</button>
+              <button className="ph-go" onClick={() => void startIdea()}>Open script setup →</button>
             </section>
 
-            <section className="ph-card">
-              <span className="eyebrow">From a photo</span>
+            <section className="ph-card" hidden={startKind !== "Photo"}>
+              <span className="eyebrow">From a photo</span><small className="muted">Sample photos · or upload your own</small>
               <p>Pick one, or make one in Photos. It becomes the first frame.</p>
               <div className="ph-photos">
                 {SAMPLE_PHOTOS.map((p) => <button key={p.src} className="ph-photo" style={{ backgroundImage: `url(${p.src})` }} title={`Start from ${p.says.toLowerCase()}`} aria-label={`Start from ${p.says.toLowerCase()}`} onClick={() => void startPhoto(`${window.location.origin}${p.src}`, p.says)} />)}
@@ -286,9 +355,9 @@ export function Library() {
               <label className="ph-drop">{busy === "photo" ? "Adding…" : "Upload your own"}<input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void uploadPhoto(f); }} /></label>
             </section>
 
-            <section className="ph-card">
+            <section className="ph-card" hidden={startKind !== "Reference video"}>
               <span className="eyebrow">From a video</span>
-              <p>Drop a trailer, an ad or a viral cut. haggs lists every shot and rebuilds the edit around your character.</p>
+              <p>Bring a reference video into Recreate. Review its proposed shots before building your own board.</p>
               {sampleHidden ? (
                 <p className="ph-small">Sample removed. <button className="ph-link" onClick={() => hideSample(false)}>Bring the sample back</button>.</p>
               ) : (
@@ -299,13 +368,13 @@ export function Library() {
               )}
             </section>
 
-            <section className="ph-card">
+            <section className="ph-card" hidden={startKind !== "Workflow"}>
               <span className="eyebrow">From a workflow</span>
-              <p>{QUICK_APPS.length} ready-made apps: swap a person, relight, try on, make an ad. Each result goes into your project.</p>
+              <p>{QUICK_APPS.length} ready-made apps: swap a person, relight, try on, make an ad. Save the results you want to your project.</p>
               <Link className="ph-ghost" href="/workflows">Browse apps →</Link>
             </section>
 
-            <section className="ph-card">
+            <section className="ph-card" hidden={startKind !== "Game"}>
               <span className="eyebrow">From a game idea</span>
               <p>Describe a small game and Claude writes the whole thing. Play it right here, change it by chatting, then make its art on Comfy.</p>
               <div className="ph-photos">
@@ -314,7 +383,7 @@ export function Library() {
               <Link className="ph-go" href="/playable">Make a game →</Link>
             </section>
 
-            <section className="ph-card ph-hot">
+            <section className="ph-card ph-hot" hidden={startKind !== "Script"}>
               <span className="eyebrow">From a script</span>
               <p>Start with the words. Pick the kind of show, upload a script, or let the writer draft one. Then load it into a project.</p>
               <button className="ph-go" onClick={() => void create()}>Pick a format →</button>
@@ -324,6 +393,8 @@ export function Library() {
               </div>
             </section>
           </div>
+
+          </section>
 
           <input
             ref={fileInput}
@@ -356,51 +427,7 @@ export function Library() {
             </p>
           )}
 
-          <div className="ph-continue">
-            <span className="eyebrow muted">Continue</span>
-            <button className="ph-link" onClick={() => fileInput.current?.click()}>Import a project file</button>
-          </div>
-          {!ready ? null : projects.length === 0 ? (
-            <p className="ph-small">Nothing to continue yet. A project holds a storyboard: its shots, their order, and the threads running through them.</p>
-          ) : (
-            <ul className="ph-projects">
-              {projects.map((summary) => {
-                const found = summary.cover ?? covers[summary.id];
-                // On the live site a file that still lives only on your computer can't play yet; show the letter until it has been copied.
-                const cover = found && !(process.env.NEXT_PUBLIC_HOSTED && found.url.startsWith("/api/local/")) ? found : undefined;
-                return (
-                  <li key={summary.id} className="ph-project">
-                    <Link className="ph-cover" href={`/board/${summary.id}`} tabIndex={-1} aria-hidden>
-                      {!cover ? <span>{summary.name.slice(0, 1).toUpperCase() || "·"}</span> : cover.kind === "video" ? <video src={`${cover.url}#t=0.5`} muted playsInline preload="metadata" /> : <img src={cover.url} alt="" loading="lazy" />}
-                    </Link>
-                    <button className="ph-x" title={`Delete ${summary.name}`} aria-label={`Delete ${summary.name}`} onClick={() => void destroy(summary)}>✕</button>
-                    <div className="ph-project-body">
-                      {editing === summary.id ? (
-                        <input
-                          className="library-rename"
-                          autoFocus
-                          value={draft}
-                          onChange={(event) => setDraft(event.target.value)}
-                          onBlur={() => void commitRename()}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") void commitRename();
-                            if (event.key === "Escape") setEditing(null);
-                          }}
-                        />
-                      ) : (
-                        <Link className="ph-name" href={`/board/${summary.id}`}>{summary.name}</Link>
-                      )}
-                      <span className="ph-meta">{summary.shotCount} {summary.shotCount === 1 ? "shot" : "shots"} · {ago(summary.updatedAt)}</span>
-                      <span className="ph-acts">
-                        <button className="ph-link" onClick={() => { setEditing(summary.id); setDraft(summary.name); }}>Rename</button>
-                        <button className="ph-link" onClick={() => void download(summary)}>Export</button>
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+
         </div>
         <SiteFooter />
       </div>

@@ -1,10 +1,12 @@
 "use client";
 
+import { loadAtlasDemo } from "./atlas-demo";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { defaultKv } from "../../story/kv";
+import { defaultKv, idbKv } from "../../story/kv";
 import { type SentGame } from "../../playable/claude";
 import { GENRES, mcpCodeAsk, readCodeReply, type Quality } from "../../playable/code";
 import { FEATURED, type Featured } from "../../playable/featured";
@@ -107,6 +109,17 @@ export function PlayableHome() {
   }, [store]);
   useEffect(() => { void refresh(); }, [refresh]);
 
+  const startAtlasDemo = async () => {
+    if (busy) return;
+    setBusy(true); setProblem(null);
+    try {
+      const spec = await loadAtlasDemo();
+      const saved = await createGameStore(idbKv()).create(spec, [{ who: "note", text: "Imported supplied deterministic Game Director atlas samples. No H3 inference was run.", at: Date.now() }]);
+      router.push(`/playable/${saved.id}`);
+    } catch (e) { setProblem({ text: e instanceof Error ? e.message : "Could not save the atlas demo. Enable browser storage and try again." }); }
+    finally { setBusy(false); }
+  };
+
   const startFrom = async (template: Template) => {
     const game = await store.create(defaultSpec(template), [{ who: "note", text: `Started from the ${TEMPLATE_INFO[template].name} template.`, at: Date.now() }]);
     router.push(`/playable/${game.id}`);
@@ -166,6 +179,12 @@ export function PlayableHome() {
     <div className="app">
       <Nav current="Playable" />
       <div className="canvas pl-page">
+        <section className="pl-panel" aria-label="Game Director animations">
+          <h2>Bring Game Director sprites into Playable</h2>
+          <p>Import atlas.png and atlas.json into a sprite slot in the Art panel. Choose an action, preview its frames, then play. No generation charge.</p>
+          <button className="pl-go" disabled={busy} onClick={() => void startAtlasDemo()}>Try Game Director atlas demo · free</button>
+          <p className="pl-sub">Uses supplied deterministic pose and VFX exports, not H3 renders. <Link href="/workflows/game-director/PLAYABLE-ASSESSMENT.md">Supported outputs and limits</Link></p>
+        </section>
         <section className="pl-hero">
           <span className="pl-eyebrow">Playable · beta</span>
           <h1>Describe a game.<br /><em>Play it.</em></h1>

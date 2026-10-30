@@ -1,0 +1,58 @@
+[
+  {
+    "name": "World Orchestra",
+    "slug": "01-world-orchestra",
+    "scope": "Audio band energy reveals the generated world in three zones. Supply an RGB band_map to assign low/mid/high bands to custom regions. Default zones are horizontal. Frequency bands are not isolated musical instruments.",
+    "ltx": "workflows/LTX-open-weights/01-world-orchestra.json",
+    "h3": "workflows/MiniMax-H3-Comfy/01-world-orchestra.json",
+    "reuse": "workflows/reuse-existing-video/01-world-orchestra.json"
+  },
+  {
+    "name": "Impossible Duet",
+    "slug": "02-impossible-duet",
+    "scope": "A delayed, translated generated silhouette is composited beside the source. Supply a tracked subject_mask for a real silhouette. Default is an explicit ellipse preview. This does not synthesize independent choreography or physically correct floor shadows.",
+    "ltx": "workflows/LTX-open-weights/02-impossible-duet.json",
+    "h3": "workflows/MiniMax-H3-Comfy/02-impossible-duet.json",
+    "reuse": "workflows/reuse-existing-video/02-impossible-duet.json"
+  },
+  {
+    "name": "Portal Paint",
+    "slug": "03-portal-paint",
+    "scope": "Generated video appears inside region_mask, with a beat-pulsed luminous rim. Default is a centered ellipse. Connect subject_mask to preserve foreground occlusion. Draw your region in ComfyUI Mask Editor on a LoadImage node and connect MASK.",
+    "ltx": "workflows/LTX-open-weights/03-portal-paint.json",
+    "h3": "workflows/MiniMax-H3-Comfy/03-portal-paint.json",
+    "reuse": "workflows/reuse-existing-video/03-portal-paint.json"
+  },
+  {
+    "name": "Reality Scrubber",
+    "slug": "04-reality-scrubber",
+    "scope": "An editable normalized time:mix schedule blends source and generated takes. This is a crossfade compositor, not geometric scene reconstruction or a live draggable frontend slider.",
+    "ltx": "workflows/LTX-open-weights/04-reality-scrubber.json",
+    "h3": "workflows/MiniMax-H3-Comfy/04-reality-scrubber.json",
+    "reuse": "workflows/reuse-existing-video/04-reality-scrubber.json"
+  },
+  {
+    "name": "Foley Orchestra",
+    "slug": "05-foley-orchestra",
+    "scope": "Set source_impact_seconds to the visible impact in both banks. The compositor alternates source/generated action snippets, aligning that marked event to BPM or explicit beats. Original music is preserved. It does not detect impacts or compose new musical audio.",
+    "ltx": "workflows/LTX-open-weights/05-foley-orchestra.json",
+    "h3": "workflows/MiniMax-H3-Comfy/05-foley-orchestra.json",
+    "reuse": "workflows/reuse-existing-video/05-foley-orchestra.json"
+  },
+  {
+    "name": "Future Echo",
+    "slug": "06-future-echo",
+    "scope": "Four translated delayed silhouettes reveal generated textures with channel-color variants. Supply subject_mask for tracked silhouettes. Default ellipse is a placeholder. These are temporal echoes, not four independently generated characters.",
+    "ltx": "workflows/LTX-open-weights/06-future-echo.json",
+    "h3": "workflows/MiniMax-H3-Comfy/06-future-echo.json",
+    "reuse": "workflows/reuse-existing-video/06-future-echo.json"
+  },
+  {
+    "name": "Motion Becomes Matter",
+    "slug": "07-motion-becomes-matter",
+    "scope": "A motion centroid accumulates a fading trail that reveals the generated texture. With a subject_mask it follows that mask centroid; otherwise frame differences drive it. Camera motion can disturb it. This is a 2D reveal effect, not physically simulated water or 3D terrain.",
+    "ltx": "workflows/LTX-open-weights/07-motion-becomes-matter.json",
+    "h3": "workflows/MiniMax-H3-Comfy/07-motion-becomes-matter.json",
+    "reuse": "workflows/reuse-existing-video/07-motion-becomes-matter.json"
+  }
+]

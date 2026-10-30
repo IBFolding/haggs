@@ -9,7 +9,7 @@ import { createProject, newShot, type Project } from "../story/model";
 
 export type Shape = "wide" | "square" | "tall";
 export type Line = { who: string; text: string };
-export type Panel = { id: string; action: string; caption: string; lines: Line[]; shape: Shape; who: string[]; seconds?: number; motion?: string; include?: boolean };
+export type Panel = { lettering?: import("./appearance").Lettering; id: string; action: string; caption: string; lines: Line[]; shape: Shape; who: string[]; seconds?: number; motion?: string; include?: boolean };
 
 export const LOOKS = [
   { id: "custom", name: "Your own style", says: "Use your art notes and references without a preset look.", words: "Comic illustration following the supplied art direction and references." },
@@ -157,3 +157,12 @@ export const STARTERS: { id: string; name: string; says: string; panels: { actio
     { action: "The three figures laughing quietly on the rooftop at dawn, one holding a single small box", caption: "WORTH IT.", shape: "wide" },
   ] },
 ];
+
+/** Existing illustrated assets, reused without any generation or credit charge. */
+export const SPARK_SAMPLE = {
+  title: "SPARK — First light",
+  panels: [
+    { action: "Juno watches a storm swallow the city from a rooftop. One by one, the windows go dark.", caption: "WHEN THE CITY LOST ITS LIGHT, JUNO WENT LOOKING FOR A SPARK.", lines: [{ who: "Juno", text: "Someone down there is afraid of the dark." }], shape: "tall" as Shape, picture: "/samples/comic-look-ink.webp" },
+    { action: "Lightning strikes the rooftop antenna. Blue light ignites in Juno's eyes as electricity dances across her hands.", caption: "THE STORM ANSWERED. HER FIRST RESCUE BEGINS TONIGHT.", lines: [{ who: "Spark", text: "Then I'll be their light." }], shape: "tall" as Shape, lettering: { bubbles: [{ x: 100, y: 55 }] }, picture: "/samples/comic-starter-spark.webp" },
+  ],
+};

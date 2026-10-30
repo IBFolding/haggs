@@ -215,3 +215,10 @@ textarea.pl-json:focus { outline: none; border-color: var(--volt); }
 .pl-cover { position: relative; overflow: hidden; padding: 0; height: auto; aspect-ratio: 16 / 10; }
 .pl-cover img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
 .pl-card:hover .pl-cover img { transform: scale(1.04); }
+
+.pl-atlas { margin: 10px 0; min-width: 0; }
+.pl-atlas summary { cursor: pointer; font-size: 13px; }
+.pl-atlas label { display: grid; gap: 5px; margin: 10px 0; font-size: 12px; }
+.pl-atlas input[type=file], .pl-atlas select { width: 100%; max-width: 100%; min-width: 0; font-size: 12px; }
+.pl-atlas input[type=checkbox] { width: auto; justify-self: start; }
+.pl-atlas-preview { display: grid; gap: 5px; margin-top: 10px; }

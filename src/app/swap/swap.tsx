@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import styles from "../studio-polish.module.css";
 
 import { BankPicker, useReturnedPick } from "../bank-picker";
 import { uploadFile } from "../upload-client";
@@ -83,6 +85,8 @@ export function Swap() {
   const [who, setWho] = useState("");
   // Back from building a character: they are the new face.
   useReturnedPick(["character"], (item) => { if (item.image) setFace(item.image); });
+  const [resultSource, setResultSource] = useState<string | null>(null);
+  const [compareSource, setCompareSource] = useState(false);
   const [quality, setQuality] = useState<"480p" | "720p">("480p");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [seconds, setSeconds] = useState<number | null>(null);
@@ -112,6 +116,8 @@ export function Swap() {
 
   async function go() {
     if (!video || !face) return;
+    setResultSource(video);
+    setCompareSource(false);
     setRunning(true);
     setResult(null);
     setKept(null);
@@ -127,11 +133,13 @@ export function Swap() {
       <Nav current="Workflows" />
       {saving && <SaveToProject run={saving} onClose={() => setSaving(null)} />}
       <div className="canvas">
-        <div className="swap">
+        <div className={`swap ${styles.swap}`}>
           <header className="swap-head">
-            <h1>Swap a character</h1>
-            <p>Put anyone into any video, from a single picture. The scene, the camera and the sound stay as they are.</p>
+            <span className="eyebrow">Character swap</span><h1>A new character.<br />The scene you started with.</h1>
+            <p>Genjutsu uses a partner model. For open weights, explicitly choose <Link href="/workflows/template_purz_wan22_animate_auto_character_replace">Wan person swap</Link>. It has different inputs and results; your model will not switch automatically.</p>
+            <p>Choose the source clip and a character photo, review the target and price, then generate your swap. Check the result for changes to identity, motion and sound.</p>
           </header>
+          <ol className={styles.steps} aria-label="Swap setup"><li data-ready={Boolean(video)}><b>01 · Source</b><span>{video ? "Video added" : "Add a video"}</span></li><li data-ready={Boolean(face)}><b>02 · Character</b><span>{face ? "Reference added" : "Choose a face"}</span></li><li data-ready={total !== null && !tooShort}><b>03 · Review</b><span>{total !== null ? `${creditsText(total)} estimated` : "Review settings below"}</span></li><li data-ready={Boolean(result?.ok)}><b>04 · Compare</b><span>Check, then save</span></li></ol>
           <div className="swap-body">
             <div className="swap-form">
               <div className="swap-drops">
@@ -151,6 +159,7 @@ export function Swap() {
                 ))}
               </div>
               {tooShort && <p className="library-error" role="alert">This video is under 4 seconds; Genjutsu needs at least 4.</p>}
+              <details className={styles.review}><summary>Review what will be sent</summary><p>{prompt}</p><dl><dt>Quality</dt><dd>{quality}</dd><dt>Source duration</dt><dd>{seconds === null ? "Add a readable clip" : `${seconds.toFixed(1)} seconds`}</dd><dt>Processing window</dt><dd>{billed === null ? "First 30 seconds maximum" : `First ${billed.toFixed(1)} seconds`}</dd></dl></details>
               <button className="fire wf-run" disabled={!video || !face || running || tooShort} onClick={() => void go()}>
                 {running ? "Swapping on Comfy Cloud…" : "Swap"}
                 <span className="cost">{total !== null ? `about ${creditsText(total)} for ${Math.round(billed!)}s` : quote ? quote.label : "···"}</span>
@@ -161,7 +170,8 @@ export function Swap() {
               {running ? <div className="wf-result-wait">Swapping. This takes a few minutes; the result appears here.</div>
                 : result?.ok ? (
                   <>
-                    <video src={result.url} controls autoPlay loop playsInline />
+                    <div className={styles.compareTabs} role="group" aria-label="Compare videos"><button aria-pressed={!compareSource} onClick={() => setCompareSource(false)}>Generated result</button><button aria-pressed={compareSource} onClick={() => setCompareSource(true)}>Original source</button></div>
+                    <video key={compareSource ? "source" : "result"} src={compareSource ? resultSource! : result.url} controls playsInline />
                     <div className="sheet-row">
                       {kept && <button className="pill on" onClick={() => setSaving(kept)}>Save to project</button>}
                       <a className="pill" href={result.url} download>Download</a>
@@ -169,7 +179,7 @@ export function Swap() {
                     </div>
                   </>
                 ) : result && !result.ok ? <p className="library-error" role="alert">{result.reason}</p>
-                : <div className="wf-result-wait">Your swapped video appears here.</div>}
+                : <div className={styles.swapEmpty}><span className="eyebrow">Your comparison space</span><h2>Keep the scene.<br />Change who is in it.</h2><p>Add a clip and a clear character photo. Your generated result will appear here beside an option to review the source.</p><ul><li>Choose a clip with a clearly visible person.</li><li>Name the person to replace when there is more than one.</li><li>Check the duration and estimated cost before Swap.</li></ul>{video && <video src={video} controls muted playsInline preload="metadata" aria-label="Source clip preview" />}</div>}
             </div>
           </div>
         </div>

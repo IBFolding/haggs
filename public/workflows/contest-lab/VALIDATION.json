@@ -1,0 +1,124 @@
+{
+  "workflow_count": 22,
+  "python_syntax_valid": true,
+  "core_tests": ".......................                                                  [100%]\n23 passed in 0.11s",
+  "synthetic_preview_count": 7,
+  "comfyui_import_tested": false,
+  "live_video_wrapper_tested": false,
+  "sam2_tested": false,
+  "ltx_generation_tested": false,
+  "h3_generation_tested": false,
+  "paid_jobs_submitted": 0,
+  "graph_checks": [
+    {
+      "file": "workflows/08-SAM2-tracked-mask-helper.json",
+      "sha256": "730f10fb56bf8f1c72c6fd4bc45d8b9994429f3956a3d00db4fed135c19b9cd9",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/LTX-open-weights/04-reality-scrubber.json",
+      "sha256": "19be1715282fa0e8f888a95bb776b5c2842ac07006efe7555f8fbf2f32942d0c",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/LTX-open-weights/06-future-echo.json",
+      "sha256": "63a2136b9f781e3c980593d0ae9d3c77b56a9ec9a81720513678fd3aa188db99",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/LTX-open-weights/03-portal-paint.json",
+      "sha256": "582ff2c981eb500a40928b74f58323011d15c5c93e3e4ca8300b894728897727",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/LTX-open-weights/01-world-orchestra.json",
+      "sha256": "1aca038eb389c627e48198ca7b8977d746c20eb6b4825728d52d89ccd217ff21",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/LTX-open-weights/07-motion-becomes-matter.json",
+      "sha256": "b7a5146c54e24e6c9dfd2b1fdc2f66ce7afe5b0eedad14cdc5a75eeb4b0976c4",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/LTX-open-weights/05-foley-orchestra.json",
+      "sha256": "99bf4a7b18c8dede04ec8f8996fb84f6f706a58b3309889ffc5bcc3521713b97",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/LTX-open-weights/02-impossible-duet.json",
+      "sha256": "37585ad5e3021719c55e3ab4a93cbd4c5da8e0c91fc77451e1a647ada6a6d405",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/reuse-existing-video/04-reality-scrubber.json",
+      "sha256": "5ed5cf8544c6cdb4ed1df494921cc9139254307d2fc2e199ab5d5e3fd0a99a0a",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/reuse-existing-video/06-future-echo.json",
+      "sha256": "77648bee6b19a67950a05a70c30b0e946988194ecd2607ed8699345fc3a2b65b",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/reuse-existing-video/03-portal-paint.json",
+      "sha256": "1cf06a67c5f88effbcc683968d5d0e57d69a58234303e96983a62f7a62c8267c",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/reuse-existing-video/01-world-orchestra.json",
+      "sha256": "d244b81b72f705a007a5b9f518bd90680e087b3fe4a2760d137bc985d41c481a",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/reuse-existing-video/07-motion-becomes-matter.json",
+      "sha256": "669734279b93de47443722b2642754e80910945dfa6541a108e24ec3e28c58ea",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/reuse-existing-video/05-foley-orchestra.json",
+      "sha256": "9f7554200f2eff79700114b6d3e99920cb376a626686115330931cd364bc031a",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/reuse-existing-video/02-impossible-duet.json",
+      "sha256": "d09e7e273f2a670fb208be18e80bf10412c732d6febec551d566504baf12745f",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/MiniMax-H3-Comfy/04-reality-scrubber.json",
+      "sha256": "594ea8dbe3425869f9b2706dc77440ce7447317ea56f991cbf4a701bf893b4d8",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/MiniMax-H3-Comfy/06-future-echo.json",
+      "sha256": "2694ad9c37d5f271f0b1c15e4563bc0527c4456e47c769ac6c11e8605fa22ef6",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/MiniMax-H3-Comfy/03-portal-paint.json",
+      "sha256": "37d4b42bf89d6b4c5c2ff3c45af8d183129edc68cc046507ea1a23d3f9eb5a6b",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/MiniMax-H3-Comfy/01-world-orchestra.json",
+      "sha256": "4fd0ab9935d6106e0bab3f679dd485beb56a9a5d8e48959b92847c74b0ddb977",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/MiniMax-H3-Comfy/07-motion-becomes-matter.json",
+      "sha256": "078cd8bc016b9287aa3c80060748a487543bbb26f3e3a2c94625bacc781ddec9",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/MiniMax-H3-Comfy/05-foley-orchestra.json",
+      "sha256": "28535e6ca3373e3339c6834287f5f2a13cd9c17cb4159ea888fc9e62c2f7b00d",
+      "top_level_links_valid": true
+    },
+    {
+      "file": "workflows/MiniMax-H3-Comfy/02-impossible-duet.json",
+      "sha256": "f5fc9e7cdb038e8caeb13ddc4f95d9ab13eb3874fc38c19be2323683ccf73d39",
+      "top_level_links_valid": true
+    }
+  ]
+}

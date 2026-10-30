@@ -1,0 +1,278 @@
+{
+  "last_node_id": 990,
+  "last_link_id": 5,
+  "nodes": [
+    {
+      "id": 900,
+      "type": "HaggsTelegraphGuide",
+      "title": "Paint attack area and impact timing",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 900,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "control_guides",
+          "type": "IMAGE",
+          "links": [
+            1,
+            3
+          ]
+        },
+        {
+          "name": "alpha_mask",
+          "type": "MASK",
+          "links": [
+            5
+          ]
+        },
+        {
+          "name": "timeline_metadata",
+          "type": "STRING",
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsTelegraphGuide"
+      },
+      "widgets_values": [
+        "{\n  \"telegraphs\": [\n    {\n      \"shape\": \"circle\",\n      \"start\": 0,\n      \"impact\": 1.5,\n      \"end\": 2.0,\n      \"x\": 0.3,\n      \"y\": 0.55,\n      \"radius\": 0.2\n    },\n    {\n      \"shape\": \"cone\",\n      \"start\": 2.1,\n      \"impact\": 3.5,\n      \"end\": 4.2,\n      \"x\": 0.65,\n      \"y\": 0.65,\n      \"radius\": 0.4,\n      \"angle\": -90,\n      \"spread\": 65\n    }\n  ]\n}",
+        "Top-down game VFX on black: luminous fire and magic fill the supplied warning shapes, with a bright impact. Stable camera, no text.",
+        512,
+        320,
+        124
+      ]
+    },
+    {
+      "id": 910,
+      "type": "CreateVideo",
+      "title": "Guide video \u2014 no model inference",
+      "pos": [
+        650,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 910,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB"
+      ]
+    },
+    {
+      "id": 911,
+      "type": "SaveVideo",
+      "title": "Save deterministic guide preview",
+      "pos": [
+        1100,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 911,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs-game/06-enemy-intent-painter-guide",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 950,
+      "type": "HaggsAtlasExport",
+      "title": "Export sprite atlas + timing metadata",
+      "pos": [
+        2700,
+        600
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 950,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "timeline_metadata",
+          "type": "STRING",
+          "link": 4
+        },
+        {
+          "name": "alpha_mask",
+          "type": "MASK",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "asset_directory",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsAtlasExport"
+      },
+      "widgets_values": [
+        "game-asset",
+        128,
+        8
+      ]
+    },
+    {
+      "id": 990,
+      "type": "MarkdownNote",
+      "title": "Preview mode",
+      "pos": [
+        0,
+        1300
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 990,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "No H3 model is used in this graph. These are procedural control guides, not generated characters or finished game animations. Use the matching H3-local graph to generate a styled take."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      900,
+      0,
+      910,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      910,
+      0,
+      911,
+      0,
+      "VIDEO"
+    ],
+    [
+      3,
+      900,
+      0,
+      950,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      900,
+      2,
+      950,
+      1,
+      "STRING"
+    ],
+    [
+      5,
+      900,
+      1,
+      950,
+      2,
+      "MASK"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

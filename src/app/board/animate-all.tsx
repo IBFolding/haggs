@@ -27,9 +27,14 @@ export function AnimateAll({
   const [running, setRunning] = useState<number | null>(null);
   const [done, setDone] = useState<string[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
+  // The live plan loses stills as they become videos. Keep the submitted batch
+  // for progress and row identity instead of counting the shrinking live plan.
+  const [batch, setBatch] = useState<AnimatePlan["shots"] | null>(null);
   const stop = useRef(false);
+  const pending = useRef(false);
 
-  const chosen = plan.shots.filter((s) => picked.has(s.id));
+  const listed = batch ?? plan.shots;
+  const chosen = listed.filter((s) => picked.has(s.id));
   const total = useMemo(() => Math.round(chosen.reduce((n, s) => n + s.usd, 0) * 100) / 100, [chosen]);
   const busy = running !== null;
   const finished = !busy && (done.length > 0 || failure !== null);
@@ -41,11 +46,16 @@ export function AnimateAll({
   }, [busy, onClose]);
 
   async function start() {
+    if (pending.current) return;
+    pending.current = true;
+    const submitted = [...chosen];
+    setBatch(submitted);
     stop.current = false;
     setFailure(null);
-    for (let i = 0; i < chosen.length; i++) {
+    try {
+    for (let i = 0; i < submitted.length; i++) {
       if (stop.current) break;
-      const shot = chosen[i]!;
+      const shot = submitted[i]!;
       if (done.includes(shot.id)) continue;
       setRunning(i);
       const problem = await onRun(shot.id);
@@ -55,7 +65,12 @@ export function AnimateAll({
       }
       setDone((d) => [...d, shot.id]);
     }
-    setRunning(null);
+    } catch {
+      setFailure("The request did not finish. Check provider activity before retrying; no automatic retry was sent.");
+    } finally {
+      pending.current = false;
+      setRunning(null);
+    }
   }
 
   const toggle = (id: string) =>
@@ -73,7 +88,7 @@ export function AnimateAll({
         <p>{words.intro}</p>
 
         <ul className="animate-list">
-          {plan.shots.map((s) => {
+          {listed.map((s) => {
             const state = done.includes(s.id) ? "done" : busy && chosen[running!]?.id === s.id ? "running" : "";
             return (
               <li key={s.id} className={state}>

@@ -1,3 +1,5 @@
+import { readAtlas, pngSize, type SpriteAtlas } from "./atlas";
+
 /**
  * A Playable game is a spec, never code: a template name, the art for each
  * slot, the numbers the template runs on, and the words on its cards. Claude
@@ -14,7 +16,7 @@ export const SHAPES = ["circle", "square", "triangle", "diamond", "star"] as con
 export type Shape = (typeof SHAPES)[number];
 
 /** A piece of art: a placeholder shape, what to make, the picture once made, and a picture to follow (a character, a place, an upload). */
-export type Art = { prompt: string; color: string; shape: Shape; url?: string; ref?: string };
+export type Art = { prompt: string; color: string; shape: Shape; url?: string; ref?: string; atlas?: SpriteAtlas };
 
 export type Palette = { sky: string; ground: string; accent: string; text: string };
 export type Words = { intro: string; win: string; lose: string };
@@ -151,12 +153,20 @@ export function clamp(n: number, [lo, hi]: readonly [number, number], whole: boo
   return whole ? Math.round(v) : Math.round(v * 100) / 100;
 }
 
-function readArt(v: unknown, fallback: Art): Art {
+function readArt(v: unknown, fallback: Art, allowAtlas = true): Art {
   if (!isObj(v)) return { ...fallback };
   const shape = SHAPES.includes(v.shape as Shape) ? (v.shape as Shape) : fallback.shape;
   const url = safeUrl(v.url);
   const ref = safeUrl(v.ref);
-  return { prompt: text(v.prompt, fallback.prompt, 400), color: color(v.color, fallback.color), shape, ...(url ? { url } : {}), ...(ref ? { ref } : {}) };
+  let atlas: SpriteAtlas | undefined;
+  if (v.atlas !== undefined && url) {
+    if (!allowAtlas) throw new SpecError("Atlas animations belong in sprite slots, not backgrounds.");
+    if (!url.startsWith("data:image/png;base64,")) throw new SpecError("Atlas images must be imported PNG data.");
+    const header = Uint8Array.from(atob(url.split(",")[1]!.slice(0, 48)), c => c.charCodeAt(0));
+    const size = pngSize(header);
+    atlas = readAtlas(v.atlas, size.width, size.height);
+  }
+  return { prompt: text(v.prompt, fallback.prompt, 400), color: color(v.color, fallback.color), shape, ...(url ? { url } : {}), ...(ref ? { ref } : {}), ...(atlas ? { atlas } : {}) };
 }
 
 function readRules<R extends object>(v: unknown, template: Template, fallback: R): R {
@@ -197,6 +207,13 @@ function clearable({ speed, gravity, jump }: RunnerRules): Pick<RunnerRules, "gr
  * back to the template's default.
  */
 export function readSpec(value: unknown): GameSpec {
+  const spec = readSpecValue(value);
+  const animated = slotsOf(spec).filter(s => s.art.atlas);
+  if (animated.length > 4 || animated.reduce((n, s) => n + s.art.atlas!.width * s.art.atlas!.height, 0) > 32_000_000) throw new SpecError("Keep each game to four atlases and 32 million atlas pixels. Export smaller cells.");
+  return spec;
+}
+
+function readSpecValue(value: unknown): GameSpec {
   if (!isObj(value)) throw new SpecError("That isn't a game spec.");
   if (value.template === "code") return readCodeSpec(value);
   const template = value.template;
@@ -218,9 +235,9 @@ export function readSpec(value: unknown): GameSpec {
     const tiles = Array.from({ length: rules.kinds }, (_, i) => readArt(offered[i], base.art.tiles[i % base.art.tiles.length]!));
     // A sixth kind with no art of its own still needs a colour that isn't one of the others.
     if (rules.kinds === 6 && !offered[5]) tiles[5] = { ...tiles[5]!, color: "#f97316", shape: "circle" };
-    return { ...shared, template: "match", art: { background: readArt(given.background, base.art.background), tiles }, rules };
+    return { ...shared, template: "match", art: { background: readArt(given.background, base.art.background, false), tiles }, rules };
   }
-  const four = { player: readArt(given.player, base.art.player), hazard: readArt(given.hazard, base.art.hazard), pickup: readArt(given.pickup, base.art.pickup), background: readArt(given.background, base.art.background) };
+  const four = { player: readArt(given.player, base.art.player), hazard: readArt(given.hazard, base.art.hazard), pickup: readArt(given.pickup, base.art.pickup), background: readArt(given.background, base.art.background, false) };
   if (base.template === "runner") return { ...shared, template: "runner", art: four, rules: readRules(value.rules, "runner", base.rules) };
   return { ...shared, template: "collector", art: four, rules: readRules(value.rules, "collector", base.rules) };
 }
@@ -243,7 +260,7 @@ function readCodeSpec(value: Record<string, unknown>): CodeSpec {
     if (assets.length >= CODE_LIMITS.assets) break;
     seen.add(a.id);
     const kind = a.kind === "background" ? "background" : "sprite";
-    const art = readArt(a, { prompt: a.id, color: CODE_PALETTE.accent, shape: kind === "background" ? "square" : "circle" });
+    const art = readArt(a, { prompt: a.id, color: CODE_PALETTE.accent, shape: kind === "background" ? "square" : "circle" }, kind === "sprite");
     const emoji = typeof a.emoji === "string" && a.emoji.trim() && [...a.emoji.trim()].length <= 8 && !/[<>&"']/.test(a.emoji) ? a.emoji.trim() : undefined;
     assets.push({ id: a.id, label: text(a.label, a.id, 40), kind, ...(emoji ? { emoji } : {}), ...art });
   }
@@ -293,6 +310,7 @@ export function withArt(spec: GameSpec, key: string, change: { [K in keyof Art]?
   const next = structuredClone(spec) as GameSpec;
   const apply = (a: Art): Art => {
     const merged = { ...a, ...change };
+    if ("url" in change && !("atlas" in change)) delete merged.atlas;
     if (change.url === undefined && "url" in change) delete merged.url;
     if (change.ref === undefined && "ref" in change) delete merged.ref;
     return readArt(merged, a);
@@ -315,7 +333,7 @@ export function withArt(spec: GameSpec, key: string, change: { [K in keyof Art]?
 
 /** The spec without its pictures: what the server needs to price, make art or edit, and a small request. */
 export function bare(spec: GameSpec): GameSpec {
-  return readSpec(JSON.parse(JSON.stringify(spec, (k, v) => (k === "url" || k === "ref" ? undefined : v))));
+  return readSpec(JSON.parse(JSON.stringify(spec, (k, v) => (k === "url" || k === "ref" || k === "atlas" ? undefined : v))));
 }
 
 /** Smaller still, for pricing and making art: a code game without its code. */
@@ -333,7 +351,7 @@ export function keepMadeArt(before: GameSpec, after: GameSpec): GameSpec {
   let spec = after;
   for (const slot of slotsOf(after)) {
     const was = old.get(slot.key);
-    if (was?.url && !slot.art.url && was.prompt === slot.art.prompt) spec = withArt(spec, slot.key, { url: was.url });
+    if (was?.url && !slot.art.url && was.prompt === slot.art.prompt) spec = withArt(spec, slot.key, { url: was.url, ...(was.atlas ? { atlas: was.atlas } : {}) });
     if (was?.ref && !slot.art.ref) spec = withArt(spec, slot.key, { ref: was.ref });
   }
   return spec;

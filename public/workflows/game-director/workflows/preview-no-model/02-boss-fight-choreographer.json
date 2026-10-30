@@ -1,0 +1,196 @@
+{
+  "last_node_id": 990,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 900,
+      "type": "HaggsActionGuide",
+      "title": "Draw path / edit action timeline",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 900,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "pose_guides",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "timeline_metadata",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "HaggsActionGuide"
+      },
+      "widgets_values": [
+        "{\n  \"actors\": [\n    {\n      \"name\": \"hero\",\n      \"scale\": 0.8,\n      \"facing\": 1,\n      \"path\": [\n        [\n          0,\n          0.3,\n          0.55\n        ],\n        [\n          1,\n          0.4,\n          0.55\n        ],\n        [\n          2,\n          0.25,\n          0.6\n        ],\n        [\n          3,\n          0.5,\n          0.55\n        ],\n        [\n          5,\n          0.5,\n          0.55\n        ]\n      ],\n      \"events\": [\n        {\n          \"start\": 0,\n          \"end\": 1,\n          \"action\": \"walk\"\n        },\n        {\n          \"start\": 1,\n          \"end\": 2.4,\n          \"action\": \"dodge\"\n        },\n        {\n          \"start\": 2.4,\n          \"end\": 3.6,\n          \"action\": \"attack\"\n        },\n        {\n          \"start\": 3.6,\n          \"end\": 5.17,\n          \"action\": \"victory\"\n        }\n      ]\n    },\n    {\n      \"name\": \"boss\",\n      \"scale\": 1.0,\n      \"facing\": -1,\n      \"path\": [\n        [\n          0,\n          0.75,\n          0.52\n        ],\n        [\n          2,\n          0.65,\n          0.52\n        ],\n        [\n          5,\n          0.72,\n          0.52\n        ]\n      ],\n      \"events\": [\n        {\n          \"start\": 0.8,\n          \"end\": 2.0,\n          \"action\": \"attack\"\n        },\n        {\n          \"start\": 2.8,\n          \"end\": 3.8,\n          \"action\": \"hit\"\n        }\n      ]\n    }\n  ]\n}",
+        "A full-body armored knight on screen left faces a larger monstrous knight on screen right. A readable choreographed dodge and counterattack in a side-view arena. Follow the two pose guides. Locked camera, no cuts.",
+        512,
+        320,
+        124
+      ]
+    },
+    {
+      "id": 910,
+      "type": "CreateVideo",
+      "title": "Guide video \u2014 no model inference",
+      "pos": [
+        650,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 910,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB"
+      ]
+    },
+    {
+      "id": 911,
+      "type": "SaveVideo",
+      "title": "Save deterministic guide preview",
+      "pos": [
+        1100,
+        0
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 911,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/haggs-game/02-boss-fight-choreographer-guide",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 990,
+      "type": "MarkdownNote",
+      "title": "Preview mode",
+      "pos": [
+        0,
+        1300
+      ],
+      "size": [
+        420,
+        300
+      ],
+      "flags": {},
+      "order": 990,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "No H3 model is used in this graph. These are procedural control guides, not generated characters or finished game animations. Use the matching H3-local graph to generate a styled take."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      900,
+      0,
+      910,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      910,
+      0,
+      911,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

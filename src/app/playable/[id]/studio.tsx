@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { defaultKv } from "../../../story/kv";
+import { defaultKv, idbKv } from "../../../story/kv";
 import { creditsText, totalText } from "../../../story/price-text";
 import { mcpEditAsk, type SentGame } from "../../../playable/claude";
 import { readCodeReply, type Quality } from "../../../playable/code";
@@ -16,6 +16,7 @@ import { CodeFrame } from "../code-frame";
 import { GameCanvas } from "../game-canvas";
 import { pictureFile } from "../picture-file";
 import { McpAsk, useSentGames } from "../sent";
+import { AtlasEditor } from "../atlas-editor";
 import { QualitySwitch } from "../quality-switch";
 import { writeGame } from "../write";
 
@@ -107,8 +108,11 @@ export function Studio({ id }: { id: string }) {
   };
 
   /** Art and hand edits are spec changes too, so they can be undone like a chat edit. */
-  const changeSpec = useCallback(async (spec: GameSpec, note?: string) => {
-    const next = await store.change(id, spec, ...(note ? [line("note", note)] : []));
+  const changeSpec = useCallback(async (spec: GameSpec, note?: string, durable = false) => {
+    // Atlas imports must not silently fall back to volatile memory after a quota/storage failure.
+    const target = durable ? createGameStore(idbKv()) : store;
+    const next = await target.change(id, spec, ...(note ? [line("note", note)] : []));
+    if (!next && durable) throw new Error("The saved game is unavailable. Enable browser storage and reopen it before importing.");
     if (next) setGame(next);
     return next;
   }, [id, store]);
@@ -194,16 +198,17 @@ export function Studio({ id }: { id: string }) {
             ) : null}
           </main>
 
-          <ArtPanel spec={spec} onChange={changeSpec} />
+          <ArtPanel spec={spec} onChange={changeSpec} onAtlasChange={(s, note) => changeSpec(s, note, true)} />
         </div>
       </div>
     </div>
   );
 }
 
-function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpec, note?: string) => Promise<SavedGame | undefined> }) {
+function ArtPanel({ spec, onChange, onAtlasChange }: { spec: GameSpec; onChange: (spec: GameSpec, note?: string) => Promise<SavedGame | undefined>; onAtlasChange: (spec: GameSpec, note?: string) => Promise<SavedGame | undefined> }) {
   const [quote, setQuote] = useState<ArtQuote | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [atlasBusy, setAtlasBusy] = useState(false);
   const [problem, setProblem] = useState<{ text: string; needsKey?: boolean } | null>(null);
   const specRef = useRef(spec);
   specRef.current = spec;
@@ -265,11 +270,11 @@ function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpe
   };
 
   const total = missing.map((s) => prices[s.key]).filter((p): p is number => typeof p === "number");
-  const working = busy.size > 0;
+  const working = busy.size > 0 || atlasBusy;
   return (
     <aside className="pl-panel pl-art" aria-label="Art">
       <h2>Art</h2>
-      <p className="pl-sub">Placeholder shapes until you make a picture. {quote?.ok ? `Made with ${quote.model} on Comfy.` : ""}</p>
+      <p className="pl-sub">Import animations or use placeholder shapes. {quote?.ok ? `New stills can be generated with ${quote.model} on Comfy.` : ""}</p>
       {openOnly ? <p className="pl-problem">Open weights only is on. Game art uses a partner model, so it can&apos;t be made while the switch is on; the shapes still play.</p> : null}
       <ul className="pl-slots">
         {slots.map((slot) => (
@@ -281,6 +286,11 @@ function ArtPanel({ spec, onChange }: { spec: GameSpec; onChange: (spec: GameSpe
               <strong>{slot.label}</strong>
               <span className="pl-mono">{slot.kind}</span>
             </div>
+            {slot.kind === "sprite" && <AtlasEditor label={slot.label} art={slot.art} disabled={working} onBusy={setAtlasBusy} onApply={async change => {
+              const next = await onAtlasChange(withArt(specRef.current, slot.key, change), `Updated Game Director animation for ${slot.label.toLowerCase()}.`);
+              if (next) specRef.current = next.spec;
+              return next;
+            }} />}
             <PromptBox key={`${slot.key}:${slot.art.prompt}`} value={slot.art.prompt} onSave={(prompt) => void onChange(withArt(specRef.current, slot.key, { prompt }))} />
             {slot.art.ref ? (
               <div className="pl-ref">

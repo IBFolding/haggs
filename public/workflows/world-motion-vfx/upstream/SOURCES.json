@@ -1,0 +1,9 @@
+{
+  "retrieved": "2026-10-29",
+  "eden": "https://github.com/VAST-AI-Research/EdenLive",
+  "native_host_tested": "https://github.com/VAST-AI-Research/EdenLive/blob/main/realtime/games/host/standalone.js",
+  "motion_dependency": "https://github.com/jtydhr88/ComfyUI-HY-Motion1",
+  "ltx_inpaint_template": "https://github.com/Lightricks/ComfyUI-LTXVideo/blob/master/example_workflows/2.5/LTX-2.5_ICLoRA_Inpaint_Two_Stage_Distilled.json",
+  "h3_control_template": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_minimax_h3_fun_controlnet_union.json",
+  "native_host_sha256": "8c9a929dfa96b70c4f46a1a730f4df310ae5919d7e5586e1deb9b429baa5dfef"
+}

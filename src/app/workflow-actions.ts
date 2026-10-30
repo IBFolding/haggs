@@ -11,17 +11,22 @@ import { cookies } from "next/headers";
 import { fill, leaveOut, type App, type Values } from "../comfy/apps";
 import { validate } from "../comfy/convert";
 import { prepare, type UiWorkflow, type Catalog } from "../comfy/convert";
+import { modelRequirements } from "../comfy/preflight";
 import { boundedWorkflowCost } from "../comfy/bounded-price";
 import { priceOf } from "../comfy/price";
 import { createCloudRunner, type Kept } from "../providers/cloud";
 import { appOf } from "../comfy/apps";
-import { catalogOf, checked, indexOf, openTemplate, opens, type Entry, type Opened } from "../server/comfy-library";
+import { templateOf, catalogOf, checked, indexOf, openTemplate, opens, type Entry, type Opened } from "../server/comfy-library";
 import { keepResult } from "../server/keep";
 import { partnerNodes } from "../comfy/partner";
 import { openOnlyIn, workflowRefusal } from "../comfy/open-only";
 import { workflowRuntime } from "../comfy/runtime";
 import { createLocalRunner, localBase } from "../providers/local";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
+import { contestVariant } from "../comfy/contest-lab";
+import { openContest } from "../server/contest-workflows";
+import { ltxWorkflow } from "../comfy/ltx";
+import { openLtx } from "../server/ltx-workflows";
 import { STEPS } from "../comfy/recipe";
 import { localFile, localUrl } from "../server/local-media";
 
@@ -38,9 +43,32 @@ async function comfyKey() {
 }
 
 /** A workflow by Comfy template name, or one you opened from a file (the editor's format, or the API format). */
-export type Source = { template: string } | { file: string };
+export type Source = ({ template: string } | { file: string }) & { destination?: "local" | "cloud" };
 
 async function open(key: string | undefined, source: Source): Promise<Opened> {
+  const address = source.destination === "local" || (!key && source.destination !== "cloud") ? localIn(await cookies()) : undefined;
+  if (source.destination === "local" && !address) throw new Error("Connect Your GPU in settings first. ComfyUI must be reachable from the Haggs server; a hosted server cannot reach your laptop's localhost.");
+  if ("template" in source && (ltxWorkflow(source.template) || contestVariant(source.template))) {
+    if (contestVariant(source.template) && !address) throw new Error("Contest Lab apps require a connected local ComfyUI with ComfyUI-HaggsContestLab installed. Configure your local GPU in Keys. H3 variants are download-only and are not run by these apps.");
+    let catalog: Catalog;
+    if (address) {
+      const response = await fetch(`${localBase(address)}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30000) });
+      if (!response.ok) throw new Error("Your local ComfyUI node catalog could not be loaded. No cloud fallback was attempted.");
+      catalog = await response.json() as Catalog;
+    } else {
+      if (!key) throw new Error("Connect your local ComfyUI or add a Comfy key first.");
+      catalog = await catalogOf(root(), key);
+    }
+    return contestVariant(source.template) ? openContest(source.template, catalog) : openLtx(source.template, catalog);
+  }
+  if ("template" in source && address) {
+    const ui = await templateOf(root(), source.template);
+    const response = await fetch(`${localBase(address)}/object_info`, {redirect:"error", signal:AbortSignal.timeout(10000), cache:"no-store"});
+    if (!response.ok) throw new Error("Your GPU: node catalog unavailable. Start ComfyUI and check its address in settings.");
+    const catalog = await response.json() as Catalog;
+    const {prompt, problems} = prepare(ui, catalog);
+    return {entry:null,ui,app:appOf(ui,prompt,catalog),problems,catalog};
+  }
   if ("template" in source) { if (!key) throw new Error("The cloud template library needs a Comfy key. Import your own workflow file to use your local ComfyUI without a cloud key."); return openTemplate(root(), key, source.template); }
   if (source.file.length > 5_000_000) throw new Error("Keep workflow files under 5 MB.");
   let raw: unknown;
@@ -49,9 +77,8 @@ async function open(key: string | undefined, source: Source): Promise<Opened> {
   } catch {
     throw new Error("That isn't a Comfy workflow file.");
   }
-  const address = localIn(await cookies());
   let catalog: Catalog;
-  if (!key && address) {
+  if (address) {
     const response = await fetch(`${localBase(address)}/object_info`, {redirect:"error",signal:AbortSignal.timeout(30000)});
     if (!response.ok) throw new Error("Your local ComfyUI node catalog could not be loaded.");
     catalog = await response.json() as Catalog;
@@ -94,7 +121,7 @@ export async function listWorkflows(): Promise<Listing> {
     e.runnable = r === true;
     if (r && r !== true) e.problem = r;
   }
-  return { entries: runs ? entries.filter((e) => e.runnable) : entries, checked: Boolean(runs), needsKey: false };
+  return { entries: runs ? entries.filter((e) => e.runnable || ltxWorkflow(e.name) || contestVariant(e.name)) : entries, checked: Boolean(runs), needsKey: false };
 }
 
 export type GraphNode = { id: string; title: string; type: string; x: number; y: number; w: number; h: number; media?: string; note?: string };
@@ -136,7 +163,7 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
       thumb: opened.entry?.thumb ?? null,
       app: opened.app,
       problems: opened.problems,
-      price: !partnerNodes(prompt, opened.catalog).length && localIn(await cookies()) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
+      price: !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && localIn(await cookies())) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
       graph: graphOf(opened.ui, samples),
       workflow: JSON.stringify(opened.ui),
     };
@@ -176,7 +203,7 @@ export async function quoteWorkflow(source: Source, values: Values): Promise<Quo
   try {
     const opened = await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
-    if (localIn(await cookies()) && !partnerNodes(prompt,opened.catalog).length) return {label:"Your GPU · no provider charge",min:0,max:0,perSecond:false};
+    if (source.destination !== "cloud" && localIn(await cookies()) && !partnerNodes(prompt,opened.catalog).length) return {label:"Your GPU · no provider charge",min:0,max:0,perSecond:false};
     const media = Object.fromEntries(Object.entries(values).filter(([k]) => opened.app.fields.some((f) => f.kind === "media" && `${f.node}/${f.input}` === k)));
     const words = Object.fromEntries(Object.entries(values).filter(([k]) => !(k in media)));
     const p = await priceOf(fill(prompt, opened.app, words), opened.catalog);
@@ -186,6 +213,54 @@ export async function quoteWorkflow(source: Source, values: Values): Promise<Quo
   }
 }
 
+export type Preflight = { ok: boolean; destination: string; connection: string; cost: string; issues: string[]; notes: string[] };
+
+/** Read-only checks, repeated server-side before any upload or queue submission. */
+export async function preflightWorkflow(source: Source, values: Values): Promise<Preflight> {
+  const report: Preflight = {ok:false,destination:source.destination === "local" ? "Your GPU" : "Comfy Cloud",connection:"Not checked",cost:"Unknown",issues:[],notes:[]};
+  try {
+    const key = await comfyKey();
+    const opened = await open(key, source);
+    let {prompt} = prepare(opened.ui, opened.catalog);
+    const address = source.destination === "cloud" ? undefined : localIn(await cookies());
+    const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key), source.destination);
+    if (source.destination === "local" && runtime.kind !== "local") throw new Error("This workflow needs partner services. Choose a different workflow; Your GPU was not replaced with cloud execution.");
+    report.destination = runtime.kind === "local" ? "Your GPU" : "Comfy Cloud";
+    const base = runtime.kind === "local" ? runtime.base : "https://cloud.comfy.org/api";
+    const headers: Record<string,string> = runtime.kind === "cloud" ? {"X-API-Key":key!} : {};
+    const response = await fetch(`${base}/object_info`,{headers,redirect:"error",cache:"no-store",signal:AbortSignal.timeout(10000)});
+    if (!response.ok) throw new Error("Node catalog unavailable. Check your Comfy connection and credentials in settings.");
+    const catalog = await response.json() as Catalog;
+    report.connection = "Connected · catalog checked now";
+    const prepared = prepare(opened.ui,catalog);
+    prompt = fill(prepared.prompt,opened.app,values);
+    report.issues.push(...prepared.swaps.map(s => `Model substitution requires an explicit workflow edit: ${s}. No generation started.`), ...prepared.problems, ...validate(prompt,catalog), ...modelRequirements(prompt,catalog));
+    const refusal = workflowRefusal(openOnlyIn(await cookies()),partnerNodes(prompt,catalog));
+    if (refusal) report.issues.push(refusal);
+    if (runtime.kind === "local") {
+      report.cost = "No provider charge · your hardware and electricity";
+      const stats = await fetch(`${base}/system_stats`,{redirect:"error",cache:"no-store",signal:AbortSignal.timeout(10000)});
+      if (!stats.ok) throw new Error("GPU status unavailable. Check ComfyUI /system_stats before generating.");
+      const data = await stats.json() as {devices?:{name?:string;type?:string;vram_free?:number}[]};
+      const devices = data.devices?.filter(d => d.type && d.type !== "cpu") ?? [];
+      if (!devices.length) report.issues.push("No GPU reported by ComfyUI. Start ComfyUI with GPU support before generating.");
+      report.notes.push(...devices.map(d => `${d.name ?? d.type}: ${typeof d.vram_free === "number" ? (d.vram_free/2**30).toFixed(1)+" GiB free" : "free memory unknown"}`));
+      report.notes.push("Available memory does not guarantee this workflow will fit; model-specific peak memory is unknown.");
+    } else {
+      const price = await priceOf(prompt,catalog);
+      report.cost = price.label;
+      if (!partnerNodes(prompt,catalog).length) {
+        report.cost = "GPU time is billed by Comfy Cloud · estimate unavailable";
+        report.issues.push("Cloud GPU cost and capacity cannot be verified here. Use Your GPU, or open this workflow in Comfy Cloud to review its charge before running.");
+      } else if (boundedWorkflowCost(prompt,catalog,price) === null) report.notes.push("Final charges depend on inputs and runtime; review the displayed rate.");
+      report.notes.push("Cloud catalog support is not evidence of reserved GPU capacity or a successful render.");
+    }
+    report.issues = [...new Set(report.issues)];
+    report.ok = report.issues.length === 0;
+  } catch (error) { report.issues.push(`${error instanceof Error ? error.message : "Connection check failed."} Check the selected Comfy connection in settings and retry; no job was submitted.`); }
+  return report;
+}
+
 export type WorkflowResult = { ok: true; url: string; kind: "image" | "video" | "audio"; price: string } | { ok: false; reason: string; needsKey?: boolean };
 
 /** Runs a Comfy workflow with your files and words. Never retried automatically. */
@@ -193,6 +268,8 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
   const key = await comfyKey();
   if (!key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to run workflows.", needsKey: true };
   try {
+    const preflight = await preflightWorkflow(source, values);
+    if (!preflight.ok) return {ok:false,reason:preflight.issues.join(" ")};
     const opened = await open(key, source);
     if (opened.problems.length) return { ok: false, reason: opened.problems[0]! };
     if (!opened.app.output) return { ok: false, reason: "This workflow doesn't save a result haggs can show." };
@@ -201,13 +278,16 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     const refused = workflowRefusal(openOnlyIn(await cookies()), partnerNodes(prompt, opened.catalog));
     if (refused) return { ok: false, reason: refused };
     // Open weights only, and your own ComfyUI set: run there, free, on your own GPU.
-    const address = localIn(await cookies());
-    const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key));
+    const address = source.destination === "cloud" ? undefined : localIn(await cookies());
+    const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key), source.destination);
     const mine = runtime.kind === "local" ? runtime.base : null;
     let catalog = opened.catalog;
     if (mine) {
       catalog = (await (await fetch(`${mine}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30_000) })).json()) as typeof opened.catalog;
       const local = prepare(opened.ui, catalog);
+      if (local.swaps.length) return {ok:false,reason:"The model inventory changed. Edit the workflow to choose an installed model explicitly; no generation started."};
+      const requirements = modelRequirements(local.prompt,catalog);
+      if (requirements.length) return {ok:false,reason:requirements.join(" ")};
       if (local.problems.length) return { ok: false, reason: `Your ComfyUI can't run this yet: ${local.problems[0]}` };
       prompt = local.prompt;
     }
@@ -228,7 +308,7 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     const missing = validate(ready, catalog);
     if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
     const quoted = mine ? null : await priceOf(ready, opened.catalog);
-    const price = quoted ? quoted.label : "Your GPU · free";
+    const price = quoted ? quoted.label : "Your GPU · no provider charge";
     // Unknown or runtime-only prices cannot use the platform balance.
     if (!mine && !keyIn(await cookies(), COMFY_COOKIE)) {
       const estimate = quoted ? boundedWorkflowCost(ready, opened.catalog, quoted) : null;

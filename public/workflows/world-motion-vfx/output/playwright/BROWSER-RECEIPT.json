@@ -1,0 +1,22 @@
+{
+  "keyboard_browser_test": {
+    "before_x": 1.1,
+    "after_x": 2.8499999999999988,
+    "wall_stopped_x": 0.22500000000000028
+  },
+  "recording_encode_decode": {
+    "frames": 120,
+    "width": 832,
+    "height": 480,
+    "fps": 24
+  },
+  "native_eden_standalone_host_test": {
+    "passed": true,
+    "tick": 30,
+    "player_x": 2.308333333333334,
+    "width": 832,
+    "height": 480,
+    "jpeg_data_url_length": 26891
+  },
+  "note": "Browser checks used the actual room page and backend routes plus upstream Eden host/standalone.js. Not a GPU neural inference or full ComfyUI test."
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "slug": "01-drag-to-action",
+    "tool": "image_gen.imagegen",
+    "prompt": "Create a polished landscape 3:2 photographic illustrative thumbnail for an experimental game-video workflow. a full-body fantasy courier moving along a curved glowing path in a realistic medieval courtyard, elegant cinematic photography, subtle motion trail. No text, no logos, no interface. This is an artistic concept, not evidence of model output. Save the generated image in /Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images.",
+    "original": "/Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images/exec-8d24b648-8377-49c0-9c9b-c4bf0ce30355.png",
+    "label": "Illustrative concept, not an H3 workflow result"
+  },
+  {
+    "slug": "02-boss-fight-choreographer",
+    "tool": "image_gen.imagegen",
+    "prompt": "Create a polished landscape 3:2 photographic illustrative thumbnail for an experimental game-video workflow. two adult fantasy stunt performers rehearsing a dramatic non-contact sword duel in a stone arena, opposing poses, cinematic photographic detail. No text, no logos, no interface. This is an artistic concept, not evidence of model output. Save the generated image in /Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images.",
+    "original": "/Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images/exec-ea40a0eb-e238-48c4-9206-0e2a7045c9b5.png",
+    "label": "Illustrative concept, not an H3 workflow result"
+  },
+  {
+    "slug": "03-playable-scene-forge",
+    "tool": "image_gen.imagegen",
+    "prompt": "Create a polished landscape 3:2 photographic illustrative thumbnail for an experimental game-video workflow. a cinematic realistic ancient stone chamber with three clear choices: a wooden door, a glowing artifact on a pedestal, and an open escape arch, wide view. No text, no logos, no interface. This is an artistic concept, not evidence of model output. Save the generated image in /Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images.",
+    "original": "/Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images/exec-002f3935-8ab8-48ee-87e3-c97f2a077a4b.png",
+    "label": "Illustrative concept, not an H3 workflow result"
+  },
+  {
+    "slug": "04-game-reskin-director",
+    "tool": "image_gen.imagegen",
+    "prompt": "Create a polished landscape 3:2 photographic illustrative thumbnail for an experimental game-video workflow. a split-view of the same medieval street geometry, left realistic grey stone and right luminous painted fantasy styling, consistent perspective, photographic cinematic environment. No text, no logos, no interface. This is an artistic concept, not evidence of model output. Save the generated image in /Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images.",
+    "original": "/Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images/exec-1e06a93c-8f2a-425e-90ba-f96e3312afcf.png",
+    "label": "Illustrative concept, not an H3 workflow result"
+  },
+  {
+    "slug": "05-animation-moveset-builder",
+    "tool": "image_gen.imagegen",
+    "prompt": "Create a polished landscape 3:2 photographic illustrative thumbnail for an experimental game-video workflow. a cinematic photographic contact sheet showing the same adult fantasy adventurer in six full-body poses: idle walking striking dodging recoiling celebrating, neutral studio background. No text, no logos, no interface. This is an artistic concept, not evidence of model output. Save the generated image in /Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images.",
+    "original": "/Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images/exec-dceccd7d-c844-4033-8030-6e37d39e2d9c.png",
+    "label": "Illustrative concept, not an H3 workflow result"
+  },
+  {
+    "slug": "06-enemy-intent-painter",
+    "tool": "image_gen.imagegen",
+    "prompt": "Create a polished landscape 3:2 photographic illustrative thumbnail for an experimental game-video workflow. top-down cinematic realistic stone arena with a small armored adventurer and clearly glowing orange circular, cone and rectangular danger zones on the floor, polished game concept photograph. No text, no logos, no interface. This is an artistic concept, not evidence of model output. Save the generated image in /Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images.",
+    "original": "/Volumes/CODEX PROJECTS/moved-from-home/Documents/Codex/2026-10-29/task-4/generated_images/exec-6137d2aa-71db-4eed-9374-86053c8788e5.png",
+    "label": "Illustrative concept, not an H3 workflow result"
+  }
+]
