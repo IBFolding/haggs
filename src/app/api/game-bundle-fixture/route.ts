@@ -3,7 +3,7 @@ import {createComfyManaged} from '../../../providers/comfy-managed';import {subm
 const enabled=()=>process.env.NODE_ENV!=='production'&&process.env.HAGGS_GAME_FIXTURE==='1';
 const owner='11111111-1111-4111-8111-111111111111',deployment='https://fixture.run.comfy.app',dir=join(tmpdir(),'haggs-game-bundle-fixture');
 const valid=(x:unknown):x is string=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
-const roles=['video','atlas','manifest','branch0','branch1','branch2','branches'] as const;
+const roles=['video','atlas','manifest','branch0','branch1','branch2','branches','vfx-mask','vfx-source'] as const;
 const json=(data:object,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 async function factory(ref:string){
  await mkdir(dir,{recursive:true,mode:0o700});const db=new DatabaseSync(join(dir,'journal.sqlite'));db.exec('CREATE TABLE IF NOT EXISTS jobs(k TEXT PRIMARY KEY,body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS artifacts(k TEXT PRIMARY KEY,body TEXT NOT NULL)');
