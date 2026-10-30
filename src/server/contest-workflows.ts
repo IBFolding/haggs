@@ -16,6 +16,8 @@ import { CONTEST_EFFECTS, contestName, contestVariant } from '../comfy/contest-l
 import { appOf, type Field } from '../comfy/apps';
 import { toApiPrompt, validate, type Catalog, type UiWorkflow } from '../comfy/convert';
 import type { Entry, Opened } from './comfy-library';
+import coreCatalog from '../comfy/fixtures/catalog.json';
+import contestCatalog from '../comfy/fixtures/contest-lab.catalog.json';
 const graphs: Record<string, unknown> = {
   'haggs_fx_ltx_01-world-orchestra': graph_0_ltx,
   'haggs_fx_reuse_01-world-orchestra': graph_0_reuse,
@@ -34,6 +36,14 @@ const graphs: Record<string, unknown> = {
 };
 export function contestTemplate(name: string): UiWorkflow | null {
   return Object.hasOwn(graphs, name) ? structuredClone(graphs[name]) as UiWorkflow : null;
+}
+/** Build the form from bundled schemas. Execution still checks the real runtime. */
+export function openContestForDisplay(name: string): Opened {
+  const catalog = { ...coreCatalog, ...contestCatalog,
+    LoadAudio: { input: { required: { audio: ['STRING'] } }, output: ['AUDIO'] },
+    PrimitiveStringMultiline: { input: { required: { value: ['STRING', { multiline: true, default: '' }] } }, output: ['STRING'] },
+  } as Catalog;
+  return openContest(name, catalog);
 }
 export function contestEntries(): Entry[] {
   return CONTEST_EFFECTS.flatMap(e => (['ltx', 'reuse'] as const).map(kind => ({ name: contestName(e.slug, kind), title: `${e.name} · ${kind === 'ltx' ? 'LTX' : 'Reuse video'}`, description: `${e.scope} Experimental local app: install ComfyUI-HaggsContestLab. Advanced masks and band maps must be connected in ComfyUI; otherwise the supplied geometric defaults apply.`, category: 'Video Tools', kind: 'video', tags: ['Haggs Contest Lab', 'Local', kind], models: kind === 'ltx' ? ['LTX 2.5'] : ['Existing video'], thumb: e.image, usage: 0, inputs: [], runnable: null, open: true })));

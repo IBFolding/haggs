@@ -29,7 +29,11 @@ const TABS = ["Quick start", "Haggs", "Featured", "Video", "Image", "Character &
 const SHELVES = ["Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const FEATURED = ["api_higgsfield_genjutsu_motion_transfer", "template_seedance2_0_viral_videos_character_swap", "video_wan21_scail2_character_replacement", "video_minimax_h3_r2v", "api_bria_video_replace_background"];
 
-function HaggsCard({ title, image, label, children }: { title: string; image: string; label: string; children: ReactNode }) {
+function HaggsCard({ title, image, label, href, children }: { title: string; image: string; label: string; href?: string; children: ReactNode }) {
+  if (href) return <div className="haggs-workflow-card">
+    <Link className="wf-tile" href={href}><img src={image} alt="" loading="lazy" /><span className="wf-tile-face"><b>{title}</b><small>{label} · Illustrative image</small><small>Open app</small></span></Link>
+    <details className="haggs-workflow-options"><summary>More options and downloads</summary>{children}</details>
+  </div>;
   return <details className="haggs-workflow-card">
     <summary className="wf-tile">
       <img src={image} alt="" loading="lazy" />
@@ -153,12 +157,12 @@ export function Workflows() {
             </section>
           )}
 
-          {!onlyFavorites && (haggs ? effects.length > 0 : !hunt && (tab === "Quick start" || tab === "Featured")) && (
+          {haggs && effects.length > 0 && (
             <section className="quick" id="haggs-effects" aria-label="Contest Lab effects">
               <h2>Seven experimental effects</h2>
               <p>Install the included Contest Lab nodes in your local ComfyUI. Reuse a take without another model call, or generate a layer with LTX. Live ComfyUI execution remains unverified.</p>
               <div className="wf-grid">
-                {effects.map(e => <HaggsCard key={e.slug} title={e.name} image={e.image} label="Effect · local ComfyUI">
+                {effects.map(e => <HaggsCard key={e.slug} title={e.name} image={e.image} label="Effect · local ComfyUI" href={`/workflows/${contestName(e.slug, 'reuse')}`}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
                   <p>{e.scope}</p>
                   <Link href={`/workflows/${contestName(e.slug, 'reuse')}`}>Reuse existing video · local app</Link>
@@ -176,7 +180,7 @@ export function Workflows() {
             </section>
           )}
 
-          {!onlyFavorites && (haggs ? games.length > 0 : !hunt && (tab === "Quick start" || tab === "Featured")) && (
+          {haggs && games.length > 0 && (
             <section className="quick" id="haggs-games" aria-label="Game Director workflows">
               <h2>Game Director · experimental ComfyUI downloads</h2>
               <p>Six custom workflow concepts with local H3 and no-model preview graphs. Install the included Game Director nodes in ComfyUI. Moveset and VFX atlases can be imported into Playable sprite slots. Live ComfyUI and H3 generation remain unverified.</p>
@@ -197,7 +201,7 @@ export function Workflows() {
             </section>
           )}
 
-          {!onlyFavorites && (haggs ? studio.length > 0 : !hunt && (tab === "Quick start" || tab === "Featured")) && (
+          {haggs && studio.length > 0 && (
             <section className="quick" id="haggs-studio" aria-label="World motion and VFX workflows">
               <h2>World, motion and directed VFX</h2>
               <p>Ten experimental ComfyUI downloads in three toolsets. Install the supplied HaggsStudio nodes and configure the required models or services. Live ComfyUI and GPU generation remain unverified.</p>

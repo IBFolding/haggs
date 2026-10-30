@@ -24,7 +24,7 @@ import { workflowRuntime } from "../comfy/runtime";
 import { createLocalRunner, localBase } from "../providers/local";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
 import { contestVariant } from "../comfy/contest-lab";
-import { openContest } from "../server/contest-workflows";
+import { openContest, openContestForDisplay } from "../server/contest-workflows";
 import { ltxWorkflow } from "../comfy/ltx";
 import { openLtx } from "../server/ltx-workflows";
 import { STEPS } from "../comfy/recipe";
@@ -149,10 +149,11 @@ export type OpenedApp = { ok: true; name: string; title: string; description: st
 
 export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const key = await comfyKey();
-  if (!key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
+  const isHaggsEffect = "template" in source && Boolean(contestVariant(source.template));
+  if (!isHaggsEffect && !key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
   const name = "template" in source ? source.template : "your workflow";
   try {
-    const opened = await open(key, source);
+    const opened = isHaggsEffect && "template" in source ? openContestForDisplay(source.template) : await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
     const samples = Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && f.sample ? [[String(prompt[f.node]?.inputs[f.input] ?? ""), f.sample]] : [])));
     return {
@@ -163,7 +164,7 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
       thumb: opened.entry?.thumb ?? null,
       app: opened.app,
       problems: opened.problems,
-      price: !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && localIn(await cookies())) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
+      price: isHaggsEffect ? "Check connection before running" : !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && localIn(await cookies())) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
       graph: graphOf(opened.ui, samples),
       workflow: JSON.stringify(opened.ui),
     };
