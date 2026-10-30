@@ -48,3 +48,46 @@ test("a word overshoots as it lands and settles by the third of a beat", () => {
   assert.ok(slamScale(0.34) <= 1.001);
   assert.ok(slamScale(1) === 1);
 });
+
+function fakeMedia() {
+  const calls: { op: string; args: unknown[] }[] = [];
+  const { ctx, calls: base } = fake();
+  (ctx as unknown as Record<string, unknown>).drawImage = (...args: unknown[]) => calls.push({ op: "drawImage", args });
+  (ctx as unknown as Record<string, unknown>).createLinearGradient = () => ({ addColorStop: () => undefined });
+  (ctx as unknown as Record<string, unknown>).roundRect = () => undefined;
+  (ctx as unknown as Record<string, unknown>).fill = () => undefined;
+  return { ctx, calls, base };
+}
+const media = { kiln: { el: {} as CanvasImageSource, width: 1360, height: 768 } };
+
+test("an image block draws the picture and its label", () => {
+  const { ctx, calls, base } = fakeMedia();
+  const t = layout(parseSheet("bpm 120\n@image kiln | 2 | BRAND-READY AD"));
+  assert.equal(drawFrame(ctx, 1920, 1080, t, 0.7, media), true);
+  assert.ok(calls.some((c) => c.op === "drawImage"));
+  assert.ok(base.some((c) => c.op === "fillText" && c.args[0] === "BRAND-READY AD"));
+});
+
+test("a media block whose file isn't there says which one is missing instead of failing", () => {
+  const { ctx, base } = fakeMedia();
+  const t = layout(parseSheet("bpm 120\n@clip nothing | 2"));
+  assert.equal(drawFrame(ctx, 1920, 1080, t, 0.7, {}), true);
+  assert.ok(base.some((c) => c.op === "fillText" && String(c.args[0]).toLowerCase().includes("nothing")));
+});
+
+test("a counter shows its number counting up and ends on the value", () => {
+  const t = layout(parseSheet("bpm 120\n@count $0.07 | 4 | A PICTURE"));
+  const shown = (s: number) => { const { ctx, calls } = fake(); drawFrame(ctx, 1920, 1080, t, s); return calls.filter((c) => c.op === "fillText").map((c) => String(c.args[0])); };
+  assert.ok(shown(0.2).some((x) => x.startsWith("$0.0") && x !== "$0.07"));
+  assert.ok(shown(1.9).includes("$0.07"));
+  assert.ok(shown(1.9).includes("A PICTURE"));
+});
+
+test("a zoom moves in on its point as the block plays", async () => {
+  const { zoomAt } = await import("./draw");
+  const z = { x: 0.8, y: 0.2, scale: 2 };
+  assert.equal(zoomAt(undefined, 0.5).scale > 1, true);
+  assert.equal(zoomAt(z, 0).scale, 1);
+  assert.ok(zoomAt(z, 1).scale > 1.9);
+  assert.ok(zoomAt(z, 1).x > 0.7);
+});

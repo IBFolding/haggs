@@ -5,7 +5,11 @@
 
 export const STYLES = ["white", "green", "flip", "invert", "red"] as const;
 export type Style = (typeof STYLES)[number];
-export type Block = { text: string; beats: number; style: Style };
+export type Zoom = { x: number; y: number; scale: number };
+export type WordsBlock = { kind?: undefined; text: string; beats: number; style: Style };
+export type MediaBlock = { kind: "image" | "clip"; name: string; beats: number; label: string; zoom?: Zoom };
+export type CountBlock = { kind: "count"; value: number; prefix: string; suffix: string; decimals: number; beats: number; label: string };
+export type Block = WordsBlock | MediaBlock | CountBlock;
 export type Sheet = { bpm: number; blocks: Block[]; problems: string[] };
 
 export const MAX_BLOCKS = 120;
@@ -22,6 +26,7 @@ export function parseSheet(text: string): Sheet {
     const tempo = /^bpm\s+(\d+(?:\.\d+)?)$/i.exec(raw);
     if (tempo) { bpm = clamp(Number(tempo[1]), 60, 220); continue; }
     if (blocks.length >= MAX_BLOCKS) { if (!problems.some((p) => p.includes(String(MAX_BLOCKS)))) problems.push(`A film has at most ${MAX_BLOCKS} blocks; the rest were left out.`); continue; }
+    if (raw.startsWith("@")) { const b = parseSpecial(raw, i + 1, problems); if (b) blocks.push(b); continue; }
     const [words = "", beatsText, styleText] = raw.split("|").map((s) => s.trim());
     let beats = 2;
     if (beatsText) {
@@ -38,6 +43,44 @@ export function parseSheet(text: string): Sheet {
     blocks.push({ text: words.slice(0, 40), beats, style });
   }
   return { bpm, blocks, problems };
+}
+
+const beatsOf = (text: string | undefined, line: number, problems: string[]): number | null => {
+  if (!text) return 2;
+  const n = Number(text);
+  if (!Number.isFinite(n)) { problems.push(`Line ${line}: "${text}" isn't a number of beats.`); return null; }
+  return clamp(n, 0.5, 32);
+};
+
+/** "@image name | beats | label", "@clip name | beats | label | zoom x y scale", "@count 26 | beats | label". */
+function parseSpecial(raw: string, line: number, problems: string[]): MediaBlock | CountBlock | null {
+  const [head = "", beatsText, labelText = "", extra = ""] = raw.split("|").map((x) => x.trim());
+  const [kind = "", ...rest] = head.slice(1).split(/\s+/);
+  const arg = rest.join(" ");
+  const beats = beatsOf(beatsText, line, problems);
+  if (beats === null) return null;
+  const label = labelText.slice(0, 40);
+  if (kind === "image" || kind === "clip") {
+    if (!/^[A-Za-z0-9_-]+$/.test(arg)) { problems.push(`Line ${line}: @${kind} needs one name made of letters, numbers, - or _.`); return null; }
+    const block: MediaBlock = { kind, name: arg.toLowerCase(), beats, label };
+    const z = /^zoom\s+(-?\d*\.?\d+)\s+(-?\d*\.?\d+)\s+(-?\d*\.?\d+)$/i.exec(extra);
+    if (z) block.zoom = { x: clamp(Number(z[1]), 0, 1), y: clamp(Number(z[2]), 0, 1), scale: clamp(Number(z[3]), 1, 4) };
+    return block;
+  }
+  if (kind === "count") {
+    const m = /^([$€£]?)(\d+(?:\.\d+)?)(%?)$/.exec(arg);
+    if (!m) { problems.push(`Line ${line}: @count needs a number like 26, $0.07 or 99%.`); return null; }
+    return { kind: "count", value: Number(m[2]), prefix: m[1]!, suffix: m[3]!, decimals: (m[2]!.split(".")[1] ?? "").length, beats, label };
+  }
+  problems.push(`Line ${line}: I don't know @${kind}. Use @image, @clip or @count.`);
+  return null;
+}
+
+/** The pictures and clips a film asks for, once each, in order. */
+export function mediaNames(blocks: Block[]): string[] {
+  const out: string[] = [];
+  for (const b of blocks) if ((b.kind === "image" || b.kind === "clip") && !out.includes(b.name)) out.push(b.name);
+  return out;
 }
 
 export type Item = { block: Block; startBeat: number; startSeconds: number; endSeconds: number };
@@ -74,5 +117,6 @@ CUT TO THE BEAT. | 4 | green
 PICK A TEMPO. | 2 | white
 DROP A TRACK. | 2 | flip
 PRESS PLAY. | 2 | green
+@count 26 | 3 | READY-MADE APPS
 MADE IN HAGGS. | 4 | invert
 `;
