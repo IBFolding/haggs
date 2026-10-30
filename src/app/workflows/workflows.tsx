@@ -139,7 +139,7 @@ export function Workflows() {
             {hunt && !effects.length && !games.length && !studio.length && <p role="status">No Haggs workflows match “{hunt}”. Try motion, video, atlas or effects.</p>}
           </section>}
 
-          {!hunt && !onlyFavorites && (tab === "Quick start" || tab === "Featured") && (
+          {!hunt && !onlyFavorites && (haggs || tab === "Featured") && (
             <section className="quick" aria-label="LTX featured workflows">
               <h2>LTX featured workflows · upstream adaptations</h2>
               <p>Open-weight video workflows. Connect your GPU or Comfy Cloud; installed nodes and weights are checked before running. Cloud compute may cost money. Live generation has not been verified for this bundle.</p>
