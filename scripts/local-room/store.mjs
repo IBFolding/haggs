@@ -6,10 +6,17 @@ export function openLocalRoomStore(filename, limit) {
  if (!Number.isSafeInteger(limit) || limit <= 0) throw Error('Invalid quota.');
  const db = new DatabaseSync(filename);
  db.exec(`PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS room_objects (owner TEXT NOT NULL, session TEXT NOT NULL, path TEXT NOT NULL UNIQUE, size INTEGER NOT NULL, digest TEXT NOT NULL, data BLOB, committed INTEGER NOT NULL DEFAULT 0, expires INTEGER NOT NULL, lease TEXT, PRIMARY KEY(owner,session));`);
+ db.exec(`CREATE TABLE IF NOT EXISTS room_sessions (id TEXT PRIMARY KEY, owner TEXT NOT NULL, deployment TEXT NOT NULL, expires INTEGER NOT NULL, state TEXT NOT NULL, recording TEXT);`);
  const tx = fn => { db.exec('BEGIN IMMEDIATE'); try { const result=fn(); db.exec('COMMIT'); return result; } catch(e) { db.exec('ROLLBACK'); throw e; } };
  const pathFor=(owner,session)=>`rooms/u-${owner}/${session}/recording.mp4`;
  return {
   close:()=>db.close(),
+  sessions:{
+   create:async r=>{try{db.prepare('INSERT INTO room_sessions(id,owner,deployment,expires,state) VALUES(?,?,?,?,?)').run(r.id,r.owner,r.deployment,r.expiresAt,r.state);return true;}catch(e){if(String(e).includes('UNIQUE'))return false;throw e;}},
+   read:async(owner,id)=>{const r=db.prepare('SELECT * FROM room_sessions WHERE owner=? AND id=?').get(owner,id);return r?{id:r.id,owner:r.owner,deployment:r.deployment,expiresAt:r.expires,state:r.state,...(r.recording?{recording:JSON.parse(r.recording)}:{})}:null;},
+   claim:async(owner,id,recording,now)=>db.prepare("UPDATE room_sessions SET state='uploading',recording=? WHERE owner=? AND id=? AND state='open' AND expires>?").run(JSON.stringify(recording),owner,id,now).changes===1,
+   commit:async(owner,id,recording,now)=>db.prepare("UPDATE room_sessions SET state='recorded' WHERE owner=? AND id=? AND state='uploading' AND recording=? AND expires>?").run(owner,id,JSON.stringify(recording),now).changes===1
+  },
   quota:{
    reserve:async(owner,session,size,digest)=>tx(()=>{const row=db.prepare('SELECT size,digest FROM room_objects WHERE owner=? AND session=?').get(owner,session); if(row) return row.size===size && row.digest===digest?'existing':'denied'; const used=db.prepare('SELECT COALESCE(SUM(size),0) AS n FROM room_objects WHERE owner=?').get(owner).n; if(size<=0 || used+size>limit) return 'denied'; db.prepare('INSERT INTO room_objects(owner,session,path,size,digest,expires) VALUES(?,?,?,?,?,?)').run(owner,session,pathFor(owner,session),size,digest,Date.now()+86400000);return 'created';}),
    commit:async(owner,session,size,digest)=>tx(()=>{const row=db.prepare('SELECT size,digest,data FROM room_objects WHERE owner=? AND session=?').get(owner,session);if(!row || row.size!==size || row.digest!==digest || !row.data || createHash('sha256').update(row.data).digest('hex')!==digest)return false;db.prepare('UPDATE room_objects SET committed=1 WHERE owner=? AND session=?').run(owner,session);return true;})
@@ -21,7 +28,8 @@ export function openLocalRoomStore(filename, limit) {
   },
   cleanup:{
    claim:async(owner,session,now)=>tx(()=>{const row=db.prepare('SELECT * FROM room_objects WHERE owner=? AND session=?').get(owner,session);if(!row||row.expires>now||row.lease||!row.data)return null;const lease=randomUUID();db.prepare('UPDATE room_objects SET lease=? WHERE owner=? AND session=?').run(lease,owner,session);return {path:row.path,bytes:row.size,sha256:row.digest,lease};}),
-   finish:async(owner,session,lease)=>tx(()=>db.prepare('DELETE FROM room_objects WHERE owner=? AND session=? AND lease=? AND data IS NULL').run(owner,session,lease).changes===1)
+   finish:async(owner,session,lease)=>tx(()=>db.prepare('DELETE FROM room_objects WHERE owner=? AND session=? AND lease=? AND data IS NULL').run(owner,session,lease).changes===1),
+   reconcileDeleted:async(owner,session,now)=>tx(()=>db.prepare('DELETE FROM room_objects WHERE owner=? AND session=? AND expires<=? AND lease IS NOT NULL AND data IS NULL').run(owner,session,now).changes===1)
   }
  };
 }
