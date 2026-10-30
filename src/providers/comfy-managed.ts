@@ -45,7 +45,7 @@ export function createComfyManaged(settings: Settings) {
   async function request(path: string, init: RequestInit = {}) {
     return fetcher(sameOrigin(path), { ...init, headers: { ...headers(), ...init.headers }, redirect: "error", signal: AbortSignal.timeout(120_000) });
   }
-  async function outputBytes(path: string): Promise<Uint8Array> {
+  async function outputBytes(path: string, expectedType: string): Promise<Uint8Array> {
     let response = await fetcher(sameOrigin(path), { headers: headers(), redirect: "manual", signal: AbortSignal.timeout(120_000) });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");
@@ -57,6 +57,10 @@ export function createComfyManaged(settings: Settings) {
       response = await fetcher(signed.href, { redirect: "error", signal: AbortSignal.timeout(120_000) });
     }
     if (!response.ok || !response.body) throw new Error("Comfy output could not be downloaded.");
+    // Object storage commonly uses octet-stream, but an explicit conflicting
+    // type (for example an HTML error page) must not be saved as media.
+    const contentType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+    if (contentType && contentType !== "application/octet-stream" && contentType !== expectedType) throw new Error("Comfy output has an unexpected content type.");
     const max = settings.maxOutputBytes ?? 200_000_000;
     if (!Number.isSafeInteger(max) || max <= 0 || Number(response.headers.get("content-length") ?? 0) > max) throw new Error("Comfy output exceeds the size limit.");
     const reader = response.body.getReader();
@@ -119,7 +123,7 @@ export function createComfyManaged(settings: Settings) {
         if (!out?.url || !out.content_type) throw new Error(`Comfy job ${job.id} finished without a supported output.`);
         const extension = EXT[out.content_type]!;
         let url: string;
-        try { url = await settings.keep(await outputBytes(out.url), extension); }
+        try { url = await settings.keep(await outputBytes(out.url, out.content_type), extension); }
         catch { throw new Error(`Comfy job ${job.id} succeeded, but its output could not be saved. Recover it from the job before retrying.`); }
         return { url, kind: out.content_type.startsWith("video/") ? "video" as const : out.content_type.startsWith("audio/") ? "audio" as const : "image" as const, jobId: job.id };
       }

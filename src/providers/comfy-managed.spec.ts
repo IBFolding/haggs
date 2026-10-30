@@ -76,6 +76,13 @@ test("output streaming stops at the configured size limit", async () => {
   assert.equal(saved, false);
 });
 
+test("a successful job does not save an HTML error page as video", async () => {
+  let saved = false;
+  const api = createComfyManaged({ base: "http://127.0.0.1:8198", localTest: true, keep: async () => { saved = true; return "saved"; }, fetch: async (input) => String(input).endsWith("/content") ? new Response("<html>expired</html>", {headers:{"content-type":"text/html"}}) : Response.json({ id: "job-1", status: "succeeded", outputs: [{ node_id: "5", content_type: "video/mp4", url: "/api/v2/assets/out/content" }] }) });
+  await assert.rejects(api.result({ id: "job-1", urls: { self: "/api/v2/jobs/job-1" } }, "5"), /job job-1 succeeded.*Recover/);
+  assert.equal(saved, false);
+});
+
 test("managed recovery uses a server-sent reference and refuses ambiguous matches", async () => {
   let calls = 0;
   const api = createComfyManaged({ base: "https://example.run.comfy.app", apiKey: "secret", keep, fetch: async (input, init) => {
