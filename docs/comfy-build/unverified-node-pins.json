@@ -1,0 +1,13 @@
+{
+  "status": "unverified-incomplete-not-deployable",
+  "note": "These are observed source pins only, not proof of deployment contents. Models, GPU target, Python dependencies and workflow-specific requirements are incomplete. A live deployment and its runtime have not been verified.",
+  "comfyVersion": "v0.43.0",
+  "nodeSources": [
+    {"name":"ComfyUI-HaggsContestLab","localDigest":"195030730591e02e282182f6707499126e3f64e5c4ddb6021f3ee8eada889a17"},
+    {"name":"ComfyUI-HaggsGameDirector","localDigest":"c68eca074427cd93719b2d7097028794fb0e39c62339af18012d62219f23d256"},
+    {"name":"ComfyUI-HaggsStudio","localDigest":"24d9aee55f29c08734af8178d4737e970102b186303be712c26d984ff39290b9"},
+    {"name":"ComfyUI-HY-Motion1","repository":"https://github.com/jtydhr88/ComfyUI-HY-Motion1","commit":"60843a4d631efa3989b5c512ae547f996c30dcc3"},
+    {"name":"ComfyUI-LTXVideo","repository":"https://github.com/Lightricks/ComfyUI-LTXVideo","commit":"220e1d45aa0469f518e982102fca4dca92a61862"},
+    {"name":"ComfyUI-segment-anything-2","repository":"https://github.com/kijai/ComfyUI-segment-anything-2","commit":"0c35fff5f382803e2310103357b5e985f5437f32"}
+  ]
+}
