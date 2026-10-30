@@ -22,7 +22,7 @@ begin
  if secret is null or secret is distinct from (select value from app_secrets where key='webhook') then raise exception 'not allowed'; end if;
  if target is null or submission is null or p_field not in ('1/file','10001/file','10002/audio') or p_bytes is null or p_bytes<=0 or p_bytes>100000000 or digest is null or digest !~ '^[0-9a-f]{64}$' then raise exception 'invalid input'; end if;
  if (p_field in ('1/file','10001/file') and p_mime not in ('video/mp4','video/webm')) or (p_field='10002/audio' and p_mime not in ('audio/mpeg','audio/wav','audio/flac')) or p_mime is null then raise exception 'invalid type'; end if;
- perform pg_advisory_xact_lock(hashtext('managed-input-intent:'||submission::text));
+ perform pg_advisory_xact_lock(hashtext('managed-owner:'||submission::text));
  if exists(select 1 from managed_input_intents where submission_id=submission and user_id<>target) or exists(select 1 from managed_job_journal where submission_id=submission and user_id<>target) then raise exception 'owner mismatch'; end if;
  insert into managed_input_intents values(submission,target,p_field,p_mime,p_bytes,digest,'uploading',null,now()+interval '24 hours') on conflict do nothing;
  return found;
@@ -39,3 +39,16 @@ revoke all on function public.managed_input_begin(uuid,uuid,text,text,bigint,tex
 revoke all on function public.managed_input_accept(uuid,uuid,text,text,text,text) from public;
 grant execute on function public.managed_input_begin(uuid,uuid,text,text,bigint,text,text) to anon,authenticated;
 grant execute on function public.managed_input_accept(uuid,uuid,text,text,text,text) to anon,authenticated;
+
+-- Bind job and upload ownership under the same transaction lock.
+create or replace function public.managed_job_begin(target uuid, submission uuid, p_deployment text, p_output_node text, secret text)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if secret is null or secret is distinct from (select value from app_secrets where key='webhook') then raise exception 'not allowed'; end if;
+  if target is null or submission is null or p_deployment is null or p_output_node is null or p_deployment !~ '^https://[a-z0-9-]+[.]run[.]comfy[.]app$' or p_output_node !~ '^[a-zA-Z0-9_-]{1,128}$' then raise exception 'invalid managed job'; end if;
+  perform pg_advisory_xact_lock(hashtext('managed-owner:'||submission::text));
+  if exists(select 1 from managed_input_intents where submission_id=submission and user_id<>target) then raise exception 'owner mismatch'; end if;
+  insert into managed_job_journal(submission_id,user_id,deployment,output_node,state)
+  values(submission,target,p_deployment,p_output_node,'dispatching') on conflict do nothing;
+  return found;
+end $$;
