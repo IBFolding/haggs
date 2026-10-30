@@ -179,12 +179,6 @@ export function PlayableHome() {
     <div className="app">
       <Nav current="Playable" />
       <div className="canvas pl-page">
-        <section className="pl-panel" aria-label="Game Director animations">
-          <h2>Bring Game Director sprites into Playable</h2>
-          <p>Import atlas.png and atlas.json into a sprite slot in the Art panel. Choose an action, preview its frames, then play. No generation charge.</p>
-          <button className="pl-go" disabled={busy} onClick={() => void startAtlasDemo()}>Try Game Director atlas demo · free</button>
-          <p className="pl-sub">Uses supplied deterministic pose and VFX exports, not H3 renders. <Link href="/workflows/game-director/PLAYABLE-ASSESSMENT.md">Supported outputs and limits</Link></p>
-        </section>
         <section className="pl-hero">
           <span className="pl-eyebrow">Playable · beta</span>
           <h1>Describe a game.<br /><em>Play it.</em></h1>
@@ -277,6 +271,13 @@ export function PlayableHome() {
           </div>
         </section>
 
+
+        <section className="pl-panel" aria-label="Game Director animations">
+          <h2>Bring Game Director sprites into Playable</h2>
+          <p>Import atlas.png and atlas.json into a sprite slot in the Art panel. Choose an action, preview its frames, then play. No generation charge.</p>
+          <button className="pl-go" disabled={busy} onClick={() => void startAtlasDemo()}>Try Game Director atlas demo · free</button>
+          <p className="pl-sub">Uses supplied deterministic pose and VFX exports, not H3 renders. <Link href="/workflows/game-director/PLAYABLE-ASSESSMENT.md">Supported outputs and limits</Link></p>
+        </section>
 
         {fresh.length > 0 ? (
           <section className="pl-section" aria-label="From Claude">
