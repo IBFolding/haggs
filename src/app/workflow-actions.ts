@@ -24,7 +24,8 @@ import { workflowRuntime } from "../comfy/runtime";
 import { createLocalRunner, localBase } from "../providers/local";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
 import { contestVariant } from "../comfy/contest-lab";
-import { openContest, openContestForDisplay } from "../server/contest-workflows";
+import { addContestMasks, isContestMaskField } from "../comfy/contest-masks";
+import { openContest, openContestForDisplay, savedContestName } from "../server/contest-workflows";
 import { haggsPreview } from "../comfy/haggs-preview";
 import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay } from "../server/haggs-preview-workflows";
 import { ltxWorkflow } from "../comfy/ltx";
@@ -89,6 +90,11 @@ async function open(key: string | undefined, source: Source): Promise<Opened> {
   if (savedPreview) {
     if (!address) throw new Error("This Haggs preview requires a connected local ComfyUI with the matching custom nodes installed.");
     return openHaggsPreview(savedPreview, catalog);
+  }
+  const savedContest = savedContestName(source.file);
+  if (savedContest) {
+    if (!address) throw new Error("This Haggs effect requires a connected local ComfyUI with the matching custom nodes installed.");
+    return openContest(savedContest, catalog);
   }
   // An API-format file is already a prompt: wrap each node so the editor-format path can read it unchanged.
   const ui = (raw as { nodes?: unknown }).nodes ? (raw as UiWorkflow) : apiToUi(raw as Record<string, { class_type: string; inputs: Record<string, unknown> }>);
@@ -253,7 +259,8 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
       const data = await stats.json() as {devices?:{name?:string;type?:string;vram_free?:number}[]};
       const devices = data.devices?.filter(d => d.type && d.type !== "cpu") ?? [];
       if (!devices.length) {
-        if (("template" in source && haggsPreview(source.template)) || ("file" in source && isSavedHaggsPreview(source.file))) report.notes.push("CPU preview · no model generation. This can take longer than a GPU.");
+        const localPreview = ("template" in source && (haggsPreview(source.template) || contestVariant(source.template)?.kind === "reuse")) || ("file" in source && (isSavedHaggsPreview(source.file) || contestVariant(savedContestName(source.file) ?? "")?.kind === "reuse"));
+        if (localPreview) report.notes.push("CPU compositing · no model generation. This can take longer than a GPU.");
         else report.issues.push("No GPU reported by ComfyUI. Start ComfyUI with GPU support before generating.");
       }
       report.notes.push(...devices.map(d => `${d.name ?? d.type}: ${typeof d.vram_free === "number" ? (d.vram_free/2**30).toFixed(1)+" GiB free" : "free memory unknown"}`));
@@ -305,6 +312,9 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     }
     const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key!, keep: keepResult, beforeRun: checkGenerationStorage, timeoutMs: 40 * 60_000 });
     const uploaded: Values = {};
+    const optionalMasks = opened.app.fields.filter(f => f.kind === "media" && f.optional && isContestMaskField(f.node));
+    const hasMasks = optionalMasks.some(f => Boolean(files[`${f.node}/${f.input}`]));
+    if (hasMasks && (!catalog.LoadImage || !catalog.ImageToMask)) return {ok:false,reason:"Install the standard ComfyUI LoadImage and ImageToMask nodes before using masks; no generation was started."};
     // An empty choice leaves that input out of the run, with the wire it fed.
     const skipped = Object.entries(files).filter(([, v]) => v === "").map(([k]) => k);
     for (const field of opened.app.fields) {
@@ -312,11 +322,14 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
       const k = `${field.node}/${field.input}`;
       if (skipped.includes(k)) continue;
       const source = files[k] ?? field.sample;
+      if (!source && field.optional) continue;
       if (!source) return { ok: false, reason: `Add ${field.label.toLowerCase()} first.` };
       const { bytes, mime } = await mediaBytes(source);
       uploaded[k] = await cloud.uploadBytes(bytes, mime);
     }
-    const ready = leaveOut(fill(prompt, opened.app, { ...values, ...uploaded }), opened.app, skipped);
+    const basicApp = { ...opened.app, fields: opened.app.fields.filter(f => !(f.kind === "media" && f.optional && isContestMaskField(f.node))) };
+    const base = leaveOut(fill(prompt, basicApp, { ...values, ...uploaded }), basicApp, skipped.filter(k => basicApp.fields.some(f => `${f.node}/${f.input}` === k)));
+    const ready = optionalMasks.length ? addContestMasks(base, uploaded) : base;
     const missing = validate(ready, catalog);
     if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
     const quoted = mine ? null : await priceOf(ready, opened.catalog);

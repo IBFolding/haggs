@@ -28,7 +28,7 @@ import { SiteFooter } from "../site-footer";
 const TABS = ["Quick start", "Haggs", "Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const SHELVES = ["Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const FEATURED = ["api_higgsfield_genjutsu_motion_transfer", "template_seedance2_0_viral_videos_character_swap", "video_wan21_scail2_character_replacement", "video_minimax_h3_r2v", "api_bria_video_replace_background"];
-const GAME_GUIDE_APPS: Record<string, string> = { '01-drag-to-action':'haggs_preview_drag_to_action', '02-boss-fight-choreographer':'haggs_preview_boss_fight', '04-game-reskin-director':'haggs_preview_game_reskin', '05-animation-moveset-builder':'haggs_preview_moveset', '06-enemy-intent-painter':'haggs_preview_enemy_intent' };
+const GAME_GUIDE_APPS: Record<string, string> = { '01-drag-to-action':'haggs_preview_drag_to_action', '02-boss-fight-choreographer':'haggs_preview_boss_fight', '03-playable-scene-forge':'haggs_scene_forge', '04-game-reskin-director':'haggs_preview_game_reskin', '05-animation-moveset-builder':'haggs_preview_moveset', '06-enemy-intent-painter':'haggs_preview_enemy_intent' };
 
 function HaggsCard({ title, image, label, href, children }: { title: string; image: string; label: string; href?: string; children: ReactNode }) {
   if (href) return <div className="haggs-workflow-card">
@@ -184,9 +184,9 @@ export function Workflows() {
           {haggs && games.length > 0 && (
             <section className="quick" id="haggs-games" aria-label="Game Director workflows">
               <h2>Game Director</h2>
-              <p>Preview guides use your connected ComfyUI and the Game Director nodes. They do not generate H3 footage or export atlases in Haggs. The full workflows remain available below.</p>
+              <p>Preview guides use your connected ComfyUI and the Game Director nodes. Scene Forge plays your prepared clips in your browser. These tools do not generate H3 footage or export atlases in Haggs. The full workflows remain available below.</p>
               <div className="wf-grid">
-                {games.map(g => <HaggsCard key={g.slug} title={g.title} image={`/workflows/game-director/${g.slug}-illustrative.webp`} label={GAME_GUIDE_APPS[g.slug] ? "Guide preview · local ComfyUI" : "Workflow download · ComfyUI"} {...(GAME_GUIDE_APPS[g.slug] ? {href:`/workflows/${GAME_GUIDE_APPS[g.slug]}`} : {})}>
+                {games.map(g => <HaggsCard key={g.slug} title={g.title} image={`/workflows/game-director/${g.slug}-illustrative.webp`} label={g.slug === '03-playable-scene-forge' ? 'Prepared clips · browser player' : GAME_GUIDE_APPS[g.slug] ? 'Guide preview · local ComfyUI' : 'Workflow download · ComfyUI'} {...(GAME_GUIDE_APPS[g.slug] ? {href:`/workflows/${GAME_GUIDE_APPS[g.slug]}`} : {})}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
                   <p>{g.scope}</p><p>Exports: {g.output}</p>
                   {/^0[56]-/.test(g.slug) && <Link href="/playable">Import atlas in Playable · free</Link>}

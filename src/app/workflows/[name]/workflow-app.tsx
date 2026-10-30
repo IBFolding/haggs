@@ -350,11 +350,16 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 <button className="pill" disabled={checking || running} onClick={()=>setCheckVersion(v=>v+1)}>Check again</button></section>
                 {opened.app.fields.filter((f) => f.kind === "media").length > 0 && (
                   <div className="wf-drops">
-                    {opened.app.fields.map((f) => f.kind === "media" && (
+                    {opened.app.fields.map((f) => f.kind === "media" && !f.optional && (
                       <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onBusy={(b) => setAdding((n) => Math.max(0, n + (b ? 1 : -1)))} onChange={(url) => setFiles((prior) => { const next = { ...prior }; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />
                     ))}
                   </div>
                 )}
+                {opened.app.fields.some(f => f.kind === "media" && f.optional) && <details className="wf-field">
+                  <summary>Optional masks and audio band map</summary>
+                  <p className="wf-small">Use still images: the red channel of each mask controls the whole shot. White selects or protects; black leaves it unchanged. Tracking moving masks requires ComfyUI.</p>
+                  <div className="wf-drops">{opened.app.fields.map(f => f.kind === "media" && f.optional && <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onBusy={b => setAdding(n => Math.max(0, n + (b ? 1 : -1)))} onChange={url => setFiles(prior => { const next = {...prior}; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />)}</div>
+                </details>}
                 {opened.app.fields.map((f) => {
                   const k = keyOf(f);
                   if (f.kind === "text") return (
