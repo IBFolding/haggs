@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { applyOutline, outlineSource } from "../../../../../story/grey-outline";
 import { track } from "../../../../../activity/activity";
 import { actorMattePrompt, imageMattePrompt, IMAGE_MATTE_INPUT, MATTE_INPUT } from "../../../../../comfy/actor-matte";
 import { surfaceWords, texturePrompt } from "../../../../../comfy/surface-texture";
@@ -19,32 +20,44 @@ type Reference = { id: string; name: string; image?: string | null };
 
 /** Walls, floors and other real surfaces in the footage, found and given a new material. */
 export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange }: { scene: GreyScene; footageUrl: string | null; isVideo: boolean; references: Reference[]; onChange: (next: GreyScene) => void }) {
-  const [selecting, setSelecting] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState<{id:string; source:string} | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [words, setWords] = useState<Record<string, string>>({});
   const live = useRef(scene);
   live.current = scene;
+  const source = outlineSource(scene, footageUrl, isVideo);
+  const liveSource = useRef(source); liveSource.current = source;
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  function accept(id: string, started: string, patch: Pick<Surface, "mask" | "selection" | "mode" | "words">) {
+    if (!mounted.current) return;
+    const next = applyOutline(live.current, id, started, liveSource.current, patch);
+    if (next !== live.current) onChange(next);
+  }
   const href = () => window.location.pathname + window.location.search;
   const fail = (x: { ok: boolean; reason?: string }) => (x.ok ? null : (x.reason ?? "It didn't finish."));
 
   async function find(sf: Surface) {
     if (!footageUrl) return;
+    const started = source;
     setBusy(`find:${sf.id}`);
     setProblem(null);
     const description = surfaceWords(sf.label, words[sf.id] ?? sf.words ?? "");
     const prompt = isVideo ? actorMattePrompt({ describe: description }) : imageMattePrompt(description);
     const r = await track({ label: `Finding the ${sf.label.toLowerCase()}`, href: href(), failure: fail }, () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [isVideo ? MATTE_INPUT : IMAGE_MATTE_INPUT]: footageUrl })).catch((e: unknown) => ({ ok: false as const, reason: e instanceof Error ? e.message : "It didn't finish.", needsKey: false }));
     setBusy(null);
+    if (!mounted.current || started !== liveSource.current) return;
     if (!r.ok) {
       if ("needsKey" in r && r.needsKey) openKeys();
       return setProblem(r.reason);
     }
-    onChange(updateSurface(live.current, sf.id, { words: surfaceWords(sf.label, words[sf.id] ?? sf.words ?? ""), selection: undefined, mode: "material", mask: { kind: r.kind === "image" ? "image" : "video", url: r.url, at: Date.now(), price: r.price } }));
+    accept(sf.id, started, { words: description, selection: undefined, mode: "material", mask: { kind: r.kind === "image" ? "image" : "video", url: r.url, at: Date.now(), price: r.price } });
   }
 
   async function uploadOutline(sf: Surface, file: File | undefined) {
     if (!file) return;
+    const started = source;
     setBusy(`mask:${sf.id}`); setProblem(null);
     try {
       if (file.type !== "image/png") throw new Error("Choose a PNG cut-out with transparency outside the selected area.");
@@ -59,7 +72,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
       if (!clear || !visible) throw new Error("The outline must contain the selected surface and transparent pixels outside it. A black-and-white mask is not a cut-out.");
       const result = await uploadFile(file);
       if (!result.ok) throw new Error(result.reason);
-      onChange(updateSurface(live.current, sf.id, { selection: undefined, mode: "material", mask: { kind: "image", url: result.url, at: Date.now(), price: "Prepared outline" } }));
+      accept(sf.id, started, { selection: undefined, mode: "material", mask: { kind: "image", url: result.url, at: Date.now(), price: "Prepared outline" } });
     } catch (e) { setProblem(e instanceof Error ? e.message : "Outline upload failed."); }
     finally { setBusy(null); }
   }
@@ -106,7 +119,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
             </span>
           </div>
           <p className="gs-soft">1. Select the exact area you want to change.</p>
-          {!isVideo && footageUrl && <button className="pill on" disabled={busy !== null} onClick={() => setSelecting(sf.id)}>{sf.selection ? "Redraw area" : "Draw area on photo"} <span className="cost">free</span></button>}
+          {!isVideo && footageUrl && <button className="pill on" disabled={busy !== null} onClick={() => setSelecting({id:sf.id,source})}>{sf.selection ? "Redraw area" : "Draw area on photo"} <span className="cost">free</span></button>}
           <div className="gs-row">
             <input className="gs-name" type="text" maxLength={120} value={words[sf.id] ?? sf.words ?? ""} placeholder={surfaceWords(sf.label, "")} onChange={(e) => setWords({ ...words, [sf.id]: e.target.value })} aria-label={`Words to find the ${sf.label}`} />
             <button className="pill" disabled={busy !== null || !footageUrl} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
@@ -139,7 +152,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
           )}
         </div>
       ))}
-      {selecting && footageUrl && <AreaSelector source={footageUrl} label={scene.surfaces?.find(s => s.id === selecting)?.label ?? "area"} onClose={() => setSelecting(null)} onSave={(url, selection) => onChange(updateSurface(live.current, selecting, { selection, mask: { kind: "image", url, at: Date.now(), price: "Manual selection · free" } }))} />}
+      {selecting && selecting.source === source && footageUrl && <AreaSelector key={source} source={footageUrl} label={scene.surfaces?.find(s => s.id === selecting.id)?.label ?? "area"} onClose={() => setSelecting(null)} onSave={(url, selection) => accept(selecting.id, selecting.source, { selection, mask: { kind: "image", url, at: Date.now(), price: "Manual selection · free" } })} />}
       {problem && <p className="library-error" role="alert">{problem}</p>}
     </section>
   );

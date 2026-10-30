@@ -50,7 +50,7 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
   onUseEverywhere: (set: SavedSet) => void;
 }) {
   const [task, setTask] = useState<"surface" | "background" | "objects" | "actors" | "sets">("surface");
-  useEffect(() => { if (selected && scene.props?.some(p => p.id === selected)) setTask(scene.props.find(p => p.id === selected)?.role === "actor" ? "actors" : "objects"); }, [selected]);
+  useEffect(() => { if (selected && scene.props?.some(p => p.id === selected)) setTask(scene.props.find(p => p.id === selected)?.role === "actor" ? "actors" : "objects"); else if (selected && scene.surfaces?.some(s => s.id === selected)) setTask("surface"); }, [selected]);
   const sourcePick = useRef<HTMLInputElement>(null);
   const pick = useRef<HTMLInputElement>(null);
   const propPick = useRef<HTMLInputElement>(null);
@@ -87,7 +87,7 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
     if (r.kind !== "image") return setProblem("Add a picture.");
     const now = live.current;
     if (as === "backdrop") onChange({ ...now, backdrop: { url: r.url, name: file.name.replace(/\.[^.]+$/, ""), scale: await coverScale(r.url, vertical), x: 0.5, y: 0.5, blur: 0 } });
-    else { const next = addProp(now, { name: file.name.replace(/\.[^.]+$/, ""), url: r.url }); const id = next.props!.at(-1)!.id; onChange(updateProp(next, id, { role: task === "actors" ? "actor" : "object" })); onSelect(id); }
+    else { const next = addProp(now, { name: file.name.replace(/\.[^.]+$/, ""), url: r.url }); const id = sel?.id ?? next.props!.at(-1)!.id; onChange(updateProp(next, id, { role: task === "actors" ? "actor" : "object" })); onSelect(id); }
   }
 
   /** A 3D model for the Blender set. Only on your own computer: the Blender export reads files from the local media folder. */
@@ -129,11 +129,11 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
   return (
     <div className="gs-panel">
       <section className="gs-sec gs-source-tools"><div className="gs-surf-head"><h3>Your starting image</h3><button className="pill" disabled={busy !== null} onClick={() => sourcePick.current?.click()}>{busy === "room" ? "Adding…" : footageUrl ? "Change photo" : "Upload a photo"}</button></div><p className="gs-soft">Bring your own room or scene. Changing the photo clears old outlines; your reference cards and placed layers stay.</p><input ref={sourcePick} type="file" accept="image/*" hidden onChange={e => { void uploadRoom(e.target.files?.[0]); e.target.value = ""; }} /></section>
-      <ReferenceBoard scene={scene} onChange={onChange} onEdit={id => { setTask(id ? "objects" : "surface"); onSelect(id ?? null); }} />
       <div className="gs-edit-choices" role="group" aria-label="What would you like to change?">
         {([ ["surface", "Edit an area"], ["objects", "Furniture & props"], ["actors", "Actors"], ["background", "Background"], ["sets", "Saved looks"] ] as const).map(([id, label]) => <button key={id} className={`pill${task === id ? " on" : ""}`} aria-pressed={task === id} onClick={() => setTask(id)}>{label}</button>)}
         {onLights && <button className="pill" onClick={onLights}>Lights & atmosphere ↗</button>}
       </div>
+      <ReferenceBoard selected={selected} scene={scene} onChange={onChange} onEdit={id => { setTask(id ? "objects" : "surface"); onSelect(id ?? null); }} />
       {task === "background" && <section className="gs-sec">
         <h3>Background reference</h3>
         <p className="gs-soft">Choose the place around your subject. Cut out the subject first to reveal this background.</p>
@@ -171,9 +171,10 @@ export function SetPanel({ scene, places, props, actors = [], selected, vertical
       {(task === "objects" || task === "actors") && <section className="gs-sec">
         <h3>{task === "actors" ? "Place an actor" : "Furniture & props"}</h3>
         <p className="gs-soft">{task === "actors" ? "Choose a saved character or upload an actor cut-out. Drag to place them, then adjust size and depth. A character sheet stays a flat image; use a transparent single-pose cut-out for compositing." : "Bring in a couch, table, lamp or other saved accessory. Drag to place it. Use a transparent cut-out; a full photograph appears as a rectangle."}</p>
+        <p className="gs-soft">{sel ? `Click a thumbnail to swap ${sel.name}, or drag to add another.` : "Click to add. Drag onto the scene to choose its position."}</p>{sel && <button className="pill" onClick={() => onSelect(null)}>Add another instead</button>}
         <div className="gs-shelf">
           {(task === "actors" ? actors : props).map((p) => (
-            <button key={p.id} className="gs-prop" title={p.name} onClick={() => { const next = addProp(scene, { name: p.name, url: p.image! }); const id = next.props!.at(-1)!.id; onChange(updateProp(next, id, { role: task === "actors" ? "actor" : "object" })); onSelect(id); }}>
+            <button key={p.id} className="gs-prop" title={p.name} draggable onDragStart={e => { e.dataTransfer.setData("application/x-haggs-asset", JSON.stringify({url:p.image!,name:p.name,role:task === "actors" ? "actor" : "object"})); e.dataTransfer.effectAllowed="copy"; }} onClick={() => { const next = sel ? updateProp(scene, sel.id, { name: p.name, url: p.image! }) : addProp(scene, { name: p.name, url: p.image! }); const id = sel?.id ?? next.props!.at(-1)!.id; onChange(updateProp(next, id, { role: task === "actors" ? "actor" : "object" })); onSelect(id); }}>
               <img src={p.image!} alt="" /><span>{p.name}</span>
             </button>
           ))}

@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { selectionFrame, validSelection } from "../../../../../story/grey-selection";
+import { ASSET_DRAG, dropAsset } from "../../../../../story/grey-drop";
+import { addProp, removeProp } from "../../../../../story/grey-scene";
 import { SurfaceLayer } from "./surface-layer";
 import { actorShadow, atmosphere, lookFilter, moveProp, propShadow, updateLight, updateProp, type GreyScene, type Light, type Prop } from "../../../../../story/grey-scene";
 
@@ -35,6 +38,7 @@ export function Compositor({
   onSelect: (id: string | null) => void;
   onChange: (next: GreyScene, commit: boolean) => void;
 }) {
+  const [over, setOver] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const clip = useRef<HTMLVideoElement>(null);
@@ -112,6 +116,9 @@ export function Compositor({
     return (
       <div
         key={p.id}
+        data-grey-prop={p.id}
+        role="button" tabIndex={editing === "props" ? 0 : -1} aria-label={`Select ${p.name}`}
+        onKeyDown={e => { if (editing !== "props") return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.id); } }}
         className={`cp-prop${on ? " on" : ""}${p.locked ? " locked" : ""}`}
         style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%`, width: `${p.w * 100}%`, opacity: p.opacity, transform: `translate(-50%, -50%) rotate(${p.rotate}deg) scaleX(${p.flip ? -1 : 1})` }}
         onPointerDown={editing === "props" ? (e) => start(e, "move", p.id, p) : undefined}
@@ -131,7 +138,11 @@ export function Compositor({
   };
 
   return (
-    <div ref={box} className={`cp${vertical ? " vertical" : ""}`} onPointerDown={() => onSelect(null)}>
+    <div ref={box} className={`cp${vertical ? " vertical" : ""}${over ? " cp-drop-active" : ""}`} onPointerDown={() => onSelect(null)}
+      onDragOver={e => { if (editing === "props" && e.dataTransfer.types.includes(ASSET_DRAG)) { e.preventDefault(); e.dataTransfer.dropEffect="copy"; setOver(true); } }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(false); }}
+      onDrop={e => { setOver(false); if (editing !== "props") return; e.preventDefault(); const r=e.currentTarget.getBoundingClientRect(); const target=(e.target as Element).closest("[data-grey-prop]")?.getAttribute("data-grey-prop") ?? undefined; const result=dropAsset(latest.current,e.dataTransfer.getData(ASSET_DRAG),(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height,target); if(result) {onChange(result.scene,true);onSelect(result.id);} }}>
+      {over && <span className="cp-drop-hint">Drop to place · drop on an object to swap</span>}
       <div className="cp-inner" style={{ filter: lookFilter(scene.look) }}>
         <div className="cp-bg" style={bd ? { backgroundImage: `url(${bd.url})`, backgroundSize: `${bd.scale * 100}% auto`, backgroundPosition: `${bd.x * 100}% ${bd.y * 100}%`, filter: bd.blur ? `blur(${bd.blur * 14}px)` : undefined } : undefined} />
         {!actorUrl && footage && (footage.kind === "video" ? <video key={footage.url} ref={clip} className="cp-actor full" src={footage.url} playsInline muted loop /> : <img className="cp-actor full" src={footage.url} alt="" />)}
@@ -143,6 +154,13 @@ export function Compositor({
         {air.map((a) => <div key={a.kind} className={`cp-air ${a.kind}`} style={{ opacity: a.amount }} />)}
         {scene.look?.vignette ? <div className="cp-vig" style={{ opacity: scene.look.vignette }} /> : null}
       </div>
+      {editing === "props" && <div className="cp-area-targets" aria-label="Select an outlined area">{scene.surfaces?.filter(s => validSelection(s.selection) && !s.hidden).map(s => { const f=selectionFrame(s.selection!,{w:vertical?562.5:1000,h:vertical?1000:562.5}); return <button key={s.id} aria-pressed={selected === s.id} className={selected === s.id ? "on" : ""} style={{left:`${f.x/(vertical?562.5:1000)*100}%`,top:`${f.y/(vertical?1000:562.5)*100}%`}} onPointerDown={e=>e.stopPropagation()} onClick={()=>onSelect(s.id)}>{s.label} · swap</button>; })}</div>}
+      {editing === "props" && selected && scene.props?.some(p => p.id === selected) && <div className="cp-selection-tools" onPointerDown={e => e.stopPropagation()} aria-label="Selected object actions">
+        <span>{scene.props.find(p => p.id === selected)?.name}</span><small>Pick a thumbnail to swap</small>
+        <button onClick={() => { const {id: _sourceId, ...p}=scene.props!.find(p=>p.id===selected)!; const next=addProp(scene,p); const id=next.props!.at(-1)!.id; onChange(updateProp(next,id,{...p,x:Math.min(.95,p.x+.05),y:Math.min(.95,p.y+.05)}),true);onSelect(id); }}>Duplicate</button>
+        <button onClick={() => {onChange(updateProp(scene,selected,{hidden:true}),true);onSelect(null);}}>Hide</button>
+        <button onClick={() => {onChange(removeProp(scene,selected),true);onSelect(null);}}>Remove</button>
+      </div>}
       {editing === "lights" && (scene.lights ?? []).map((l) => (
         <i
           key={l.id}
