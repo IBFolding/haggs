@@ -11,6 +11,7 @@ export function modeLinks(group: ModeGroup, canEdit: boolean): ModeLink[] {
       { href: "/recreate", label: "Recreate an edit" },
       { href: "/found", label: "Found footage" },
       { href: "/doctor", label: "Sizzle doctor" },
+      { href: "/kinetic", label: "Kinetic film" },
       { href: "/sprites", label: "Sprite sheet" },
     ];
   }
