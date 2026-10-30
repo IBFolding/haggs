@@ -13,6 +13,7 @@ import { MediaThumb } from "../../../../media-thumb";
 import { AssetsPanel, type AssetTab } from "./assets-panel";
 import { Compositor } from "./compositor";
 import { sceneForShot } from "../../../../../story/grey-source";
+import { finishCutout, undoPending } from "../../../../../story/grey-edit-safety";
 import { CutoutPanel } from "./cutout-panel";
 import { GreyRoom } from "../../cut/grey";
 import { Inspector } from "./inspector";
@@ -77,6 +78,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const history = useRef(createHistory<GreyScene>({}));
   const [, bump] = useState(0);
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pending = useRef(false);
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [animate, setAnimate] = useState(false);
@@ -145,9 +147,9 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     setSceneState(next);
     persist(next);
     clearTimeout(settle.current);
-    const done = () => { history.current.push(next); bump((n) => n + 1); };
+    const done = () => { pending.current = false; history.current.push(next); bump((n) => n + 1); };
     if (commitNow) done();
-    else settle.current = setTimeout(done, 500);
+    else { pending.current = true; settle.current = setTimeout(done, 500); }
   }
 
   /** Puts a saved set on every other shot of this board. Each keeps its own cut-out. */
@@ -168,12 +170,14 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
 
   function undo() {
     clearTimeout(settle.current);
-    const prev = history.current.undo();
-    if (prev) { setSceneState(prev); persist(prev); bump((n) => n + 1); }
+    const prev = undoPending(history.current, pending.current ? liveScene.current : undefined);
+    pending.current = false;
+    if (prev) { liveScene.current = prev; setSceneState(prev); persist(prev); bump((n) => n + 1); }
   }
   function redo() {
+    if (pending.current) return;
     const next = history.current.redo();
-    if (next) { setSceneState(next); persist(next); bump((n) => n + 1); }
+    if (next) { liveScene.current = next; setSceneState(next); persist(next); bump((n) => n + 1); }
   }
 
   useEffect(() => {
@@ -224,7 +228,8 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     if (!project || !shot?.render) return;
     setRunning(true);
     setProblem(null);
-    const footage = scene.source?.url ?? shot.render.url;
+    const requestedSource = liveScene.current.source;
+    const footage = requestedSource?.url ?? shot.render.url;
     const prompt = actorMattePrompt({ describe, points: dots.map((d) => d.at) });
     const r = await track(
       { label: "Cutting out the actor", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), result: (x) => (x.ok ? { url: x.url } : null) },
@@ -235,7 +240,10 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
       if ("needsKey" in r && r.needsKey) openKeys();
       return setProblem(r.reason);
     }
-    change({ ...scene, matte: { url: r.url, at: Date.now(), price: r.price } }, true);
+    const current = liveScene.current;
+    const result = finishCutout(current, requestedSource, { url: r.url, at: Date.now(), price: r.price });
+    if (!result) return setProblem("The source changed while the cut-out was running. The result was not applied; please run it again for the current source.");
+    change(result, true);
     setShowOriginal(false);
     setPicking(false);
   }
@@ -292,8 +300,8 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
               <button role="tab" aria-selected={mode === "blockout"} className={mode === "blockout" ? "on" : ""} onClick={() => { setMode("blockout"); setSelected(null); }} title="Work out the camera, the figures and the light in grey, for free">Blockout</button>
             </div>
             <span className="gs-tools">
-              <button className="pill" onClick={undo} disabled={!history.current.canUndo} title="Undo (⌘Z)">Undo</button>
-              <button className="pill" onClick={redo} disabled={!history.current.canRedo} title="Redo (⇧⌘Z)">Redo</button>
+              <button className="pill" onClick={undo} disabled={!pending.current && !history.current.canUndo} title="Undo (⌘Z)">Undo</button>
+              <button className="pill" onClick={redo} disabled={pending.current || !history.current.canRedo} title="Redo (⇧⌘Z)">Redo</button>
               <button className={`pill${showOriginal ? " on" : ""}`} aria-pressed={showOriginal} onClick={() => setShowOriginal((v) => !v)} title="Hold your original footage up against the set">Compare original</button>
               <button className="fire" onClick={() => setDrawer(true)} title="Make a draft, relight, make it real, or take it into Blender">Render</button>
             </span>
