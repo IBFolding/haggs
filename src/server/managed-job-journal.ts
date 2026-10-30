@@ -61,6 +61,11 @@ export async function recoverJournaled(userId: string, submissionId: string, jou
   const found = await find(submissionId);
   if (!found) throw new Error("Submission outcome is still unknown. Check again later; do not resubmit.");
   const safe = jobPath(entry, found);
-  if (!await journal.accept(userId, submissionId, safe.id, safe.path)) throw new Error("Could not record the recovered job. Check the journal before retrying.");
+  if (!await journal.accept(userId, submissionId, safe.id, safe.path)) {
+    // Two status requests may reconcile the same uncertain submission at once.
+    // Only accept the race if the owner-scoped journal now contains this exact job.
+    const latest = await journal.read(userId, submissionId);
+    if (!latest || latest.userId !== userId || latest.submissionId !== submissionId || latest.state !== 'accepted' || latest.jobId !== safe.id || latest.jobUrl !== safe.path) throw new Error("Could not record the recovered job. Check the journal before retrying.");
+  }
   return { id: safe.id, urls: { self: safe.path }, outputNode: entry.outputNode };
 }

@@ -119,7 +119,7 @@ export function createComfyManaged(settings: Settings) {
       const current = await response.json() as ManagedJob;
       if (current.id !== job.id) throw new Error("Comfy returned the wrong job.");
       if (current.status === "succeeded") {
-        const out = current.outputs?.find(x => x.node_id === outputNode && x.url && x.content_type && EXT[x.content_type]);
+        const out = current.outputs?.find(x => x.node_id === outputNode && x.url && x.content_type && Object.hasOwn(EXT, x.content_type));
         if (!out?.url || !out.content_type) throw new Error(`Comfy job ${job.id} finished without a supported output.`);
         const extension = EXT[out.content_type]!;
         let url: string;
@@ -132,6 +132,17 @@ export function createComfyManaged(settings: Settings) {
       await new Promise(r => setTimeout(r, settings.pollMs ?? 1500));
     }
     throw new Error(`Comfy job ${job.id} is still running or queued; check it before retrying.`);
+  }
+  /** Read status only. Never expose provider links, metadata or signed asset URLs. */
+  async function status(job: ManagedJob, outputNode: string) {
+    if (!job.id || !ID.test(job.id) || !job.urls?.self) throw new Error('Invalid managed job reference.');
+    const url = new URL(sameOrigin(job.urls.self));
+    if (url.pathname !== `/api/v2/jobs/${job.id}` || url.search || url.hash) throw new Error('Invalid managed job reference.');
+    const response = await request(url.href);
+    if (!response.ok) throw new Error('Managed job status is unavailable.');
+    const current = await response.json() as ManagedJob;
+    if (current.id !== job.id || !['queued','running','canceling','succeeded','failed','canceled','expired'].includes(current.status ?? '')) throw new Error('Invalid managed job status.');
+    return {status:current.status!,providerOutputAvailable:current.status === 'succeeded' && Boolean(current.outputs?.some(o => o.node_id === outputNode && o.url && o.content_type && Object.hasOwn(EXT,o.content_type)))};
   }
   /** On a managed deployment, locate an uncertain submission by its durable label. */
   async function findByReference(reference: string): Promise<ManagedJob | null> {
@@ -164,5 +175,5 @@ export function createComfyManaged(settings: Settings) {
     }
     throw new Error("Job listing is incomplete. Do not resubmit.");
   }
-  return { upload, submit, result, findByReference };
+  return { upload, submit, result, status, findByReference };
 }

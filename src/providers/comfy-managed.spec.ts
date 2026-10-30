@@ -97,6 +97,27 @@ test("managed recovery uses a server-sent reference and refuses ambiguous matche
   await assert.rejects(duplicate.findByReference("ref-1"), /Multiple jobs/);
 });
 
+test('status is restricted to the matching same-origin job and returns no provider URLs', async () => {
+  let calls=0;
+  const api=createComfyManaged({base:'https://example.run.comfy.app',apiKey:'secret',keep,fetch:async (_input,init)=>{
+    calls++; assert.equal(new Headers(init?.headers).get('authorization'),'Bearer secret');
+    return Response.json({id:'job-1',status:'succeeded',outputs:[{node_id:'5',content_type:'video/mp4',url:'https://private.example/signed'}],metadata:{private:'hidden'}});
+  }});
+  assert.deepEqual(await api.status({id:'job-1',urls:{self:'/api/v2/jobs/job-1'}},'5'),{status:'succeeded',providerOutputAvailable:true});
+  await assert.rejects(api.status({id:'job-1',urls:{self:'/api/v2/jobs/job-2'}},'5'),/Invalid/);
+  await assert.rejects(api.status({id:'job-1',urls:{self:'https://evil.example/api/v2/jobs/job-1'}},'5'),/unsafe/);
+  assert.equal(calls,1);
+});
+
+test('prototype property names are not accepted as media types', async () => {
+  let kept=false;
+  const api=createComfyManaged({base:'http://127.0.0.1:8198',localTest:true,keep:async()=>{kept=true;return 'saved';},fetch:async()=>Response.json({id:'job-1',status:'succeeded',outputs:[{node_id:'5',content_type:'constructor',url:'/api/v2/assets/out/content'}]})});
+  const job={id:'job-1',urls:{self:'/api/v2/jobs/job-1'}};
+  assert.deepEqual(await api.status(job,'5'),{status:'succeeded',providerOutputAvailable:false});
+  await assert.rejects(api.result(job,'5'),/without a supported output/);
+  assert.equal(kept,false);
+});
+
 test("production cannot enable the loopback test path", () => {
   const old = process.env.NODE_ENV;
   try {

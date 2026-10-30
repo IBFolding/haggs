@@ -37,3 +37,10 @@ test("a provider cannot bind an external or mismatched job URL", async () => {
   await assert.rejects(submitJournaled(entry, journal, async () => ({ id: "job-1", urls: { self: "https://evil.test/api/v2/jobs/job-1" } })), /invalid.*Do not resubmit/);
   await assert.rejects(recoverJournaled("owner", entry.submissionId, journal, async () => ({ id: "job-1", urls: { self: "/api/v2/jobs/job-2" } })), /invalid.*Do not resubmit/);
 });
+
+test('concurrent recovery accepts the same already-recorded job without another submission', async () => {
+  const journal=memoryJournal();
+  assert.equal(await journal.begin(entry),true);
+  const results=await Promise.all([recoverJournaled('owner',entry.submissionId,journal,async()=>providerJob),recoverJournaled('owner',entry.submissionId,journal,async()=>providerJob)]);
+  assert.deepEqual(results.map(result=>result.id),['job-1','job-1']);
+});
