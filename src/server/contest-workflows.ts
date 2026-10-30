@@ -42,7 +42,7 @@ export function openContestForDisplay(name: string): Opened {
   const catalog = { ...coreCatalog, ...contestCatalog,
     LoadAudio: { input: { required: { audio: ['STRING'] } }, output: ['AUDIO'] },
     PrimitiveStringMultiline: { input: { required: { value: ['STRING', { multiline: true, default: '' }] } }, output: ['STRING'] },
-  } as Catalog;
+  } as unknown as Catalog;
   return openContest(name, catalog);
 }
 export function contestEntries(): Entry[] {
