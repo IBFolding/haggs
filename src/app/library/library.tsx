@@ -281,57 +281,6 @@ export function Library() {
             <p>Pick up a project, or choose a starting point for something new.</p>
           </div>
 
-          <div className="ph-continue">
-            <div><span className="eyebrow">Your work</span><h2>Pick up where you left off.</h2></div>
-            <button className="ph-link" onClick={() => fileInput.current?.click()}>Import a project file</button>
-          </div>
-          {projects.length > 0 && <input className={styles.search} type="search" aria-label="Search projects" placeholder="Find a project by name" value={projectQuery} onChange={(e) => setProjectQuery(e.target.value)} />}
-          {!ready ? <p role="status">Loading your projects…</p> : projects.length === 0 ? (
-            <p className="ph-small">Your projects will appear here as you work. Choose a starting point below, or import a project you already have.</p>
-          ) : (
-            <ul className="ph-projects">
-              {visibleProjects.map((summary) => {
-                const status = progress[summary.id];
-                const found = summary.cover ?? covers[summary.id];
-                // On the live site a file that still lives only on your computer can't play yet; show the letter until it has been copied.
-                const cover = found && !(process.env.NEXT_PUBLIC_HOSTED && found.url.startsWith("/api/local/")) ? found : undefined;
-                return (
-                  <li key={summary.id} className="ph-project">
-                    <Link className="ph-cover" href={`/board/${summary.id}`} tabIndex={-1} aria-hidden>
-                      {!cover ? <span>{summary.name.slice(0, 1).toUpperCase() || "·"}</span> : cover.kind === "video" ? <video src={`${cover.url}#t=0.5`} muted playsInline preload="metadata" /> : <img src={cover.url} alt="" loading="lazy" />}
-                    </Link>
-                    <button className="ph-x" title={`Delete ${summary.name}`} aria-label={`Delete ${summary.name}`} onClick={() => void destroy(summary)}>✕</button>
-                    <div className="ph-project-body">
-                      {editing === summary.id ? (
-                        <input
-                          className="library-rename"
-                          autoFocus
-                          value={draft}
-                          onChange={(event) => setDraft(event.target.value)}
-                          onBlur={() => void commitRename()}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") void commitRename();
-                            if (event.key === "Escape") setEditing(null);
-                          }}
-                        />
-                      ) : (
-                        <Link className="ph-name" href={`/board/${summary.id}`}>{summary.name}</Link>
-                      )}
-                      <span className={styles.badge}>{status?.stage ?? "Project"}</span>
-                      <span className="ph-meta">{summary.shotCount} {summary.shotCount === 1 ? "shot" : "shots"} · {ago(summary.updatedAt)}</span>
-                      {status && status.total > 0 && <div className={styles.projectProgress}><progress aria-label={`${summary.name}: shots with media`} value={status.visuals} max={status.total} /><small>{status.visuals}/{status.total} shots with media · {status.clips} clips</small></div>}
-                      <Link className={styles.nextLink} href={status?.href ?? `/board/${summary.id}`}>{status?.action ?? "Open storyboard"} →</Link>
-                      <span className="ph-acts">
-                        <button className="ph-link" onClick={() => { setEditing(summary.id); setDraft(summary.name); }}>Rename</button>
-                        <button className="ph-link" onClick={() => void download(summary)}>Export</button>
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {ready && projects.length > 0 && visibleProjects.length === 0 && <p className={styles.empty}>No projects match “{projectQuery}”. <button className="plain" onClick={() => setProjectQuery("")}>Clear search</button></p>}
           <section className={styles.start} aria-label="Start a new project">
           <div className={styles.sectionHeading}><div><span className="eyebrow">Start something new</span><h2>What are you starting with?</h2></div><span>No generation starts here.</span></div>
           <div className={styles.startTabs} role="group" aria-label="Starting point">{["Idea", "Photo", "Reference video", "Workflow", "Game", "Script"].map((kind) => <button key={kind} aria-pressed={startKind === kind} onClick={() => setStartKind(kind)}>{kind}</button>)}</div>
@@ -395,6 +344,58 @@ export function Library() {
           </div>
 
           </section>
+
+          <div className="ph-continue">
+            <div><span className="eyebrow">Your work</span><h2>Pick up where you left off.</h2></div>
+            <button className="ph-link" onClick={() => fileInput.current?.click()}>Import a project file</button>
+          </div>
+          {projects.length > 0 && <input className={styles.search} type="search" aria-label="Search projects" placeholder="Find a project by name" value={projectQuery} onChange={(e) => setProjectQuery(e.target.value)} />}
+          {!ready ? <p role="status">Loading your projects…</p> : projects.length === 0 ? (
+            <p className="ph-small">Your projects will appear here as you work. Choose a starting point above, or import a project you already have.</p>
+          ) : (
+            <ul className="ph-projects">
+              {visibleProjects.map((summary) => {
+                const status = progress[summary.id];
+                const found = summary.cover ?? covers[summary.id];
+                // On the live site a file that still lives only on your computer can't play yet; show the letter until it has been copied.
+                const cover = found && !(process.env.NEXT_PUBLIC_HOSTED && found.url.startsWith("/api/local/")) ? found : undefined;
+                return (
+                  <li key={summary.id} className="ph-project">
+                    <Link className="ph-cover" href={`/board/${summary.id}`} tabIndex={-1} aria-hidden>
+                      {!cover ? <span>{summary.name.slice(0, 1).toUpperCase() || "·"}</span> : cover.kind === "video" ? <video src={`${cover.url}#t=0.5`} muted playsInline preload="metadata" /> : <img src={cover.url} alt="" loading="lazy" />}
+                    </Link>
+                    <button className="ph-x" title={`Delete ${summary.name}`} aria-label={`Delete ${summary.name}`} onClick={() => void destroy(summary)}>✕</button>
+                    <div className="ph-project-body">
+                      {editing === summary.id ? (
+                        <input
+                          className="library-rename"
+                          autoFocus
+                          value={draft}
+                          onChange={(event) => setDraft(event.target.value)}
+                          onBlur={() => void commitRename()}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void commitRename();
+                            if (event.key === "Escape") setEditing(null);
+                          }}
+                        />
+                      ) : (
+                        <Link className="ph-name" href={`/board/${summary.id}`}>{summary.name}</Link>
+                      )}
+                      <span className={styles.badge}>{status?.stage ?? "Project"}</span>
+                      <span className="ph-meta">{summary.shotCount} {summary.shotCount === 1 ? "shot" : "shots"} · {ago(summary.updatedAt)}</span>
+                      {status && status.total > 0 && <div className={styles.projectProgress}><progress aria-label={`${summary.name}: shots with media`} value={status.visuals} max={status.total} /><small>{status.visuals}/{status.total} shots with media · {status.clips} clips</small></div>}
+                      <Link className={styles.nextLink} href={status?.href ?? `/board/${summary.id}`}>{status?.action ?? "Open storyboard"} →</Link>
+                      <span className="ph-acts">
+                        <button className="ph-link" onClick={() => { setEditing(summary.id); setDraft(summary.name); }}>Rename</button>
+                        <button className="ph-link" onClick={() => void download(summary)}>Export</button>
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {ready && projects.length > 0 && visibleProjects.length === 0 && <p className={styles.empty}>No projects match “{projectQuery}”. <button className="plain" onClick={() => setProjectQuery("")}>Clear search</button></p>}
 
           <input
             ref={fileInput}
