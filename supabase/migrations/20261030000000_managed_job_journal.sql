@@ -13,6 +13,7 @@ create table if not exists public.managed_job_journal (
   check ((state = 'dispatching' and provider_job_id is null and provider_job_url is null) or
          (state = 'accepted' and provider_job_id is not null and provider_job_url is not null))
 );
+create unique index if not exists managed_job_provider_once on public.managed_job_journal (deployment, provider_job_id) where provider_job_id is not null;
 alter table public.managed_job_journal enable row level security;
 revoke all on public.managed_job_journal from anon, authenticated;
 grant select on public.managed_job_journal to authenticated;
