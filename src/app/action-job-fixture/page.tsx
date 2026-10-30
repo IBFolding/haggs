@@ -1,0 +1,1 @@
+import {notFound} from 'next/navigation';import {ActionFixture} from './ui';export const dynamic='force-dynamic';export default function Page(){if(process.env.NODE_ENV==='production'||process.env.HAGGS_ACTION_FIXTURE!=='1')notFound();return <ActionFixture/>;}
