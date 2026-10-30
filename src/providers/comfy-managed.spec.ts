@@ -89,3 +89,13 @@ test("managed recovery uses a server-sent reference and refuses ambiguous matche
   const duplicate = createComfyManaged({ base: "https://example.run.comfy.app", apiKey: "secret", keep, fetch: async () => Response.json({ jobs: [{ metadata: { haggs_ref: "ref-1" } }, { metadata: { haggs_ref: "ref-1" } }] }) });
   await assert.rejects(duplicate.findByReference("ref-1"), /Multiple jobs/);
 });
+
+test("production cannot enable the loopback test path", () => {
+  const old = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = "production";
+    assert.throws(() => createComfyManaged({ base: "http://127.0.0.1:8198", localTest: true, keep }), /Unsupported/);
+  } finally {
+    if (old === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = old;
+  }
+});
