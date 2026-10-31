@@ -35,10 +35,11 @@ export function studioPrice(input: {
   if (input.modelId !== "minimax/minimax-h3") {
     const usd = input.otherUsd;
     if (usd == null || !Number.isFinite(usd) || usd < 0) return unavailable();
+    const haggsCredits = creditsOf(usd);
     return {
-      label: `Est. $${usd.toFixed(3)} USD`,
+      label: `Est. ${number(haggsCredits)} credits`,
       detail: "Model-table estimate for these settings; the current provider rate is unverified. Provider credits and Haggs credits have different values. This is not a spending limit.",
-      usd, comfyCredits: null, haggsCredits: null,
+      usd, comfyCredits: null, haggsCredits,
     };
   }
 
@@ -55,7 +56,7 @@ export function studioPrice(input: {
   // Match existing plan accounting, including its USD rounding; do not change it.
   const haggsCredits = creditsOf(cloudEstimate(options));
   return {
-    label: `Est. ${number(comfyCredits)} Comfy / ${number(haggsCredits)} Haggs credits`,
+    label: `Est. ${number(haggsCredits)} credits`,
     detail: `${seconds}s at ${resolution}. Your Comfy key: ${number(comfyCredits)} Comfy credits. Haggs plan: ${number(haggsCredits)} Haggs credits. Rates checked ${H3_RATE_CHECKED}; estimates, not a spending limit.`,
     usd, comfyCredits, haggsCredits,
   };
