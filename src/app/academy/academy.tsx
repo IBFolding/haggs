@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ACADEMY_HERO, LESSONS, createProgress, lessonCover } from "../../academy/lessons";
+import { ACADEMY_MINUTES } from "../../brand/product-copy";
 import { defaultKv } from "../../story/kv";
 import { LearnShell } from "../learn-shell";
 
@@ -51,7 +52,7 @@ export function Academy() {
             <div>
               <span className="eyebrow">Academy</span>
               <h1 className="ac-title-big">Make one film, start to finish. Learn it on the way.</h1>
-              <p className="ac-lede">Seven lessons, about 90 minutes in all. You make a video in the first one. Each lesson has a free practice lab, then a button into the real page to do it, and you finish with a cut, a voice and a render.</p>
+              <p className="ac-lede">Seven lessons, about {ACADEMY_MINUTES} minutes in all. You make a video in the first one. Each lesson has a free practice lab, then a button into the real page to do it, and you finish with a cut, a voice and a render.</p>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="ac-hero-pic" src={ACADEMY_HERO} alt="" />

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { ACCOUNT_BENEFITS } from "../brand/product-copy";
 import { useSession } from "./session";
 
 /** The nudge to make an account. Gone once you are signed in; nothing shows while that is still being read. */
@@ -18,7 +19,7 @@ export function JoinBand() {
     <section className="lp-join" aria-label="Join haggs">
       <div>
         <h2>Join haggs</h2>
-        <p>An account keeps your projects and pictures with you on every device, and holds your credits so every button can show what it costs.</p>
+        <p>{ACCOUNT_BENEFITS}</p>
       </div>
       <div className="lp-join-go">
         <Link className="fire" href="/signup">Join haggs</Link>
