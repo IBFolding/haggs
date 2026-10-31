@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_SHEET, layout, parseSheet, type Timeline } from "../../kinetic/beats";
 import { setTempo } from "../../kinetic/controls";
 import { DEFAULT_MOTION, drawFrame, type Media, type Motion } from "../../kinetic/draw";
-import { insertLine, kindOf, slugName, uniqueName } from "../../kinetic/media";
-import { seekSeconds, syncClips } from "../../kinetic/playback";
+import { insertLine, kindOf, scopeClipOccurrences, slugName, uniqueName } from "../../kinetic/media";
+import { seekSeconds, syncClips, syncFilmClips } from "../../kinetic/playback";
 import { referenceStates, TEMPLATES } from "../../kinetic/templates";
 import { defaultKv } from "../../story/kv";
 import { createRunStore, type Run } from "../../story/runs";
@@ -40,12 +40,14 @@ function loadEntry(name: string, kind: "image" | "clip", url: string): Promise<E
 }
 
 /** Draws one frame with motion blur: a few moments across the shutter, averaged. */
-function frame(main: HTMLCanvasElement, tmp: HTMLCanvasElement, timeline: Timeline, seconds: number, media: Media, motion: Motion) {
+export function frame(main: HTMLCanvasElement, tmp: HTMLCanvasElement, timeline: Timeline, seconds: number, media: Media, motion: Motion, onSample?: (seconds: number) => void) {
   const mc = main.getContext("2d")!, tc = tmp.getContext("2d")!;
   const N = 4, shutter = (1 / FPS) * 0.9;
   for (let k = 0; k < N; k++) {
+    const sample = seconds + (k / (N - 1) - 0.5) * shutter;
     tc.clearRect(0, 0, W, H);
-    if (!drawFrame(tc, W, H, timeline, seconds + (k / (N - 1) - 0.5) * shutter, media, motion)) { mc.fillStyle = "#0a0b0c"; mc.fillRect(0, 0, W, H); return; }
+    onSample?.(sample);
+    if (!drawFrame(tc, W, H, timeline, sample, media, motion)) { mc.fillStyle = "#0a0b0c"; mc.fillRect(0, 0, W, H); return; }
     mc.globalAlpha = 1 / (k + 1);
     mc.drawImage(tmp, 0, 0);
   }
@@ -89,8 +91,17 @@ export function Kinetic() {
   const [playhead, setPlayhead] = useState<number | null>(null);
   const parsed = useMemo(() => parseSheet(sheet), [sheet]);
   const timeline = useMemo(() => layout(parsed), [parsed]);
-  const media = useMemo<Media>(() => Object.fromEntries(entries.map((e) => [e.name, { el: e.el, width: e.width, height: e.height }])), [entries]);
-  const clipEls = useMemo(() => Object.fromEntries(entries.filter((e) => e.kind === "clip").map((e) => [e.name, e.el as HTMLVideoElement])), [entries]);
+  const scoped = useMemo(() => {
+    const baseMedia = Object.fromEntries(entries.map((e) => [e.name, { el: e.el, width: e.width, height: e.height }]));
+    const baseClips = Object.fromEntries(entries.filter((e) => e.kind === "clip").map((e) => [e.name, e.el as HTMLVideoElement]));
+    return scopeClipOccurrences(timeline, baseMedia, baseClips, (source) => {
+      const clone = source.cloneNode() as HTMLVideoElement;
+      clone.muted = true; clone.playsInline = true; clone.preload = "auto";
+      return clone;
+    });
+  }, [entries, timeline]);
+  const media: Media = scoped.media;
+  const clipEls = scoped.clips;
   const seconds = Math.min(180, Math.max(5, Math.ceil(timeline.totalSeconds) + 2));
   const previewSeconds = seekSeconds(timeline, playhead ?? Math.min(timeline.secondsPerBeat * 0.6, Math.max(0, timeline.totalSeconds - 0.01)));
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -104,8 +115,7 @@ export function Kinetic() {
   useEffect(() => { void quoteMusic(seconds).then(setPrice).catch(() => setPrice(null)); }, [seconds]);
   useEffect(() => {
     if (!canvas.current || !tmp.current || playing) return;
-    const draw = () => frame(canvas.current!, tmp.current!, timeline, previewSeconds, media, motion);
-    syncClips(clipEls, timeline, previewSeconds, false);
+    const draw = () => frame(canvas.current!, tmp.current!, timeline, previewSeconds, media, motion, (sample) => syncClips(clipEls, timeline, sample, false, motion.whipBeats, 0, true));
     draw();
     // A video paints its new frame asynchronously after currentTime changes.
     const clips = Object.values(clipEls);
@@ -178,8 +188,7 @@ export function Kinetic() {
     const tick = () => {
       const t = ac.currentTime - t0;
       if (t >= timeline.totalSeconds + (record ? 0.4 : 0)) return void finish();
-      syncClips(clipEls, timeline, Math.max(0, t), true);
-      frame(canvas.current!, tmp.current!, timeline, Math.max(0, t), media, motion);
+      frame(canvas.current!, tmp.current!, timeline, Math.max(0, t), media, motion, (sample) => syncFilmClips(clipEls, timeline, sample, motion.whipBeats, 0, true));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

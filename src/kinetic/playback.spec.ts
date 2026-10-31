@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { layout, parseSheet } from "./beats";
-import { clipAt, seekSeconds, syncClips } from "./playback";
+import { clipAt, seekSeconds, syncClips, syncFilmClips } from "./playback";
 
 test("a clip is seeked from the film clock with its zoom at the same instant", () => {
   const timeline = layout(parseSheet("bpm 120\nOPEN | 2\n@clip app | 4 | DEMO | zoom 0.8 0.2 2"));
@@ -66,6 +66,43 @@ test("playback starts the active clip and only seeks it when it drifts from the 
   app.currentTime = 4;
   syncClips({ app, other }, timeline, 1.25, true);
   assert.equal(app.currentTime, 1.25, "a material drift is corrected back to the audio clock");
+});
+
+test("an incoming whip-pan clip is paused at its first frame on every seek", () => {
+  const timeline = layout(parseSheet("bpm 120\n@clip app | 2\nWORDS | 2\n@clip app | 2"));
+  const app = fakeVideo();
+  app.currentTime = 1.5;
+  syncClips({ app }, timeline, 1.95, false, 0.4);
+  assert.equal(app.currentTime, 0, "the incoming clip must not retain its previous playback position");
+  assert.equal(app.paused, true);
+  app.currentTime = 1.5;
+  syncClips({ app }, timeline, 1.95, true, 0.4);
+  assert.equal(app.currentTime, 0);
+  assert.equal(app.plays, 0, "the incoming clip must not start before its block");
+});
+
+test("a short block does not begin its outgoing whip on its first frame", () => {
+  const timeline = layout(parseSheet("bpm 120\n@clip app | 0.5\n@clip other | 2"));
+  const app = fakeVideo();
+  const other = fakeVideo();
+  other.currentTime = 7;
+  syncClips({ app, other }, timeline, 0, true, 1, 0);
+  assert.equal(app.plays, 1);
+  assert.equal(other.currentTime, 7, "the following clip is not visible until the outgoing transition starts");
+  assert.equal(other.paused, true);
+});
+
+test("startup preroll holds the first clip at frame zero until the film clock starts", () => {
+  const timeline = layout(parseSheet("bpm 120\n@clip app | 2"));
+  const app = fakeVideo();
+  app.currentTime = 1.5;
+  syncFilmClips({ app }, timeline, -0.05, 0.4);
+  assert.equal(app.currentTime, 0);
+  assert.equal(app.plays, 0);
+  assert.equal(app.paused, true);
+  syncFilmClips({ app }, timeline, 0, 0.4);
+  assert.equal(app.plays, 1);
+  assert.equal(app.paused, false);
 });
 
 test("a seek never asks a short clip for a frame past its duration", () => {

@@ -37,6 +37,15 @@ test("at the cut between blocks both are on screen (the whip pan)", () => {
   assert.ok(words.includes("HELLO") && words.includes("WORLD"));
 });
 
+test("a whip pan cannot begin before a short block starts", () => {
+  const short = layout(parseSheet("bpm 120\nA | 2\nB | 0.5\nC | 2"));
+  const { ctx } = fake();
+  const translations: unknown[][] = [];
+  ctx.translate = (...args: unknown[]) => { translations.push(args); };
+  drawFrame(ctx, 1920, 1080, short, 1, {}, { ...DEFAULT_MOTION, whipBeats: 1 });
+  assert.ok(!translations.some(([, y]) => y === 0), "the new block must start centered, not halfway through its outgoing pan");
+});
+
 test("zero whip-pan length makes a hard cut", () => {
   const { ctx, calls } = fake();
   drawFrame(ctx, 1920, 1080, film, 0.95, {}, { ...DEFAULT_MOTION, whipBeats: 0 });

@@ -1,4 +1,5 @@
 import { blockAt, type Timeline, type Zoom } from "./beats";
+import { occurrenceKey } from "./media";
 
 export type ClipAt = {
   name: string;
@@ -36,17 +37,41 @@ export type SyncClip = {
   pause: () => void;
 };
 
-/** Keeps every clip on the film clock. Paused seeks are exact; playing seeks only correct visible drift. */
-export function syncClips(clips: Record<string, SyncClip>, timeline: Timeline, seconds: number, playing: boolean) {
+/** Half the 30 fps shutter: future samples may make the next clip visible before the central time crosses the cut. */
+const SHUTTER_LOOKAHEAD_SECONDS = (1 / 30) * 0.9 / 2;
+
+/** Keeps visible clips on the film clock. Paused and exact-sample seeks are exact; normal playing seeks correct visible drift. */
+export function syncClips(clips: Record<string, SyncClip>, timeline: Timeline, seconds: number, playing: boolean, whipBeats = 0.4, lookAheadSeconds = SHUTTER_LOOKAHEAD_SECONDS, exact = false) {
   const active = clipAt(timeline, seconds);
-  for (const [name, clip] of Object.entries(clips)) {
-    if (!playing || name !== active?.name) clip.pause();
+  const at = blockAt(timeline, seconds);
+  const whip = at ? Math.min(at.item.block.beats, Math.max(0, Math.min(1, whipBeats))) : 0;
+  const shutterBeats = lookAheadSeconds / timeline.secondsPerBeat;
+  const next = at && whip > 0 && at.beats + shutterBeats > at.item.block.beats - whip ? timeline.items[at.index + 1]?.block : undefined;
+  const activeOccurrence = active && at ? occurrenceKey(at.index, active.name) : null;
+  const activeKey = activeOccurrence && clips[activeOccurrence] ? activeOccurrence : active?.name;
+  const activeTarget = active && activeKey ? { ...active, key: activeKey } : null;
+  let incoming: { name: string; offsetSeconds: number; key: string } | null = null;
+  if (at && next?.kind === "clip") {
+    const occurrence = occurrenceKey(at.index + 1, next.name);
+    const scoped = Boolean(clips[occurrence]);
+    if (next.name !== active?.name || scoped) incoming = { name: next.name, offsetSeconds: 0, key: scoped ? occurrence : next.name };
   }
-  if (!active) return;
-  const clip = clips[active.name];
-  if (!clip) return;
-  const wanted = Math.min(Math.max(0, active.offsetSeconds), Number.isFinite(clip.duration) && clip.duration >= 0 ? clip.duration : Infinity);
-  const complete = Number.isFinite(clip.duration) && clip.duration >= 0 && active.offsetSeconds >= clip.duration;
-  if (!playing || Math.abs(clip.currentTime - wanted) > 0.12) clip.currentTime = wanted;
-  if (playing && clip.paused && !complete) void clip.play().catch(() => undefined);
+  for (const [key, clip] of Object.entries(clips)) {
+    if (!playing || key !== activeKey) clip.pause();
+  }
+  const targets: { name: string; offsetSeconds: number; key: string }[] = [...(activeTarget ? [activeTarget] : []), ...(incoming ? [incoming] : [])];
+  for (const target of targets) {
+    const clip = clips[target.key];
+    if (!clip) continue;
+    const shouldPlay = playing && target === activeTarget;
+    const wanted = Math.min(Math.max(0, target.offsetSeconds), Number.isFinite(clip.duration) && clip.duration >= 0 ? clip.duration : Infinity);
+    const complete = Number.isFinite(clip.duration) && clip.duration >= 0 && target.offsetSeconds >= clip.duration;
+    if (exact || !shouldPlay || Math.abs(clip.currentTime - wanted) > 0.12) clip.currentTime = wanted;
+    if (shouldPlay && clip.paused && !complete) void clip.play().catch(() => undefined);
+  }
+}
+
+/** Holds preroll on frame zero; only a nonnegative film clock may start clip playback. */
+export function syncFilmClips(clips: Record<string, SyncClip>, timeline: Timeline, seconds: number, whipBeats: number, lookAheadSeconds = SHUTTER_LOOKAHEAD_SECONDS, exact = false) {
+  syncClips(clips, timeline, Math.max(0, seconds), seconds >= 0, whipBeats, lookAheadSeconds, exact);
 }

@@ -1,4 +1,5 @@
 import { blockAt, type Block, type Style, type Timeline, type WordsBlock, type Zoom } from "./beats";
+import { occurrenceKey } from "./media";
 
 export type MediaItem = { el: CanvasImageSource; width: number; height: number };
 export type Media = Record<string, MediaItem>;
@@ -111,6 +112,12 @@ function countBlock(ctx: CanvasRenderingContext2D, w: number, h: number, b: Extr
   if (b.label) { ctx.save(); ctx.globalAlpha = clamp((beats - 0.3) / 0.4); ctx.font = `900 ${Math.round(h * 0.09)}px ${FONT}`; ctx.fillStyle = flip ? INK : WHITE; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(b.label, w / 2, h * 0.82); ctx.restore(); }
 }
 
+function mediaAt(media: Media, index: number, b: Block): Media {
+  if (b.kind !== "image" && b.kind !== "clip") return media;
+  const occurrence = media[occurrenceKey(index, b.name)];
+  return occurrence ? { ...media, [b.name]: occurrence } : media;
+}
+
 /** Draws the film at a time. False when the time is outside it (nothing is drawn). */
 export function drawFrame(ctx: CanvasRenderingContext2D, w: number, h: number, t: Timeline, seconds: number, media: Media = {}, motion: Motion = DEFAULT_MOTION): boolean {
   const at = blockAt(t, seconds);
@@ -118,17 +125,17 @@ export function drawFrame(ctx: CanvasRenderingContext2D, w: number, h: number, t
   const { item, index, beats } = at;
   const total = item.block.beats;
   const next = t.items[index + 1];
-  const whipBeats = clamp(motion.whipBeats, 0, 1);
+  const whipBeats = Math.min(total, clamp(motion.whipBeats, 0, 1));
   const countsBefore = (i: number) => t.items.slice(0, i).filter((x) => x.block.kind === "count").length;
   if (next && whipBeats > 0 && beats > total - whipBeats) {
     const p = easeInOut((beats - (total - whipBeats)) / whipBeats);
     const dir = index % 2 === 0 ? 1 : -1;
     const vertical = index % 3 === 2;
     const ox = vertical ? 0 : -dir * w * p, oy = vertical ? -h * p : 0;
-    ctx.save(); ctx.translate(ox, oy); block(ctx, w, h, item.block, beats, media, countsBefore(index), motion); ctx.restore();
-    ctx.save(); ctx.translate(ox + (vertical ? 0 : dir * w), oy + (vertical ? h : 0)); block(ctx, w, h, next.block, 0, media, countsBefore(index + 1), motion); ctx.restore();
+    ctx.save(); ctx.translate(ox, oy); block(ctx, w, h, item.block, beats, mediaAt(media, index, item.block), countsBefore(index), motion); ctx.restore();
+    ctx.save(); ctx.translate(ox + (vertical ? 0 : dir * w), oy + (vertical ? h : 0)); block(ctx, w, h, next.block, 0, mediaAt(media, index + 1, next.block), countsBefore(index + 1), motion); ctx.restore();
   } else {
-    block(ctx, w, h, item.block, beats, media, countsBefore(index), motion);
+    block(ctx, w, h, item.block, beats, mediaAt(media, index, item.block), countsBefore(index), motion);
   }
   return true;
 }
