@@ -28,6 +28,7 @@ import { SiteFooter } from "../site-footer";
 const TABS = ["Quick start", "Haggs", "Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const SHELVES = ["Featured", "Video", "Image", "Character & Fashion", "Product & Ads", "Brand & Design", "Video Tools", "Image Tools", "Audio"] as const;
 const FEATURED = ["api_higgsfield_genjutsu_motion_transfer", "template_seedance2_0_viral_videos_character_swap", "video_wan21_scail2_character_replacement", "video_minimax_h3_r2v", "api_bria_video_replace_background"];
+const GAME_GUIDE_APPS: Record<string, string> = { '01-drag-to-action':'haggs_preview_drag_to_action', '02-boss-fight-choreographer':'haggs_preview_boss_fight', '03-playable-scene-forge':'haggs_scene_forge', '04-game-reskin-director':'haggs_preview_game_reskin', '05-animation-moveset-builder':'haggs_preview_moveset', '06-enemy-intent-painter':'haggs_preview_enemy_intent' };
 
 function HaggsCard({ title, image, label, href, children }: { title: string; image: string; label: string; href?: string; children: ReactNode }) {
   if (href) return <div className="haggs-workflow-card">
@@ -138,7 +139,7 @@ export function Workflows() {
             {hunt && !effects.length && !games.length && !studio.length && <p role="status">No Haggs workflows match “{hunt}”. Try motion, video, atlas or effects.</p>}
           </section>}
 
-          {!hunt && !onlyFavorites && (tab === "Quick start" || tab === "Featured") && (
+          {!hunt && !onlyFavorites && (haggs || tab === "Featured") && (
             <section className="quick" aria-label="LTX featured workflows">
               <h2>LTX featured workflows · upstream adaptations</h2>
               <p>Open-weight video workflows. Connect your GPU or Comfy Cloud; installed nodes and weights are checked before running. Cloud compute may cost money. Live generation has not been verified for this bundle.</p>
@@ -176,16 +177,16 @@ export function Workflows() {
                   </details>
                 </HaggsCard>)}
               </div>
-              <p><a href="/workflows/contest-lab/Haggs-ComfyUI-Contest-Lab-ALL.zip" download>Download complete node pack</a> · <a href="/workflows/contest-lab/START-HERE.md">Setup, masks and limitations</a> · <a href="/workflows/contest-lab/workflows/08-SAM2-tracked-mask-helper.json" download>SAM2 mask helper (optional model download)</a> · <a href="/workflows/contest-lab/LICENSE">License</a></p>
+              <p><Link href="/workflows/haggs_sam2_mask_preview">Open SAM2 mask preview app</Link> · <a href="/workflows/contest-lab/Haggs-ComfyUI-Contest-Lab-ALL.zip" download>Download complete node pack</a> · <a href="/workflows/contest-lab/START-HERE.md">Setup, masks and limitations</a> · <a href="/workflows/contest-lab/workflows/08-SAM2-tracked-mask-helper.json" download>SAM2 native workflow</a> · <a href="/workflows/contest-lab/LICENSE">License</a></p>
             </section>
           )}
 
           {haggs && games.length > 0 && (
             <section className="quick" id="haggs-games" aria-label="Game Director workflows">
-              <h2>Game Director · experimental ComfyUI downloads</h2>
-              <p>Six custom workflow concepts with local H3 and no-model preview graphs. Install the included Game Director nodes in ComfyUI. Moveset and VFX atlases can be imported into Playable sprite slots. Live ComfyUI and H3 generation remain unverified.</p>
+              <h2>Game Director</h2>
+              <p>Preview guides use your connected ComfyUI and the Game Director nodes. Scene Forge plays your prepared clips in your browser. These tools do not generate H3 footage or export atlases in Haggs. The full workflows remain available below.</p>
               <div className="wf-grid">
-                {games.map(g => <HaggsCard key={g.slug} title={g.title} image={`/workflows/game-director/${g.slug}-illustrative.webp`} label="Game Director · ComfyUI">
+                {games.map(g => <HaggsCard key={g.slug} title={g.title} image={`/workflows/game-director/${g.slug}-illustrative.webp`} label={g.slug === '03-playable-scene-forge' ? 'Prepared clips · browser player' : GAME_GUIDE_APPS[g.slug] ? 'Guide preview · local ComfyUI' : 'Workflow download · ComfyUI'} {...(GAME_GUIDE_APPS[g.slug] ? {href:`/workflows/${GAME_GUIDE_APPS[g.slug]}`} : {})}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
                   <p>{g.scope}</p><p>Exports: {g.output}</p>
                   {/^0[56]-/.test(g.slug) && <Link href="/playable">Import atlas in Playable · free</Link>}
@@ -206,9 +207,12 @@ export function Workflows() {
               <h2>World, motion and directed VFX</h2>
               <p>Ten experimental ComfyUI downloads in three toolsets. Install the supplied HaggsStudio nodes and configure the required models or services. Live ComfyUI and GPU generation remain unverified.</p>
               <div className="wf-grid">
-                {studio.map(w => <HaggsCard key={w.slug} title={w.title} image={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} label="Toolset · ComfyUI">
+                {studio.map(w => <HaggsCard key={w.slug} title={w.title} image={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} label={w.slug === 'vfx' ? 'Mask preview · local ComfyUI' : w.slug === 'motion' ? 'Motion guide · local ComfyUI' : 'Room recording · local ComfyUI'} {...(w.slug === 'vfx' ? {href:'/workflows/haggs_preview_vfx_mask'} : w.slug === 'motion' ? {href:'/workflows/haggs_preview_saved_motion'} : {href:'/workflows/haggs_preview_room_recording'})}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
                   <p>{w.scope}</p><p>{w.limits}</p>
+                  {w.slug === 'vfx' && <p><Link href="/workflows/haggs_preview_vfx_mask">Open mask preview app</Link> · <Link href="/workflows/haggs_preview_vfx_reuse">Open combine-takes app</Link></p>}
+                  {w.slug === 'motion' && <p><Link href="/workflows/haggs_preview_saved_motion">Open saved-motion guide app</Link></p>}
+                  {w.slug === 'world' && <p><Link href="/workflows/haggs_preview_room_recording">Open recorded-room app</Link></p>}
                   <details><summary>Workflow downloads and supplied preview</summary>
                     <p>Deterministic proxy or synthetic fixture; not a neural generation result.</p>
                     <video src={`/workflows/world-motion-vfx/previews/${w.preview}`} controls preload="none" style={{width:'100%'}} />

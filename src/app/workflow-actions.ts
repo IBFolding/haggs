@@ -24,7 +24,11 @@ import { workflowRuntime } from "../comfy/runtime";
 import { createLocalRunner, localBase } from "../providers/local";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
 import { contestVariant } from "../comfy/contest-lab";
-import { openContest, openContestForDisplay } from "../server/contest-workflows";
+import { addContestMasks, isContestMaskField } from "../comfy/contest-masks";
+import { assertAlignedVideos } from "../server/contest-mask-timing";
+import { openContest, openContestForDisplay, savedContestName } from "../server/contest-workflows";
+import { haggsPreview } from "../comfy/haggs-preview";
+import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem, previewValues } from "../server/haggs-preview-workflows";
 import { ltxWorkflow } from "../comfy/ltx";
 import { openLtx } from "../server/ltx-workflows";
 import { STEPS } from "../comfy/recipe";
@@ -48,8 +52,8 @@ export type Source = ({ template: string } | { file: string }) & { destination?:
 async function open(key: string | undefined, source: Source): Promise<Opened> {
   const address = source.destination === "local" || (!key && source.destination !== "cloud") ? localIn(await cookies()) : undefined;
   if (source.destination === "local" && !address) throw new Error("Connect Your GPU in settings first. ComfyUI must be reachable from the Haggs server; a hosted server cannot reach your laptop's localhost.");
-  if ("template" in source && (ltxWorkflow(source.template) || contestVariant(source.template))) {
-    if (contestVariant(source.template) && !address) throw new Error("Contest Lab apps require a connected local ComfyUI with ComfyUI-HaggsContestLab installed. Configure your local GPU in Keys. H3 variants are download-only and are not run by these apps.");
+  if ("template" in source && (ltxWorkflow(source.template) || contestVariant(source.template) || haggsPreview(source.template))) {
+    if ((contestVariant(source.template) || haggsPreview(source.template)) && !address) throw new Error("This Haggs preview requires a connected local ComfyUI with the relevant Haggs custom nodes installed. A cloud key alone cannot run it.");
     let catalog: Catalog;
     if (address) {
       const response = await fetch(`${localBase(address)}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30000) });
@@ -59,7 +63,7 @@ async function open(key: string | undefined, source: Source): Promise<Opened> {
       if (!key) throw new Error("Connect your local ComfyUI or add a Comfy key first.");
       catalog = await catalogOf(root(), key);
     }
-    return contestVariant(source.template) ? openContest(source.template, catalog) : openLtx(source.template, catalog);
+    return contestVariant(source.template) ? openContest(source.template, catalog) : haggsPreview(source.template) ? openHaggsPreview(source.template, catalog) : openLtx(source.template, catalog);
   }
   if ("template" in source && address) {
     const ui = await templateOf(root(), source.template);
@@ -83,6 +87,16 @@ async function open(key: string | undefined, source: Source): Promise<Opened> {
     if (!response.ok) throw new Error("Your local ComfyUI node catalog could not be loaded.");
     catalog = await response.json() as Catalog;
   } else { if (!key) throw new Error("Connect your local ComfyUI or add a Comfy key first."); catalog = await catalogOf(root(), key); }
+  const savedPreview = savedHaggsPreviewName(source.file);
+  if (savedPreview) {
+    if (!address) throw new Error("This Haggs preview requires a connected local ComfyUI with the matching custom nodes installed.");
+    return openHaggsPreview(savedPreview, catalog);
+  }
+  const savedContest = savedContestName(source.file);
+  if (savedContest) {
+    if (!address) throw new Error("This Haggs effect requires a connected local ComfyUI with the matching custom nodes installed.");
+    return openContest(savedContest, catalog);
+  }
   // An API-format file is already a prompt: wrap each node so the editor-format path can read it unchanged.
   const ui = (raw as { nodes?: unknown }).nodes ? (raw as UiWorkflow) : apiToUi(raw as Record<string, { class_type: string; inputs: Record<string, unknown> }>);
   const { prompt, problems } = prepare(ui, catalog);
@@ -150,10 +164,11 @@ export type OpenedApp = { ok: true; name: string; title: string; description: st
 export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const key = await comfyKey();
   const isHaggsEffect = "template" in source && Boolean(contestVariant(source.template));
-  if (!isHaggsEffect && !key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
+  const isHaggsPreview = "template" in source && Boolean(haggsPreview(source.template));
+  if (!isHaggsEffect && !isHaggsPreview && !key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
   const name = "template" in source ? source.template : "your workflow";
   try {
-    const opened = isHaggsEffect && "template" in source ? openContestForDisplay(source.template) : await open(key, source);
+    const opened = isHaggsEffect && "template" in source ? openContestForDisplay(source.template) : isHaggsPreview && "template" in source ? openHaggsPreviewForDisplay(source.template) : await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
     const samples = Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && f.sample ? [[String(prompt[f.node]?.inputs[f.input] ?? ""), f.sample]] : [])));
     return {
@@ -164,7 +179,7 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
       thumb: opened.entry?.thumb ?? null,
       app: opened.app,
       problems: opened.problems,
-      price: isHaggsEffect ? "Check connection before running" : !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && localIn(await cookies())) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
+      price: isHaggsEffect || isHaggsPreview ? "Check connection before running" : !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && localIn(await cookies())) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
       graph: graphOf(opened.ui, samples),
       workflow: JSON.stringify(opened.ui),
     };
@@ -207,7 +222,8 @@ export async function quoteWorkflow(source: Source, values: Values): Promise<Quo
     if (source.destination !== "cloud" && localIn(await cookies()) && !partnerNodes(prompt,opened.catalog).length) return {label:"Your GPU · no provider charge",min:0,max:0,perSecond:false};
     const media = Object.fromEntries(Object.entries(values).filter(([k]) => opened.app.fields.some((f) => f.kind === "media" && `${f.node}/${f.input}` === k)));
     const words = Object.fromEntries(Object.entries(values).filter(([k]) => !(k in media)));
-    const p = await priceOf(fill(prompt, opened.app, words), opened.catalog);
+    const previewName = 'template' in source ? source.template : savedHaggsPreviewName(source.file);
+    const p = await priceOf(fill(prompt, opened.app, previewValues(previewName, words)), opened.catalog);
     return { label: p.label, min: p.min, max: p.max, perSecond: p.perSecond };
   } catch {
     return { label: "priced by Comfy at run", min: 0, max: 0, perSecond: false };
@@ -234,7 +250,10 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
     const catalog = await response.json() as Catalog;
     report.connection = "Connected · catalog checked now";
     const prepared = prepare(opened.ui,catalog);
-    prompt = fill(prepared.prompt,opened.app,values);
+    const previewName = 'template' in source ? source.template : savedHaggsPreviewName(source.file);
+    const inputProblem = previewInputProblem(previewName, values);
+    if (inputProblem) report.issues.push(inputProblem);
+    prompt = fill(prepared.prompt,opened.app,previewValues(previewName,values));
     report.issues.push(...prepared.swaps.map(s => `Model substitution requires an explicit workflow edit: ${s}. No generation started.`), ...prepared.problems, ...validate(prompt,catalog), ...modelRequirements(prompt,catalog));
     const refusal = workflowRefusal(openOnlyIn(await cookies()),partnerNodes(prompt,catalog));
     if (refusal) report.issues.push(refusal);
@@ -244,7 +263,13 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
       if (!stats.ok) throw new Error("GPU status unavailable. Check ComfyUI /system_stats before generating.");
       const data = await stats.json() as {devices?:{name?:string;type?:string;vram_free?:number}[]};
       const devices = data.devices?.filter(d => d.type && d.type !== "cpu") ?? [];
-      if (!devices.length) report.issues.push("No GPU reported by ComfyUI. Start ComfyUI with GPU support before generating.");
+      const sam2Cpu = previewName === 'haggs_sam2_mask_preview' && prompt['3']?.inputs.device === 'cpu';
+      if (previewName === 'haggs_sam2_mask_preview') report.notes.push(sam2Cpu ? "SAM2 runs on your CPU and may be slow; the model may download on first use." : "SAM2 uses a model that may download on first use.");
+      if (!devices.length && !sam2Cpu) {
+        const localPreview = previewName !== 'haggs_sam2_mask_preview' && (("template" in source && (haggsPreview(source.template) || contestVariant(source.template)?.kind === "reuse")) || ("file" in source && (isSavedHaggsPreview(source.file) || contestVariant(savedContestName(source.file) ?? "")?.kind === "reuse")));
+        if (localPreview) report.notes.push("CPU compositing · no model generation. This can take longer than a GPU.");
+        else report.issues.push("No GPU reported by ComfyUI. Start ComfyUI with GPU support before generating.");
+      }
       report.notes.push(...devices.map(d => `${d.name ?? d.type}: ${typeof d.vram_free === "number" ? (d.vram_free/2**30).toFixed(1)+" GiB free" : "free memory unknown"}`));
       report.notes.push("Available memory does not guarantee this workflow will fit; model-specific peak memory is unknown.");
     } else {
@@ -294,6 +319,24 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     }
     const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key!, keep: keepResult, beforeRun: checkGenerationStorage, timeoutMs: 40 * 60_000 });
     const uploaded: Values = {};
+    const optionalMasks = opened.app.fields.filter(f => f.kind === "media" && f.optional && isContestMaskField(f.node));
+    const allowedMasks = new Set(optionalMasks.map(f => `${f.node}/${f.input}`));
+    if (Object.entries(files).some(([key, value]) => value && isContestMaskField(key.split('/')[0] ?? '') && !allowedMasks.has(key))) return {ok:false,reason:"One of the selected masks is not supported by this effect. Reload the app and choose a supported control; no generation was started."};
+    const hasMasks = optionalMasks.some(f => Boolean(files[`${f.node}/${f.input}`]));
+    const trackedMask = files['haggs_subject_mask_video/video'];
+    if (trackedMask && files['haggs_subject_mask/image']) return {ok:false,reason:'Choose either a still subject mask or a tracked subject mask video, not both. No generation was started.'};
+    const hasStillMasks = optionalMasks.some(f => f.kind === 'media' && f.media === 'image' && Boolean(files[`${f.node}/${f.input}`]));
+    if (hasMasks && (!catalog.ImageToMask || (hasStillMasks && !catalog.LoadImage) || (trackedMask && (!catalog.LoadVideo || !catalog.GetVideoComponents)))) return {ok:false,reason:"Install the standard ComfyUI image and video nodes before using masks; no generation was started."};
+    const cached: Record<string, Awaited<ReturnType<typeof mediaBytes>>> = {};
+    if (trackedMask) {
+      for (const k of ['10001/file','1/file','haggs_subject_mask_video/video']) {
+        const field = opened.app.fields.find(f => f.kind === 'media' && `${f.node}/${f.input}` === k);
+        const source = files[k] || (field?.kind === 'media' ? field.sample : undefined);
+        if (!source) return {ok:false,reason:'Add the source video, effect layer and tracked mask before running.'};
+        cached[k] = await mediaBytes(source);
+      }
+      await assertAlignedVideos(['10001/file','1/file','haggs_subject_mask_video/video'].map(k => cached[k]!.bytes));
+    }
     // An empty choice leaves that input out of the run, with the wire it fed.
     const skipped = Object.entries(files).filter(([, v]) => v === "").map(([k]) => k);
     for (const field of opened.app.fields) {
@@ -301,11 +344,15 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
       const k = `${field.node}/${field.input}`;
       if (skipped.includes(k)) continue;
       const source = files[k] ?? field.sample;
+      if (!source && field.optional) continue;
       if (!source) return { ok: false, reason: `Add ${field.label.toLowerCase()} first.` };
-      const { bytes, mime } = await mediaBytes(source);
+      const { bytes, mime } = cached[k] ?? await mediaBytes(source);
       uploaded[k] = await cloud.uploadBytes(bytes, mime);
     }
-    const ready = leaveOut(fill(prompt, opened.app, { ...values, ...uploaded }), opened.app, skipped);
+    const basicApp = { ...opened.app, fields: opened.app.fields.filter(f => !(f.kind === "media" && f.optional && isContestMaskField(f.node))) };
+    const previewName = 'template' in source ? source.template : savedHaggsPreviewName(source.file);
+    const base = leaveOut(fill(prompt, basicApp, previewValues(previewName, { ...values, ...uploaded })), basicApp, skipped.filter(k => basicApp.fields.some(f => `${f.node}/${f.input}` === k)));
+    const ready = optionalMasks.length ? addContestMasks(base, uploaded) : base;
     const missing = validate(ready, catalog);
     if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
     const quoted = mine ? null : await priceOf(ready, opened.catalog);

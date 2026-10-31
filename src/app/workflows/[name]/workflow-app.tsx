@@ -1,6 +1,7 @@
 "use client";
 
 import { contestVariant } from "../../../comfy/contest-lab";
+import { haggsPreview } from "../../../comfy/haggs-preview";
 import { ltxWorkflow } from "../../../comfy/ltx";
 import { track } from "../../../activity/activity";
 import { BankPicker, useReturnedPick } from "../../bank-picker";
@@ -298,9 +299,9 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
           <button onClick={()=>setCheckVersion(v=>v+1)}>Check again</button>
           {opened.needsKey ? (
             <div className="key-callout">
-              <b>{contestVariant(name) ? "Connect local ComfyUI first." : "Choose how to run this first."}</b>
-              <span>{contestVariant(name) ? "These experimental effects need ComfyUI-HaggsContestLab installed on your local ComfyUI. A cloud key or plan credits alone will not run them." : "Looking around is free. To open and run a workflow, buy credits, add your Comfy key or connect your own GPU."}</span>
-              <button className="ph-go" onClick={() => openKeys()}>{contestVariant(name) ? "Connect local ComfyUI" : "Choose how to run"}</button>
+              <b>{contestVariant(name) || haggsPreview(name) ? "Connect local ComfyUI first." : "Choose how to run this first."}</b>
+              <span>{contestVariant(name) || haggsPreview(name) ? "This Haggs workflow needs the matching custom nodes installed on your local ComfyUI. A cloud key or plan credits alone will not run it." : "Looking around is free. To open and run a workflow, buy credits, add your Comfy key or connect your own GPU."}</span>
+              <button className="ph-go" onClick={() => openKeys()}>{contestVariant(name) || haggsPreview(name) ? "Connect local ComfyUI" : "Choose how to run"}</button>
             </div>
           ) : null}
           {onBack ? <button className="pill" onClick={onBack}>Back to choices</button> : <Link className="pill" href="/workflows">Back to workflows</Link>}
@@ -321,6 +322,9 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
               {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to choices</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
               <h1>{opened.title === "your workflow" ? name : opened.title}</h1>
               {opened.description && <p>{opened.description}</p>}
+              {name === 'haggs_preview_saved_motion' && <p>Copy your saved HY-Motion NPZ into your ComfyUI input folder, then enter its filename below. For a synthetic example and node installation instructions, see <a href="/workflows/world-motion-vfx/START-HERE.md">Haggs Studio setup</a>.</p>}
+              {name === 'haggs_preview_room_recording' && <p>First queue Playable World in ComfyUI, open its room and record five seconds. Paste the session ID shown by the node below. Creating and playing the room still happens in ComfyUI. <a href="/workflows/world-motion-vfx/START-HERE.md">Setup instructions</a></p>}
+              {name === 'haggs_sam2_mask_preview' && <p>Install <a href="https://github.com/kijai/ComfyUI-segment-anything-2">ComfyUI Segment Anything 2</a> on your connected ComfyUI. Its tiny model may download on first run. Enter one point on the subject in the first frame, in pixels from the top left; for example, 100, 100. Download the compressed mask video and add it to a <Link href="/workflows#haggs-effects">compatible reuse effect</Link>; source, effect layer and mask must have matching frames and timing.</p>}
               {ltxWorkflow(opened.name) && <p>Requires current ComfyUI, ComfyUI-LTXVideo and the named model weights. Live generation remains unverified. <a href="/workflows/ltx/README.txt">Setup and licenses</a></p>}
             </div>
             <div className="wf-appbar">
@@ -338,7 +342,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
             <Nodes
               graph={opened.graph}
               media={Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && (files[keyOf(f)] ?? f.sample) ? [[f.node, (files[keyOf(f)] ?? f.sample)!]] : [])))}
-              output={{ node: opened.app.output, url: result?.ok ? result.url : (ltxWorkflow(opened.name) || contestVariant(opened.name)) ? null : opened.thumb }}
+              output={{ node: opened.app.output, url: result?.ok ? result.url : (ltxWorkflow(opened.name) || contestVariant(opened.name) || haggsPreview(opened.name)) ? null : opened.thumb }}
             />
           ) : (
             <div className="wf-body">
@@ -349,11 +353,17 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 <button className="pill" disabled={checking || running} onClick={()=>setCheckVersion(v=>v+1)}>Check again</button></section>
                 {opened.app.fields.filter((f) => f.kind === "media").length > 0 && (
                   <div className="wf-drops">
-                    {opened.app.fields.map((f) => f.kind === "media" && (
+                    {opened.app.fields.map((f) => f.kind === "media" && !f.optional && (
                       <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onBusy={(b) => setAdding((n) => Math.max(0, n + (b ? 1 : -1)))} onChange={(url) => setFiles((prior) => { const next = { ...prior }; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />
                     ))}
                   </div>
                 )}
+                {opened.app.fields.some(f => f.kind === "media" && f.optional) && <details className="wf-field">
+                  <summary>Optional masks and maps</summary>
+                  <p className="wf-small">Still masks use their red channel across the whole shot: white marks the selected area and black leaves it unchanged. RGB band maps use all three color channels.</p>
+                  {opened.app.fields.some(f => f.node === 'haggs_subject_mask_video') && <p className="wf-small">For a tracked subject, upload the mask-preview video from <Link href="/workflows/haggs_sam2_mask_preview">SAM2</Link>. Choose either a still subject mask or a video mask. The source, effect layer and mask must have matching dimensions, frames and timing; the mask video is compressed, so edges may be approximate.</p>}
+                  <div className="wf-drops">{opened.app.fields.map(f => f.kind === "media" && f.optional && <MediaDrop key={keyOf(f)} field={f} value={files[keyOf(f)]} onBusy={b => setAdding(n => Math.max(0, n + (b ? 1 : -1)))} onChange={url => setFiles(prior => { const next = {...prior}; if (url) next[keyOf(f)] = url; else delete next[keyOf(f)]; return next; })} />)}</div>
+                </details>}
                 {opened.app.fields.map((f) => {
                   const k = keyOf(f);
                   if (f.kind === "text") return (
@@ -401,7 +411,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 ) : result && !result.ok ? (
                   <p className="library-error" role="alert">{result.reason}</p>
                 ) : opened.thumb ? (
-                  <figure className="wf-example"><img src={opened.thumb} alt="" /><figcaption>{(ltxWorkflow(opened.name) || contestVariant(opened.name)) ? "Illustrative example made with image generation, not a verified workflow output. Yours appears here after a successful run." : "The example result. Yours appears here."}</figcaption></figure>
+                  <figure className="wf-example"><img src={opened.thumb} alt="" /><figcaption>{(ltxWorkflow(opened.name) || contestVariant(opened.name) || haggsPreview(opened.name)) ? "Illustrative example made with image generation, not a verified workflow output. Yours appears here after a successful run." : "The example result. Yours appears here."}</figcaption></figure>
                 ) : (
                   <div className="wf-result-wait">Your result appears here.</div>
                 )}

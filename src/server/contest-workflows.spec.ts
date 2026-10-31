@@ -22,7 +22,7 @@ for(const e of CONTEST_EFFECTS){
   assert.deepEqual(opened.problems,[]);
   assert.equal(opened.app.output,'10004');
   assert.equal(opened.app.produces,'video');
-  assert.equal(opened.app.fields.filter(f=>f.kind==='media').length,3);
+  assert.equal(opened.app.fields.filter(f=>f.kind==='media' && !f.optional).length,3);
   const {prompt}=toApiPrompt(opened.ui,catalog);
   const filled=fill(prompt,opened.app,{'10000/amount':0.4,'10000/bpm':90,'10000/beat_times_seconds':'0,0.5'});
   assert.equal(filled['10000']!.inputs.amount,0.4);
@@ -50,12 +50,26 @@ for(const e of CONTEST_EFFECTS){
   const ltx=openContest(contestName(e.slug,'ltx'),catalog);
   assert.ok(ltx.problems.length,'partial catalog must refuse missing LTX nodes');
   assert.ok(ltx.app.fields.some(f=>f.node==='251:252'&&f.kind==='text'));
-  assert.equal(ltx.app.fields.filter(f=>f.kind==='media').length,4);
+  assert.equal(ltx.app.fields.filter(f=>f.kind==='media' && !f.optional).length,4);
   const h3=read('../../public/workflows/contest-lab/'+e.h3);
   assert.equal(h3.nodes.find((n:{type:string})=>n.type==='HaggsH3PromptGate').widgets_values[0],false);
   assert.equal(contestVariant(`haggs_fx_h3_${e.slug}`),undefined,'paid variant is not registered as an app');
  });
 }
+test('each effect exposes only controls its compositor uses in both variants', () => {
+ const expected: Record<string,string[]> = {
+  '01-world-orchestra':['haggs_subject_mask','haggs_band_map'], '02-impossible-duet':['haggs_subject_mask'],
+  '03-portal-paint':['haggs_subject_mask','haggs_region_mask'], '04-reality-scrubber':['haggs_subject_mask'],
+  '05-foley-orchestra':[], '06-future-echo':['haggs_subject_mask'], '07-motion-becomes-matter':['haggs_subject_mask'],
+ };
+ for(const effect of CONTEST_EFFECTS) for(const kind of ['ltx','reuse'] as const) {
+  const opened=openContest(contestName(effect.slug,kind),catalog);
+  const fields = opened.app.fields.filter(f=>f.kind==='media' && f.optional).map(f=>f.node);
+  const still = fields.filter(node=>node!=='haggs_subject_mask_video');
+  assert.deepEqual(still,expected[effect.slug]);
+  assert.equal(fields.includes('haggs_subject_mask_video'),kind==='reuse' && expected[effect.slug]!.includes('haggs_subject_mask'));
+ }
+});
 test('seven grouped effects expose fourteen exact local variants, without duplicate cards',()=>{
  assert.equal(CONTEST_EFFECTS.length,7);assert.equal(contestEntries().length,14);
  assert.equal(new Set(contestEntries().map(e=>e.name)).size,14);
@@ -65,10 +79,19 @@ test('seven grouped effects expose fourteen exact local variants, without duplic
  assert.equal(counts.unique_graphs,22);assert.equal(counts.duplicate_workflow_copies_omitted,30);
 });
 
-test('SAM2 helper is an optional download with intact links, not an executable featured app',()=>{
+test('SAM2 native helper has intact links and is not an effect variant',()=>{
  const ui=read('../../public/workflows/contest-lab/workflows/08-SAM2-tracked-mask-helper.json');
  const ids=new Set(ui.nodes.map((n:{id:number})=>n.id));
  for(const l of ui.links){assert.ok(ids.has(l[1]));assert.ok(ids.has(l[3]));}
  assert.ok(ui.nodes.some((n:{type:string})=>n.type==='DownloadAndLoadSAM2Model'));
  assert.equal(contestVariant('08-SAM2-tracked-mask-helper'),undefined);
+});
+
+test('saved exact effects retain their optional controls; modified graphs do not inherit them', async () => {
+  const {savedContestName} = await import('./contest-workflows');
+  const name = contestName(CONTEST_EFFECTS[0]!.slug,'reuse');
+  const graph = contestTemplate(name)!;
+  assert.equal(savedContestName(JSON.stringify(graph)),name);
+  graph.nodes.push({id:99999,type:'KSampler'});
+  assert.equal(savedContestName(JSON.stringify(graph)),null);
 });

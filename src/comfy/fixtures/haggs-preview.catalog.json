@@ -1,0 +1,1664 @@
+{
+  "HaggsActionGuide": {
+    "input": {
+      "required": {
+        "timeline_json": [
+          "STRING",
+          {
+            "default": "{\n  \"actors\": [\n    {\n      \"name\": \"hero\",\n      \"path\": [\n        [\n          0,\n          0.3,\n          0.55\n        ],\n        [\n          2,\n          0.7,\n          0.55\n        ],\n        [\n          5,\n          0.5,\n          0.55\n        ]\n      ],\n      \"events\": [\n        {\n          \"start\": 0,\n          \"end\": 5,\n          \"action\": \"walk\"\n        }\n      ]\n    }\n  ]\n}",
+            "multiline": true
+          }
+        ],
+        "scene": [
+          "STRING",
+          {
+            "default": "A full-body fantasy hero in a side-on arena, locked camera, consistent identity and outfit.",
+            "multiline": true
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 512,
+            "min": 128,
+            "max": 1280,
+            "step": 32
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 320,
+            "min": 128,
+            "max": 768,
+            "step": 32
+          }
+        ],
+        "frame_count": [
+          "INT",
+          {
+            "default": 124,
+            "min": 5,
+            "max": 583,
+            "step": 17
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "timeline_json",
+        "scene",
+        "width",
+        "height",
+        "frame_count"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE",
+      "STRING",
+      "STRING",
+      "INT",
+      "INT",
+      "INT"
+    ],
+    "output_is_list": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_name": [
+      "pose_guides",
+      "prompt",
+      "timeline_metadata",
+      "length",
+      "width",
+      "height"
+    ],
+    "name": "HaggsActionGuide",
+    "display_name": "Haggs \u00b7 Draw Path / Combat Timeline",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsGameDirector",
+    "category": "Haggs/Game Director",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "HaggsGameplayGuide": {
+    "input": {
+      "required": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "style": [
+          "STRING",
+          {
+            "default": "A hand-painted dark fantasy game world. Preserve camera, silhouettes and major architecture.",
+            "multiline": true
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 512,
+            "min": 128,
+            "max": 1280,
+            "step": 32
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 320,
+            "min": 128,
+            "max": 768,
+            "step": 32
+          }
+        ],
+        "frame_count": [
+          "INT",
+          {
+            "default": 124,
+            "min": 5,
+            "max": 583,
+            "step": 17
+          }
+        ],
+        "edge_threshold": [
+          "FLOAT",
+          {
+            "default": 0.12,
+            "min": 0.01,
+            "max": 1.0,
+            "step": 0.01
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "source_video",
+        "style",
+        "width",
+        "height",
+        "frame_count",
+        "edge_threshold"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE",
+      "IMAGE",
+      "STRING",
+      "INT",
+      "INT",
+      "INT"
+    ],
+    "output_is_list": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_name": [
+      "edge_guides",
+      "source_frames",
+      "prompt",
+      "length",
+      "width",
+      "height"
+    ],
+    "name": "HaggsGameplayGuide",
+    "display_name": "Haggs \u00b7 Gameplay Edge Guide",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsGameDirector",
+    "category": "Haggs/Game Director",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "HaggsTelegraphGuide": {
+    "input": {
+      "required": {
+        "timeline_json": [
+          "STRING",
+          {
+            "default": "{\n  \"telegraphs\": [\n    {\n      \"shape\": \"circle\",\n      \"start\": 0,\n      \"impact\": 2,\n      \"end\": 3,\n      \"x\": 0.5,\n      \"y\": 0.55,\n      \"radius\": 0.25\n    }\n  ]\n}",
+            "multiline": true
+          }
+        ],
+        "style": [
+          "STRING",
+          {
+            "default": "Top-down game VFX: a glowing magical danger zone on a black background, bright charged impact, stable camera, no text.",
+            "multiline": true
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 512,
+            "min": 128,
+            "max": 1280,
+            "step": 32
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 320,
+            "min": 128,
+            "max": 768,
+            "step": 32
+          }
+        ],
+        "frame_count": [
+          "INT",
+          {
+            "default": 124,
+            "min": 5,
+            "max": 583,
+            "step": 17
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "timeline_json",
+        "style",
+        "width",
+        "height",
+        "frame_count"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE",
+      "MASK",
+      "STRING",
+      "INT",
+      "INT",
+      "INT",
+      "STRING"
+    ],
+    "output_is_list": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_name": [
+      "control_guides",
+      "alpha_mask",
+      "timeline_metadata",
+      "length",
+      "width",
+      "height",
+      "prompt"
+    ],
+    "name": "HaggsTelegraphGuide",
+    "display_name": "Haggs \u00b7 Enemy Intent Painter",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsGameDirector",
+    "category": "Haggs/Game Director",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "HaggsVFXTimeline": {
+    "input": {
+      "required": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "timeline_json": [
+          "STRING",
+          {
+            "default": "{\n  \"effects\": [\n    {\n      \"type\": \"burst\",\n      \"start\": 1.0,\n      \"end\": 2.0,\n      \"radius\": 0.18,\n      \"path\": [\n        [\n          1.0,\n          0.6,\n          0.55\n        ]\n      ],\n      \"description\": \"a bright orange fireball with sparks and smoke\"\n    },\n    {\n      \"type\": \"trail\",\n      \"start\": 2.2,\n      \"end\": 4.5,\n      \"radius\": 0.08,\n      \"path\": [\n        [\n          2.2,\n          0.2,\n          0.7\n        ],\n        [\n          3.2,\n          0.5,\n          0.4\n        ],\n        [\n          4.5,\n          0.8,\n          0.65\n        ]\n      ],\n      \"description\": \"a luminous blue magic trail\"\n    }\n  ]\n}",
+            "multiline": true
+          }
+        ],
+        "max_side": [
+          "INT",
+          {
+            "default": 512,
+            "min": 256,
+            "max": 1024,
+            "step": 64
+          }
+        ],
+        "seconds": [
+          "FLOAT",
+          {
+            "default": 5.0,
+            "min": 1.0,
+            "max": 10.0
+          }
+        ],
+        "feather_pixels": [
+          "FLOAT",
+          {
+            "default": 6.0,
+            "min": 0.0,
+            "max": 40.0
+          }
+        ],
+        "effect_index": [
+          "INT",
+          {
+            "default": 0,
+            "min": -1,
+            "max": 19
+          }
+        ]
+      },
+      "optional": {
+        "tracking_masks": [
+          "MASK"
+        ],
+        "protected_masks": [
+          "MASK"
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "source_video",
+        "timeline_json",
+        "max_side",
+        "seconds",
+        "feather_pixels",
+        "effect_index"
+      ],
+      "optional": [
+        "tracking_masks",
+        "protected_masks"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "VIDEO",
+      "VIDEO",
+      "MASK",
+      "STRING"
+    ],
+    "output_is_list": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_name": [
+      "prepared_source",
+      "mask_video",
+      "effect_mask",
+      "effect_prompt"
+    ],
+    "name": "HaggsVFXTimeline",
+    "display_name": "Haggs \u00b7 Place & Time LTX Effects",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsStudio",
+    "category": "Haggs/World Motion VFX",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "HaggsVFXLockOutside": {
+    "input": {
+      "required": {
+        "source_video": [
+          "VIDEO"
+        ],
+        "generated_video": [
+          "VIDEO"
+        ],
+        "effect_mask": [
+          "MASK"
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "source_video",
+        "generated_video",
+        "effect_mask"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "VIDEO"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "VIDEO"
+    ],
+    "name": "HaggsVFXLockOutside",
+    "display_name": "Haggs \u00b7 Preserve Outside Effect Masks",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsStudio",
+    "category": "Haggs/World Motion VFX",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "LoadVideo": {
+    "input": {
+      "required": {
+        "file": [
+          "COMBO",
+          {
+            "multiselect": false,
+            "options": [
+              "haggs-8a597137-f2aa-43cf-a6a4-0b7a2dfc7e89.mp4",
+              "haggs-913c1e9b-232c-46b1-9c8f-99f98751e8e4.mp4",
+              "haggs-sam2-test.mp4",
+              "haggs-studio-existing-take.mp4",
+              "haggs-studio-source.mp4",
+              "haggs-test-layer.mp4",
+              "haggs-test-source.mp4",
+              "haggs_1793379440679.mp4",
+              "haggs_1793379442044.mp4"
+            ],
+            "video_upload": true
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "file"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "VIDEO"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "VIDEO"
+    ],
+    "output_tooltips": [
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "LoadVideo",
+    "display_name": "Load Video",
+    "description": "",
+    "python_module": "comfy_extras.nodes_video",
+    "category": "video",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": false,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "import video",
+      "open video",
+      "video file"
+    ],
+    "essentials_category": "Basics",
+    "has_intermediate_output": true
+  },
+  "CreateVideo": {
+    "input": {
+      "required": {
+        "images": [
+          "IMAGE",
+          {
+            "tooltip": "The images to create a video from."
+          }
+        ],
+        "fps": [
+          "FLOAT",
+          {
+            "default": 30.0,
+            "min": 1.0,
+            "max": 120.0,
+            "step": 1.0
+          }
+        ]
+      },
+      "optional": {
+        "audio": [
+          "AUDIO",
+          {
+            "tooltip": "The audio to add to the video."
+          }
+        ],
+        "bit_depth": [
+          "COMBO",
+          {
+            "tooltip": "Auto uses 8-bit for sRGB and 10-bit for HDR. Explicit 8-bit and 10-bit choices are independent of colorspace.",
+            "default": "auto",
+            "multiselect": false,
+            "options": [
+              "auto",
+              8,
+              10
+            ]
+          }
+        ],
+        "color_space": [
+          "COMBO",
+          {
+            "tooltip": "Colorspace of the input images. HDR selects BT.2020/HLG and HDR PQ selects BT.2020/PQ.",
+            "default": "sRGB",
+            "multiselect": false,
+            "options": [
+              "sRGB",
+              "HDR",
+              "HDR PQ"
+            ]
+          }
+        ],
+        "codec": [
+          "COMBO",
+          {
+            "tooltip": "Optionally encode the video immediately. None keeps the images in tensor form; Auto uses H.264.",
+            "advanced": true,
+            "default": "none",
+            "multiselect": false,
+            "options": [
+              "none",
+              "auto",
+              "h264",
+              "av1"
+            ]
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "images",
+        "fps"
+      ],
+      "optional": [
+        "audio",
+        "bit_depth",
+        "color_space",
+        "codec"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "VIDEO"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "VIDEO"
+    ],
+    "output_tooltips": [
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "CreateVideo",
+    "display_name": "Create Video",
+    "description": "Create a video from images.",
+    "python_module": "comfy_extras.nodes_video",
+    "category": "video",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": false,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "images to video"
+    ],
+    "essentials_category": "Video Tools",
+    "has_intermediate_output": false
+  },
+  "SaveVideo": {
+    "input": {
+      "required": {
+        "video": [
+          "VIDEO",
+          {
+            "tooltip": "The video to save."
+          }
+        ],
+        "filename_prefix": [
+          "STRING",
+          {
+            "tooltip": "The prefix for the file to save. This may include formatting information such as %date:yyyy-MM-dd% or %Empty Latent Image.width% to include values from nodes.",
+            "default": "video/ComfyUI",
+            "multiline": false
+          }
+        ],
+        "format": [
+          "COMFY_DYNAMICCOMBO_V3",
+          {
+            "tooltip": "The output container. Auto uses MP4 for Auto/H.264 and WebM for AV1. MP4, MKV, and WebM select a specific container.",
+            "options": [
+              {
+                "key": "auto",
+                "inputs": {
+                  "required": {
+                    "codec": [
+                      "COMFY_DYNAMICCOMBO_V3",
+                      {
+                        "tooltip": "The output video codec. Auto preserves a compatible source stream. H.264 and AV1 re-encoding support SDR, HDR (HLG), and HDR PQ.",
+                        "options": [
+                          {
+                            "key": "auto",
+                            "inputs": {
+                              "required": {}
+                            }
+                          },
+                          {
+                            "key": "h264",
+                            "inputs": {
+                              "required": {},
+                              "optional": {
+                                "encoding": [
+                                  "COMFY_DYNAMICCOMBO_V3",
+                                  {
+                                    "display_name": "encoding mode",
+                                    "tooltip": "Automatic preserves compatible H.264 streams. Re-encode applies custom encoding options.",
+                                    "options": [
+                                      {
+                                        "key": "auto",
+                                        "inputs": {
+                                          "required": {}
+                                        }
+                                      },
+                                      {
+                                        "key": "re-encode",
+                                        "inputs": {
+                                          "required": {
+                                            "crf": [
+                                              "FLOAT",
+                                              {
+                                                "tooltip": "Lower values produce higher quality and larger files.",
+                                                "default": 18.0,
+                                                "min": 0.0,
+                                                "max": 51.0,
+                                                "step": 1.0
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "key": "av1",
+                            "inputs": {
+                              "required": {},
+                              "optional": {
+                                "encoding": [
+                                  "COMFY_DYNAMICCOMBO_V3",
+                                  {
+                                    "display_name": "encoding mode",
+                                    "tooltip": "Automatic preserves compatible AV1 streams. Re-encode applies custom encoding options.",
+                                    "options": [
+                                      {
+                                        "key": "auto",
+                                        "inputs": {
+                                          "required": {}
+                                        }
+                                      },
+                                      {
+                                        "key": "re-encode",
+                                        "inputs": {
+                                          "required": {
+                                            "crf": [
+                                              "FLOAT",
+                                              {
+                                                "tooltip": "Lower values produce higher quality and larger files.",
+                                                "default": 24.0,
+                                                "min": 0.0,
+                                                "max": 63.0,
+                                                "step": 1.0
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "key": "mp4",
+                "inputs": {
+                  "required": {
+                    "codec": [
+                      "COMFY_DYNAMICCOMBO_V3",
+                      {
+                        "tooltip": "The output video codec. Auto preserves a compatible source stream. H.264 and AV1 re-encoding support SDR, HDR (HLG), and HDR PQ.",
+                        "options": [
+                          {
+                            "key": "auto",
+                            "inputs": {
+                              "required": {}
+                            }
+                          },
+                          {
+                            "key": "h264",
+                            "inputs": {
+                              "required": {},
+                              "optional": {
+                                "encoding": [
+                                  "COMFY_DYNAMICCOMBO_V3",
+                                  {
+                                    "display_name": "encoding mode",
+                                    "tooltip": "Automatic preserves compatible H.264 streams. Re-encode applies custom encoding options.",
+                                    "options": [
+                                      {
+                                        "key": "auto",
+                                        "inputs": {
+                                          "required": {}
+                                        }
+                                      },
+                                      {
+                                        "key": "re-encode",
+                                        "inputs": {
+                                          "required": {
+                                            "crf": [
+                                              "FLOAT",
+                                              {
+                                                "tooltip": "Lower values produce higher quality and larger files.",
+                                                "default": 18.0,
+                                                "min": 0.0,
+                                                "max": 51.0,
+                                                "step": 1.0
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "key": "av1",
+                            "inputs": {
+                              "required": {},
+                              "optional": {
+                                "encoding": [
+                                  "COMFY_DYNAMICCOMBO_V3",
+                                  {
+                                    "display_name": "encoding mode",
+                                    "tooltip": "Automatic preserves compatible AV1 streams. Re-encode applies custom encoding options.",
+                                    "options": [
+                                      {
+                                        "key": "auto",
+                                        "inputs": {
+                                          "required": {}
+                                        }
+                                      },
+                                      {
+                                        "key": "re-encode",
+                                        "inputs": {
+                                          "required": {
+                                            "crf": [
+                                              "FLOAT",
+                                              {
+                                                "tooltip": "Lower values produce higher quality and larger files.",
+                                                "default": 24.0,
+                                                "min": 0.0,
+                                                "max": 63.0,
+                                                "step": 1.0
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "key": "mkv",
+                "inputs": {
+                  "required": {
+                    "codec": [
+                      "COMFY_DYNAMICCOMBO_V3",
+                      {
+                        "tooltip": "The output video codec. Auto preserves a compatible source stream. H.264 and AV1 re-encoding support SDR, HDR (HLG), and HDR PQ.",
+                        "options": [
+                          {
+                            "key": "auto",
+                            "inputs": {
+                              "required": {}
+                            }
+                          },
+                          {
+                            "key": "h264",
+                            "inputs": {
+                              "required": {},
+                              "optional": {
+                                "encoding": [
+                                  "COMFY_DYNAMICCOMBO_V3",
+                                  {
+                                    "display_name": "encoding mode",
+                                    "tooltip": "Automatic preserves compatible H.264 streams. Re-encode applies custom encoding options.",
+                                    "options": [
+                                      {
+                                        "key": "auto",
+                                        "inputs": {
+                                          "required": {}
+                                        }
+                                      },
+                                      {
+                                        "key": "re-encode",
+                                        "inputs": {
+                                          "required": {
+                                            "crf": [
+                                              "FLOAT",
+                                              {
+                                                "tooltip": "Lower values produce higher quality and larger files.",
+                                                "default": 18.0,
+                                                "min": 0.0,
+                                                "max": 51.0,
+                                                "step": 1.0
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "key": "av1",
+                            "inputs": {
+                              "required": {},
+                              "optional": {
+                                "encoding": [
+                                  "COMFY_DYNAMICCOMBO_V3",
+                                  {
+                                    "display_name": "encoding mode",
+                                    "tooltip": "Automatic preserves compatible AV1 streams. Re-encode applies custom encoding options.",
+                                    "options": [
+                                      {
+                                        "key": "auto",
+                                        "inputs": {
+                                          "required": {}
+                                        }
+                                      },
+                                      {
+                                        "key": "re-encode",
+                                        "inputs": {
+                                          "required": {
+                                            "crf": [
+                                              "FLOAT",
+                                              {
+                                                "tooltip": "Lower values produce higher quality and larger files.",
+                                                "default": 24.0,
+                                                "min": 0.0,
+                                                "max": 63.0,
+                                                "step": 1.0
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "key": "webm",
+                "inputs": {
+                  "required": {
+                    "codec": [
+                      "COMFY_DYNAMICCOMBO_V3",
+                      {
+                        "tooltip": "The output video codec. Auto preserves a compatible source stream. H.264 and AV1 re-encoding support SDR, HDR (HLG), and HDR PQ.",
+                        "options": [
+                          {
+                            "key": "auto",
+                            "inputs": {
+                              "required": {}
+                            }
+                          },
+                          {
+                            "key": "av1",
+                            "inputs": {
+                              "required": {},
+                              "optional": {
+                                "encoding": [
+                                  "COMFY_DYNAMICCOMBO_V3",
+                                  {
+                                    "display_name": "encoding mode",
+                                    "tooltip": "Automatic preserves compatible AV1 streams. Re-encode applies custom encoding options.",
+                                    "options": [
+                                      {
+                                        "key": "auto",
+                                        "inputs": {
+                                          "required": {}
+                                        }
+                                      },
+                                      {
+                                        "key": "re-encode",
+                                        "inputs": {
+                                          "required": {
+                                            "crf": [
+                                              "FLOAT",
+                                              {
+                                                "tooltip": "Lower values produce higher quality and larger files.",
+                                                "default": 24.0,
+                                                "min": 0.0,
+                                                "max": 63.0,
+                                                "step": 1.0
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "optional": {
+        "codec": [
+          "COMFY_DYNAMICCOMBO_V3",
+          {
+            "tooltip": "The output video codec. Auto preserves a compatible source stream. H.264 and AV1 re-encoding support SDR, HDR (HLG), and HDR PQ.",
+            "hidden": true,
+            "options": [
+              {
+                "key": "auto",
+                "inputs": {
+                  "required": {}
+                }
+              },
+              {
+                "key": "h264",
+                "inputs": {
+                  "required": {},
+                  "optional": {
+                    "encoding": [
+                      "COMFY_DYNAMICCOMBO_V3",
+                      {
+                        "display_name": "encoding mode",
+                        "tooltip": "Automatic preserves compatible H.264 streams. Re-encode applies custom encoding options.",
+                        "options": [
+                          {
+                            "key": "auto",
+                            "inputs": {
+                              "required": {}
+                            }
+                          },
+                          {
+                            "key": "re-encode",
+                            "inputs": {
+                              "required": {
+                                "crf": [
+                                  "FLOAT",
+                                  {
+                                    "tooltip": "Lower values produce higher quality and larger files.",
+                                    "default": 18.0,
+                                    "min": 0.0,
+                                    "max": 51.0,
+                                    "step": 1.0
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "key": "av1",
+                "inputs": {
+                  "required": {},
+                  "optional": {
+                    "encoding": [
+                      "COMFY_DYNAMICCOMBO_V3",
+                      {
+                        "display_name": "encoding mode",
+                        "tooltip": "Automatic preserves compatible AV1 streams. Re-encode applies custom encoding options.",
+                        "options": [
+                          {
+                            "key": "auto",
+                            "inputs": {
+                              "required": {}
+                            }
+                          },
+                          {
+                            "key": "re-encode",
+                            "inputs": {
+                              "required": {
+                                "crf": [
+                                  "FLOAT",
+                                  {
+                                    "tooltip": "Lower values produce higher quality and larger files.",
+                                    "default": 24.0,
+                                    "min": 0.0,
+                                    "max": 63.0,
+                                    "step": 1.0
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "hidden": {
+        "prompt": [
+          "PROMPT"
+        ],
+        "extra_pnginfo": [
+          "EXTRA_PNGINFO"
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "video",
+        "filename_prefix",
+        "format"
+      ],
+      "optional": [
+        "codec"
+      ],
+      "hidden": [
+        "prompt",
+        "extra_pnginfo"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "VIDEO"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "video"
+    ],
+    "output_tooltips": [
+      "The input video, unchanged."
+    ],
+    "output_matchtypes": null,
+    "name": "SaveVideo",
+    "display_name": "Save Video",
+    "description": "Saves the input videos to your ComfyUI output directory.",
+    "python_module": "comfy_extras.nodes_video",
+    "category": "video",
+    "output_node": true,
+    "deprecated": false,
+    "experimental": false,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "export video"
+    ],
+    "essentials_category": "Basics",
+    "has_intermediate_output": false
+  },
+  "HaggsLoadMotionNPZ": {
+    "input": {
+      "required": {
+        "file": [
+          "STRING",
+          {
+            "default": "haggs-studio-synthetic-motion.npz"
+          }
+        ],
+        "duration": [
+          "FLOAT",
+          {
+            "default": 5.0,
+            "min": 0.5,
+            "max": 12.0
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "file",
+        "duration"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "HYMOTION_DATA"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "HYMOTION_DATA"
+    ],
+    "name": "HaggsLoadMotionNPZ",
+    "display_name": "Haggs \u00b7 Load Saved Motion",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsStudio",
+    "category": "Haggs/World Motion VFX",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "HaggsMotionToMovie": {
+    "input": {
+      "required": {
+        "motion_data": [
+          "HYMOTION_DATA"
+        ],
+        "scene": [
+          "STRING",
+          {
+            "default": "A full-body knight performs the supplied motion, same identity and outfit, stable camera, no cuts.",
+            "multiline": true
+          }
+        ],
+        "width": [
+          "INT",
+          {
+            "default": 512,
+            "min": 128,
+            "max": 1280,
+            "step": 32
+          }
+        ],
+        "height": [
+          "INT",
+          {
+            "default": 320,
+            "min": 128,
+            "max": 768,
+            "step": 32
+          }
+        ],
+        "yaw_degrees": [
+          "FLOAT",
+          {
+            "default": 0.0,
+            "min": -180.0,
+            "max": 180.0
+          }
+        ],
+        "speed": [
+          "FLOAT",
+          {
+            "default": 1.0,
+            "min": 0.25,
+            "max": 4.0
+          }
+        ],
+        "sample_index": [
+          "INT",
+          {
+            "default": 0,
+            "min": 0,
+            "max": 3
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "motion_data",
+        "scene",
+        "width",
+        "height",
+        "yaw_degrees",
+        "speed",
+        "sample_index"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE",
+      "STRING",
+      "STRING",
+      "INT",
+      "INT",
+      "INT"
+    ],
+    "output_is_list": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_name": [
+      "pose_guides",
+      "prompt",
+      "export_directory",
+      "length",
+      "width",
+      "height"
+    ],
+    "name": "HaggsMotionToMovie",
+    "display_name": "Haggs \u00b7 Motion-to-Movie Bridge",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsStudio",
+    "category": "Haggs/World Motion VFX",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "HaggsRecordedRoom": {
+    "input": {
+      "required": {
+        "session_id": [
+          "STRING",
+          {
+            "forceInput": true
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "session_id"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "VIDEO"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "VIDEO"
+    ],
+    "name": "HaggsRecordedRoom",
+    "display_name": "Haggs \u00b7 Load Room Recording",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-HaggsStudio",
+    "category": "Haggs/World Motion VFX",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "PrimitiveStringMultiline": {
+    "input": {
+      "required": {
+        "value": [
+          "STRING",
+          {
+            "multiline": true
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "value"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "STRING"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "STRING"
+    ],
+    "output_tooltips": [
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "PrimitiveStringMultiline",
+    "display_name": "Text (Multiline)",
+    "description": "",
+    "python_module": "comfy_extras.nodes_primitive",
+    "category": "utilities/primitive",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": false,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "text",
+      "string",
+      "text box",
+      "prompt"
+    ],
+    "essentials_category": "Basics",
+    "has_intermediate_output": false
+  },
+  "DownloadAndLoadSAM2Model": {
+    "input": {
+      "required": {
+        "model": [
+          [
+            "sam2_hiera_base_plus.safetensors",
+            "sam2_hiera_large.safetensors",
+            "sam2_hiera_small.safetensors",
+            "sam2_hiera_tiny.safetensors",
+            "sam2.1_hiera_base_plus.safetensors",
+            "sam2.1_hiera_large.safetensors",
+            "sam2.1_hiera_small.safetensors",
+            "sam2.1_hiera_tiny.safetensors"
+          ]
+        ],
+        "segmentor": [
+          [
+            "single_image",
+            "video",
+            "automaskgenerator"
+          ]
+        ],
+        "device": [
+          [
+            "cuda",
+            "cpu",
+            "mps"
+          ]
+        ],
+        "precision": [
+          [
+            "fp16",
+            "bf16",
+            "fp32"
+          ],
+          {
+            "default": "fp16"
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "model",
+        "segmentor",
+        "device",
+        "precision"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "SAM2MODEL"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "sam2_model"
+    ],
+    "name": "DownloadAndLoadSAM2Model",
+    "display_name": "(Down)Load SAM2Model",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-segment-anything-2",
+    "category": "SAM2",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "Sam2Segmentation": {
+    "input": {
+      "required": {
+        "sam2_model": [
+          "SAM2MODEL"
+        ],
+        "image": [
+          "IMAGE"
+        ],
+        "keep_model_loaded": [
+          "BOOLEAN",
+          {
+            "default": false
+          }
+        ]
+      },
+      "optional": {
+        "coordinates_positive": [
+          "STRING",
+          {
+            "forceInput": true
+          }
+        ],
+        "coordinates_negative": [
+          "STRING",
+          {
+            "forceInput": true
+          }
+        ],
+        "bboxes": [
+          "BBOX"
+        ],
+        "individual_objects": [
+          "BOOLEAN",
+          {
+            "default": false
+          }
+        ],
+        "mask": [
+          "MASK"
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "sam2_model",
+        "image",
+        "keep_model_loaded"
+      ],
+      "optional": [
+        "coordinates_positive",
+        "coordinates_negative",
+        "bboxes",
+        "individual_objects",
+        "mask"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "MASK"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "mask"
+    ],
+    "name": "Sam2Segmentation",
+    "display_name": "Sam2Segmentation",
+    "description": "",
+    "python_module": "custom_nodes.ComfyUI-segment-anything-2",
+    "category": "SAM2",
+    "output_node": false,
+    "has_intermediate_output": false,
+    "search_aliases": []
+  },
+  "GetVideoComponents": {
+    "input": {
+      "required": {
+        "video": [
+          "VIDEO",
+          {
+            "tooltip": "The video to extract components from."
+          }
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "video"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE",
+      "AUDIO",
+      "FLOAT",
+      "COMBO",
+      "COMBO"
+    ],
+    "output_is_list": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_name": [
+      "images",
+      "audio",
+      "fps",
+      "bit_depth",
+      "color_space"
+    ],
+    "output_tooltips": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "GetVideoComponents",
+    "display_name": "Get Video Components",
+    "description": "Extracts video frames, audio, frame rate, bit depth, and color space.",
+    "python_module": "comfy_extras.nodes_video",
+    "category": "video",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": false,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "extract frames",
+      "split video",
+      "video to images",
+      "demux"
+    ],
+    "essentials_category": null,
+    "has_intermediate_output": false
+  },
+  "MaskToImage": {
+    "input": {
+      "required": {
+        "mask": [
+          "MASK",
+          {}
+        ]
+      }
+    },
+    "input_order": {
+      "required": [
+        "mask"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "IMAGE"
+    ],
+    "output_tooltips": [
+      null
+    ],
+    "output_matchtypes": null,
+    "name": "MaskToImage",
+    "display_name": "Convert Mask to Image",
+    "description": "",
+    "python_module": "comfy_extras.nodes_mask",
+    "category": "image/mask",
+    "output_node": false,
+    "deprecated": false,
+    "experimental": false,
+    "dev_only": false,
+    "api_node": false,
+    "price_badge": null,
+    "search_aliases": [
+      "convert mask"
+    ],
+    "essentials_category": null,
+    "has_intermediate_output": false
+  },
+  "PreviewImage": {
+    "input": {
+      "required": {
+        "images": [
+          "IMAGE"
+        ]
+      },
+      "hidden": {
+        "prompt": "PROMPT",
+        "extra_pnginfo": "EXTRA_PNGINFO"
+      }
+    },
+    "input_order": {
+      "required": [
+        "images"
+      ],
+      "hidden": [
+        "prompt",
+        "extra_pnginfo"
+      ]
+    },
+    "is_input_list": false,
+    "output": [
+      "IMAGE"
+    ],
+    "output_is_list": [
+      false
+    ],
+    "output_name": [
+      "images"
+    ],
+    "name": "PreviewImage",
+    "display_name": "Preview Image",
+    "description": "Preview the images without saving them to the ComfyUI output directory.",
+    "python_module": "nodes",
+    "category": "image",
+    "output_node": true,
+    "has_intermediate_output": false,
+    "search_aliases": [
+      "preview",
+      "preview image",
+      "show image",
+      "view image",
+      "display image",
+      "image viewer"
+    ],
+    "essentials_category": "Basics"
+  }
+}

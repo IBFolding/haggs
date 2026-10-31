@@ -13,6 +13,7 @@ import graph_5_reuse from '../../public/workflows/contest-lab/workflows/reuse-ex
 import graph_6_ltx from '../../public/workflows/contest-lab/workflows/LTX-open-weights/07-motion-becomes-matter.json';
 import graph_6_reuse from '../../public/workflows/contest-lab/workflows/reuse-existing-video/07-motion-becomes-matter.json';
 import { CONTEST_EFFECTS, contestName, contestVariant } from '../comfy/contest-lab';
+import { contestMaskFieldsFor } from '../comfy/contest-masks';
 import { appOf, type Field } from '../comfy/apps';
 import { toApiPrompt, validate, type Catalog, type UiWorkflow } from '../comfy/convert';
 import type { Entry, Opened } from './comfy-library';
@@ -37,6 +38,14 @@ const graphs: Record<string, unknown> = {
 export function contestTemplate(name: string): UiWorkflow | null {
   return Object.hasOwn(graphs, name) ? structuredClone(graphs[name]) as UiWorkflow : null;
 }
+/** Recognize an unchanged saved Haggs effect without trusting arbitrary uploads. */
+export function savedContestName(file: string): string | null {
+  if (file.length > 5_000_000) return null;
+  try {
+    const candidate = JSON.stringify(JSON.parse(file));
+    return Object.keys(graphs).find(name => candidate === JSON.stringify(graphs[name])) ?? null;
+  } catch { return null; }
+}
 /** Build the form from bundled schemas. Execution still checks the real runtime. */
 export function openContestForDisplay(name: string): Opened {
   const catalog = { ...coreCatalog, ...contestCatalog,
@@ -49,7 +58,7 @@ export function openContestForDisplay(name: string): Opened {
   return { ...opened, problems: [] };
 }
 export function contestEntries(): Entry[] {
-  return CONTEST_EFFECTS.flatMap(e => (['ltx', 'reuse'] as const).map(kind => ({ name: contestName(e.slug, kind), title: `${e.name} · ${kind === 'ltx' ? 'LTX' : 'Reuse video'}`, description: `${e.scope} Experimental local app: install ComfyUI-HaggsContestLab. Advanced masks and band maps must be connected in ComfyUI; otherwise the supplied geometric defaults apply.`, category: 'Video Tools', kind: 'video', tags: ['Haggs Contest Lab', 'Local', kind], models: kind === 'ltx' ? ['LTX 2.5'] : ['Existing video'], thumb: e.image, usage: 0, inputs: [], runnable: null, open: true })));
+  return CONTEST_EFFECTS.flatMap(e => (['ltx', 'reuse'] as const).map(kind => ({ name: contestName(e.slug, kind), title: `${e.name} · ${kind === 'ltx' ? 'LTX' : 'Reuse video'}`, description: `${e.scope} Experimental local app: install ComfyUI-HaggsContestLab. Supported still-image controls appear below. Animated tracking requires ComfyUI.`, category: 'Video Tools', kind: 'video', tags: ['Haggs Contest Lab', 'Local', kind], models: kind === 'ltx' ? ['LTX 2.5'] : ['Existing video'], thumb: e.image, usage: 0, inputs: [], runnable: null, open: true })));
 }
 export function openContest(name: string, catalog: Catalog): Opened {
   const meta = contestVariant(name), ui = contestTemplate(name);
@@ -73,7 +82,7 @@ export function openContest(name: string, catalog: Catalog): Opened {
   if (/duet|echo/.test(meta.effect.slug)) { number('delay_seconds','Echo delay (seconds)',0.01,10,0.01); number('spread_fraction','Horizontal spread',-0.5,0.5,0.01); }
   if (meta.effect.slug.includes('reality')) text('reality_schedule','Time:mix schedule (0–1)');
   if (meta.effect.slug.includes('foley')) number('source_impact_seconds','Marked source impact (seconds)',0,600,0.01);
-  app.fields = fields;
+  app.fields = [...fields, ...contestMaskFieldsFor(effectType).filter(field => meta.kind === 'reuse' || field.node !== 'haggs_subject_mask_video')];
   app.output = prompt['10004']?.class_type === 'SaveVideo' ? '10004' : null;
   app.produces = app.output ? 'video' : null;
   if (!app.output) problems.push('SaveVideo is required to return the finished effect.');

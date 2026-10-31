@@ -222,3 +222,14 @@ textarea.pl-json:focus { outline: none; border-color: var(--volt); }
 .pl-atlas input[type=file], .pl-atlas select { width: 100%; max-width: 100%; min-width: 0; font-size: 12px; }
 .pl-atlas input[type=checkbox] { width: auto; justify-self: start; }
 .pl-atlas-preview { display: grid; gap: 5px; margin-top: 10px; }
+
+/* Original Neon Courier artwork, using frame zero of its shipped atlas. */
+.pl-neon-feature { grid-template-columns: minmax(220px, 1fr) minmax(240px, 1fr); padding: 0; overflow: hidden; text-decoration: none; border-color: #467f79; background: linear-gradient(130deg, #142e40, #0b1824); }
+.pl-neon-scene { display: block; position: relative; min-height: 300px; overflow: hidden; background: #122436 url('/playable/neon-courier/cover.jpg') center 52% / cover no-repeat; }
+.pl-neon-fox { position: absolute; width: 132px; height: 176px; left: calc(50% - 66px); bottom: 8px; background: url('/playable/neon-courier/courier.png') 0 0 / 528px 352px no-repeat; filter: drop-shadow(0 12px 16px #04101a); }
+.pl-neon-copy { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 16px; padding: 30px; }
+.pl-neon-copy strong { font-size: clamp(30px, 4vw, 48px); color: #effffb; }
+.pl-neon-copy .pl-card-says { color: #c4d9df; font-size: 16px; }
+.pl-neon-copy .pl-go { pointer-events: none; }
+.pl-neon-feature:focus-visible { outline: 3px solid var(--volt); outline-offset: 4px; }
+@media (max-width: 640px) { .pl-neon-feature { grid-template-columns: 1fr; } .pl-neon-scene { min-height: 240px; } .pl-neon-copy { padding: 22px; } }

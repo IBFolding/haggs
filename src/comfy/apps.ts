@@ -9,7 +9,7 @@ import type { ApiPrompt, Catalog, UiWorkflow } from "./convert";
 
 export type MediaKind = "image" | "video" | "audio";
 export type Field =
-  | { kind: "media"; node: string; input: string; media: MediaKind; label: string; sample?: string }
+  | { kind: "media"; node: string; input: string; media: MediaKind; label: string; sample?: string; optional?: boolean }
   | { kind: "text"; node: string; input: string; label: string; value: string }
   | { kind: "choice"; node: string; input: string; label: string; value: string; options: string[] }
   | { kind: "number"; node: string; input: string; label: string; value: number; min?: number; max?: number; step?: number };
