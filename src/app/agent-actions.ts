@@ -5,6 +5,7 @@ import { anthropicOptions, anthropicErrorReason } from "../writer/anthropic-conf
 import { cookies } from "next/headers";
 
 import { CLAUDE_COOKIE, keyIn, claudeWorkspaceIn } from "../server/keys";
+import { AGENT_OPEN_PAGE_DESCRIPTION } from "../brand/product-copy";
 
 /**
  * The in-app agent's brain: one turn of a conversation with Claude, with
@@ -79,7 +80,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   },
   {
     name: "open_page",
-    description: "Take the person to a page in haggs: /library, /photos (make pictures), /edit (edit a picture), /characters, /locations, /video, /series (a topic into short vertical videos, faceless channels too), /swap (put a character into a video), /editor (the Cut of their last board), /academy (seven short lessons), /workflows (26 ready-made apps), /workflows/build (the open canvas; ?quick=<app> opens a ready-made one, e.g. relight, upscale, try-on, swap-person), /workflows/community, /workflows/<name>, /board/<project>?b=<board>, /board/<project>/sheets?b=<board>, /board/<project>/cut?b=<board>, /board/<project>/media?b=<board>, /gallery.",
+    description: AGENT_OPEN_PAGE_DESCRIPTION,
     input_schema: { type: "object", properties: { path: { type: "string" } }, required: ["path"], additionalProperties: false },
   },
 ];

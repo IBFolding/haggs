@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { LTX_WORKFLOWS } from '../comfy/ltx';
 import { fill } from '../comfy/apps';
 import { prepare, type Catalog } from '../comfy/convert';
-import { ltxEntries, ltxTemplate, openLtx } from './ltx-workflows';
+import { ltxEntries, ltxTemplate, openLtx, openLtxForDisplay } from './ltx-workflows';
 
 // A deliberately incomplete catalog checks bindings and fail-closed behavior;
 // it is NOT a claim that the full LTX graph is installed or executable.
@@ -65,6 +65,19 @@ test('bundled lookup is exact, cloned, and keeps distinct frame labels', () => {
   assert.equal(fresh.nodes.find(n => n.id === 31)?.title, 'Last frame of clip A');
   assert.equal(fresh.nodes.find(n => n.id === 39)?.title, 'First frame of clip B');
   assert.equal(ltxEntries().length, 4);
+});
+
+
+test('LTX requirements and controls are inspectable without a runtime connection', () => {
+  for (const workflow of LTX_WORKFLOWS) {
+    const opened = openLtxForDisplay(workflow.name);
+    assert.equal(opened.entry?.name, workflow.name);
+    assert.deepEqual(opened.problems, [], 'display-only opening must not require an installed runtime');
+    assert.ok(opened.app.fields.some(field => field.kind === 'text' && field.node === workflow.promptNode));
+    assert.ok(opened.app.fields.some(field => field.kind === 'media'));
+    assert.equal(opened.app.produces, 'video');
+    assert.ok(opened.app.output);
+  }
 });
 
 
