@@ -5008,3 +5008,13 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .kn-media img, .kn-media video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
 .kn-gallery { margin-top: 10px; }
 .kn-gallery summary { cursor: pointer; color: var(--text-2); font-size: 13px; }
+.kn-templates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.kn-templates button { height: auto; padding: 10px; text-align: left; white-space: normal; }
+.kn-templates b, .kn-templates small { display: block; }
+.kn-templates small { margin-top: 4px; color: var(--text-2); font-weight: 400; line-height: 1.35; }
+.kn-refs { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 10px 0; }
+.kn-refs li { display: flex; align-items: baseline; gap: 5px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; }
+.kn-refs li.ready > span { color: #26975a; }
+.kn-refs li.missing > span { color: #d33; }
+.kn-refs small { color: var(--text-2); }
+@media (max-width: 480px) { .kn-templates { grid-template-columns: 1fr; } }
