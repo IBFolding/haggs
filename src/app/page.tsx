@@ -9,6 +9,7 @@ import { JoinBand, JoinButton } from "./join-push";
 import { HeroReel } from "./hero-reel";
 import { ModelsWall } from "./models-wall";
 import { QUICK_APPS } from "../comfy/quick";
+import { ACADEMY_MINUTES, READY_MADE_APPS_SUMMARY } from "../brand/product-copy";
 import { STEPS } from "../comfy/recipe";
 import { ModelTicker } from "./model-ticker";
 import { ShowcaseReel } from "./showcase-reel";
@@ -34,7 +35,7 @@ const TILES = [
   { name: "Series", img: "/tiles/series.jpg", says: "A topic into short vertical videos, faceless channels too.", href: "/series" },
   { name: "Comic strip", img: "/tiles/comic.jpg", says: "Write panels, pick characters, get a finished page.", href: "/comic" },
   { name: "Recreate an edit", img: "/tiles/recreate.jpg", says: "Drop an edit you love; rebuild it around your character.", href: "/recreate" },
-  { name: "Workflows", img: "/tiles/workflows.jpg", says: "26 ready-made apps: swap, relight, try on, upscale.", href: "/workflows" },
+  { name: "Workflows", img: "/tiles/workflows.jpg", says: READY_MADE_APPS_SUMMARY, href: "/workflows" },
   { name: "Editor", img: "/tiles/editor.jpg", says: "Cut, reshoot, restyle, sound and render.", href: "/library" },
   { name: "Academy", img: "/tiles/academy.jpg", says: "Seven short lessons. Your first video in lesson one.", href: "/academy" },
 ] as const;
@@ -216,7 +217,7 @@ export default function Landing() {
 
         <section className="lp-academy" id="academy">
           <h2 data-kicker="Academy">Learn it by making it.</h2>
-          <p>The Academy is seven short lessons, about 90 minutes in all. You make a video in the first one, and every lesson ends in something real in haggs. Finish all seven for a certificate.</p>
+          <p>The Academy is seven short lessons, about {ACADEMY_MINUTES} minutes in all. You make a video in the first one, and every lesson ends in something real in haggs. Finish all seven for a certificate.</p>
           <AcademyPath lessons={LESSONS} />
         </section>
 

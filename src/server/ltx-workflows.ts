@@ -6,6 +6,7 @@ import { LTX_WORKFLOWS, ltxWorkflow } from '../comfy/ltx';
 import { appOf, type Field } from '../comfy/apps';
 import { toApiPrompt, validate, type Catalog, type UiWorkflow } from '../comfy/convert';
 import type { Entry, Opened } from './comfy-library';
+import coreCatalog from '../comfy/fixtures/catalog.json';
 
 const graphs: readonly unknown[] = [repair, handles, continuity, beat];
 export function ltxTemplate(name: string): UiWorkflow | null {
@@ -14,6 +15,15 @@ export function ltxTemplate(name: string): UiWorkflow | null {
 }
 export function ltxEntries(): Entry[] {
   return LTX_WORKFLOWS.map(w => ({ name: w.name, title: w.title, description: w.description, category: 'Video', kind: 'video', tags: ['LTX', 'Open weights'], models: ['LTX 2.5'], thumb: w.image, usage: 0, inputs: [], runnable: null, open: true }));
+}
+export function openLtxForDisplay(name: string): Opened {
+  const catalog = { ...coreCatalog,
+    PrimitiveStringMultiline: { input: { required: { value: ['STRING', { multiline: true, default: '' }] } }, output: ['STRING'] },
+    LoadAudio: { input: { required: { audio: ['STRING'] } }, output: ['AUDIO'] },
+  } as unknown as Catalog;
+  // Bundled schemas only expose the requirements and controls. Preflight and
+  // submission still validate the selected runtime's real node/model catalog.
+  return { ...openLtx(name, catalog), problems: [] };
 }
 /** Explicit controls are needed: upstream prompts are empty primitives, and duration is a linked primitive. */
 export function openLtx(name: string, catalog: Catalog): Opened {

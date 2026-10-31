@@ -30,7 +30,7 @@ import { openContest, openContestForDisplay, savedContestName } from "../server/
 import { haggsPreview } from "../comfy/haggs-preview";
 import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem, previewValues } from "../server/haggs-preview-workflows";
 import { ltxWorkflow } from "../comfy/ltx";
-import { openLtx } from "../server/ltx-workflows";
+import { openLtx, openLtxForDisplay } from "../server/ltx-workflows";
 import { STEPS } from "../comfy/recipe";
 import { localFile, localUrl } from "../server/local-media";
 
@@ -165,10 +165,11 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const key = await comfyKey();
   const isHaggsEffect = "template" in source && Boolean(contestVariant(source.template));
   const isHaggsPreview = "template" in source && Boolean(haggsPreview(source.template));
-  if (!isHaggsEffect && !isHaggsPreview && !key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
+  const isLtx = "template" in source && Boolean(ltxWorkflow(source.template));
+  if (!isHaggsEffect && !isHaggsPreview && !isLtx && !key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
   const name = "template" in source ? source.template : "your workflow";
   try {
-    const opened = isHaggsEffect && "template" in source ? openContestForDisplay(source.template) : isHaggsPreview && "template" in source ? openHaggsPreviewForDisplay(source.template) : await open(key, source);
+    const opened = isHaggsEffect && "template" in source ? openContestForDisplay(source.template) : isHaggsPreview && "template" in source ? openHaggsPreviewForDisplay(source.template) : isLtx && "template" in source ? openLtxForDisplay(source.template) : await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
     const samples = Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && f.sample ? [[String(prompt[f.node]?.inputs[f.input] ?? ""), f.sample]] : [])));
     return {
@@ -179,7 +180,7 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
       thumb: opened.entry?.thumb ?? null,
       app: opened.app,
       problems: opened.problems,
-      price: isHaggsEffect || isHaggsPreview ? "Check connection before running" : !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && localIn(await cookies())) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
+      price: isHaggsEffect || isHaggsPreview || isLtx ? "Check connection before running" : !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && localIn(await cookies())) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
       graph: graphOf(opened.ui, samples),
       workflow: JSON.stringify(opened.ui),
     };
