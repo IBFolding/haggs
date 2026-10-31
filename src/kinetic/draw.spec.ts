@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { drawFrame, palette, slamScale } from "./draw";
+import { DEFAULT_MOTION, drawFrame, palette, slamScale } from "./draw";
 import { layout, parseSheet } from "./beats";
 
 /** A canvas stand-in that records what was drawn. */
@@ -37,6 +37,14 @@ test("at the cut between blocks both are on screen (the whip pan)", () => {
   assert.ok(words.includes("HELLO") && words.includes("WORLD"));
 });
 
+test("zero whip-pan length makes a hard cut", () => {
+  const { ctx, calls } = fake();
+  drawFrame(ctx, 1920, 1080, film, 0.95, {}, { ...DEFAULT_MOTION, whipBeats: 0 });
+  const words = calls.filter((c) => c.op === "fillText").map((c) => c.args[0]);
+  assert.ok(words.includes("HELLO"));
+  assert.ok(!words.includes("WORLD"));
+});
+
 test("nothing is drawn after the end, and the call says so", () => {
   const { ctx, calls } = fake();
   assert.equal(drawFrame(ctx, 1920, 1080, film, 99), false);
@@ -47,6 +55,21 @@ test("a word overshoots as it lands and settles by the third of a beat", () => {
   assert.ok(slamScale(0) > 1.2);
   assert.ok(slamScale(0.34) <= 1.001);
   assert.ok(slamScale(1) === 1);
+});
+
+test("landing motion can be softened, removed, or changed to a spring", () => {
+  assert.equal(slamScale(0, 0), 1);
+  assert.ok(Math.abs(slamScale(0, 0.5) - (1 + (slamScale(0) - 1) * 0.5)) < 1e-12);
+  assert.notEqual(slamScale(0.1, 1, "spring"), slamScale(0.1, 1, "smooth"));
+  assert.equal(slamScale(1, 1, "spring"), 1);
+});
+
+test("drawing a frame applies the selected landing motion", () => {
+  const { ctx } = fake();
+  const scales: number[] = [];
+  ctx.scale = (x: number) => { scales.push(x); };
+  drawFrame(ctx, 1920, 1080, film, 0, {}, { ...DEFAULT_MOTION, intensity: 0, landing: "spring" });
+  assert.deepEqual(scales, [1]);
 });
 
 function fakeMedia() {
@@ -90,4 +113,12 @@ test("a zoom moves in on its point as the block plays", async () => {
   assert.equal(zoomAt(z, 0).scale, 1);
   assert.ok(zoomAt(z, 1).scale > 1.9);
   assert.ok(zoomAt(z, 1).x > 0.7);
+});
+
+test("motion strength also bounds camera zoom and its default push", async () => {
+  const { zoomAt } = await import("./draw");
+  const z = { x: 0.8, y: 0.2, scale: 2 };
+  assert.deepEqual(zoomAt(z, 0.5, 0), { x: 0.5, y: 0.5, scale: 1 });
+  assert.deepEqual(zoomAt(undefined, 0.5, 0), { x: 0.5, y: 0.5, scale: 1 });
+  assert.ok(zoomAt(z, 1, 0.5).scale < zoomAt(z, 1, 1).scale);
 });

@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { DEFAULT_SHEET, blockAt, layout, mediaNames, parseSheet, type Timeline } from "../../kinetic/beats";
-import { drawFrame, type Media } from "../../kinetic/draw";
+import { DEFAULT_SHEET, layout, parseSheet, type Timeline } from "../../kinetic/beats";
+import { setTempo } from "../../kinetic/controls";
+import { DEFAULT_MOTION, drawFrame, type Media, type Motion } from "../../kinetic/draw";
 import { insertLine, kindOf, slugName, uniqueName } from "../../kinetic/media";
+import { seekSeconds, syncClips } from "../../kinetic/playback";
+import { referenceStates, TEMPLATES } from "../../kinetic/templates";
 import { defaultKv } from "../../story/kv";
 import { createRunStore, type Run } from "../../story/runs";
 import { makeMusic, quoteMusic } from "../actions";
@@ -37,12 +40,12 @@ function loadEntry(name: string, kind: "image" | "clip", url: string): Promise<E
 }
 
 /** Draws one frame with motion blur: a few moments across the shutter, averaged. */
-function frame(main: HTMLCanvasElement, tmp: HTMLCanvasElement, timeline: Timeline, seconds: number, media: Media) {
+function frame(main: HTMLCanvasElement, tmp: HTMLCanvasElement, timeline: Timeline, seconds: number, media: Media, motion: Motion) {
   const mc = main.getContext("2d")!, tc = tmp.getContext("2d")!;
   const N = 4, shutter = (1 / FPS) * 0.9;
   for (let k = 0; k < N; k++) {
     tc.clearRect(0, 0, W, H);
-    if (!drawFrame(tc, W, H, timeline, seconds + (k / (N - 1) - 0.5) * shutter, media)) { mc.fillStyle = "#0a0b0c"; mc.fillRect(0, 0, W, H); return; }
+    if (!drawFrame(tc, W, H, timeline, seconds + (k / (N - 1) - 0.5) * shutter, media, motion)) { mc.fillStyle = "#0a0b0c"; mc.fillRect(0, 0, W, H); return; }
     mc.globalAlpha = 1 / (k + 1);
     mc.drawImage(tmp, 0, 0);
   }
@@ -73,6 +76,7 @@ export function Kinetic() {
   const [music, setMusic] = useState<{ url: string; name: string } | null>(null);
   const [nudge, setNudge] = useState(0);
   const [hits, setHits] = useState(true);
+  const [motion, setMotion] = useState<Motion>(DEFAULT_MOTION);
   const [playing, setPlaying] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [done, setDone] = useState<{ url: string; name: string } | null>(null);
@@ -82,10 +86,13 @@ export function Kinetic() {
   const [price, setPrice] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [playhead, setPlayhead] = useState<number | null>(null);
   const parsed = useMemo(() => parseSheet(sheet), [sheet]);
   const timeline = useMemo(() => layout(parsed), [parsed]);
   const media = useMemo<Media>(() => Object.fromEntries(entries.map((e) => [e.name, { el: e.el, width: e.width, height: e.height }])), [entries]);
+  const clipEls = useMemo(() => Object.fromEntries(entries.filter((e) => e.kind === "clip").map((e) => [e.name, e.el as HTMLVideoElement])), [entries]);
   const seconds = Math.min(180, Math.max(5, Math.ceil(timeline.totalSeconds) + 2));
+  const previewSeconds = seekSeconds(timeline, playhead ?? Math.min(timeline.secondsPerBeat * 0.6, Math.max(0, timeline.totalSeconds - 0.01)));
   const canvas = useRef<HTMLCanvasElement>(null);
   const tmp = useRef<HTMLCanvasElement | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
@@ -95,7 +102,16 @@ export function Kinetic() {
   useEffect(() => { tmp.current = document.createElement("canvas"); tmp.current.width = W; tmp.current.height = H; }, []);
   useEffect(() => { void createRunStore(defaultKv()).list().then((all) => setGallery(all.filter((r) => r.kind !== "audio").slice(0, 24))).catch(() => undefined); }, []);
   useEffect(() => { void quoteMusic(seconds).then(setPrice).catch(() => setPrice(null)); }, [seconds]);
-  useEffect(() => { if (canvas.current && tmp.current && !playing) frame(canvas.current, tmp.current, timeline, Math.min(timeline.secondsPerBeat * 0.6, Math.max(0, timeline.totalSeconds - 0.01)), media); }, [timeline, media, playing]);
+  useEffect(() => {
+    if (!canvas.current || !tmp.current || playing) return;
+    const draw = () => frame(canvas.current!, tmp.current!, timeline, previewSeconds, media, motion);
+    syncClips(clipEls, timeline, previewSeconds, false);
+    draw();
+    // A video paints its new frame asynchronously after currentTime changes.
+    const clips = Object.values(clipEls);
+    clips.forEach((clip) => clip.addEventListener("seeked", draw));
+    return () => clips.forEach((clip) => clip.removeEventListener("seeked", draw));
+  }, [timeline, media, clipEls, playing, previewSeconds, motion]);
   useEffect(() => () => { run.current?.stop(); grab.current?.stop(); }, []);
 
   const names = entries.map((e) => e.name);
@@ -147,8 +163,8 @@ export function Kinetic() {
       recorder.start(250); setExporting(true);
     }
     setPlaying(true);
-    let raf = 0, stopped = false, current = -1;
-    const clips = () => entries.filter((e) => e.kind === "clip").map((e) => e.el as HTMLVideoElement);
+    let raf = 0, stopped = false;
+    const clips = () => Object.values(clipEls);
     const finish = async () => {
       if (stopped) return; stopped = true; cancelAnimationFrame(raf); window.clearTimeout(delay); el?.pause(); clips().forEach((v) => v.pause());
       if (recorder && recorder.state !== "inactive") {
@@ -162,13 +178,8 @@ export function Kinetic() {
     const tick = () => {
       const t = ac.currentTime - t0;
       if (t >= timeline.totalSeconds + (record ? 0.4 : 0)) return void finish();
-      const at = blockAt(timeline, Math.max(0, t));
-      if (at && at.index !== current) {
-        current = at.index; clips().forEach((v) => v.pause());
-        const b = at.item.block;
-        if (b.kind === "clip") { const v = entries.find((e) => e.name === b.name)?.el as HTMLVideoElement | undefined; if (v) { v.currentTime = 0; void v.play().catch(() => undefined); } }
-      }
-      frame(canvas.current!, tmp.current!, timeline, Math.max(0, t), media);
+      syncClips(clipEls, timeline, Math.max(0, t), true);
+      frame(canvas.current!, tmp.current!, timeline, Math.max(0, t), media, motion);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -210,7 +221,7 @@ export function Kinetic() {
     } catch { setProblem("Screen recording wasn't started. Choose a tab or window when your browser asks."); }
   }
 
-  const used = new Set(mediaNames(parsed.blocks));
+  const references = referenceStates(sheet, names);
 
   return (
     <div className="app">
@@ -225,17 +236,35 @@ export function Kinetic() {
 
           <div className="kn-grid">
             <div>
-              <label className="wf-field"><span>The film. <b>bpm 150</b> sets the tempo. One block per line: <code>WORDS | beats | style</code> (white, green, flip, invert, red), <code>@image name | beats | label</code>, <code>@clip name | beats | label | zoom 0.7 0.4 2.2</code>, <code>@count $0.07 | beats | label</code></span>
+              <h2 className="ads-h">Start with a production</h2>
+              <div className="kn-templates" role="group" aria-label="Kinetic templates">
+                {TEMPLATES.map((template) => (
+                  <button key={template.id} className="pill" aria-pressed={sheet === template.sheet} onClick={() => { setSheet(template.sheet); setPlayhead(null); setDone(null); }}>
+                    <b>{template.name}</b><small>{template.description}</small>
+                  </button>
+                ))}
+              </div>
+              <h2 className="ads-h">Timing and motion</h2>
+              <label className="wf-field"><span>Tempo · {parsed.bpm} BPM</span><input key={sheet} aria-label="Tempo BPM" type="number" min={60} max={220} step={1} defaultValue={parsed.bpm} onBlur={(e) => setSheet((current) => setTempo(current, e.target.valueAsNumber))} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} /></label>
+              <label className="wf-field"><span>Landing</span><select aria-label="Landing motion" value={motion.landing} onChange={(e) => setMotion((old) => ({ ...old, landing: e.target.value as Motion["landing"] }))}><option value="smooth">Smooth</option><option value="spring">Spring</option></select></label>
+              <label className="wf-field"><span>Word and camera motion · {Math.round(motion.intensity * 100)}%</span><input aria-label="Motion strength" type="range" min={0} max={1.5} step={0.05} value={motion.intensity} onChange={(e) => setMotion((old) => ({ ...old, intensity: e.target.valueAsNumber }))} /></label>
+              <label className="wf-field"><span>Whip pan · {motion.whipBeats === 0 ? "hard cut" : `${motion.whipBeats.toFixed(2)} beats`}</span><input aria-label="Whip-pan length" type="range" min={0} max={1} step={0.05} value={motion.whipBeats} onChange={(e) => setMotion((old) => ({ ...old, whipBeats: e.target.valueAsNumber }))} /></label>
+              <label className="wf-field"><span>The film. <b>bpm {parsed.bpm}</b> sets the tempo. One block per line: <code>WORDS | beats | style</code> (white, green, flip, invert, red), <code>@image name | beats | label</code>, <code>@clip name | beats | label | zoom 0.7 0.4 2.2</code>, <code>@count $0.07 | beats | label</code></span>
                 <textarea className="kn-sheet" rows={14} value={sheet} spellCheck={false} onChange={(e) => setSheet(e.target.value)} />
               </label>
               {parsed.problems.map((p) => <p key={p} className="library-error" role="alert">{p}</p>)}
-              {[...used].filter((n) => !names.includes(n)).map((n) => <p key={n} className="library-error" role="alert">The film uses “{n}” but it isn’t added yet.</p>)}
+              {references.filter((ref) => !ref.ready).map((ref) => <p key={ref.name} className="library-error" role="alert">The film uses “{ref.name}” but it isn’t added yet.</p>)}
 
               <h2 className="ads-h">Pictures and clips</h2>
               <div className="cm-row">
                 <label className="pill">Add files<input type="file" multiple accept="image/*,video/*" hidden onChange={(e) => { const f = e.target.files; if (f?.length) void addFiles(f); e.target.value = ""; }} /></label>
                 {capturing ? <button className="fire" onClick={() => grab.current?.stop()}>Stop recording</button> : <button className="pill" onClick={() => void startCapture()} title="Record haggs or any tab as a clip. Open the page you want to show in another tab first.">Record the app</button>}
               </div>
+              {references.length > 0 && (
+                <ul className="kn-refs" aria-label="Media references">
+                  {references.map((ref) => <li key={ref.name} className={ref.ready ? "ready" : "missing"}><span aria-hidden>{ref.ready ? "✓" : "○"}</span><b>{ref.name}</b><small>{ref.kind} · {ref.ready ? "ready" : "add below"}</small></li>)}
+                </ul>
+              )}
               {entries.length > 0 && (
                 <ul className="kn-media">
                   {entries.map((e) => (
@@ -274,6 +303,9 @@ export function Kinetic() {
             </div>
             <div>
               <canvas ref={canvas} width={W} height={H} className="kn-canvas" aria-label="Preview" />
+              <label className="wf-field"><span>Seek the preview · {previewSeconds.toFixed(2)} / {timeline.totalSeconds.toFixed(2)} seconds</span>
+                <input aria-label="Seek preview" type="range" min={0} max={Math.max(0.001, timeline.totalSeconds)} step={0.01} value={previewSeconds} disabled={playing || timeline.totalSeconds === 0} onChange={(e) => setPlayhead(seekSeconds(timeline, e.target.valueAsNumber))} />
+              </label>
               <div className="cm-row">
                 {playing && !exporting ? <button className="fire" onClick={() => run.current?.stop()}>Stop</button> : <button className="fire" disabled={exporting || parsed.blocks.length === 0} onClick={() => void play(false)}>Play</button>}
                 <button className="pill" disabled={playing || parsed.blocks.length === 0} onClick={() => void play(true)}>{exporting ? "Recording…" : "Export video"}</button>
