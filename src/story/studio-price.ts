@@ -8,6 +8,7 @@ export const H3_RATE_SOURCE = "https://docs.comfy.org/tutorials/partner-nodes/pr
 export const COMFY_UNIT_SOURCE = "https://support.comfy.org/articles/5846341390-how-credits-work-in-comfy";
 
 const number = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+const creditLabel = (credits: number) => `Est. ${number(credits)} credit${credits === 1 ? "" : "s"}`;
 
 export type StudioPrice = {
   label: string;
@@ -37,7 +38,7 @@ export function studioPrice(input: {
     if (usd == null || !Number.isFinite(usd) || usd < 0) return unavailable();
     const haggsCredits = creditsOf(usd);
     return {
-      label: `Est. ${number(haggsCredits)} credits`,
+      label: creditLabel(haggsCredits),
       detail: "Model-table estimate for these settings; the current provider rate is unverified. Provider credits and Haggs credits have different values. This is not a spending limit.",
       usd, comfyCredits: null, haggsCredits,
     };
@@ -56,7 +57,7 @@ export function studioPrice(input: {
   // Match existing plan accounting, including its USD rounding; do not change it.
   const haggsCredits = creditsOf(cloudEstimate(options));
   return {
-    label: `Est. ${number(haggsCredits)} credits`,
+    label: creditLabel(haggsCredits),
     detail: `${seconds}s at ${resolution}. Your Comfy key: ${number(comfyCredits)} Comfy credits. Haggs plan: ${number(haggsCredits)} Haggs credits. Rates checked ${H3_RATE_CHECKED}; estimates, not a spending limit.`,
     usd, comfyCredits, haggsCredits,
   };

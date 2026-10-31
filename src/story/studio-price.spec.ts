@@ -58,3 +58,9 @@ test("unknown models are unavailable; other current-settings table prices show c
   assert.equal(known.comfyCredits, null);
   assert.equal(known.haggsCredits, 25);
 });
+
+test("a one-credit estimate is singular and the cent conversion boundary stays explicit", () => {
+  const input = { modelId: "unknown/model", settings: {}, referenceCount: 0, firstFrame: false };
+  assert.equal(studioPrice({ ...input, otherUsd: 0.01 }).label, "Est. 1 credit");
+  assert.equal(studioPrice({ ...input, otherUsd: 0.010000001 }).label, "Est. 2 credits");
+});
