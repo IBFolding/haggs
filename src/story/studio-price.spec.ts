@@ -14,7 +14,9 @@ test("campaign: selected 4s agrees with settled 108.62 Comfy credits, not the 6s
   assert.equal(selected.comfyCredits, 108.62);
   assert.equal(selected.usd, 0.5148);
   assert.equal(selected.haggsCredits, 52);
-  assert.match(selected.label, /108.62 Comfy \/ 52 Haggs credits/);
+  assert.equal(selected.label, "Est. 52 credits");
+  assert.match(selected.detail, /108\.62 Comfy credits/);
+  assert.match(selected.detail, /52 Haggs credits/);
   assert.match(selected.detail, /4s at 768P/);
   assert.match(selected.detail, /estimates, not a spending limit/);
 });
@@ -46,13 +48,19 @@ test("invalid or incomplete configurations never reuse a previous price", () => 
   assert.equal(estimate(4).comfyCredits, 108.62);
 });
 
-test("unknown models are unavailable; other current-settings table prices remain explicitly unverified USD estimates", () => {
+test("unknown models are unavailable; other current-settings table prices show credits with an unverified estimate detail", () => {
   const input = { modelId: "unknown/model", settings: {}, referenceCount: 0, firstFrame: false };
   assert.equal(studioPrice(input).label, "Estimate unavailable");
   for (const otherUsd of [NaN, Infinity, -1]) assert.equal(studioPrice({ ...input, otherUsd }).usd, null);
   const known = studioPrice({ ...input, otherUsd: 0.25 });
-  assert.equal(known.label, "Est. $0.250 USD");
+  assert.equal(known.label, "Est. 25 credits");
   assert.match(known.detail, /current provider rate is unverified/);
   assert.equal(known.comfyCredits, null);
-  assert.equal(known.haggsCredits, null);
+  assert.equal(known.haggsCredits, 25);
+});
+
+test("a one-credit estimate is singular and the cent conversion boundary stays explicit", () => {
+  const input = { modelId: "unknown/model", settings: {}, referenceCount: 0, firstFrame: false };
+  assert.equal(studioPrice({ ...input, otherUsd: 0.01 }).label, "Est. 1 credit");
+  assert.equal(studioPrice({ ...input, otherUsd: 0.010000001 }).label, "Est. 2 credits");
 });
