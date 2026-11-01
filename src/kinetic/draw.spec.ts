@@ -8,7 +8,7 @@ import { layout, parseSheet } from "./beats";
 function fake() {
   const calls: { op: string; args: unknown[]; fill?: string }[] = [];
   const ctx: Record<string, unknown> = { fillStyle: "", font: "", textAlign: "", textBaseline: "", globalAlpha: 1 };
-  for (const op of ["save", "restore", "translate", "scale", "transform", "beginPath", "rect", "clip"]) ctx[op] = () => undefined;
+  for (const op of ["save", "restore", "translate", "scale", "transform", "beginPath", "rect", "clip", "roundRect", "fill", "strokeRect"]) ctx[op] = () => undefined;
   ctx.fillRect = (...args: unknown[]) => calls.push({ op: "fillRect", args, fill: String(ctx.fillStyle) });
   ctx.fillText = (...args: unknown[]) => calls.push({ op: "fillText", args, fill: String(ctx.fillStyle) });
   ctx.measureText = (t: string) => ({ width: t.length * 100 });
@@ -130,4 +130,42 @@ test("motion strength also bounds camera zoom and its default push", async () =>
   assert.deepEqual(zoomAt(z, 0.5, 0), { x: 0.5, y: 0.5, scale: 1 });
   assert.deepEqual(zoomAt(undefined, 0.5, 0), { x: 0.5, y: 0.5, scale: 1 });
   assert.ok(zoomAt(z, 1, 0.5).scale < zoomAt(z, 1, 1).scale);
+});
+
+test("a theme changes the colours: the accent is the flip ground and the ink is the dark ground", () => {
+  assert.equal(palette("flip", { accent: "#ff7a00" }).bg, "#ff7a00");
+  assert.equal(palette("white", { ink: "#101828" }).bg, "#101828");
+  const { ctx, calls } = fake();
+  drawFrame(ctx, 1920, 1080, layout(parseSheet("bpm 120\nHI | 2 | flip")), 0.4, {}, DEFAULT_MOTION, { theme: { accent: "#ff7a00" } });
+  assert.ok(calls.some((c) => c.op === "fillRect" && c.fill === "#ff7a00"));
+});
+
+test("a zoom-through cut still shows both blocks at the boundary", () => {
+  const t = layout(parseSheet("bpm 120\nHELLO | 2 | white\nWORLD | 4 | flip"));
+  const { ctx, calls } = fake();
+  drawFrame(ctx, 1920, 1080, t, 0.95, {}, DEFAULT_MOTION, { transition: "zoom" });
+  const words = calls.filter((c) => c.op === "fillText").map((c) => c.args[0]);
+  assert.ok(words.includes("HELLO") && words.includes("WORLD"));
+});
+
+test("a stack shows more of its words as the beats pass", () => {
+  const t = layout(parseSheet("bpm 120\n@stack ONE / TWO / THREE | 6 | white"));
+  const shown = (s: number) => { const { ctx, calls } = fake(); drawFrame(ctx, 1920, 1080, t, s); return calls.filter((c) => c.op === "fillText").map((c) => c.args[0]); };
+  assert.deepEqual(shown(0.1), ["ONE"]);
+  assert.deepEqual(shown(1.2), ["ONE", "TWO"]);
+  assert.deepEqual(shown(2.6), ["ONE", "TWO", "THREE"]);
+});
+
+test("a bar shows its percentage rising to the value and its label", () => {
+  const t = layout(parseSheet("bpm 120\n@bar 80 | 4 | SHIPPED"));
+  const shown = (s: number) => { const { ctx, calls } = fake(); drawFrame(ctx, 1920, 1080, t, s); return calls.filter((c) => c.op === "fillText").map((c) => String(c.args[0])); };
+  assert.ok(shown(0.2).some((x) => /^\d+%$/.test(x) && x !== "80%"));
+  assert.ok(shown(1.9).includes("80%"));
+  assert.ok(shown(1.9).includes("SHIPPED"));
+});
+
+test("the frame works at a vertical size too, with the same words", () => {
+  const { ctx, calls } = fake();
+  assert.equal(drawFrame(ctx, 720, 1280, layout(parseSheet("bpm 120\nVERTICAL | 2 | green")), 0.5), true);
+  assert.ok(calls.some((c) => c.op === "fillText" && c.args[0] === "VERTICAL"));
 });
