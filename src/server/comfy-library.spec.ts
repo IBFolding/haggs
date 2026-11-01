@@ -44,3 +44,28 @@ test("bundled LTX entries and graphs remain available when the cloud library is 
     assert.ok(ui.nodes.length > 0);
   } finally { globalThis.fetch = real; }
 });
+
+test("catalogLive is false when the catalog fetch throws, so unknown names stay unproven", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new Error("offline"); }) as typeof fetch;
+  const root = "/dev/null/catalog-down-" + process.pid;
+  try {
+    const { catalogLive } = await import("./comfy-library");
+    assert.equal(await indexOf(root).then(() => catalogLive(root)), false, "a cold host meeting an outage cannot prove a name missing");
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test("catalogLive is true after the catalog answers, so unknown names may 404", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify(index), { status: 200 })) as typeof fetch;
+  const root = "/dev/null/catalog-up-" + process.pid;
+  try {
+    const { catalogLive } = await import("./comfy-library");
+    await indexOf(root);
+    assert.equal(catalogLive(root), true);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
