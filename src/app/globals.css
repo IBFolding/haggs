@@ -5018,3 +5018,7 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .kn-refs li.missing > span { color: #d33; }
 .kn-refs small { color: var(--text-2); }
 @media (max-width: 480px) { .kn-templates { grid-template-columns: 1fr; } }
+
+.kn-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.kn-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-items: end; }
+.kn-options input[type=color] { width: 100%; height: 36px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
