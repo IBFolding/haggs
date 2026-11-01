@@ -4882,3 +4882,21 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .kn-media img, .kn-media video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
 .kn-gallery { margin-top: 10px; }
 .kn-gallery summary { cursor: pointer; color: var(--text-2); font-size: 13px; }
+
+/* Grey Room blockout inside the workspace: the picture and the controls side by side */
+.gr-candidate { margin: 0; display: grid; gap: 8px; max-width: 520px; }
+.gr-candidate img { width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; }
+.gr-candidate figcaption { color: var(--text-2); font-size: 13px; }
+.gr-candidate .gr-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+@media (min-width: 1100px) {
+  .gw-blockout { max-width: 1500px; }
+  .gw-blockout .gr { grid-template-columns: minmax(0, 1fr) 400px; align-items: start; column-gap: 16px; }
+  .gw-blockout .gr > * { grid-column: 1; }
+  .gw-blockout .gr > .gr-says { grid-column: 1 / -1; }
+  .gw-blockout .gr > .gr-grid { grid-column: 2; grid-row: 2 / span 6; grid-template-columns: 1fr; }
+  .gw-blockout .gr > .gr-grid .gr-plan { max-width: none; }
+}
+
+.kn-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.kn-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-items: end; }
+.kn-options input[type=color] { width: 100%; height: 36px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }

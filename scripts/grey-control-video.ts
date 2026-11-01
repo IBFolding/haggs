@@ -19,7 +19,7 @@ const start = { ...base.cam, distance: 10 };
 const keys = presetKeys(preset as Preset, start);
 const last = keys.at(-1)!;
 const scale = Number(secs) / last.t;
-const grey = { ...base, cam: start, camKeys: keys.map((k) => ({ ...k, t: +(k.t * scale).toFixed(3) })) };
+const grey = { ...base, ...(process.env.POSE === "walk" ? { pose: "walk" as const } : {}), cam: start, camKeys: keys.map((k) => ({ ...k, t: +(k.t * scale).toFixed(3) })) };
 
 async function main() {
   const ff = spawn("ffmpeg", ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(fps), "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16", out], { stdio: ["pipe", "inherit", "inherit"] });

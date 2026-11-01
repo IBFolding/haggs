@@ -5,6 +5,7 @@ import { galleryEdit } from "../../../gallery-log";
 import { track as inHeader } from "../../../../activity/activity";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
+import { figuresMarkup } from "../../../../story/grey-figure";
 import { CAM_SECONDS, PRESETS, camAt, dropKey, drawnKeys, presetKeys, setKey, wordsToKeys } from "../../../../story/grey-camera";
 import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, tidy, type GreyFrame } from "../../../../story/grey";
 import type { Shot } from "../../../../story/model";
@@ -23,7 +24,7 @@ import { creditsText } from "../../../../story/price-text";
  */
 
 /** The grey frame: a wall, a floor with a grid, and grey stand-ins lit from the light's side. Drawn the same big or small. */
-export function GreyScene({ grey, vertical, svgRef, className = "gr-view" }: { grey: GreyFrame; vertical: boolean; svgRef?: React.Ref<SVGSVGElement>; className?: string }) {
+export function GreyScene({ grey, vertical, svgRef, className = "gr-view", t = 0 }: { grey: GreyFrame; vertical: boolean; svgRef?: React.Ref<SVGSVGElement>; className?: string; /** Where in the clip this frame is, for figures that walk. */ t?: number }) {
   const aspect = vertical ? 9 / 16 : 16 / 9;
   const W = vertical ? 900 : 1600;
   const H = vertical ? 1600 : 900;
@@ -56,7 +57,8 @@ export function GreyScene({ grey, vertical, svgRef, className = "gr-view" }: { g
       <rect width={W} height={H} fill={`url(#${id}w)`} />
       <rect y={py(project(grey.cam, { x: 0, y: 0, z: ROOM * 2 }, aspect)?.v ?? 0.55)} width={W} height={H} fill={`url(#${id}f)`} />
       {view.grid.map((l, i) => <line key={i} x1={px(l[0])} y1={py(l[1])} x2={px(l[2])} y2={py(l[3])} stroke="#ffffff" strokeOpacity=".12" strokeWidth="2" />)}
-      {view.figs.map(({ s, feet, head }) => {
+      {grey.pose === "walk" && <g dangerouslySetInnerHTML={{ __html: figuresMarkup(grey, grey.cam, t, { w: W, h: H }) }} />}
+      {grey.pose !== "walk" && view.figs.map(({ s, feet, head }) => {
         const w = Math.max(18, Math.abs(py(feet.v) - py(head.v)) * 0.22);
         const shade = Math.round(150 + lit * 40);
         return (
@@ -127,7 +129,9 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
   const plan = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<null | { kind: "cam" } | { kind: "sub"; id: string } | { kind: "draw" }>(null);
   const [busy, setBusy] = useState(false);
-  const [making, setMaking] = useState<"real" | "shot" | null>(null);
+  const [making, setMaking] = useState<"real" | "frame" | "shot" | null>(null);
+  /** The first frame for the shot, made and waiting for a yes before the video is paid for. */
+  const [candidate, setCandidate] = useState<{ url: string; usd: number } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const locked = needsApproval(shot);
@@ -214,24 +218,39 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
     }
   }
 
-  /** The blockout, camera move and all, made into the finished shot: a real first frame, then a video that follows the grey one. */
+  /** Step one of the shot: the first frame, made from the blockout. It waits for a yes, so a wrong frame never costs the video. */
+  async function makeFrame() {
+    setBusy(true);
+    setMaking("frame");
+    setProblem(null);
+    try {
+      const frame = await blockoutFrame();
+      const first = await inHeader({ label: "Making the first frame", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit(realPrompt(shot.beat, grey)) }, () => runEdit({ tool: "kontext", frame, prompt: realPrompt(shot.beat, grey), ratio: vertical ? "9:16" : "16:9" }));
+      if (!first.ok) return setProblem(first.reason);
+      onTake(first.url, first.usd);
+      setCandidate({ url: first.url, usd: first.usd });
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : "That didn't work.");
+    } finally {
+      setBusy(false);
+      setMaking(null);
+    }
+  }
+
+  /** Step two: the video, from the approved frame and the blockout's camera move and figures. */
   async function makeShot() {
-    if (!onShot) return;
+    if (!onShot || !candidate) return;
     setBusy(true);
     setMaking("shot");
     setProblem(null);
-    const href = window.location.pathname + window.location.search;
     try {
-      const frame = await blockoutFrame();
-      const first = await inHeader({ label: "Making the first frame", href, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit(realPrompt(shot.beat, grey)) }, () => runEdit({ tool: "kontext", frame, prompt: realPrompt(shot.beat, grey), ratio: vertical ? "9:16" : "16:9" }));
-      if (!first.ok) return setProblem(first.reason);
-      onTake(first.url, first.usd);
-      const made = await inHeader({ label: "Making the shot from the blockout", href, failure: (x) => (x.ok ? null : x.reason) }, () => makeGreyShot({ grey: saved, frame: first.url, beat: shot.beat, vertical }));
+      const made = await inHeader({ label: "Making the shot from the blockout", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason) }, () => makeGreyShot({ grey: saved, frame: candidate.url, beat: shot.beat, vertical }));
       if (!made.ok) {
         if (made.needsKey) openKeys();
         return setProblem(`${made.reason} The first frame is kept as a take.`);
       }
-      onShot(made.url, first.usd + made.usd);
+      onShot(made.url, made.usd);
+      setCandidate(null);
     } catch (e) {
       setProblem(e instanceof Error ? e.message : "That didn't work.");
     } finally {
@@ -244,7 +263,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
     <div className="gr">
       <p className="gr-says">Work the shot out in grey. Nothing here costs anything until you make it real.</p>
 
-      <GreyScene grey={grey} vertical={vertical} svgRef={svg} />
+      <GreyScene grey={grey} vertical={vertical} svgRef={svg} t={t} />
       <TrajectoryPanel value={grey.trajectory} vertical={vertical} onChange={trajectory=>{const {trajectory:_,...rest}=grey;onGrey(trajectory?{...rest,trajectory}:rest)}} />
 
       <div className="gr-grid">
@@ -295,6 +314,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
           <label>Lens <input type="range" min={14} max={135} step={1} value={grey.cam.lens} onChange={(e) => setCam({ lens: Number(e.target.value) })} /><b>{grey.cam.lens} mm · {LENS_NAME(grey.cam.lens)}</b></label>
           <label>Camera distance <input type="range" min={1} max={12} step={0.1} value={grey.cam.distance} onChange={(e) => setCam({ distance: Number(e.target.value) })} /><b>{grey.cam.distance.toFixed(1)} m</b></label>
           <label>Light from <input type="range" min={0} max={359} step={1} value={grey.light.az} onChange={(e) => set({ ...grey, light: { ...grey.light, az: Number(e.target.value) } })} /><b>{Math.round(grey.light.az)}°</b></label>
+          <button className={`pill${saved.pose === "walk" ? " on" : ""}`} aria-pressed={saved.pose === "walk"} onClick={() => { const { pose: _p, ...rest } = saved; set(saved.pose === "walk" ? rest : { ...saved, pose: "walk" }); }} title="Figures walk toward the camera over the clip, so the video has body movement to follow">{saved.pose === "walk" ? "Figures walk" : "Figures stand"}</button>
           <label>Light height <input type="range" min={5} max={90} step={1} value={grey.light.el} onChange={(e) => set({ ...grey, light: { ...grey.light, el: Number(e.target.value) } })} /><b>{Math.round(grey.light.el)}°</b></label>
           <form className="gr-add" onSubmit={(e) => { e.preventDefault(); const v = label.trim(); if (v && grey.subjects.length < 6) set({ ...grey, subjects: [...grey.subjects, { id: `s${Date.now().toString(36)}`, label: v, x: 0, z: 0 }] }); setLabel(""); }}>
             <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Add a figure: Rowan, a car…" aria-label="Add a figure" maxLength={24} />
@@ -317,8 +337,23 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
           <small>Keeps this framing, this camera and where everyone stands. Lands as a new take.</small>
           {onShot && (
             <>
-              <button className="pill on" disabled={busy || grey.subjects.length === 0} onClick={() => void makeShot()}>{making === "shot" ? "Making the shot… about two minutes" : "Make the shot"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }) + GREY_SHOT_USD)}</span></button>
-              <small>{saved.camKeys?.length ? "Makes the first frame, then a video that follows your camera move and where everyone stands." : "Makes the first frame, then a short video from this camera. Draw a camera path above and the video follows it."} Open weights, so no partner credits; the GPU time is billed by Comfy. Lands as a video take.</small>
+              {!candidate ? (
+                <>
+                  <button className="pill on" disabled={busy || grey.subjects.length === 0} onClick={() => void makeFrame()}>{making === "frame" ? "Making the first frame…" : "Make the shot: first frame"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }))}</span></button>
+                  <small>{saved.camKeys?.length ? "Step one makes the first frame from your blockout. You approve it before the video, which follows your camera move and where everyone stands." : "Step one makes the first frame from your blockout. You approve it before the video. Draw a camera path above and the video follows it."}</small>
+                </>
+              ) : (
+                <figure className="gr-candidate" aria-label="The first frame">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={candidate.url} alt="The first frame of the shot" />
+                  <figcaption>Is this the look? The video starts from it and keeps the people, clothes and place.</figcaption>
+                  <div className="gr-row">
+                    <button className="fire" disabled={busy} onClick={() => void makeShot()}>{making === "shot" ? "Making the shot… about two minutes" : "Yes, make the video"} <span className="cost">about {MONEY(GREY_SHOT_USD)}</span></button>
+                    <button className="plain" disabled={busy} onClick={() => setCandidate(null)}>Not this one</button>
+                  </div>
+                  <small>Open weights, so no partner credits; the GPU time is billed by Comfy. Lands as a video take.</small>
+                </figure>
+              )}
             </>
           )}
         </div>

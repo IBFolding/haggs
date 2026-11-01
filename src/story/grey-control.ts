@@ -1,5 +1,6 @@
 import { ROOM, describeGrey, project, type GreyFrame } from "./grey";
 import { camAt } from "./grey-camera";
+import { figuresMarkup } from "./grey-figure";
 
 /**
  * The grey blockout as plain pictures, one per moment, with the camera where its path puts it.
@@ -20,7 +21,7 @@ export function greyFrameSvg(grey: GreyFrame, t: number, size: { w: number; h: n
     if (c && d) lines.push(`<line x1="${px(c.u)}" y1="${py(c.v)}" x2="${px(d.u)}" y2="${py(d.v)}"/>`);
   }
   const lit = Math.cos(((grey.light.az - cam.angle) * Math.PI) / 180);
-  const figures = grey.subjects.flatMap((s) => {
+  const figures = grey.pose === "walk" ? [figuresMarkup(grey, cam, t, size)] : grey.subjects.flatMap((s) => {
     const feet = project(cam, { x: s.x, y: 0, z: s.z }, aspect), head = project(cam, { x: s.x, y: 1.75, z: s.z }, aspect);
     return feet && head ? [{ feet, head, depth: feet.depth }] : [];
   }).sort((p, q) => q.depth - p.depth).map(({ feet, head }) => {
@@ -66,5 +67,5 @@ export function fitToClip(grey: GreyFrame): GreyFrame {
 /** What the shot should be, in words: the beat, the camera and light, and that the people stay as they are in the first frame. */
 export function shotPrompt(beat: string, g: GreyFrame): string {
   const who = g.subjects.map((s) => s.label).filter(Boolean).join(", ");
-  return `${beat.trim().replace(/[.\s]+$/, "")}. ${who ? `The people are: ${who}. ` : ""}${describeGrey(g)} The camera moves smoothly, as the control video shows. Natural, restrained motion. Keep the people, clothes, place and light exactly as in the first frame.`;
+  return `${beat.trim().replace(/[.\s]+$/, "")}. ${who ? `The people are: ${who}. ` : ""}${g.pose === "walk" ? "They walk toward the camera. " : ""}${describeGrey(g)} The camera moves smoothly, as the control video shows. Natural, restrained motion. Keep the people, clothes, place and light exactly as in the first frame.`;
 }
