@@ -9,7 +9,9 @@ export type Zoom = { x: number; y: number; scale: number };
 export type WordsBlock = { kind?: undefined; text: string; beats: number; style: Style };
 export type MediaBlock = { kind: "image" | "clip"; name: string; beats: number; label: string; zoom?: Zoom };
 export type CountBlock = { kind: "count"; value: number; prefix: string; suffix: string; decimals: number; beats: number; label: string };
-export type Block = WordsBlock | MediaBlock | CountBlock;
+export type StackBlock = { kind: "stack"; words: string[]; beats: number; style: Style };
+export type BarBlock = { kind: "bar"; value: number; beats: number; label: string };
+export type Block = WordsBlock | MediaBlock | CountBlock | StackBlock | BarBlock;
 export type Sheet = { bpm: number; blocks: Block[]; problems: string[] };
 
 export const MAX_BLOCKS = 120;
@@ -53,7 +55,7 @@ const beatsOf = (text: string | undefined, line: number, problems: string[]): nu
 };
 
 /** "@image name | beats | label", "@clip name | beats | label | zoom x y scale", "@count 26 | beats | label". */
-function parseSpecial(raw: string, line: number, problems: string[]): MediaBlock | CountBlock | null {
+function parseSpecial(raw: string, line: number, problems: string[]): MediaBlock | CountBlock | StackBlock | BarBlock | null {
   const [head = "", beatsText, labelText = "", extra = ""] = raw.split("|").map((x) => x.trim());
   const [kind = "", ...rest] = head.slice(1).split(/\s+/);
   const arg = rest.join(" ");
@@ -72,7 +74,17 @@ function parseSpecial(raw: string, line: number, problems: string[]): MediaBlock
     if (!m) { problems.push(`Line ${line}: @count needs a number like 26, $0.07 or 99%.`); return null; }
     return { kind: "count", value: Number(m[2]), prefix: m[1]!, suffix: m[3]!, decimals: (m[2]!.split(".")[1] ?? "").length, beats, label };
   }
-  problems.push(`Line ${line}: I don't know @${kind}. Use @image, @clip or @count.`);
+  if (kind === "stack") {
+    const words = arg.split("/").map((x) => x.trim()).filter(Boolean).slice(0, 6).map((x) => x.slice(0, 24));
+    if (!words.length) { problems.push(`Line ${line}: @stack needs words separated by /.`); return null; }
+    const style = (extra || labelText).toLowerCase();
+    return { kind: "stack", words, beats, style: (STYLES as readonly string[]).includes(style) ? (style as Style) : "white" };
+  }
+  if (kind === "bar") {
+    if (!/^\d+(\.\d+)?$/.test(arg)) { problems.push(`Line ${line}: @bar needs a percentage like 80.`); return null; }
+    return { kind: "bar", value: clamp(Number(arg), 0, 100), beats, label };
+  }
+  problems.push(`Line ${line}: I don't know @${kind}. Use @image, @clip, @count, @stack or @bar.`);
   return null;
 }
 
@@ -120,3 +132,9 @@ PRESS PLAY. | 2 | green
 @count 26 | 3 | READY-MADE APPS
 MADE IN HAGGS. | 4 | invert
 `;
+
+/** The sheet with its tempo line set to a new tempo (added at the top when there isn't one). */
+export function withBpm(sheet: string, bpm: number): string {
+  const value = Math.round(bpm * 100) / 100;
+  return /^bpm\s+\d/im.test(sheet) ? sheet.replace(/^bpm\s+[\d.]+/im, `bpm ${value}`) : `bpm ${value}\n${sheet}`;
+}

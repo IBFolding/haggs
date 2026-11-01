@@ -93,3 +93,30 @@ test("media names a film uses are listed once, in order", async () => {
   const { mediaNames } = await import("./beats");
   assert.deepEqual(mediaNames(parseSheet("@image a | 2\n@clip b | 2\n@image a | 2\nWORDS").blocks), ["a", "b"]);
 });
+
+test("a stack lands its words one after another within its beats", () => {
+  const p = parseSheet("@stack ONE / TWO / THREE | 4 | green");
+  assert.deepEqual(p.problems, []);
+  assert.deepEqual(p.blocks[0], { kind: "stack", words: ["ONE", "TWO", "THREE"], beats: 4, style: "green" });
+  assert.equal((parseSheet("@stack A | 2").blocks[0] as { words: string[] }).words.length, 1);
+  assert.equal((parseSheet("@stack " + Array.from({ length: 12 }, (_, i) => "W" + i).join(" / ")).blocks[0] as { words: string[] }).words.length, 6);
+});
+
+test("a bar fills to a percentage with a label", () => {
+  const p = parseSheet("@bar 80 | 3 | SHIPPED\n@bar 250 | 2");
+  assert.deepEqual(p.blocks[0], { kind: "bar", value: 80, beats: 3, label: "SHIPPED" });
+  assert.equal((p.blocks[1] as { value: number }).value, 100);
+});
+
+test("bad stack and bar lines are reported", () => {
+  const p = parseSheet("@stack | 2\n@bar lots | 2");
+  assert.equal(p.blocks.length, 0);
+  assert.equal(p.problems.length, 2);
+});
+
+test("withBpm sets the tempo line, replacing an old one or adding one at the top", async () => {
+  const { withBpm } = await import("./beats");
+  assert.equal(withBpm("bpm 120\nA | 2", 150), "bpm 150\nA | 2");
+  assert.equal(withBpm("A | 2\n", 98.5), "bpm 98.5\nA | 2\n");
+  assert.equal(parseSheet(withBpm("A | 2", 33)).bpm, 60);
+});
