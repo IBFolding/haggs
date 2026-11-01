@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { GREY_SHOT_OUTPUT, greyShotWorkflow } from "./grey-shot";
+import { CONTROL_STRENGTH, GREY_SHOT_OUTPUT, greyShotWorkflow } from "./grey-shot";
 
 const make = (over = {}) => greyShotWorkflow({ prompt: "A woman stands in a hall.", image: "first.png", video: "control.mp4", ...over }) as unknown as Record<string, { class_type: string; inputs: Record<string, unknown> }>;
 
@@ -28,4 +28,11 @@ test("the saved video is the output node, and the graph is whole", () => {
   assert.equal(g[GREY_SHOT_OUTPUT]!.class_type, "SaveVideo");
   const ids = new Set(Object.keys(g));
   for (const node of Object.values(g)) for (const v of Object.values(node.inputs)) if (Array.isArray(v) && typeof v[0] === "string") assert.ok(ids.has(v[0]), `a link points at a node that is missing: ${v[0]}`);
+});
+
+test("a walking figure is followed more loosely than a standing one", () => {
+  assert.ok(CONTROL_STRENGTH.walk < CONTROL_STRENGTH.stand);
+  assert.equal(make()["129:115"]!.inputs.strength, 1);
+  assert.equal(make({ strength: CONTROL_STRENGTH.walk })["129:115"]!.inputs.strength, 0.7);
+  assert.equal(make({ strength: 5 })["129:115"]!.inputs.strength, 1, "never above one");
 });

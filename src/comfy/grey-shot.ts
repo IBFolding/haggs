@@ -14,13 +14,17 @@ export const GREY_SHOT_OUTPUT = "68";
 export const GREY_SHOT_SECONDS = 5;
 export const GREY_SHOT_FPS = 25;
 
-export function greyShotWorkflow({ prompt, image, video, seed = 0, vertical = false }: { prompt: string; image: string; video: string; seed?: number; vertical?: boolean }): ApiPrompt {
+/** How tightly the model follows the grey video. Stand-in figures are crude, so a walking one is followed more loosely: the camera and place hold, the body is left to the model. */
+export const CONTROL_STRENGTH = { stand: 1, walk: 0.7 } as const;
+
+export function greyShotWorkflow({ prompt, image, video, seed = 0, vertical = false, strength = 1 }: { prompt: string; image: string; video: string; seed?: number; vertical?: boolean; strength?: number }): ApiPrompt {
   const g = JSON.parse(JSON.stringify(graph)) as Record<string, { inputs: Record<string, unknown> }>;
   g["200"]!.inputs.image = image;
   g["199"]!.inputs.file = video;
   // With prompt enhance off the switch reads this text; the enhancer's own prompt box is never used.
   g["129:211"]!.inputs.on_false = prompt.trim().slice(0, 1500);
   g["129:704"]!.inputs.seed = Math.max(0, Math.floor(seed));
+  g["129:115"]!.inputs.strength = Math.min(1, Math.max(0.2, strength));
   g["129:113"]!.inputs.value = vertical ? 704 : 1280;
   g["129:98"]!.inputs.value = vertical ? 1280 : 704;
   return g as unknown as ApiPrompt;

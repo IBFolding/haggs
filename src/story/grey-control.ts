@@ -67,5 +67,5 @@ export function fitToClip(grey: GreyFrame): GreyFrame {
 /** What the shot should be, in words: the beat, the camera and light, and that the people stay as they are in the first frame. */
 export function shotPrompt(beat: string, g: GreyFrame): string {
   const who = g.subjects.map((s) => s.label).filter(Boolean).join(", ");
-  return `${beat.trim().replace(/[.\s]+$/, "")}. ${who ? `The people are: ${who}. ` : ""}${g.pose === "walk" ? "They walk toward the camera. " : ""}${describeGrey(g)} The camera moves smoothly, as the control video shows. Natural, restrained motion. Keep the people, clothes, place and light exactly as in the first frame.`;
+  return `${beat.trim().replace(/[.\s]+$/, "")}. ${who ? `The people are: ${who}. ` : ""}${g.pose === "walk" ? (g.subjects.length === 1 ? "The one person walks toward the camera, facing it, with natural arms and a relaxed gait. Nobody else is in the shot. " : `The ${g.subjects.length} people walk toward the camera, facing it, with natural arms and a relaxed gait. Nobody else is in the shot. `) : ""}${describeGrey(g)} The camera moves smoothly, as the control video shows. Natural, restrained motion. Keep the people, clothes, place and light exactly as in the first frame.`;
 }

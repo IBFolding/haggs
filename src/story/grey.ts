@@ -77,7 +77,7 @@ export function describeGrey(g: GreyFrame): string {
 /** The prompt that turns the grey blockout into the picture: what it is, what must not move. */
 export function realPrompt(beat: string, g: GreyFrame): string {
   const who = g.subjects.map((s) => s.label).filter(Boolean).join(", ");
-  return `Turn this grey 3D blockout into a photoreal cinematic film still. ${beat.trim().replace(/[.\s]+$/, "")}. ${who ? `The grey figures are: ${who}. ` : ""}${describeGrey(g)} Keep the composition exactly as the blockout shows it: the camera angle, where every figure stands, their size in the frame, the horizon. Replace the grey with real people, clothes, materials and a real place.`;
+  return `Turn this grey 3D blockout into a photoreal cinematic film still. ${beat.trim().replace(/[.\s]+$/, "")}. ${who ? `The grey figures are: ${who}. ` : ""}${g.pose === "walk" ? (g.subjects.length === 1 ? "The one figure is walking toward the camera, facing it, so we see their face. Only this one person is in the shot. " : `The ${g.subjects.length} figures are walking toward the camera, facing it, so we see their faces. Only these ${g.subjects.length} people are in the shot. `) : ""}${describeGrey(g)} Keep the composition exactly as the blockout shows it: the camera angle, where every figure stands, their size in the frame, the horizon. Replace the grey with real people, clothes, materials and a real place.`;
 }
 
 /** A shot with a real take on it is locked: the tools that change it wait for an approval. */
