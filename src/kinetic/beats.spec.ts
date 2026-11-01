@@ -31,9 +31,18 @@ test("tempo, beats and length are kept sane", () => {
   assert.equal(parseSheet("bpm 900\nA").bpm, 220);
   assert.equal(parseSheet("A | 0.1").blocks[0]!.beats, 0.5);
   assert.equal(parseSheet("A | 99").blocks[0]!.beats, 32);
-  const many = Array.from({ length: 200 }, (_, i) => `W${i}`).join("\n");
-  assert.equal(parseSheet(many).blocks.length, 120);
-  assert.ok(parseSheet(many).problems.some((m) => /120/.test(m)));
+  const many = Array.from({ length: 500 }, () => "W | 0.5").join("\n");
+  assert.equal(parseSheet("bpm 220\n" + many).blocks.length, 400);
+  assert.ok(parseSheet("bpm 220\n" + many).problems.some((m) => /400/.test(m)));
+});
+
+test("a film runs at most five minutes, and the rest is left out with a note", () => {
+  const long = Array.from({ length: 400 }, (_, i) => `W${i} | 4`).join("\n");
+  const p = parseSheet("bpm 120\n" + long);
+  const total = layout(p).totalSeconds;
+  assert.ok(total <= 300 && total > 296, `runs ${total}s`);
+  assert.ok(p.problems.some((m) => /5 minutes/.test(m)));
+  assert.ok(layout(parseSheet("bpm 120\n" + Array.from({ length: 140 }, (_, i) => `W${i} | 4`).join("\n"))).totalSeconds > 270, "a 4.6 minute film is allowed");
 });
 
 test("long words are cut to fit on one slam", () => {

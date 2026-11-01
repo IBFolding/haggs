@@ -14,7 +14,8 @@ export type BarBlock = { kind: "bar"; value: number; beats: number; label: strin
 export type Block = WordsBlock | MediaBlock | CountBlock | StackBlock | BarBlock;
 export type Sheet = { bpm: number; blocks: Block[]; problems: string[] };
 
-export const MAX_BLOCKS = 120;
+export const MAX_BLOCKS = 400;
+export const MAX_SECONDS = 300;
 const clamp = (n: number, a: number, b: number) => Math.min(b, Math.max(a, n));
 
 export function parseSheet(text: string): Sheet {
@@ -44,6 +45,11 @@ export function parseSheet(text: string): Sheet {
     if (!words) continue;
     blocks.push({ text: words.slice(0, 40), beats, style });
   }
+  // A film is at most five minutes: whatever runs past that is left out.
+  const spb = 60 / bpm;
+  let seconds = 0, keep = 0;
+  for (const bl of blocks) { if (seconds + bl.beats * spb > MAX_SECONDS + 1e-9) break; seconds += bl.beats * spb; keep++; }
+  if (keep < blocks.length) { blocks.length = keep; problems.push("A film runs at most 5 minutes; the rest was left out."); }
   return { bpm, blocks, problems };
 }
 

@@ -6,6 +6,7 @@ import { DEFAULT_SHEET, blockAt, layout, mediaNames, parseSheet, withBpm, type T
 import { DEFAULT_THEME, FONTS, drawFrame, type Media, type Options, type Transition } from "../../kinetic/draw";
 import { TEMPLATES, buildTemplate, defaults } from "../../kinetic/templates";
 import { detectTempo } from "../../kinetic/tempo";
+import { encodeWav, joinSamples, musicParts } from "../../kinetic/audio";
 import { insertLine, kindOf, slugName, uniqueName } from "../../kinetic/media";
 import { defaultKv } from "../../story/kv";
 import { createRunStore, type Run } from "../../story/runs";
@@ -101,7 +102,7 @@ export function Kinetic() {
   const parsed = useMemo(() => parseSheet(sheet), [sheet]);
   const timeline = useMemo(() => layout(parsed), [parsed]);
   const media = useMemo<Media>(() => Object.fromEntries(entries.map((e) => [e.name, { el: e.el, width: e.width, height: e.height }])), [entries]);
-  const seconds = Math.min(180, Math.max(5, Math.ceil(timeline.totalSeconds) + 2));
+  const parts = useMemo(() => musicParts(timeline.totalSeconds + 2), [timeline.totalSeconds]);
   const canvas = useRef<HTMLCanvasElement>(null);
   const tmp = useRef<HTMLCanvasElement | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
@@ -110,7 +111,7 @@ export function Kinetic() {
 
   useEffect(() => { tmp.current = document.createElement("canvas"); tmp.current.width = W; tmp.current.height = H; }, [W, H]);
   useEffect(() => { void createRunStore(defaultKv()).list().then((all) => setGallery(all.filter((r) => r.kind !== "audio").slice(0, 24))).catch(() => undefined); }, []);
-  useEffect(() => { void quoteMusic(seconds).then(setPrice).catch(() => setPrice(null)); }, [seconds]);
+  useEffect(() => { void Promise.all(parts.map((p) => quoteMusic(p))).then((all) => setPrice(all.reduce((a, b) => a + b, 0))).catch(() => setPrice(null)); }, [parts]);
   useEffect(() => { if (canvas.current && tmp.current && !playing) frame(canvas.current, tmp.current, timeline, Math.min(timeline.secondsPerBeat * 0.6, Math.max(0, timeline.totalSeconds - 0.01)), media, options, blur); }, [timeline, media, playing, options, blur, W, H]);
   useEffect(() => () => { run.current?.stop(); grab.current?.stop(); }, []);
 
@@ -158,7 +159,7 @@ export function Kinetic() {
       const stream = canvas.current.captureStream(FPS);
       dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
       const type = ["video/mp4;codecs=avc1", "video/webm;codecs=vp9,opus", "video/webm"].find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
-      recorder = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 12_000_000 });
+      recorder = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: timeline.totalSeconds > 120 ? 6_000_000 : 12_000_000 });
       recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
       recorder.start(250); setExporting(true);
     }
@@ -214,7 +215,8 @@ export function Kinetic() {
   function contactSheet() {
     if (!tmp.current || timeline.items.length === 0) return;
     const cols = format === "vertical" ? 6 : 4, tw = format === "vertical" ? 180 : 320, th = Math.round((tw * H) / W), pad = 8, label = 18;
-    const cells = [{ t: 0.01, text: "frame 1" }, ...timeline.items.map((it, i) => ({ t: it.startSeconds + it.block.beats * timeline.secondsPerBeat * 0.6, text: `${i + 1} · ${it.startSeconds.toFixed(1)}s` }))];
+    const every = Math.max(1, Math.ceil(timeline.items.length / 59));
+    const cells = [{ t: 0.01, text: "frame 1" }, ...timeline.items.flatMap((it, i) => (i % every === 0 ? [{ t: it.startSeconds + it.block.beats * timeline.secondsPerBeat * 0.6, text: `${i + 1} · ${it.startSeconds.toFixed(1)}s` }] : []))];
     const rows = Math.ceil(cells.length / cols);
     const sheetCanvas = document.createElement("canvas");
     sheetCanvas.width = cols * (tw + pad) + pad; sheetCanvas.height = rows * (th + label + pad) + pad;
@@ -239,13 +241,27 @@ export function Kinetic() {
   }
 
   async function makeTrack() {
-    setBusy("Making the music…"); setProblem(null);
-    const r = await makeMusic(`${musicWords.trim()}. ${parsed.bpm} BPM, steady beat, no vocals`, seconds);
-    if (!r.ok) { setBusy(null); if (r.needsKey) openKeys(); return setProblem(r.reason); }
+    setProblem(null);
+    const words = `${musicWords.trim()}. ${parsed.bpm} BPM, steady beat, no vocals`;
+    const made: ArrayBuffer[] = [];
+    for (let i = 0; i < parts.length; i++) {
+      setBusy(parts.length > 1 ? `Making music, part ${i + 1} of ${parts.length}…` : "Making the music…");
+      const r = await makeMusic(words, parts[i]!);
+      if (!r.ok) { setBusy(null); if (r.needsKey) openKeys(); return setProblem(r.reason); }
+      try { made.push(await (await fetch(r.url)).arrayBuffer()); } catch { setBusy(null); return setProblem("The music was made but couldn't be loaded here. Open it from your Gallery and add it as a track."); }
+    }
     try {
-      const blob = await (await fetch(r.url)).blob();
-      await addTrack(URL.createObjectURL(blob), `Made for ${parsed.bpm} bpm`);
-    } catch { setProblem("The music was made but couldn't be loaded here. Open it from your Gallery and add it as a track."); }
+      if (made.length === 1) await addTrack(URL.createObjectURL(new Blob([made[0]!], { type: "audio/mpeg" })), `Made for ${parsed.bpm} bpm`);
+      else {
+        // Longer than the model allows in one go: decode the parts, join them with a crossfade, and keep one wav.
+        const ac = new AudioContext();
+        const bufs = await Promise.all(made.map((m) => ac.decodeAudioData(m.slice(0))));
+        const rate = bufs[0]!.sampleRate;
+        const joined = joinSamples(bufs.map((b) => b.getChannelData(0)), rate, 2);
+        void ac.close();
+        await addTrack(URL.createObjectURL(new Blob([encodeWav(joined, rate).buffer as ArrayBuffer], { type: "audio/wav" })), `Made for ${parsed.bpm} bpm, ${Math.round(joined.length / rate)} s`);
+      }
+    } catch { setProblem("The music was made but couldn't be put together here."); }
     setBusy(null);
   }
 
@@ -343,11 +359,11 @@ export function Kinetic() {
                 {music && <span className="muted">{music.name}</span>}
               </div>
               <label className="wf-field"><span>Or make one on Comfy at {parsed.bpm} bpm</span><input value={musicWords} maxLength={300} onChange={(e) => setMusicWords(e.target.value)} /></label>
-              <div className="cm-row"><button className="pill" disabled={busy !== null || musicWords.trim().length < 4} onClick={() => void makeTrack()}>{busy ?? "Make music"} {price !== null && <span className="cost">about ${price.toFixed(2)}</span>}</button></div>
+              <div className="cm-row"><button className="pill" disabled={busy !== null || musicWords.trim().length < 4} onClick={() => void makeTrack()}>{busy ?? (parts.length > 1 ? `Make music (${parts.length} parts)` : "Make music")} {price !== null && <span className="cost">about ${price.toFixed(2)}</span>}</button></div>
               {music && <div className="cm-row"><button className="pill" disabled={busy !== null} onClick={() => void findTempo()}>{busy === "Listening…" ? busy : "Find the tempo of this track"}</button></div>}
               <label className="wf-field"><span>Nudge the track (seconds; plus waits, minus skips in) to line its first beat up</span><input type="number" step={0.05} value={nudge} onChange={(e) => setNudge(Number(e.target.value) || 0)} /></label>
               <label className="cm-row"><input type="checkbox" checked={hits} onChange={(e) => setHits(e.target.checked)} /> <span>A hit on every cut</span></label>
-              <p className="muted">{parsed.blocks.length} blocks · {parsed.bpm} bpm · {timeline.totalSeconds.toFixed(1)} seconds.</p>
+              <p className="muted">{parsed.blocks.length} blocks · {parsed.bpm} bpm · {Math.floor(timeline.totalSeconds / 60)}:{String(Math.floor(timeline.totalSeconds % 60)).padStart(2, "0")}. A film can run up to 5 minutes.</p>
             </div>
             <div>
               <canvas ref={canvas} width={W} height={H} className="kn-canvas" style={{ aspectRatio: `${W} / ${H}`, ...(format === "vertical" ? { height: 680, width: "auto" } : { width: "100%" }), ...(format === "square" ? { maxWidth: 640 } : {}), margin: format === "wide" ? undefined : "0 auto" }} aria-label="Preview" />
