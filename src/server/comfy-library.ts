@@ -43,19 +43,30 @@ const dirOf = (root: string) => join(root, ".haggs", "comfy");
 /** Warm copies kept in memory, so a host with a read-only disk still fetches each file once an hour of use, not on every request. */
 const warm = new Map<string, { at: number; value: unknown }>();
 
-async function cached<T>(root: string, file: string, ttl: number, fetcher: () => Promise<T>): Promise<T> {
+/** When the remote workflow catalog last answered, per host root. Only a live catalog can prove a name does not exist. */
+const catalogLiveUntil = new Map<string, number>();
+const markCatalogLive = (root: string) => { catalogLiveUntil.set(root, Date.now() + DAY); };
+
+/** True while the last remote answer to the workflow catalog is still fresh. */
+export function catalogLive(root: string): boolean {
+  const until = catalogLiveUntil.get(root);
+  return until !== undefined && Date.now() < until;
+}
+
+async function cached<T>(root: string, file: string, ttl: number, fetcher: () => Promise<T>, onFresh?: () => void): Promise<T> {
   const path = join(dirOf(root), file);
   const held = warm.get(path);
-  if (held && Date.now() - held.at < ttl) return held.value as T;
+  if (held && Date.now() - held.at < ttl) { onFresh?.(); return held.value as T; }
   try {
     const raw = JSON.parse(await readFile(path, "utf8")) as { at: number; value: T };
-    if (Date.now() - raw.at < ttl) return raw.value;
+    if (Date.now() - raw.at < ttl) { onFresh?.(); return raw.value; }
   } catch {
     // Not cached yet.
   }
   try {
     const value = await fetcher();
     warm.set(path, { at: Date.now(), value });
+    onFresh?.();
     // Keeping a copy on disk is a convenience. A read-only disk must not make a good answer fail.
     try {
       await mkdir(join(dirOf(root), "templates"), { recursive: true });
@@ -121,7 +132,7 @@ export function templateOf(root: string, name: string): Promise<UiWorkflow> {
 type IndexCategory = { title: string; type?: string; templates: { name: string; title?: string; description?: string; tags?: string[]; models?: string[]; mediaSubtype?: string; usage?: number; io?: { inputs?: { file: string; mediaType: string }[] } }[] };
 
 export async function indexOf(root: string): Promise<Entry[]> {
-  const raw = await cached(root, "index.json", DAY, () => getJson(`${TEMPLATES}/index.json`) as Promise<IndexCategory[]>).catch(() => []);
+  const raw = await cached(root, "index.json", DAY, () => getJson(`${TEMPLATES}/index.json`) as Promise<IndexCategory[]>, () => markCatalogLive(root)).catch(() => []);
   const seen = new Map<string, Entry>();
   for (const cat of raw) {
     for (const t of cat.templates) {
