@@ -42,7 +42,7 @@ export function GreyProposalPanel({ grey, scene, vertical, onApply }: { vertical
   const latest=useRef(contextStamp);latest.current=contextStamp;
   useEffect(()=>{setQuote(null);setConsent(false);prepared.current=null;},[contextStamp]);
   useEffect(()=>()=>{epoch.current++;},[]);
-  const context=()=>proposalContext({description:scene.direction??"",references:scene.references??[],grey,scene});
+  const context=()=>proposalContext({description:(scene.direction??"").trim()||(imageIds.length?"Propose a cinematic scene using the selected reference images.":""),references:scene.references??[],grey,scene});
   async function automatic(send:boolean) {
     if(pending.current)return;
     pending.current=true;setBusy(true);setStatus("");
@@ -83,7 +83,7 @@ export function GreyProposalPanel({ grey, scene, vertical, onApply }: { vertical
       <p>{visionEnabled?"Choose up to two reference images for visual analysis. Selected previews are sent to Haggs to prepare the quote, then to Claude only after you approve the cost. Original files stay unchanged.":"Reference image analysis is not enabled. Text-only proposals and manual handoff remain available."}</p>
       {visionEnabled&&(scene.references??[]).map(ref=><label className="gr-reference-choice" key={ref.id}><input type="checkbox" aria-label={`Analyze reference ${ref.name}`} disabled={!visionEnabled||busy||(!imageIds.includes(ref.id)&&imageIds.length>=MAX_REFERENCE_IMAGES)} checked={imageIds.includes(ref.id)} onChange={e=>setImageIds(ids=>e.target.checked?[...ids,ref.id]:ids.filter(id=>id!==ref.id))}/><span>{ref.name}</span></label>)}
     </div>
-    <button className="pill" disabled={busy||!(scene.direction??"").trim()} onClick={()=>void automatic(false)}>{busy?"Working…":"Get AI proposal quote"}</button>
+    <button className="pill" disabled={busy||(!(scene.direction??"").trim()&&!imageIds.length)} onClick={()=>void automatic(false)}>{busy?"Working…":"Get AI proposal quote"}</button>
     {quote&&<div aria-label="AI proposal cost"><p>{quote.model}: estimated ${quote.estimateUsd.toFixed(4)} on your existing provider account. Actual billing may differ. Quote is valid for five minutes from quoting. This creates a proposal only, not pictures or video. {quote.imageCount?`${quote.imageCount} selected image previews are included; the estimate includes a conservative image allowance.`:"No images are included."}</p>{prepared.current?.context.images?.map((image,i)=><figure key={i}><img width={160} alt={`Image to analyze: ${image.name}`} src={`data:${image.mediaType};base64,${image.data}`}/><figcaption>{image.name}</figcaption></figure>)}<label><input type="checkbox" checked={consent} disabled={busy} onChange={e=>setConsent(e.target.checked)}/> Allow one provider request at the displayed estimate{quote.imageCount?" and share the selected image previews":""}</label><button className="pill" disabled={busy||!consent} onClick={()=>void automatic(true)}>Request AI proposal</button></div>}
     <p>Use your AI chat to propose the room, people, props, materials, light and camera. Describe the scene below, prepare a request, then paste the reply here for review. This manual handoff makes no model call from Haggs. Attach reference pictures in your chat if you want image analysis.</p>
     <button className="pill" onClick={() => { try { setRequest(manualProposalRequest({ description:scene.direction ?? "", references:scene.references ?? [], grey, scene }));setStatus(""); } catch(e) { setStatus((e as Error).message); } }}>Prepare AI request</button>
