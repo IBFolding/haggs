@@ -59,3 +59,11 @@ This resolves the database migration blocker only. Application changes are not r
 User explicitly requested AI activation and authorized a USD 100 total limit for their own spending: “jus turn ai on! cost limit for me is 100$ they can approve to go over if need when prompted.” This resolves the missing numeric owner-test budget. It does not grant automatic overage: stop before exceeding USD 100 and obtain explicit approval for a new higher limit. Each customer must set/raise their own cap; do not set USD 100 globally or identify the owner by a guessed email/user ID.
 
 No paid requests or rollout settings were changed in response yet. Current application guard still deliberately blocks all provider routes without a verified maximum; production cap UI/guards remain unreleased. Enabling the old combined switch would not enforce this newly specified limit. Finish the guarded release and verify supported per-request maximums before spending.
+
+## Guarded planning bound — implemented, release validation in progress
+
+Independent read-only review of the following change found no confirmed blocker. Official Sonnet 5.5 specifications give a 1,000,000-token context and USD 2/10 per million input/output tokens. Grey enforces 2,500 maximum output tokens, so reserving the full input window plus maximum output costs USD 2.025, rounded upward to USD 2.03. This replaces the earlier blanket “no bound available” conclusion for scene planning only. It does not use the estimated input size.
+
+Transport now opts into enforced Sonnet 5.5 / 2500 output, standard_only tier, global inference and standard speed. The fixed body has no tools, caching or retries. Changed configured model/rates fail closed. Quote UI explicitly discloses the USD 2.03 reservation, its release only on confirmed usage, and scope: Grey API token charges, not tax or unrelated account activity. Known zero ancillary usage and included thinking tokens can reconcile; unexpected charge dimensions retain the full reservation.
+
+Still/video remain unavailable because their provider maximum is unknown. The review covered bound math, routing, SQL concurrency/identity protections and media fail-closed behavior; live acceptance remains to be tested. Owner USD 100 approval is recorded above, not yet saved to a guessed account.

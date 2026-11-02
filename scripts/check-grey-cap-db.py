@@ -38,7 +38,15 @@ try:
  for query in ["set role anon;select public.grey_spend_set_cap(1)","set role authenticated;select * from public.grey_spend_accounts",f"select public.grey_spend_reserve('{uuid.uuid4()}','{a}',0.1,'wrong')"]:
   try:sql(query);raise AssertionError('Access unexpectedly allowed')
   except subprocess.CalledProcessError:pass
- report={'passed':['12 concurrent reservations respect per-user cap','unknown charge retains reservation','cannot lower cap below charged+reserved','settlement releases only known unused amount','duplicate settlement refused','other customer remains isolated','anonymous set-cap denied','direct table access denied','wrong server secret denied'],'providerCalls':0,'remoteConnections':False}
+ # Owner-authorized $100 cap: concurrent full-context planning reservations.
+ assert owned(b,'select public.grey_spend_set_cap(100)')=='t'
+ refs=[str(uuid.uuid4()) for _ in range(50)]
+ def plan(ref):return sql(f"select public.grey_spend_reserve('{ref}','{b}',2.03,'synthetic-local-only')")
+ with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool: plans=list(pool.map(plan,refs))
+ assert plans.count('t')==49,plans
+ assert float(json.loads(owned(b,'select public.grey_spend_status()'))['reservedUsd'])==99.47
+ assert owned(b,'select public.grey_spend_set_cap(99)')=='f'
+ report={'passed':['12 concurrent reservations respect per-user cap','unknown charge retains reservation','cannot lower cap below charged+reserved','settlement releases only known unused amount','duplicate settlement refused','other customer remains isolated','anonymous set-cap denied','direct table access denied','wrong server secret denied','$100 cap permits 49 full-context reservations and rejects the 50th'],'providerCalls':0,'remoteConnections':False}
  (base/'output/grey-cap-db-results.json').write_text(json.dumps(report,indent=2));print(json.dumps(report))
 finally:
  if started:run(['pg_ctl','-D',str(data),'-m','fast','-w','stop'])

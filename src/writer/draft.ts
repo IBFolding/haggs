@@ -198,6 +198,7 @@ export async function askClaude<T = Draft>({
   schema = DRAFT_SCHEMA,
   read = validateDraft as unknown as (value: unknown) => T,
   onBilling,
+  boundedGreyPlanning = false,
 }: {
   key: string;
   workspaceId?: string | undefined;
@@ -205,8 +206,10 @@ export async function askClaude<T = Draft>({
   fetch?: typeof fetch;
   schema?: Record<string, unknown>;
   read?: (value: unknown) => T;
+  boundedGreyPlanning?: boolean;
   onBilling?: (receipt:{model?:unknown;usage?:unknown})=>void;
 }): Promise<ClaudeResult<T>> {
+  if(boundedGreyPlanning&&(WRITER_MODEL!=="claude-sonnet-5-5"||request.maxTokens!==2500))return {ok:false,reason:"The Grey planning model or output limit changed. Nothing was submitted."};
   let workspaceHeaders: Record<string, string>;
   try { workspaceHeaders = anthropicHeaders(workspaceId); } catch { return { ok: false, reason: "Enter an Anthropic workspace ID beginning wrkspc_, or leave it blank for a workspace-scoped key." }; }
   let response: Response;
@@ -221,6 +224,7 @@ export async function askClaude<T = Draft>({
       body: JSON.stringify({
         model: WRITER_MODEL,
         max_tokens: request.maxTokens,
+        ...(boundedGreyPlanning?{service_tier:"standard_only",inference_geo:"global",speed:"standard"}:{}),
         system: request.system,
         messages: [{ role: "user", content }],
         output_config: { format: { type: "json_schema", schema } },

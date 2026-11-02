@@ -1,3 +1,4 @@
+import {greyPlanningMaximum} from "./grey-planning-limit";
 import type { GreyQuoteStore } from "./grey-quote-store";
 import { createHash, randomUUID } from "node:crypto";
 import { proposalContextSchema, type ProposalContext } from "../story/grey-proposal-context";
@@ -9,7 +10,7 @@ import type { DraftRequest, ClaudeResult } from "../writer/draft";
 import {prepareGreyReferenceImages} from "./grey-reference-images";
 
 type Failure={ok:false;reason:string;needsKey?:true};
-export type ProposalQuote={ok:true;id:string;estimateUsd:number;expiresAt:number;model:string;imageCount?:number};
+export type ProposalQuote={ok:true;id:string;estimateUsd:number;expiresAt:number;model:string;imageCount?:number;reservationUsd?:number|undefined};
 export type AutomaticProposal={ok:true;proposal:SceneProposal}|Failure;
 export type ProposalPolicy={enabled:boolean;visionEnabled?:boolean;model:string;inputUsdPerMillion:number;outputUsdPerMillion:number};
 export type ProposalCredentials={key:string;workspaceId?:string|undefined};
@@ -43,7 +44,7 @@ export function createGreyProposalGateway(deps:Dependencies) {
    try {
     if(!await store.put(id,{contextHash:hash(parsed.data),credentialHash:hash(credentials),policyHash:hash(p),expiresAt,estimateUsd}))return {ok:false,reason:"Too many pending proposal quotes. Try again after a few minutes."};
    }catch{return {ok:false,reason:"Shared proposal storage is unavailable. Nothing was sent; use manual handoff."};}
-   return {ok:true,id,estimateUsd,expiresAt,model:p.model,...(request.images?.length?{imageCount:request.images.length}:{})};
+   return {ok:true,id,estimateUsd,expiresAt,model:p.model,reservationUsd:greyPlanningMaximum({HAGGS_GREY_AI_PRICING_MODEL:p.model,HAGGS_GREY_AI_INPUT_USD_PER_MILLION:String(p.inputUsdPerMillion),HAGGS_GREY_AI_OUTPUT_USD_PER_MILLION:String(p.outputUsdPerMillion)}),...(request.images?.length?{imageCount:request.images.length}:{})};
   },
   async generate(raw:unknown,id:string,consent:boolean):Promise<AutomaticProposal> {
    if(consent!==true)return {ok:false,reason:"Confirm the displayed provider cost before requesting a proposal."};
@@ -63,6 +64,7 @@ export function createGreyProposalGateway(deps:Dependencies) {
    catch{return {ok:false,reason:"Quote claim could not be confirmed. Nothing was sent by this request. Check provider activity before requesting again."};}
    try {
     const result=await deps.send(credentials,request,GREY_PROVIDER_SCHEMA);
+    if(!result.ok&&"budgetBlocked" in result&&result.budgetBlocked===true)return {ok:false,reason:"No provider request was sent. Sign in and check your Grey Room spending cap and reserved balance before requesting again."};
     if(!result.ok)return {ok:false,reason:"The provider could not return a scene proposal. Check provider activity before requesting again; nothing was retried."};
     const checked=sceneProposalSchema.safeParse(result.draft);
     if(!checked.success)return {ok:false,reason:"The provider returned an invalid scene proposal. Your scene is unchanged; check provider activity before requesting again."};
