@@ -19,7 +19,7 @@ test("Grey Room reuses the writer's saved Claude connection and rejects changed 
  let sends=0;
  const gateway=createGreyProposalGateway({store:memoryGreyQuoteStore(),policy:()=>enabled,
   credentials:async()=>{const key=keyIn(jar,CLAUDE_COOKIE);return key?{key,workspaceId:claudeWorkspaceIn(jar)}:undefined;},
-  send:async credentials=>{sends++;assert.equal(credentials.key,"existing-test-key");assert.equal(credentials.workspaceId,"wrkspc_existing");return {ok:true,draft:proposal};},
+  send:async credentials=>{sends++;assert.equal(credentials.key,"existing-test-key");assert.equal(credentials.workspaceId,"wrkspc_existing");return {ok:true,draft:proposal,usage:{input:1,output:1}};},
  });
  const ctx={...context(),images:[await image()]},quote=await gateway.quote(ctx);assert.ok(quote.ok);assert.equal(sends,0);
  assert.doesNotMatch(JSON.stringify(quote),/existing-test-key|wrkspc_existing/);
