@@ -1,4 +1,5 @@
 "use server";
+import { privateMediaPath } from "../server/private-media-url";
 import { checkGenerationStorage } from "../server/generation-storage";
 
 import { partnerRefusal } from "../server/open-only";
@@ -59,7 +60,7 @@ async function stillWith(key: string, prompt: string, ratio: StillRatio, referen
         uploaded.push(await cloud.uploadBytes(Uint8Array.from(Buffer.from(photo[2]!, "base64")), photo[1]!));
         continue;
       }
-      if (isBlobUrl(ref)) {
+      if (privateMediaPath(ref) || isBlobUrl(ref)) {
         const m = await readMedia(ref);
         uploaded.push(await cloud.uploadBytes(m.bytes, m.mime));
         continue;

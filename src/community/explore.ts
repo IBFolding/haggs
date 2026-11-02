@@ -1,3 +1,4 @@
+import { privateMediaPath } from "../server/private-media-url";
 import { SOCIALS, cleanProfile, socialUrl, websiteUrl, type Profile, type SocialId } from "../account/profile";
 
 /**
@@ -11,6 +12,7 @@ export type Post = { id: string; userId: string; kind: "image" | "video"; url: s
 
 /** Only files already in haggs's own store can be shared, so a post can never point anywhere else. */
 export const isStoreUrl = (url: string): boolean => {
+  if (privateMediaPath(url)) return true;
   try {
     const u = new URL(url);
     return u.protocol === "https:" && /^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/.test(u.hostname);
@@ -31,12 +33,19 @@ export function shareRow(run: { url: string; kind: "image" | "video"; prompt: st
 }
 
 /** A profile row as the public may see it; links that don't check out are dropped again here, whatever is stored. */
+export function publicProfilePicture(url: unknown, owner: string): string | null {
+  if (typeof url !== "string") return null;
+  const privateObject = privateMediaPath(url);
+  if (privateObject) return privateObject.owner === owner && /\.(png|jpe?g|webp)$/.test(privateObject.path) ? url : null;
+  return isStoreUrl(url) ? url : null;
+}
+
 export function toPublic(row: Record<string, unknown>): PublicProfile {
   const raw = row.links && typeof row.links === "object" ? (row.links as Record<string, unknown>) : {};
   const links: Profile["links"] = {};
   for (const s of SOCIALS) if (typeof raw[s.id] === "string") { const u = socialUrl(s.id as SocialId, raw[s.id] as string); if (u) links[s.id] = u; }
   if (typeof raw.website === "string") { const u = websiteUrl(raw.website); if (u) links.website = u; }
-  const picture = typeof row.picture === "string" && isStoreUrl(row.picture) ? row.picture : null;
+  const picture = publicProfilePicture(row.picture, String(row.user_id ?? ""));
   return { userId: String(row.user_id ?? ""), handle: String(row.handle ?? ""), name: String(row.name ?? ""), picture, bio: String(row.bio ?? ""), links };
 }
 
@@ -52,7 +61,7 @@ export function toPost(row: Record<string, unknown>): Post | null {
 export function profileRow(p: Profile, userId: string): Record<string, unknown> | null {
   const c = cleanProfile(p);
   if (!c.handle) return null;
-  return { user_id: userId, handle: c.handle, name: c.name, picture: c.picture && isStoreUrl(c.picture) ? c.picture : null, bio: c.bio, links: c.links, updated_at: new Date().toISOString() };
+  return { user_id: userId, handle: c.handle, name: c.name, picture: publicProfilePicture(c.picture, userId), bio: c.bio, links: c.links, updated_at: new Date().toISOString() };
 }
 
 /** A database refusal, in words: the table not there yet, a handle someone else has, anything else. */

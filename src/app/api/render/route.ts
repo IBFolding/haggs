@@ -1,3 +1,4 @@
+import { readPrivateMedia } from "../../../server/private-media";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   let work: string | null = null;
   try {
     let cut = checkCut(body?.cut);
-    if (online) cut = await stageHosted(cut, root);
+    if (online) cut = await stageHosted(cut, root, fetch, undefined, url => readPrivateMedia(url, request, false));
     else {
       // Every file must really be in the media folder: no symlink out, nothing missing.
       for (const url of [...cut.clips.map((c) => c.url), ...cut.voices.map((v) => v.url), ...(cut.effects ?? []).map((e) => e.url), ...(cut.overlays ?? []).map((o) => o.url), ...(cut.music ? [cut.music.url] : [])]) {
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
     if (srt && !online) await writeFile(out.path.replace(/\.mp4$/, ".srt"), srt);
     if (online) {
       // The film goes to the file store, so the browser can play and download it.
-      const url = await putBlob(new Uint8Array(await readRendered(out.path)), "mp4", "renders");
+      const url = await putBlob(new Uint8Array(await readRendered(out.path)), "mp4", "renders", request);
       return Response.json({ ok: true, url, seconds: cut.total, burned: body?.burn === true, ...(srt ? { srt } : {}) });
     }
     return Response.json({ ok: true, url: out.url, seconds: cut.total, burned: body?.burn === true, ...(srt ? { srt } : {}) });

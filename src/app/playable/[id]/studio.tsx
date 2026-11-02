@@ -1,4 +1,5 @@
 "use client";
+import { standaloneGame } from "../../../playable/standalone";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,7 +13,7 @@ import { createGameStore, type ChatLine, type SavedGame } from "../../../playabl
 import { Nav, openKeys } from "../../nav";
 import { editGame, makeArt, quoteArt, type ArtQuote } from "../actions";
 import { BankPicker, useReturnedPick } from "../../bank-picker";
-import { CodeFrame } from "../code-frame";
+import { CodeFrame, framePicture } from "../code-frame";
 import { GameCanvas } from "../game-canvas";
 import { pictureFile } from "../picture-file";
 import { McpAsk, useSentGames } from "../sent";
@@ -29,6 +30,8 @@ export function Studio({ id }: { id: string }) {
   const [thinking, setThinking] = useState(false);
   const [needsKey, setNeedsKey] = useState(false);
   const [showJson, setShowJson] = useState(false);
+  const [exporting,setExporting]=useState(false);
+  const [exportNote,setExportNote]=useState<string|null>(null);
   const chatEnd = useRef<HTMLDivElement>(null);
   const [ask, setAsk] = useState<string | null>(null);
   const { sent, drop } = useSentGames();
@@ -181,6 +184,7 @@ export function Studio({ id }: { id: string }) {
               </div>
             </div>
 
+            {spec.template === "code" && <><button className="pl-plain" disabled={exporting} onClick={async()=>{setExporting(true);setExportNote(null);try{const html=await standaloneGame(spec, fetch, framePicture);const url=URL.createObjectURL(new Blob([html],{type:"text/html"}));const anchor=document.createElement("a");anchor.href=url;anchor.download=`${spec.title.replace(/[^\w.-]+/g,"-")||"game"}.html`;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){setExportNote(error instanceof Error?error.message:"Export failed.");}finally{setExporting(false);}}}>{exporting?"Packaging pictures…":"Download standalone HTML"}</button>{exportNote&&<p role="alert">{exportNote}</p>}</>}
             <h2>Spec</h2>
             <p className="pl-pitch">{spec.pitch}</p>
             <div className="pl-chips">{ruleChips(spec).map((c) => <span key={c} className="pl-chip pl-static">{c}</span>)}</div>

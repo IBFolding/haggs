@@ -1,3 +1,5 @@
+import { privateMediaPath } from "../../../server/private-media-url";
+import { readPrivateMedia } from "../../../server/private-media";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -36,8 +38,8 @@ export async function POST(request: Request) {
       const file = localFile(process.env.HAGGS_LOCAL_MEDIA, segments, process.env.NODE_ENV);
       if (!file) return Response.json({ ok: false, reason: "That film isn't in the media folder." }, { status: 400 });
       path = file.path;
-    } else if (online && isBlobUrl(url)) {
-      const res = await fetch(url);
+    } else if (online && (privateMediaPath(url) || isBlobUrl(url))) {
+      const res = privateMediaPath(url) ? await readPrivateMedia(url, request, false) : await fetch(url);
       if (!res.ok) return Response.json({ ok: false, reason: "That film couldn't be opened." }, { status: 400 });
       if (Number(res.headers.get("content-length") ?? 0) > LIMIT) return Response.json({ ok: false, reason: "Keep films under 300 MB." }, { status: 400 });
       path = join(scratch, "film");

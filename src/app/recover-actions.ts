@@ -38,12 +38,12 @@ export async function listComfyRenders(): Promise<{ ok: true; items: Recoverable
   }
 }
 
-export async function recoverComfyRender(file: { filename: string; subfolder: string }): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+export async function recoverComfyRender(file: { job: string; filename: string; subfolder: string }): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
   const cloud = await runner();
   if (!cloud) return { ok: false, reason: "Add your own Comfy key first." };
-  if (!ok.filename.test(file.filename) || !ok.subfolder.test(file.subfolder) || file.subfolder.includes("..")) return { ok: false, reason: "That file name isn't one haggs can fetch." };
+  if (!/^[-\w]{1,128}$/.test(file.job) || !ok.filename.test(file.filename) || !ok.subfolder.test(file.subfolder) || file.subfolder.includes("..")) return { ok: false, reason: "That file name isn't one haggs can fetch." };
   try {
-    const bytes = await cloud.fetchOutput(file);
+    const bytes = await cloud.fetchJobOutput(file);
     const ext = file.filename.split(".").pop()!.toLowerCase().replace("jpeg", "jpg") as Kept;
     return { ok: true, url: await keepResult(bytes, ext) };
   } catch (caught) {

@@ -56,3 +56,14 @@ test("the migration lets anyone read, only the owner write, and only store links
   assert.equal((sql.match(/auth\.uid\(\) = user_id/g) ?? []).length >= 6, true);
   assert.match(sql, /url text not null check \(url ~ '\^https:\/\/\[a-z0-9-\]\+\\\.public\\\.blob\\\.vercel-storage\\\.com\/'\)/);
 });
+
+
+test("private public-profile pictures remain owner-bound and raster-only", async () => {
+ const {publicProfilePicture}=await import("./explore");
+ const owner="11111111-1111-4111-8111-111111111111";
+ const url=`/api/media/haggs/u-${owner}/uploads/avatar.png`;
+ assert.equal(publicProfilePicture(url,owner),url);
+ assert.equal(publicProfilePicture(url,"22222222-2222-4222-8222-222222222222"),null);
+ assert.equal(publicProfilePicture(url.replace(".png",".mp4"),owner),null);
+ assert.equal(publicProfilePicture("https://outside.test/avatar.png",owner),null);
+});

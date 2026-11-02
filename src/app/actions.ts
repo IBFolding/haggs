@@ -1,4 +1,9 @@
 "use server";
+import { privateProviderInputs } from "../server/private-provider-input";
+import { keepProviderShots } from "../server/provider-output-saving";
+
+import { privateMediaPath } from "../server/private-media-url";
+import { readPrivateMedia } from "../server/private-media";
 import { generationFailure } from "../providers/action-error";
 import { checkGenerationStorage } from "../server/generation-storage";
 import { diagnoseAction } from "../server/action-diagnostics";
@@ -26,7 +31,6 @@ import type { Provider } from "../providers/types";
 
 import { CLAUDE_COOKIE, CLAUDE_WORKSPACE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, KEY_COOKIE, LOCAL_COOKIE, keyIn, localIn } from "../server/keys";
 import { localBase } from "../providers/local";
-import { keptExtension, mayFetchForKeeping } from "../server/keep-url";
 import { creditsText } from "../story/price-text";
 
 import { discoverWorkspaces, type WorkspaceDiscovery } from "../writer/anthropic-workspaces";
@@ -207,7 +211,7 @@ async function keepRender(bytes: Uint8Array, extension: Kept): Promise<string> {
   return localUrl("haggs-renders", name);
 }
 
-export type Shot = { url: string; kind: "image" | "video" };
+export type Shot = { url: string; kind: "image" | "video"; storageWarning?: string };
 
 /**
  * Provider links expire, which left Gallery tiles blank a day later. Every
@@ -215,20 +219,7 @@ export type Shot = { url: string; kind: "image" | "video" };
  * copy fails, the provider's link is still returned so the run is not lost.
  */
 async function keepShots(shots: Shot[]): Promise<Shot[]> {
-  return Promise.all(
-    shots.map(async (shot) => {
-      if (!mayFetchForKeeping(shot.url)) return shot;
-      try {
-        const got = await fetch(shot.url, { signal: AbortSignal.timeout(90_000) });
-        const size = Number(got.headers.get("content-length") ?? 0);
-        if (!got.ok || size > 200_000_000) return shot;
-        const bytes = new Uint8Array(await got.arrayBuffer());
-        return { ...shot, url: await keepRender(bytes, keptExtension(got.headers.get("content-type") ?? "", shot.kind)) };
-      } catch {
-        return shot;
-      }
-    }),
-  );
+  return keepProviderShots(shots, keepRender);
 }
 
 export type RunResult =
@@ -298,13 +289,13 @@ async function runUndiagnosed(modelId:string,prompt:string,settings:Record<strin
         : createFalProvider({ apiKey: key, endpoints: { [card.capability]: card.id } });
 
     try {
-      const sendable = images?.length ? await inlineLocal(images, process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV) : [];
+      const sendable = images?.length ? await privateProviderInputs(await inlineLocal(images, process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV)) : [];
       const result = await provider.run({
         capability: card.capability,
         prompt,
         ...(sendable.length ? { images: sendable } : {}),
         ...(firstFrame === false ? { firstFrame: false } : {}),
-        ...(lastFrame ? { lastFrame: (await inlineLocal([lastFrame], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV))[0]! } : {}),
+        ...(lastFrame ? { lastFrame: (await privateProviderInputs(await inlineLocal([lastFrame], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV)))[0]! } : {}),
         count: outputCount(card, settings),
         // Only the fields this endpoint declares, under the names it declares
         // them. Nothing the model did not ask for reaches the request.
@@ -414,8 +405,8 @@ async function bytesOf(url: string): Promise<{ bytes: Uint8Array; mime: string }
     return bytesOf(inlined!);
   }
   // A hosted server only fetches media from its own store.
-  if (hosted() && !isBlobUrl(url)) throw new Error("That take isn't in this app's file store.");
-  const got = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60_000) });
+  if (hosted() && !privateMediaPath(url) && !isBlobUrl(url)) throw new Error("That take isn't in this app's file store.");
+  const got = privateMediaPath(url) ? await readPrivateMedia(url) : await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60_000) });
   if (!got.ok) throw new Error("That take couldn't be fetched.");
   return { bytes: new Uint8Array(await got.arrayBuffer()), mime: (got.headers.get("content-type") ?? "").split(";")[0]! };
 }

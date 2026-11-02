@@ -1,3 +1,4 @@
+import { privateMediaPath } from "./private-media-url";
 import { checkedReframe } from "../story/reframe";
 import { join } from "node:path";
 
@@ -116,7 +117,7 @@ const num = (v: unknown, min: number, max: number): number => {
   return v;
 };
 const link = (v: unknown): string => {
-  if (typeof v !== "string" || !(v.startsWith("/api/local/") || isBlobUrl(v)) || v.length > 600) throw new Error("Only media on this machine, or in this app's store, can be rendered here.");
+  if (typeof v !== "string" || !(v.startsWith("/api/local/") || privateMediaPath(v) || isBlobUrl(v)) || v.length > 600) throw new Error("Only media on this machine, or in this app's store, can be rendered here.");
   return v;
 };
 
@@ -154,7 +155,7 @@ export function checkCut(raw: unknown): Cut {
     : undefined;
   const overlays = (Array.isArray((c as { overlays?: unknown[] }).overlays) ? (c as { overlays: Record<string, unknown>[] }).overlays : []).slice(0, 50).map((e) => ({ id: String(e.id ?? ""), name: String(e.name ?? "").slice(0, 80), url: link(e.url), start: num(e.start, 0, 7200), seconds: num(e.seconds ?? 3, 0.1, 600) }));
   // A render on a deployment has five minutes and a small disk: nothing longer than ten minutes of film, and no more than a hundred clips.
-  if (process.env.BLOB_READ_WRITE_TOKEN && (clips.length > 100 || Number(c.total) > 600)) throw new Error("A cut longer than ten minutes, or with over a hundred clips, can't be rendered here. Cut it down, or render on your own machine.");
+  if ((process.env.BLOB_READ_WRITE_TOKEN || process.env.HAGGS_PRIVATE_BLOB_READ_WRITE_TOKEN) && (clips.length > 100 || Number(c.total) > 600)) throw new Error("A cut longer than ten minutes, or with over a hundred clips, can't be rendered here. Cut it down, or render on your own machine.");
   const loudness = typeof (c as { loudness?: unknown }).loudness === "number" && Number.isFinite((c as { loudness: number }).loudness) && (c as { loudness: number }).loudness >= -24 && (c as { loudness: number }).loudness <= -9 ? (c as { loudness: number }).loudness : undefined;
   return { clips, total: num(c.total, 0.1, 7200), skipped: [], voices, music, ...(loudness !== undefined ? { loudness } : {}), ...(overlays.length ? { overlays } : {}), ...(effects.length ? { effects } : {}), ...(sound && Object.keys(sound).length ? { sound } : {}), aspect: c.aspect === "9:16" ? "9:16" : "16:9" };
 }

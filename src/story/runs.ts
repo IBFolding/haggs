@@ -24,6 +24,8 @@ export type Run = {
   usd: number | null;
   at: number;
   favorite?: boolean;
+  /** A provider result preserved after durable saving failed; never a private-storage guarantee. */
+  storageWarning?: string;
   /** The folder it was filed in, if any. */
   folder?: string;
   /** When it last changed, so devices agree on which copy is newest. */

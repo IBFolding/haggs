@@ -1,5 +1,7 @@
 "use server";
 
+import { privateMediaPath } from "../server/private-media-url";
+
 import { userNow } from "../server/auth";
 import { isBlobUrl, libraryToken, putLibrary } from "../server/blob";
 import { allow } from "../server/limit";
@@ -19,7 +21,7 @@ export type Kept = { ok: true; url: string } | { ok: false; reason: string; fina
 export async function keepInLibrary(url: string): Promise<Kept> {
   const user = await userNow();
   if (!user) return { ok: false, reason: "Sign in to keep your results in your account." };
-  if (isBlobUrl(url)) return { ok: true, url };
+  if (privateMediaPath(url) || isBlobUrl(url)) return { ok: true, url };
   if (!url.startsWith("/api/local/")) return { ok: false, reason: "That result isn't a file on this machine.", final: true };
   if (!libraryToken()) return { ok: false, reason: "File sync isn't set up on this copy of haggs." };
   if (!allow(`library:${user.id}`, 600, 3_600_000)) return { ok: false, reason: "Slow down a little; syncing resumes shortly." };

@@ -38,6 +38,7 @@ test("the estimate follows Comfy's published MiniMax H3 rates", () => {
 test("a run uploads pictures, submits with the partner credential, waits, downloads and keeps the video", async () => {
   const calls: { url: string; init?: RequestInit }[] = [];
   let polls = 0;
+  let journaled: unknown;
   const fake = (async (url: string, init?: RequestInit) => {
     calls.push({ url, ...(init ? { init } : {}) });
     if (url.endsWith("/api/upload/image")) return Response.json({ name: "up_still.png" });
@@ -47,12 +48,12 @@ test("a run uploads pictures, submits with the partner credential, waits, downlo
       // The shape Comfy Cloud really returns: a video filed under "images", with a subfolder.
       return Response.json(polls < 2 ? { status: "in_progress" } : { status: "completed", outputs: { "20": { animated: [true], images: [{ filename: "dd3e.mp4", subfolder: "haggs", type: "output", mime_type: "video/mp4" }] } } });
     }
-    if (url.includes("/api/view")) return new Response(null, { status: 302, headers: { location: "https://storage.googleapis.com/bucket/out.mp4?sig=1" } });
+    if (url.includes("/api/view")) { assert.deepEqual(journaled,{job:"job-1",filename:"dd3e.mp4",subfolder:"haggs",extension:"mp4"}); return new Response(null, { status: 302, headers: { location: "https://storage.googleapis.com/bucket/out.mp4?sig=1" } }); }
     if (url.startsWith("https://storage.googleapis.com/")) return new Response(new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109]), { headers: { "content-type": "video/mp4" } });
     return new Response("unexpected", { status: 500 });
   }) as unknown as typeof fetch;
   let kept: Uint8Array | undefined;
-  const cloud = createCloudProvider({ apiKey: "ck", fetch: fake, pollMs: 0, keep: async (bytes) => { kept = bytes; return "/api/local/haggs-renders/a.mp4"; } });
+  const cloud = createCloudProvider({ apiKey: "ck", fetch: fake, pollMs: 0, onOutputReady:async ref=>{journaled=ref;}, keep: async (bytes) => { kept = bytes; return "/api/local/haggs-renders/a.mp4"; } });
   const result = await cloud.run({ capability: "image-to-video", prompt: "She turns to the window", images: ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="], passthrough: { duration: 5, resolution: "768P" } });
 
   assert.deepEqual(result.assets, [{ url: "/api/local/haggs-renders/a.mp4", kind: "video" }]);
@@ -145,4 +146,19 @@ test('storage preflight refuses media generation before any provider request',as
  const runner=createCloudRunner({apiKey:'test',beforeRun:async()=>{throw new Error('no storage');},fetch:async()=>{requests++;throw Error('must not call');},keep:async()=>''});
  await assert.rejects(runner.run({}),/no storage/);
  assert.equal(requests,0);
+});
+
+
+test("expired-preview recovery verifies exact job/file identity with reads only",async()=>{
+ const calls:string[]=[];
+ const runner=createCloudRunner({apiKey:"fixture",keep:async()=>"unused",fetch:async(input,init)=>{const url=String(input);calls.push(url);assert.notEqual(init?.method,"POST");if(url.endsWith("/api/jobs/job-old"))return Response.json({outputs:{"20":{images:[{filename:"old.mp4",subfolder:"haggs",type:"output"}]}}});if(url.includes("/api/view"))return new Response(new Uint8Array([1,2,3]),{headers:{"content-type":"video/mp4"}});throw Error("unexpected");}});
+ await assert.rejects(runner.fetchJobOutput({job:"job-old",filename:"someone-else.mp4",subfolder:"haggs"}),/no longer lists/);
+ assert.equal(calls.length,1);
+ assert.deepEqual(await runner.fetchJobOutput({job:"job-old",filename:"old.mp4",subfolder:"haggs"}),new Uint8Array([1,2,3]));
+ assert.ok(!calls.some(url=>url.includes("prompt")));
+});
+
+test("hosted recovery activation cannot submit a paid job while private writes are paused",async()=>{
+ const keys=["HAGGS_HOSTED_OUTPUT_RECOVERY","HAGGS_PRIVATE_MEDIA_WRITES"],prior=keys.map(k=>process.env[k]);let requests=0;
+ try{process.env.HAGGS_HOSTED_OUTPUT_RECOVERY="1";process.env.HAGGS_PRIVATE_MEDIA_WRITES="0";const runner=createCloudRunner({apiKey:"fixture",fetch:async()=>{requests++;throw Error("must not call provider");},keep:async()=>"unused"});await assert.rejects(runner.run({}),/paused/);assert.equal(requests,0);}finally{keys.forEach((key,i)=>{if(prior[i]===undefined)delete process.env[key];else process.env[key]=prior[i];});}
 });

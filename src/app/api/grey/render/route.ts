@@ -1,3 +1,4 @@
+import { readPrivateMedia } from "../../../../server/private-media";
 import { primitivePng } from "../../../../server/grey-primitive";
 import { prepareGreyTexture } from "../../../../server/grey-texture";
 import { execFile } from "node:child_process";
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
   const scene = normalizeScene(body?.scene as never);
   let work: string | null = null;
   try {
-    const staged = online ? await stageGreyFiles(scene, footage, root) : null;
+    const staged = online ? await stageGreyFiles(scene, footage, root, fetch, url => readPrivateMedia(url, request, false)) : null;
     // Every file must be an explicitly staged store asset or a validated local file.
     const file = (url: string) => {
       if (staged) {
@@ -125,7 +126,7 @@ export async function POST(request: Request) {
     const out = join(root, "haggs-renders", name);
     const args = ["-y", "-v", "error", ...plan.inputs.flatMap((input, i) => [...input.args, "-i", paths[i]!]), "-filter_complex", plan.filter, "-map", "[out]", "-map", `${plan.audioFrom}:a?`, "-t", String(seconds), "-c:v", "libx264", "-crf", "17", "-pix_fmt", "yuv420p", "-c:a", "aac", out];
     await run(ffmpegBin(), args, { maxBuffer: 8 * 1024 * 1024 });
-    const url = online ? await putBlob(await readRendered(out), "mp4", "renders") : `/api/local/haggs-renders/${encodeURIComponent(name)}`;
+    const url = online ? await putBlob(await readRendered(out), "mp4", "renders", request) : `/api/local/haggs-renders/${encodeURIComponent(name)}`;
     return Response.json({ ok: true, url, notes: plan.notes });
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : "The draft render failed.";

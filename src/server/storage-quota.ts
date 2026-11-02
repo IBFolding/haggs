@@ -1,5 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
-import {list} from '@vercel/blob';
+import {listStoredMedia,mediaStores} from './media-store';
 import {PLANS,status,type User} from './billing';
 import {stripeFromEnv} from './stripe';
 /** Decimal GB: the advertised 5/15/30 GB means billions of bytes. */
@@ -37,12 +37,12 @@ export async function reconcileHolds(io:Reconcile,now=Date.now()):Promise<void>{
 }
 /** Best effort, before a new hold: reads the person's own pending holds with their token, so nothing here can touch another account. */
 export async function reconcileStorage(user:User,token:string|undefined):Promise<void>{
- const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,blobToken=process.env.BLOB_READ_WRITE_TOKEN??process.env.HAGGS_SYNC_BLOB_TOKEN;
+ const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,blobToken=mediaStores().length;
  if(!token||!url||!key||!blobToken)return;
  const mine=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${token}`}}});
  await reconcileHolds({
   pending:async before=>{const {data,error}=await mine.from('storage_reservations').select('id').eq('user_id',user.id).eq('state','pending').lt('created_at',before).limit(50);if(error)throw error;return (data??[]).map(r=>String(r.id));},
-  found:async id=>{const page=await list({prefix:uploadFolder(user.id,id),limit:1,token:blobToken});const b=page.blobs[0];return b?{url:b.url,size:b.size}:null;},
+  found:async id=>{const b=(await listStoredMedia(uploadFolder(user.id,id)))[0];return b?{url:b.url,size:b.size}:null;},
   finish:(id,location,bytes)=>finishStorage(user.id,id,location,bytes),
  }).catch(()=>undefined);
 }
@@ -52,8 +52,7 @@ export async function reserveStorage(user:User,bytes:number,id:string=crypto.ran
  if(!allowance)throw Error('This plan keeps media on your computer. Use the local Haggs app, or choose a plan with cloud storage.');
  const {client,secret}=db();
  // Snapshot legacy bytes for first use only; the database serializes reservations.
- const existing:{url:string;size:number}[]=[];let cursor:string|undefined;
- do {const page=await list({prefix:`haggs/u-${user.id}/`,limit:1000,...(cursor?{cursor}:{}),...(process.env.BLOB_READ_WRITE_TOKEN??process.env.HAGGS_SYNC_BLOB_TOKEN?{token:(process.env.BLOB_READ_WRITE_TOKEN??process.env.HAGGS_SYNC_BLOB_TOKEN)!}:{})});existing.push(...page.blobs.map(b=>({url:b.url,size:b.size})));cursor=page.hasMore?page.cursor:undefined;}while(cursor);
+ const existing=await listStoredMedia(`haggs/u-${user.id}/`);
  const {data,error}=await client.rpc('storage_reserve',{target:user.id,reservation:id,amount:bytes,allowance,existing_files:existing,secret});
  if(error)throw Error('Cloud storage accounting is unavailable. No upload was started.');
  if(data!==true)throw Error(storageFull);

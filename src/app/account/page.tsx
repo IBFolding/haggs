@@ -77,6 +77,7 @@ export default function Account() {
 
   async function saveProfile() {
     const clean = cleanProfile(profile);
+    if (isPublic && clean.picture !== savedProfile.picture && clean.picture?.startsWith("/api/media/") && !window.confirm("Publish this picture on your public profile? Anyone can view or download it while it is your public profile picture.")) return;
     setBusy("profile"); setProfileNote(null);
     const r = await supabase()?.auth.updateUser({ data: { profile: clean } });
     setBusy(null);
@@ -131,6 +132,7 @@ export default function Account() {
                   {profile.picture ? <img src={profile.picture} alt="" /> : <span>{initial}</span>}
                   <i>{busy === "picture" ? "Adding…" : "Change"}</i>
                 </button>
+                {profile.picture && <button type="button" className="plain" disabled={busy !== null} onClick={() => setProfile(p => ({ ...p, picture: null }))}>Remove picture · save profile to apply</button>}
                 <input ref={pictureInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addPicture(f); }} />
                 <div className="acct-names">
                   <label className="wf-field"><span>Name</span><input value={profile.name} maxLength={60} placeholder="Your name or studio" onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></label>

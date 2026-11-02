@@ -1,7 +1,8 @@
 "use server";
+import { cancelDeletedHostedOutput } from "../server/hosted-output-runtime";
 
 import {storageAllowance,removedStorage} from "../server/storage-quota";
-import { del, list } from "@vercel/blob";
+import { listStoredMedia, deleteStoredMedia } from "../server/media-store";
 
 import { ownerOf, userNow } from "../server/auth";
 import { hosted } from "../server/blob";
@@ -10,14 +11,7 @@ import { deletable, mine, type Item } from "../server/library";
 export type Files = { ok: true; items: Item[]; hosted: boolean; allowanceBytes?:number } | { ok: false; reason: string };
 
 async function everything(owner: string): Promise<Item[]> {
-  const out: Item[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await list({ prefix: `haggs/${owner}/`, limit: 1000, ...(cursor ? { cursor } : {}) });
-    out.push(...page.blobs.map((b) => ({ url: b.url, pathname: b.pathname, size: b.size, uploadedAt: b.uploadedAt.getTime() })));
-    cursor = page.hasMore ? page.cursor : undefined;
-  } while (cursor && out.length < 5000);
-  return out;
+  return listStoredMedia(`haggs/${owner}/`);
 }
 
 /** The files a signed-in person has in the store. */
@@ -38,7 +32,7 @@ export async function deleteFiles(urls: string[]): Promise<{ ok: true; deleted: 
   if (!hosted() || !user) return { ok: false, reason: "Sign in to delete files." };
   try {
     const ok = deletable(ownerOf(user), urls.slice(0, 200), await everything(ownerOf(user)));
-    if (ok.length) { await del(ok); for(const url of ok) await removedStorage(user.id,url); }
+    if (ok.length) { for(const url of ok) { await deleteStoredMedia(url); await cancelDeletedHostedOutput(url); await removedStorage(user.id,url); } }
     return { ok: true, deleted: ok.length };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "The files couldn't be deleted." };
