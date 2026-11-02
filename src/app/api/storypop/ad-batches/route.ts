@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 
+import { runAdJobsNow } from "../../../../server/adRunnerServer";
 import { templateById } from "../../../../server/adTemplates";
 import { cleanReference, isUuid, partnerKeyOk } from "../../../../server/storypop";
 
@@ -7,6 +9,8 @@ import { cleanReference, isUuid, partnerKeyOk } from "../../../../server/storypo
  * StoryPop asks for a few versions of one ad. Each version becomes a job in the account StoryPop pays from;
  * the finished video comes back through the normal job.completed event.
  */
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   if (!partnerKeyOk(request.headers.get("authorization"), process.env.STORYPOP_PARTNER_KEY)) return Response.json({ ok: false }, { status: 401 });
   const body = (await request.json().catch(() => ({}))) as { haggsUserId?: unknown; templateId?: unknown; references?: unknown; brandKit?: unknown; offer?: unknown; cta?: unknown };
@@ -27,5 +31,7 @@ export async function POST(request: Request) {
     if (error) return Response.json({ ok: false, error: "Could not save the ad jobs.", started: jobs }, { status: 500 });
     jobs.push(String(data));
   }
+  // Start making the pictures as soon as we have answered. Anything left waiting is picked up by /ad-jobs/run.
+  after(() => runAdJobsNow(refs.length).catch(() => undefined));
   return Response.json({ ok: true, haggsJobIds: jobs, estCredits: template.est_credits * refs.length });
 }
