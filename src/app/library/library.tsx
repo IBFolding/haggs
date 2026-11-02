@@ -10,6 +10,7 @@ import { defaultKv } from "../../story/kv";
 import { coverOf, createProject, type ProjectSummary } from "../../story/model";
 import { createProjectStore } from "../../story/store";
 import { exportSheets, importSheets } from "../../sheets/sheets";
+import { createMediaEnvelope, restoreMediaEnvelope, restoreBundledMedia, hasEmbeddedMedia } from "../../story/media-bundle";
 import { TransferError, exportProject, importBundle } from "../../story/transfer";
 import { backupsToOffer, toRestore, type OnDisk } from "../../story/restore";
 import { Nav } from "../nav";
@@ -206,6 +207,7 @@ export function Library() {
 
   const download = useCallback(
     async (summary: ProjectSummary) => {
+      try {
       const project = await store.load(summary.id);
       if (!project) return;
 
@@ -216,7 +218,8 @@ export function Library() {
       } catch {
         sheets = undefined;
       }
-      const blob = new Blob([exportProject(project, sheets)], { type: "application/json" });
+      const packed = await createMediaEnvelope(JSON.parse(exportProject(project, sheets)));
+      const blob = new Blob([JSON.stringify(packed, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -229,6 +232,7 @@ export function Library() {
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
+      } catch (error) { setError(error instanceof Error ? error.message : "The export could not be created."); }
     },
     [kv, store],
   );
@@ -237,7 +241,17 @@ export function Library() {
     async (file: File) => {
       setError(null);
       try {
-        const bundle = importBundle(await file.text());
+        if (file.size > 180 * 1024 * 1024) throw new TransferError("Keep project bundles under 180 MB.");
+        const envelope = JSON.parse(await file.text()) as Record<string,unknown>;
+        let bundle = importBundle(JSON.stringify(envelope));
+        if (envelope.mediaBundle) {
+          if (!window.confirm("Restore this bundle’s media into your storage? Quotas apply. No generation will run.")) return;
+          bundle = importBundle(JSON.stringify(await restoreMediaEnvelope(envelope, uploadFile)));
+        }
+        if (hasEmbeddedMedia(bundle)) {
+          if (!window.confirm("Import the embedded media into your storage? Storage quotas apply. No generation will run.")) return;
+          bundle = await restoreBundledMedia(bundle, uploadFile);
+        }
         let project = bundle.project;
         const { sheets } = bundle;
         if (project.importKey) {
@@ -262,7 +276,7 @@ export function Library() {
         setError(
           caught instanceof TransferError
             ? caught.message
-            : "That file couldn't be read.",
+            : caught instanceof Error ? caught.message : "That file couldn't be read.",
         );
       }
     },

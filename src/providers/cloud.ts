@@ -75,6 +75,8 @@ export type Kept = "mp4" | "webm" | "png" | "jpg" | "webp" | "mp3" | "flac" | "w
 export type CloudOptions = {
   apiKey: string;
   beforeRun?: () => Promise<void>;
+  /** Persist stable output identity before download; caller owns authentication and durable claims. */
+  onOutputReady?: (ref: { job: string; filename: string; subfolder: string; extension: Kept }) => Promise<void>;
   fetch?: typeof fetch;
   pollMs?: number;
   timeoutMs?: number;
@@ -94,7 +96,7 @@ const EXTENSION: Record<string, string> = { "image/png": "png", "image/jpeg": "j
 const UPLOADED = /^[-\w.]{1,180}\.(png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|flac|ogg|m4a)$/i;
 
 /** The Comfy Cloud transport: upload inputs, run a workflow, keep what it saves. Every edit tool uses this. */
-export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5000, timeoutMs = 15 * 60_000, keep, beforeRun }: CloudOptions) {
+export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5000, timeoutMs = 15 * 60_000, keep, beforeRun, onOutputReady }: CloudOptions) {
   const fail = (message: string, status?: number) => new ProviderError("comfy-cloud", message, status);
 
   async function call(path: string, body?: unknown) {
@@ -194,8 +196,10 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
     const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? []), ...((output.audio as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
     const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm|png|jpe?g|webp|mp3|flac|wav)$/i.test(f.filename) && f.type === "output");
     if (!file) throw fail("The job finished without a result.");
-    const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });
     const ext = file.filename!.split(".").pop()!.toLowerCase().replace("jpeg", "jpg") as Kept;
+    try { await onOutputReady?.({ job: id, filename: file.filename!, subfolder: file.subfolder ?? "", extension: ext }); }
+    catch { throw fail(`Comfy finished job ${id}, but its recovery record could not be confirmed. Check this job before retrying; no automatic retry was attempted.`); }
+    const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });
     let url: string;
     try { url = await keep(bytes, ext); }
     catch (error) { throw fail(`Comfy finished job ${id}, but saving failed: ${error instanceof Error ? error.message : 'storage unavailable'}. Recover this job; do not generate again.`); }
@@ -267,6 +271,13 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
       } catch {
         return null;
       }
+    },
+    /** Recover only a file still associated with this authenticated account's exact job. */
+    async fetchJobOutput(file: { job: string; filename: string; subfolder: string }): Promise<Uint8Array> {
+      if (!/^[-\w]{1,128}$/.test(file.job)) throw fail("Invalid recovery job.");
+      const job = await call(`/api/jobs/${encodeURIComponent(file.job)}`);
+      if (!filesIn(job.outputs).some(f => f.filename === file.filename && f.subfolder === file.subfolder)) throw fail("Comfy no longer lists this file for that job. Nothing was generated.");
+      return download(file);
     },
     /** One saved file's bytes, to keep. */
     fetchOutput: (file: { filename: string; subfolder?: string }) => download(file),

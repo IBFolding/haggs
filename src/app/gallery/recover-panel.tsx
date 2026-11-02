@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { defaultKv } from "../../story/kv";
+import { recoveryReferences } from "../../story/recovery-references";
+import { useSession } from "../session";
 import type { RunStore } from "../../story/runs";
 import { hasAmbiguousLegacy, recoveryId, unrecovered } from "../../story/comfy-recovery";
 import { openKeys } from "../nav";
@@ -18,22 +21,36 @@ export function RecoverPanel({ runs, added, onAdded }: { runs: RunStore; added: 
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
+  const {session}=useSession();
+  const owner=session?.user.id;
+  const currentOwner=useRef(owner);currentOwner.current=owner;
+  const references=useMemo(()=>owner?recoveryReferences(defaultKv(),owner):null,[owner]);
+  useEffect(()=>{let active=true;setItems(null);setDone(new Set());if(references)void references.read().then(saved=>{if(active&&saved.length){setItems(saved);setNote("Saved recovery references. Add reads the original from your own Comfy account; it does not use the expired preview link or generate again.");}},()=>undefined);return()=>{active=false;};},[references]);
+
 
   async function load() {
+    const scope=owner;
     setBusy("list");
     setNote(null);
     try {
       const r = await listComfyRenders();
+      if(scope!==currentOwner.current)return;
       if (!r.ok) { if (r.needsKey) openKeys(); return setNote(r.reason); }
-      setItems(r.items);
-      if (!r.items.length) setNote("Comfy has no finished renders for this account to bring back.");
+      const saved=references?await references.remember(r.items):[];
+      if(scope!==currentOwner.current)return;
+      const byId=new Map(saved.map(item=>[idOf(item),item as Recoverable]));
+      for(const item of r.items)byId.set(idOf(item),item);
+      setItems([...byId.values()]);
+      if (!r.items.length) setNote(saved.length ? "Comfy returned no recent files. Saved references remain available, but the provider may have removed their originals." : "Comfy has no finished renders for this account to bring back.");
     } catch { setNote("Your Comfy account couldn't be reached. Try looking again."); }
     finally { setBusy(null); }
   }
 
   async function add(item: Recoverable): Promise<boolean> {
+    const scope=owner;if(scope!==currentOwner.current)return false;
     try {
       const got = await recoverComfyRender(item);
+      if(scope!==currentOwner.current)return false;
       if (!got.ok) { setNote(got.reason); return false; }
       await runs.record({ modelId: "comfy-recovered", modelName: "Recovered from Comfy", prompt: `Recovered: ${item.filename}`, settings: {}, url: got.url, kind: item.kind, usd: null, comfyJob: idOf(item) }, item.at || undefined);
       setDone((d) => new Set(d).add(idOf(item)));

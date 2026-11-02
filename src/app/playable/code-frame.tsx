@@ -15,7 +15,7 @@ const hostsHere = () => [window.location.origin, "https://*.public.blob.vercel-s
  * behind them made transparent), backgrounds as they are. A picture whose
  * pixels can't be read is handed over by its link instead, unkeyed.
  */
-async function framePicture(url: string, sprite: boolean): Promise<string> {
+export async function framePicture(url: string, sprite: boolean): Promise<string> {
   if (url.startsWith("data:") && !sprite) return url;
   try {
     const image = new Image();
