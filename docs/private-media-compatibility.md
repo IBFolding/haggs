@@ -1,0 +1,38 @@
+# Compatibility review and staged rollout
+
+This is a local candidate review, not a claim about deployed privacy. No store or account settings have been changed.
+
+| Consumer | Candidate path | Verification / remaining gate |
+| --- | --- | --- |
+| Browser image/audio/video | Same-origin authenticated streaming; video ranges preserved | Core response/range tests pass; actual browser seeking with real storage/session pending |
+| Cut and Grey Room export | Private reader streams into existing bounded scratch staging | Synthetic staging tests pass. API bearer authentication now explicitly propagates to input reads and output save; real hosted FFmpeg round trip pending |
+| Provider edit/recreate/Series/workflow inputs | Read authenticated bytes, then use existing provider upload | Source paths mapped. No paid provider run performed |
+| Save/reopen/project sync | Stable relative media reference stored in JSON | Synthetic serialized-reference staging passes. Real cross-device session refresh pending |
+| Account Files and quotas | Both stores listed/counted; deletes matched against owner-scoped listing | Existing tests plus typecheck; real quota/callback reconciliation pending |
+| Explore publish/unshare | Owner-bound post grants exact media URL; reads recheck post; delete revokes later reads | Synthetic grant/revoke tests pass. Draft constraint needs isolated DB validation before release |
+| Local Haggs viewing synced hosted private media | Requires the private reader/backend configuration and matching Supabase session | Not certified. A relative URL alone does not establish cross-installation playback |
+| Profile picture | Existing profile validation accepts public Blob URLs | Private avatar publication needs an explicit profile consent/access design before using private media as an avatar |
+| Playable standard art | Parent document loads image, then hands data to sandbox | Source review only; actual private image/session test pending |
+| Playable atlas art | Current CodeFrame bypasses parent conversion and passes atlas URL to opaque sandbox | Known compatibility gap. Coordinate with Playable task; do not weaken sandbox or make media public to fix it |
+| Kinetic playback/export | Same-origin media/fetch paths | Source review only; browser codec/export/session acceptance pending |
+| Standalone HTML / Blender / downloaded projects | Relative private app URL cannot work independently | Must package authorized bytes at explicit export or retain an authenticated app dependency; not release-certified |
+| Provider output save failure | Existing temporary provider URL retained to preserve paid result | Durable private recovery is unresolved; no automatic paid retry or output discard |
+
+## Reversible rollout
+
+1. **Inventory, no mutation.** Record the exact trusted public-store origin, owner-scoped object metadata, byte counts and independently streamed SHA-256; export account projects, Explore posts and storage accounting. Include browser-only project exports. Record version/hash of every source document. Inventory manifests contain private URLs and must stay in approved private operator storage, never PRs or public logs.
+2. **Test environment only.** Keep the workflow task's `haggs-safety-test` (`bhscymqhodllcmreblgx`) bucket/schema experiments coordinated. Its `haggs-synthetic-private` bucket is Supabase, not the proposed Vercel backend. Use two real synthetic auth sessions, an anonymous client and an approved private Blob test store. Never copy production credentials or customer objects into this test.
+3. **Reader-first deployment.** Review/deploy private read routes and mixed-store accounting with `HAGGS_PRIVATE_MEDIA_WRITES` unset. Configure the separately approved private-store read/write credential while new writes remain legacy. Verify direct anonymous private-store denial, owner success, wrong-owner denial and no URL/token leakage. Existing legacy paths continue serving.
+4. **Sharing schema.** Back up the actual post constraints and rows. Validate/apply the additive owner-bound URL constraint in the test project first. Production application requires the normal approval and verified schema history. Keep the expanded constraint on rollback while private posts exist; restoring a public-only constraint would invalidate them.
+5. **Activate new private writes.** Only after all acceptance gates pass, set `HAGGS_PRIVATE_MEDIA_WRITES=1`. The credential alone does not activate writes. Missing private credential fails before upload/generation. Both upload endpoints remain mounted: their fixed store credentials validate in-flight completion callbacks; an endpoint for the inactive write mode refuses new upload tokens. Allow at least the existing 15-minute upload-token window, plus observed upload duration, before assuming old public uploads are drained.
+6. **Copy legacy objects.** `planLegacyCopies` creates deterministic private destinations from an exact trusted-origin, owner-bound inventory. Copy without overwrite or deletion, then independently verify bytes/hash and private raw-storage denial. Failed/uncertain copies are investigated; no blind duplicate copy. Budget temporary duplicate storage explicitly. Do not charge a customer's quota twice: real ledger reconciliation must be designed/tested atomically before production copies are included in the normal mixed-store listing.
+7. **Repoint snapshots, preserve sharing intent.** Only `verifiedReferenceMap` output may rewrite exported JSON. Keep original and rewritten versions. Apply by per-document compare-and-swap version/hash; concurrent edits stop the batch for reconciliation. Preserve existing explicit public posts by changing each post URL to its verified private reference in an owner-checked transaction. Never infer consent to publish an unshared object. Projects with missing browser-only references remain blocked from retirement.
+8. **Observe, then separate retirement approval.** Verify every known reference, shared embed, owner workflow and rollback snapshot. The planner exposes no deletion/revocation operation. Existing public URLs stay accessible until an approved retirement operation removes/restricts their original objects and any relevant CDN behavior is checked. Copies and reference updates alone do not revoke public URLs.
+
+## Rollback
+
+Pause **new writes** by clearing `HAGGS_PRIVATE_MEDIA_WRITES`; retain the private credential, reader routes, sharing constraint and both upload callback endpoints so existing private media and in-flight uploads continue working. Do not roll the application back to a revision that cannot read private references. Revert a migrated JSON snapshot using its saved original only if its current version/hash still matches the migration's output; otherwise reconcile the user's newer edits. Repoint explicitly shared posts to original URLs only if those originals remain available and doing so preserves the owner's current sharing choice. Leave verified private copies intact until an approved retention decision. No automatic link retirement is reversible after third parties have downloaded content.
+
+## Required acceptance before production activation
+
+Real synthetic upload of image/audio/video; no-auth/wrong-owner raw and app reads; owner playback and range seeking; explicit share, reload and unshare; both API-cookie and API-bearer renders; save/reopen on another session; quota failure before provider work; completed upload callback after write-mode rollback; account deletion/ledger reconciliation; Playable atlas, standalone exports, profile avatar, provider-save recovery and browser-only legacy references. Pending keys or permissions are prerequisites, not permission inferred from elapsed time.

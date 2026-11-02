@@ -3,10 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { userNow, verifyUser } from "./auth";
 import { privateMediaResponse } from "./private-media-access";
 export const privateBlobToken = () => process.env.HAGGS_PRIVATE_BLOB_READ_WRITE_TOKEN?.trim();
-export async function readPrivateMedia(url: string, request?: Request): Promise<Response> {
+export async function readPrivateMedia(url: string, request?: Request, forwardRange = true): Promise<Response> {
   const token = privateBlobToken();
   if (!token) return new Response("Not found", { status: 404, headers: { "Cache-Control": "private, no-store" } });
-  return privateMediaResponse(url, request?.headers.get("range") ?? null, {
+  return privateMediaResponse(url, forwardRange ? request?.headers.get("range") ?? null : null, {
     user: () => request ? verifyUser(request) : userNow(),
     published: async (location, owner) => {
       const endpoint = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;

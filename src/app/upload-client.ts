@@ -27,7 +27,7 @@ export async function uploadFile(file: File): Promise<Uploaded> {
       const owner = await ownerFolder();
       const config = await fetch("/api/blob/upload", { cache: "no-store" }).then(r => r.json()) as { access?: string };
       if (config.access !== "public" && config.access !== "private") throw new Error("Storage setup is unavailable.");
-      const made = await upload(`haggs/${owner}/uploads/${crypto.randomUUID()}/${file.name.replace(/[^\w.-]+/g, "-").slice(-80)}`, file, { access: config.access, handleUploadUrl: "/api/blob/upload", clientPayload: JSON.stringify({size:file.size}) });
+      const made = await upload(`haggs/${owner}/uploads/${crypto.randomUUID()}/upload-${file.name.replace(/[^\w.-]+/g, "-").slice(-80)}`, file, { access: config.access, handleUploadUrl: config.access === "private" ? "/api/blob/private-upload" : "/api/blob/upload", clientPayload: JSON.stringify({size:file.size}) });
       return { ok: true, url: config.access === "private" ? privateMediaUrl(made.pathname) : made.url, kind, name: file.name };
     } catch (caught) {
       return { ok: false, reason: caught instanceof Error ? caught.message : "The file couldn't be added." };

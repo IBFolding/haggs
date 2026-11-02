@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       if (!file) return Response.json({ ok: false, reason: "That clip isn't in the media folder." }, { status: 400 });
       input = file.path;
     } else if (online && (privateMediaPath(url) || isBlobUrl(url))) {
-      const res = privateMediaPath(url) ? await readPrivateMedia(url, request) : await fetch(url);
+      const res = privateMediaPath(url) ? await readPrivateMedia(url, request, false) : await fetch(url);
       if (!res.ok) return Response.json({ ok: false, reason: "That clip couldn't be opened." }, { status: 400 });
       if (Number(res.headers.get("content-length") ?? 0) > LIMIT) return Response.json({ ok: false, reason: "Keep clips under 300 MB." }, { status: 400 });
       input = join(scratch, "clip");
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const plan = await makeSheet(input, out, { frames: Number(body?.frames), columns: Number(body?.columns), size: Number(body?.size) });
     const bytes = new Uint8Array(await readFile(out));
     let sheet: string;
-    if (online) sheet = await putBlob(bytes, "png", "sprites");
+    if (online) sheet = await putBlob(bytes, "png", "sprites", request);
     else {
       const root = process.env.HAGGS_LOCAL_MEDIA;
       if (!root) return Response.json({ ok: false, reason: "Set HAGGS_LOCAL_MEDIA so the sheet has somewhere to be kept." }, { status: 400 });

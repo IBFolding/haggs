@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       if (!file) return Response.json({ ok: false, reason: "That film isn't in the media folder." }, { status: 400 });
       path = file.path;
     } else if (online && (privateMediaPath(url) || isBlobUrl(url))) {
-      const res = privateMediaPath(url) ? await readPrivateMedia(url, request) : await fetch(url);
+      const res = privateMediaPath(url) ? await readPrivateMedia(url, request, false) : await fetch(url);
       if (!res.ok) return Response.json({ ok: false, reason: "That film couldn't be opened." }, { status: 400 });
       if (Number(res.headers.get("content-length") ?? 0) > LIMIT) return Response.json({ ok: false, reason: "Keep films under 300 MB." }, { status: 400 });
       path = join(scratch, "film");

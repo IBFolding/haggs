@@ -2,7 +2,7 @@
 
 The current main branch saves ordinary browser uploads, generated output, local-to-account library copies, rendered films, Grey Room renders and sprite sheets into public Vercel Blob storage. Filenames have random components. Explore inserts a public post containing a media URL only after an explicit share. These are distinct boundaries: removing the post removes discovery through Explore; it does not revoke a public storage URL. This is source-verified. No existing customer's unshared object was fetched, and an unauthenticated synthetic public-object read is still pending a permitted test upload.
 
-This candidate uses a separate private Blob store for new media when `HAGGS_PRIVATE_BLOB_READ_WRITE_TOKEN` is configured. It never changes existing store permissions or deletes/moves originals. Without that configuration, current legacy behavior remains; do not claim private-by-default production until rollout is complete. No token has been created/configured by this task.
+This candidate uses a separate private Blob store for new media when `HAGGS_PRIVATE_MEDIA_WRITES=1` and the separately approved `HAGGS_PRIVATE_BLOB_READ_WRITE_TOKEN` is configured. It never changes existing store permissions or deletes/moves originals. The credential alone enables reads; without write activation, current legacy write behavior remains; do not claim private-by-default production until rollout is complete. No token has been created/configured by this task.
 
 Private media is saved as a stable `/api/media/haggs/u-<owner>/...` reference. Each read authenticates the owner or checks an exact current public Explore post whose owner matches the path. The proxy streams media with private/no-store caching, forwards video ranges, and does not expose storage authorization or signed URLs. Removing the post revokes subsequent anonymous reads. Downloaded copies cannot be recalled. New uploads, server-generated results, account listing/deletion, quota snapshots/reconciliation and render input staging use the same reference. Legacy public files remain readable and counted.
 
@@ -29,3 +29,5 @@ The test suite verifies authorization decisions, range streaming, storage-header
 ## Additional unresolved recovery boundary
 
 `keepShots` retains a provider's temporary output URL if durable storage fails, to avoid losing a paid result. That external provider URL may itself be a bearer URL. This candidate has not changed that fallback or claimed it is private. A complete privacy release must preserve recoverable provider job/output metadata while withholding an unprotected result from being presented as privately stored. Do not solve this by discarding a paid output or retrying an uncertain paid job.
+
+Review follow-up: see `private-media-compatibility.md` for reader-first rollout, stable in-flight upload callbacks, verified-copy planning, rollback and remaining consumer gates.
