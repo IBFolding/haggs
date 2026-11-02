@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { hashPrompt, promptFor } from "../../../../story/assemble";
 import { commit, view } from "../../../../story/boards";
 import { addTake, chooseTake, takesOf } from "../../../../story/takes";
+import { shotFootage } from "../../../../story/media-display";
 import { renderSeconds } from "../../../../story/references";
 import { cloudEstimate } from "../../../../providers/cloud-price";
 import { shoot } from "../../../shoot";
@@ -189,8 +190,8 @@ export function MediaTab({ id, boardId }: { id: string; boardId?: string | undef
           )}
 
           {board.shots.map((shot, i) => {
-            const own = media.filter((m) => m.shotId === shot.id).filter(show);
-            const renderIsMedia = shot.render && media.some((m) => m.url === shot.render!.url);
+            const footage = shotFootage(shot, media.filter(show));
+            const { own } = footage;
             if (!own.length && !shot.render) return null;
             return (
               <section key={shot.id} className="md-shot">
@@ -203,7 +204,7 @@ export function MediaTab({ id, boardId }: { id: string; boardId?: string | undef
                 {changing === shot.id && <ChangeAndRoll project={full} boardId={boardId} shotId={shot.id} onSaved={setProject} />}
                 <div className="md-grid">
                   {/* Takes rolled here or on the board, newest last; imported footage shows below as media. */}
-                  {takesOf(shot).filter((t) => !media.some((m) => m.url === t.url)).map((take) => {
+                  {footage.takes.map((take) => {
                     const onShot = shot.render?.url === take.url && shot.render?.at === take.at;
                     return (
                       <figure key={take.id} className={`md-item${onShot ? " on-shot" : ""}`}>
@@ -220,7 +221,7 @@ export function MediaTab({ id, boardId }: { id: string; boardId?: string | undef
                       </figure>
                     );
                   })}
-                  {shot.render && !renderIsMedia && !takesOf(shot).some((t) => t.url === shot.render!.url) && (
+                  {shot.render && footage.showRender && (
                     <figure className="md-item on-shot">
                       <Thumb url={shot.render.url} kind={shot.render.kind} name={`Shot ${i + 1} render`} />
                       <figcaption><b>On the shot</b><span>Generated{shot.render.usd !== null ? ` · ${creditsText(shot.render.usd)}` : ""}</span></figcaption>
