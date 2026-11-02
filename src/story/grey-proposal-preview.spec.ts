@@ -40,3 +40,29 @@ test("review scrubs the proposed AI move without changing the saved scene or cam
  const kept=previewSceneProposal(grey,scene,moving,false,ALL_PROPOSAL_PARTS,false,6);
  assert.equal(kept.candidate.grey.camKeys,undefined);
 });
+
+test("individual proposal choices preview only selected additions and preserve existing scene records",()=>{
+ const grey=defaultGrey(),scene=addStandInProp({source:{url:"/existing.mp4",kind:"video"}});
+ const offered={...proposal,people:[...proposal.people,{label:"Blair",x:-1,z:0}],props:[...proposal.props,{name:"Lamp",material:"metal" as const,x:1,z:0}]};
+ const original=JSON.stringify({grey,scene,offered});
+ const review=previewSceneProposal(grey,scene,offered,false,{...ALL_PROPOSAL_PARTS,room:false,personIndices:[1],propIndices:[1]},false,0);
+ assert.equal(review.peopleAdded,1);assert.equal(review.propsAdded,1);
+ assert.equal(review.candidate.grey.subjects.at(-1)!.label,"Blair");
+ assert.equal(review.candidate.scene.props!.at(-1)!.name,"Lamp");
+ assert.equal(review.candidate.scene.props!.at(-1)!.material,"metal");
+ assert.deepEqual(review.candidate.scene.props![0],scene.props![0]);
+ assert.deepEqual(review.candidate.scene.source,scene.source);
+ assert.equal(JSON.stringify({grey,scene,offered}),original);
+ const none=previewSceneProposal(grey,scene,offered,false,{...ALL_PROPOSAL_PARTS,room:false,personIndices:[],propIndices:[]},false,0);
+ assert.equal(none.peopleAdded,0);assert.equal(none.propsAdded,0);assert.equal(none.before,none.after);
+});
+
+test("individual choices resolve capacity and cannot add duplicate or out-of-range entries",()=>{
+ const grey=defaultGrey();grey.subjects=Array.from({length:5},(_,i)=>({id:String(i),label:`Existing ${i}`,x:0,z:0}));
+ const offered={...proposal,people:[{label:"Avery",x:1,z:1},{label:"Blair",x:-1,z:0}],props:[...proposal.props,{...proposal.props[0]!,name:" table "}]};
+ assert.throws(()=>previewSceneProposal(grey,{},offered,false,ALL_PROPOSAL_PARTS,false,0),/six figures/);
+ const selected=previewSceneProposal(grey,{},offered,false,{...ALL_PROPOSAL_PARTS,personIndices:[1,1,-1,200,NaN],propIndices:[0,1]},false,0);
+ assert.equal(selected.peopleAdded,1);assert.equal(selected.propsAdded,1);assert.equal(selected.candidate.grey.subjects.at(-1)!.label,"Blair");
+ const disabled=previewSceneProposal(grey,{},offered,false,{people:false,props:false,room:false,personIndices:[1],propIndices:[0]},false,0);
+ assert.equal(disabled.peopleAdded,0);assert.equal(disabled.propsAdded,0);
+});

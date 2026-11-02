@@ -23,6 +23,10 @@ export function GreyProposalPanel({ grey, scene, vertical, onApply }: { vertical
   const stale=reviewedStamp!==sceneStamp;
   const preview=useMemo(()=>{if(!proposal||stale)return null;try{return {ok:true as const,...previewSceneProposal(grey,scene,proposal,camera,selection,vertical,previewTime)};}catch(e){return {ok:false as const,reason:(e as Error).message};}},[grey,scene,proposal,camera,selection,vertical,previewTime,stale]);
   function review(next:SceneProposal){setProposal(next);setCamera(false);setSelection(ALL_PROPOSAL_PARTS);setPreviewTime(0);setReviewedStamp(sceneStamp);}
+  function chooseItem(key:"personIndices"|"propIndices",index:number,include:boolean,total:number){
+    setSelection(current=>{const chosen=current[key]??Array.from({length:total},(_,i)=>i);return {...current,[key]:include?[...new Set([...chosen,index])]:chosen.filter(i=>i!==index)};});
+  }
+  const sameName=(a:string,b:string)=>a.trim().toLowerCase()===b.trim().toLowerCase();
   const [status, setStatus] = useState("");
   const [quote,setQuote]=useState<ProposalQuote|null>(null);
   const [consent,setConsent]=useState(false);
@@ -69,11 +73,17 @@ export function GreyProposalPanel({ grey, scene, vertical, onApply }: { vertical
     {proposal && <div className="gr-proposal-review" aria-label="Scene proposal review">
       <b>{proposal.summary}</b>
       <p>Floor: {proposal.room.floor}. Wall: {proposal.room.wall}.</p>
-      <p>People to add: {proposal.people.map(p=>p.label+(p.facing===undefined?"":` (facing ${p.facing}°)`)).join(", ") || "None"}. Props to add: {proposal.props.map(p=>p.name+(p.material?` (${p.material})`:"")).join(", ") || "None"}. Existing names are kept in place.</p>
+      <p>Proposed people: {proposal.people.map(p=>p.label+(p.facing===undefined?"":` (facing ${p.facing}°)`)).join(", ") || "None"}. Proposed props: {proposal.props.map(p=>p.name+(p.material?` (${p.material})`:"")).join(", ") || "None"}. Existing names are kept in place.</p>
       <p>Proposed camera: {proposal.camera.lens} mm, {proposal.camera.distance} m away, {proposal.camera.height} m high, angle {proposal.camera.angle}°. {proposal.cameraPath?` Camera move: ${proposal.cameraPath.length} keys over 6 seconds.`:" Still camera."} Light: {proposal.light.az}° direction, {proposal.light.el}° elevation.</p>
       <div aria-label="Proposal choices">
         <label><input type="checkbox" checked={selection.people} onChange={e=>setSelection({...selection,people:e.target.checked})}/> Add proposed people</label>
+        <div className="gr-proposal-items" role="group" aria-label="Choose proposed people">
+          {proposal.people.map((person,i)=>{const exists=grey.subjects.some(s=>sameName(s.label,person.label));return <label key={i}><input type="checkbox" aria-label={`Add proposed person ${person.label}`} disabled={!selection.people||exists} checked={selection.people&&!exists&&(selection.personIndices===undefined||selection.personIndices.includes(i))} onChange={e=>chooseItem("personIndices",i,e.target.checked,proposal.people.length)}/><span>{person.label}{exists?" (already in scene)":""}</span></label>;})}
+        </div>
         <label><input type="checkbox" checked={selection.props} onChange={e=>setSelection({...selection,props:e.target.checked})}/> Add proposed props</label>
+        <div className="gr-proposal-items" role="group" aria-label="Choose proposed props">
+          {proposal.props.map((prop,i)=>{const exists=scene.props?.some(p=>sameName(p.name,prop.name));return <label key={i}><input type="checkbox" aria-label={`Add proposed prop ${prop.name}`} disabled={!selection.props||exists} checked={selection.props&&!exists&&(selection.propIndices===undefined||selection.propIndices.includes(i))} onChange={e=>chooseItem("propIndices",i,e.target.checked,proposal.props.length)}/><span>{prop.name}{exists?" (already in scene)":prop.material?` (${prop.material})`:""}</span></label>;})}
+        </div>
         <label><input type="checkbox" checked={selection.room} onChange={e=>setSelection({...selection,room:e.target.checked})}/> Use proposed room materials</label>
       </div>
       <label><input type="checkbox" aria-label="Use proposed camera and key light" checked={camera} onChange={e=>setCamera(e.target.checked)} /> Use proposed camera and key light{grey.camKeys?.length ? (proposal.cameraPath?" (replaces the current camera path with the proposed move)":" (replaces the current camera path with a still camera)") : ""}</label>

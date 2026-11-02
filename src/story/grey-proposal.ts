@@ -26,16 +26,16 @@ export function readSceneProposal(raw: string): SceneProposal {
   try { return sceneProposalSchema.parse(JSON.parse(text)); }
   catch { throw new Error("The proposal did not match the scene format. Paste the complete JSON reply from the request above."); }
 }
-export type ProposalSelection = { people: boolean; props: boolean; room: boolean };
+export type ProposalSelection = { people: boolean; props: boolean; room: boolean; /** Omitted lists include every proposed item; empty lists include none. */ personIndices?: number[]; propIndices?: number[] };
 export const ALL_PROPOSAL_PARTS: ProposalSelection = {people:true,props:true,room:true};
 /** Apply only after review. Existing people, props, footage, references, lights and keys are retained. */
 export function applySceneProposal(grey: GreyFrame, scene: GreyScene, proposal: SceneProposal, useCamera = false, selection: ProposalSelection = ALL_PROPOSAL_PARTS): { grey: GreyFrame; scene: GreyScene } {
   const checked = sceneProposalSchema.parse(proposal);
   const same = (a:string,b:string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-  const people = (selection.people ? checked.people : []).filter((p,i,all)=>!grey.subjects.some(s=>same(s.label,p.label)) && all.findIndex(q=>same(q.label,p.label))===i);
+  const people = (selection.people ? checked.people.filter((_,i)=>selection.personIndices===undefined||selection.personIndices.includes(i)) : []).filter((p,i,all)=>!grey.subjects.some(s=>same(s.label,p.label)) && all.findIndex(q=>same(q.label,p.label))===i);
   if (grey.subjects.length + people.length > 6) throw new Error("This proposal would exceed six figures. Reduce the proposed people before applying it; existing figures will not be removed.");
   let next: GreyScene = selection.room ? { ...scene, space: checked.room } : { ...scene };
-  for (const prop of selection.props ? checked.props : []) {
+  for (const prop of selection.props ? checked.props.filter((_,i)=>selection.propIndices===undefined||selection.propIndices.includes(i)) : []) {
     if (next.props?.some(p=>same(p.name,prop.name))) continue;
     if ((next.props?.length ?? 0) >= 100) throw new Error("This scene already has too many props to add this proposal.");
     next = addStandInProp(next);
