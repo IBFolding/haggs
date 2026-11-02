@@ -26,7 +26,7 @@ import { fcpxml } from "../../../../story/fcpxml";
 import { needsApproval, tidy } from "../../../../story/grey";
 import { GreyRoom, GreySequence } from "./grey";
 import { normalizeScene } from "../../../../story/grey-scene";
-import { addGreyTake } from "../../../../story/grey-take";
+import { addGreyTake, restoreGreyTakeSetup } from "../../../../story/grey-take";
 import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, setLook, type Shot } from "../../../../story/model";
 import { LookBar } from "../../../look-picker";
@@ -863,6 +863,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                                 <button className={`take-star${take.favorite ? " on" : ""}`} aria-label={take.favorite ? "Unstar" : "Star"} onClick={() => onShot(shot.id, (s2) => toggleFavorite(s2, take.id))}>★</button>
                                 {!on && <button className="take-x" aria-label="Remove take" onClick={() => onShot(shot.id, (s2) => removeTake(s2, take.id))}>×</button>}
                               </figcaption>
+                              {take.greySetup&&<button className="pill" style={{width:"100%",whiteSpace:"normal",minHeight:44,fontSize:12}} title={`Restore the input setup captured at ${take.greySetup.time.toFixed(1)} s; keep the selected media.`} onClick={()=>onShot(shot.id,s2=>restoreGreyTakeSetup(s2,take.id))}>Restore setup</button>}
                             </figure>
                           );
                         })}
@@ -907,8 +908,8 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                       names={project.threads.filter((t) => t.kind === "character" && shot.threadIds.includes(t.id)).map((t) => t.name)}
                       onGrey={(g) => onShot(shot.id, (s2) => ({ ...s2, grey: g }))}
                       onApprove={() => onShot(shot.id, (s2) => ({ ...s2, approved: true }))}
-                      onTake={(url, usd, guideScene) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "image", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene)))}
-                      onShot={(url, usd, guideScene) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "video", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room shot", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene)))}
+                      onTake={(url, usd, guideScene, guideFrame, guideTime) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "image", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene), guideFrame, guideTime))}
+                      onShot={(url, usd, guideScene, guideFrame, guideTime) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "video", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room shot", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene), guideFrame, guideTime))}
                     />
                   )}
                   {tab === "reshoot" && reshootMode === "grey" && (

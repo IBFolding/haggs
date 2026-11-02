@@ -56,3 +56,18 @@ The first production build attempt was blocked by sandbox DNS for existing Googl
 ## Deliberately unverified
 
 Paid Comfy/model runs await explicit budget approval. The authenticated automatic transport is implemented behind a default-off rollout/pricing gate and tested using mocked fetch through the real writer transport. No live provider call has been made. Shared quote storage and atomic claims are implemented and locally database-tested; their additive migration remains unapplied remotely. See MULTIWORKER.md. Spatial guide rendering and local MP4 encoding work, but a live model's fidelity to that guide has not been tested. Textured images and arbitrary GLB models are not rendered into the guide; image props use geometric stand-ins and prompt context. See INTEGRATION.md.
+
+
+## Independent review blockers (follow-up to 879611c)
+
+The fixes live on the original `feat/grey-room-shared-scene` branch; the review checkout remains untouched. Release remains on hold pending a fresh independent review and reconciliation.
+
+- Grey Room paid image/video actions now require server-side `HAGGS_GREY_AI_ENABLED=1`, checked before auth, storage, billing or provider work. Client controls start disabled and query the same server policy. Both image flows use the restricted Grey wrapper; unrelated legacy edit tools retain their existing behavior. First-frame approval and stale-scene checks remain intact.
+- Local and hosted draft plans identify validated box primitives separately from image URLs. The server draws its own bounded SVG from a fixed material palette and rasterizes it with Sharp. It never reads the supplied primitive URL. Hidden props are excluded from staging/metadata. Ordinary image URLs retain existing store/local-folder restrictions.
+- Generated takes now retain cloned input scene, optional blockout frame and playhead in `greySetup`. Editable per-take scene state remains separate. Switching takes and saving/reopening preserve the input record; “Restore setup” explicitly copies it back without changing media, trims, take history or approval. Old projects without the new optional field are unchanged.
+
+New regression cases cover both disabled server actions, strict flag values, hostile primitive URLs/materials, hidden props, ordinary URL rejection, and submit A → edit B → finish → switch away/back → JSON round trip. `scripts/grey-render-check.mts` exercises the actual local render endpoint and FFmpeg with a visible box and hidden untrusted prop; it refuses hosted-storage configuration. No real provider calls are part of these checks.
+
+Verification on this follow-up: all 1,291 local tests pass with concurrency two (`output/review-fixes-tests.log`), and TypeScript passes (`output/review-fixes-typecheck.log`). The actual local FFmpeg endpoint check passes. Browser harness corrections navigate to Shot before restoring a take and compare the next draft against the saved original material instead of assuming wood. No application failure was suppressed. The initial TypeScript run caught strict optional-field errors in test fixtures, corrected by omitting the primitive field; a later run overlapped Next generated-type refresh, and the final clean run passed.
+
+Final desktop/mobile browser run: all 29 checks pass with zero page errors (`output/review-fixes-browser.log`, `output/playwright/results.json`). Paid controls were checked on desktop and 390px mobile; explicit take restoration was checked in the cut editor. The dev server was stopped after verification. A new production build of the reconciled candidate and a fresh independent review remain release requirements; this follow-up does not modify or release candidate `879611c`.

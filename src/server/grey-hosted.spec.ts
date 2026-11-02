@@ -27,3 +27,14 @@ test("hosted Grey Room refuses local and arbitrary remote footage before fetchin
     }
   } finally { await rm(root,{recursive:true,force:true}); }
 });
+
+import {addStandInProp} from "../story/grey-space";
+test("hosted primitives and hidden props never stage URLs, visible images retain store restrictions",async()=>{
+ const root=await mkdtemp(join(tmpdir(),"grey-primitives-"));
+ try{const box=addStandInProp({}).props![0]!;const {primitive:_primitive,...image}=box;const fetched:string[]=[];
+ const fetcher=(async(url:unknown)=>{fetched.push(String(url));return new Response(new Uint8Array([1]));}) as typeof fetch;
+ await stageGreyFiles({props:[box,{...image,id:"hidden",hidden:true,url:"http://127.0.0.1/private"}]},footage,root,fetcher);
+ assert.deepEqual(fetched,[footage]);
+ for(const url of [box.url,"file:///etc/passwd","http://127.0.0.1/private"]){await assert.rejects(stageGreyFiles({props:[{...image,url}]},footage,root,fetcher),/store/);}
+ }finally{await rm(root,{recursive:true,force:true});}
+});

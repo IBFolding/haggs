@@ -36,6 +36,8 @@ try {
   await page.waitForSelector('.gr-space-canvas canvas',{timeout:180000});
   await page.waitForFunction(()=>document.querySelector('.gr-space-canvas canvas')?.width>0);
   checks.push('desktop WebGL viewport mounts');
+  const checkPaidHold=async()=>{const paid=await page.$$eval('button',es=>es.filter(e=>/Make it real|Make the shot: first frame|Yes, make the video/.test(e.textContent)).map(e=>({disabled:e.disabled,text:e.textContent})));assert.ok(paid.length>=2);assert.ok(paid.every(b=>b.disabled));assert.ok(await page.evaluate(()=>document.body.textContent.includes('Paid Grey Room generation is not enabled')));};
+  await checkPaidHold();checks.push('desktop paid first-frame and video controls stay disabled under operator hold');
   await page.type('[aria-label="Scene direction"]','Quiet kitchen at dawn');
   await page.select('[aria-label="floor material"]','wood');
   await page.select('[aria-label="wall material"]','metal');
@@ -99,6 +101,7 @@ try {
   await page.screenshot({path:output+'mobile.png',fullPage:true});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   const sizes=await page.$$eval('.gr-space button',es=>es.filter(e=>e.offsetParent).map(e=>e.getBoundingClientRect().height));assert.ok(sizes.every(h=>h>=40));
+  await checkPaidHold();checks.push('mobile paid generation remains disabled while editing stays usable');
   checks.push('390px mobile layout has no horizontal overflow and accessible move controls');
   await click('Arrange from above');
   const mobileCanvas = await page.$('.gr-space-canvas'); await mobileCanvas.scrollIntoView();
@@ -216,7 +219,7 @@ try {
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   checks.push('mobile inspector renames, resizes, rotates, locks, hides and removes selected stand-ins while preserving source assets and references');
   // A local still fixture makes this shot eligible for the existing cut editor; no generation runs.
-  await page.evaluate(async()=>{const db=await new Promise(r=>{const req=indexedDB.open('haggs',1);req.onsuccess=()=>r(req.result)});await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readwrite'),store=tx.objectStore('kv'),get=store.get('projects/grey-space-qa');get.onsuccess=()=>{const p=get.result,s=p.boards[0].shots[0];s.render={url:s.greyScene.source.url,kind:'image',usd:0,at:1,promptHash:'local-fixture'};s.approved=true;store.put(p,'projects/grey-space-qa')};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close()});
+  await page.evaluate(async()=>{const db=await new Promise(r=>{const req=indexedDB.open('haggs',1);req.onsuccess=()=>r(req.result)});await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readwrite'),store=tx.objectStore('kv'),get=store.get('projects/grey-space-qa');get.onsuccess=()=>{const p=get.result,s=p.boards[0].shots[0];s.render={url:s.greyScene.source.url,kind:'image',usd:0,at:1,promptHash:'local-fixture'};s.approved=true;s.takes=[{...s.render,id:'local-take',greySetup:{frame:structuredClone(s.grey),scene:structuredClone(s.greyScene),time:2}}];store.put(p,'projects/grey-space-qa')};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close()});
   await page.setViewport({width:1440,height:1000});
   await page.goto(base+'/board/grey-space-qa/cut?notour',{waitUntil:'networkidle2',timeout:240000});
   await page.waitForSelector('.ed-tabs');
@@ -232,6 +235,7 @@ try {
   assert.deepEqual(shotOf(await record()).greyScene.source,inspector.greyScene.source);
   await page.screenshot({path:output+'cut-shared-scene.png',fullPage:true});
   checks.push('existing cut editor thumbnails and sequence preview render the saved shared scene without changing it');
+  const beforeRestore=shotOf(await record());await page.evaluate(()=>Array.from(document.querySelectorAll('[role=tab]')).find(e=>e.textContent==='Shot').click());await click('Restore setup');await new Promise(r=>setTimeout(r,1200));const afterRestore=shotOf(await record());assert.deepEqual(afterRestore.greyScene,inspector.greyScene);assert.deepEqual(afterRestore.render,beforeRestore.render);assert.deepEqual(afterRestore.takes,beforeRestore.takes);checks.push('cut editor explicitly restores immutable take input setup without replacing media or take history');
   }
   await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true,deviceScaleFactor:1});
   await page.goto(base+'/board/grey-space-qa/grey/shot-1?notour',{waitUntil:'networkidle2',timeout:240000});
@@ -246,7 +250,7 @@ try {
   const savedDrafts=(await record()).boards[0].shots;assert.equal(savedDrafts.length,2);assert.equal(savedDrafts[1].id,newId);assert.deepEqual(savedDrafts[0],originalShot);
   const draft=savedDrafts[1];assert.equal(draft.heading,'Reverse angle');assert.equal(draft.beat,'Rowan turns toward the window.');assert.equal(draft.render,undefined);assert.equal(draft.takes,undefined);assert.equal(draft.approved,undefined);assert.equal(draft.greyScene.source,undefined);assert.equal(draft.greyScene.matte,undefined);assert.deepEqual(draft.greyScene.props,originalShot.greyScene.props);assert.deepEqual(draft.grey.camKeys,originalShot.grey.camKeys);
   await Promise.all([page.waitForNavigation({waitUntil:'networkidle2',timeout:240000}),click('Open new draft')]);await page.waitForSelector('.gr-space-canvas canvas');
-  await page.select('[aria-label="floor material"]','metal');await new Promise(r=>setTimeout(r,1000));assert.equal((await record()).boards[0].shots[0].greyScene.space.floor,'wood');assert.equal((await record()).boards[0].shots[1].greyScene.space.floor,'metal');
+  await page.select('[aria-label="floor material"]','metal');await new Promise(r=>setTimeout(r,1000));assert.equal((await record()).boards[0].shots[0].greyScene.space.floor,originalShot.greyScene.space.floor);assert.equal((await record()).boards[0].shots[1].greyScene.space.floor,'metal');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:output+'new-setup-shot.png',fullPage:true});
   await page.click('.gr-shot-tools summary');await Promise.all([page.waitForNavigation({waitUntil:'networkidle2',timeout:240000}),page.select('[aria-label="Open Grey Room shot"]','shot-1')]);
   assert.deepEqual(shotOf(await record()),originalShot);

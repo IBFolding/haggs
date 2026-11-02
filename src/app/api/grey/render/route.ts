@@ -1,6 +1,7 @@
+import { primitivePng } from "../../../../server/grey-primitive";
 import { prepareGreyTexture } from "../../../../server/grey-texture";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -78,6 +79,8 @@ export async function POST(request: Request) {
     // Each prop picture's shape, so its shadow can be sized and placed.
     const aspects: Record<string, number> = {};
     for (const p of scene.props ?? []) {
+      if(p.hidden)continue;
+      if(p.primitive==="box"){aspects[p.id]=1;continue;}
       const meta = await sharp(file(p.url)).metadata().catch(() => null);
       if (meta?.width && meta.height) aspects[p.id] = meta.height / meta.width;
     }
@@ -85,7 +88,10 @@ export async function POST(request: Request) {
     work = await mkdtemp(join(tmpdir(), "haggs-grey-"));
     const paths: string[] = [];
     for (const [i, input] of plan.inputs.entries()) {
-      if (input.role === "texture") {
+      if(input.role==="primitive"){
+        const prop=scene.props?.find(p=>p.id===input.ref);if(!prop)throw Error("Missing primitive.");
+        const out=join(work,`primitive-${i}.png`);await writeFile(out,await primitivePng(prop));paths.push(out);
+      } else if (input.role === "texture") {
         const out = join(work, `texture-${i}.png`);
         await prepareGreyTexture(input, file(input.ref), size, out);
         paths.push(out);

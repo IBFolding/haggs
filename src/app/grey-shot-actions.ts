@@ -1,5 +1,7 @@
 "use server";
 
+import { greyGenerationEnabled, GREY_GENERATION_HOLD } from "../server/grey-generation-policy";
+import { runEdit, type EditResult } from "./actions";
 import { normalizeScene, type GreyScene } from "../story/grey-scene";
 import { createCloudRunner } from "../providers/cloud";
 import { CONTROL_STRENGTH, GREY_SHOT_OUTPUT, GREY_SHOT_USD, greyShotWorkflow } from "../comfy/grey-shot";
@@ -11,6 +13,13 @@ import { keepResult } from "../server/keep";
 import { readMedia } from "../server/media";
 import { charged, comfyAccess } from "../server/platform";
 
+export async function greyGenerationAvailability(){return {enabled:greyGenerationEnabled(),reason:GREY_GENERATION_HOLD};}
+/** This restricted wrapper is the only paid still-image entry point used by Grey Room. */
+export async function makeGreyFirstFrame(input:{frame:string;prompt:string;ratio:"9:16"|"16:9"}):Promise<EditResult>{
+  if(!greyGenerationEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
+  return runEdit({tool:"kontext",frame:input.frame,prompt:input.prompt,ratio:input.ratio});
+}
+
 export type GreyShot = { ok: true; url: string; usd: number; seconds: number } | { ok: false; reason: string; needsKey?: true };
 
 /**
@@ -19,6 +28,7 @@ export type GreyShot = { ok: true; url: string; usd: number; seconds: number } |
  * the GPU time is billed to the account. Never retried automatically.
  */
 export async function makeGreyShot(input: { grey: GreyFrame; frame: string; beat: string; vertical: boolean; scene?: GreyScene | undefined }): Promise<GreyShot> {
+  if(!greyGenerationEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
   const acc = await comfyAccess(GREY_SHOT_USD, "Grey Room shot", "Add a Comfy key to make the shot.");
   if (!acc.ok) return { ok: false, reason: acc.reason, ...(acc.needsKey ? { needsKey: true as const } : {}) };
   return charged(acc, async (key) => {
