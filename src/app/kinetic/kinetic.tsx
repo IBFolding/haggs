@@ -154,7 +154,9 @@ export function Kinetic() {
     if (!record) master.connect(ac.destination);
     let el: HTMLAudioElement | null = null;
     if (music && audio.current) {
-      el = audio.current; el.currentTime = nudge < 0 ? -nudge : 0;
+      // A media element can only be attached to one Web Audio source, even
+      // after its context closes. Each playback/export owns a fresh element.
+      el = audio.current.cloneNode(true) as HTMLAudioElement; el.currentTime = nudge < 0 ? -nudge : 0;
       const src = ac.createMediaElementSource(el); const g = ac.createGain(); g.gain.value = 0.9; src.connect(g).connect(master);
     }
     await ac.resume();
