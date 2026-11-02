@@ -1,7 +1,8 @@
 import type { GreyQuoteStore } from "./grey-quote-store";
 import { createHash, randomUUID } from "node:crypto";
 import { proposalContextSchema, type ProposalContext } from "../story/grey-proposal-context";
-import { PROPOSAL_SCHEMA, proposalRequest } from "../story/grey-proposal";
+import { proposalRequest } from "../story/grey-proposal";
+import { GREY_PROVIDER_SCHEMA } from "./grey-proposal-schema";
 import { sceneProposalSchema, type SceneProposal } from "../story/grey-space";
 import { defaultGrey } from "../story/grey";
 import type { DraftRequest, ClaudeResult } from "../writer/draft";
@@ -35,7 +36,7 @@ export function createGreyProposalGateway(deps:Dependencies) {
    if(!credentials?.key)return {ok:false,reason:"No existing Claude key is available. Use Provider keys or the manual AI request.",needsKey:true};
    let request:DraftRequest;try{request=await requestFor(parsed.data);}catch{return {ok:false,reason:"A reference image could not be validated. Use a still PNG or JPEG preview; nothing was sent to the provider."};}
    // Conservative text-byte estimate plus schema/protocol allowance; not an exact provider charge or hard cap.
-   const inputTokens=Buffer.byteLength(request.system+request.user+JSON.stringify(PROPOSAL_SCHEMA),"utf8")+1024+(request.images??[]).reduce((sum,image)=>sum+image.data.length+4096,0);
+   const inputTokens=Buffer.byteLength(request.system+request.user+JSON.stringify(GREY_PROVIDER_SCHEMA),"utf8")+1024+(request.images??[]).reduce((sum,image)=>sum+image.data.length+4096,0);
    const estimateUsd=Math.ceil((inputTokens*p.inputUsdPerMillion+request.maxTokens*p.outputUsdPerMillion)/100)/10000;
    if(!Number.isFinite(estimateUsd)||estimateUsd<=0)return unavailable;
    const id=randomUUID(),expiresAt=now()+5*60_000;
@@ -61,7 +62,7 @@ export function createGreyProposalGateway(deps:Dependencies) {
    try{if(!await store.claim(id,q))return {ok:false,reason:"This request has already been submitted or expired. Nothing was retried."};}
    catch{return {ok:false,reason:"Quote claim could not be confirmed. Nothing was sent by this request. Check provider activity before requesting again."};}
    try {
-    const result=await deps.send(credentials,request,PROPOSAL_SCHEMA);
+    const result=await deps.send(credentials,request,GREY_PROVIDER_SCHEMA);
     if(!result.ok)return {ok:false,reason:"The provider could not return a scene proposal. Check provider activity before requesting again; nothing was retried."};
     const checked=sceneProposalSchema.safeParse(result.draft);
     if(!checked.success)return {ok:false,reason:"The provider returned an invalid scene proposal. Your scene is unchanged; check provider activity before requesting again."};
