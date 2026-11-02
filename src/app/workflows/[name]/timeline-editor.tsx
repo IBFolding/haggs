@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import styles from './timeline-editor.module.css';
 
-import { changePathPoints, object, parseTimeline, updateTimeline, type Item } from './timeline-data';
+import { ACTOR_ACTIONS, changeActorEvents, changePathPoints, object, parseTimeline, updateTimeline, type Item } from './timeline-data';
 function NumberField({label, value, min, max, onChange, invalidMessage}: {label: string; value: number; min: number; max?: number | undefined; onChange: (v: number) => void | boolean; invalidMessage?: string}) {
   const [draft, setDraft] = useState(String(value));
   const [error,setError] = useState('');
@@ -27,7 +27,14 @@ export function TimelineEditor({value, onChange}: {value: string; onChange: (v: 
         {number(i,item,'start','Start (seconds)')}{number(i,item,'impact','Impact (seconds)')}{number(i,item,'end','End (seconds)')}{number(i,item,'radius','Size',1)}{typeof item.x === 'number' && <PositionField label="Left to right" value={item.x} onChange={n => update(i,['x'],n)} />}{typeof item.y === 'number' && <PositionField label="Top to bottom" value={item.y} onChange={n => update(i,['y'],n)} />}
       </div>
       {Array.isArray(item.path) && <><div>{item.path.map((point, p) => Array.isArray(point) && point.length >= 3 && point.slice(0,3).every(n => typeof n === 'number') && <div className={styles.point} key={p}><strong>Position {p + 1}</strong><div className={styles.grid}>{['At (seconds)','Left to right','Top to bottom'].map((label, axis) => axis === 0 ? <NumberField key={axis} label={label} value={point[axis]} min={0} invalidMessage="Use a different, nonnegative time for each position." onChange={n => update(i, ['path',p,axis], n)} /> : <PositionField key={axis} label={label} value={point[axis]} onChange={n => update(i, ['path',p,axis], n)} />)}</div><button type="button" disabled={changePathPoints(value,i,p)===null} onClick={()=>{const next=changePathPoints(value,i,p);if(next!==null)onChange(next);}}>Remove position {p+1}</button></div>)}</div><button type="button" disabled={changePathPoints(value,i)===null} onClick={()=>{const next=changePathPoints(value,i);if(next!==null)onChange(next);}}>Add position</button>{changePathPoints(value,i)===null && <p>Use different times and valid coordinates for each position. The visual editor supports up to 100 positions.</p>}</>}
-      {Array.isArray(item.events) && item.events.map((event, e) => object(event) && <div className={styles.point} key={e}><strong>{typeof event.action === 'string' ? event.action : `Action ${e + 1}`}</strong><div className={styles.grid}>{(['start','end'] as const).map(k => typeof event[k] === 'number' && <NumberField key={k} label={`${k === 'start' ? 'Start' : 'End'} (seconds)`} value={event[k] as number} min={0} onChange={n => update(i, ['events',e,k], n)} />)}</div></div>)}
+      {parsed.group==='actors' && Array.isArray(item.events) && <><h4>Actions</h4>{item.events.map((event, e) => object(event) && <div className={styles.point} key={e}>
+        <label><span>Action {e+1}</span><select value={typeof event.action==='string'?event.action:''} onChange={input=>update(i,['events',e,'action'],input.target.value)}>
+          {(typeof event.action!=='string'||!ACTOR_ACTIONS.some(a=>a===event.action)) && <option value={typeof event.action==='string'?event.action:''}>Unsupported action</option>}
+          {ACTOR_ACTIONS.map(action=><option key={action} value={action}>{action[0]!.toUpperCase()+action.slice(1)}</option>)}
+        </select></label>
+        <div className={styles.grid}>{(['start','end'] as const).map(k => typeof event[k] === 'number' && <NumberField key={k} label={`${k === 'start' ? 'Start' : 'End'} (seconds)`} value={event[k] as number} min={0} invalidMessage="The end must be after the start." onChange={n => update(i, ['events',e,k], n)} />)}</div>
+        <button type="button" disabled={changeActorEvents(value,i,e)===null} onClick={()=>{const next=changeActorEvents(value,i,e);if(next!==null)onChange(next);}}>Remove action {e+1}</button>
+      </div>)}<button type="button" disabled={changeActorEvents(value,i)===null} onClick={()=>{const next=changeActorEvents(value,i);if(next!==null)onChange(next);}}>Add action</button>{changeActorEvents(value,i)===null && <p>Check the action names and times in the advanced editor. The visual editor supports up to 100 actions.</p>}</>}
     </fieldset>)}</> : <p>Open the advanced editor to fix or edit this timeline.</p>}
     <details open={!parsed || undefined}><summary>Advanced timeline editor</summary><label><span>Timeline JSON</span><textarea rows={8} value={value} onChange={e => onChange(e.target.value)} /></label></details>
   </section>;

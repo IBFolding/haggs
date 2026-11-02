@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { changePathPoints, parseTimeline, updateTimeline } from './timeline-data';
+import { changeActorEvents, changePathPoints, parseTimeline, updateTimeline } from './timeline-data';
 import { openHaggsPreviewForDisplay } from '../../../server/haggs-preview-workflows';
 
 const names = ['haggs_preview_drag_to_action','haggs_preview_boss_fight','haggs_preview_moveset','haggs_preview_enemy_intent','haggs_preview_vfx_mask','haggs_preview_vfx_reuse'];
@@ -49,4 +49,22 @@ test('position times cannot duplicate another point or become negative',()=>{
  assert.ok(changed);
  assert.deepEqual(JSON.parse(changed),{actors:[{path:[[0,.2,.4],[1,.8,.6]],events:[]}],other:'kept'});
  assert.ok(updateTimeline(raw,0,['path',1,0],2));
+});
+test('visual actor actions can be added, changed and removed without disturbing the timeline',()=>{
+ const root={actors:[{name:'Hero',path:[[0,.2,.4]],events:[{start:0,end:2,action:'walk',extra:'kept'}]}],other:'kept'};
+ const added=changeActorEvents(JSON.stringify(root),0);assert.ok(added);
+ const expected=structuredClone(root);expected.actors[0]!.events.push({start:2,end:3,action:'idle',extra:'kept'});
+ // New events contain only the required fields; existing extra fields survive.
+ delete (expected.actors[0]!.events[1] as {extra?:string}).extra;
+ assert.deepEqual(JSON.parse(added),expected);
+ const changed=updateTimeline(added,0,['events',1,'action'],'attack');assert.ok(changed);
+ expected.actors[0]!.events[1]!.action='attack';assert.deepEqual(JSON.parse(changed),expected);
+ assert.equal(updateTimeline(changed,0,['events',1,'action'],'invented'),null);
+ assert.equal(updateTimeline(changed,0,['events',1,'start'],3),null);
+ assert.equal(updateTimeline(changed,0,['events',1,'end'],2),null);
+ assert.equal(updateTimeline(changed,0,['events',1,'start'],-1),null);
+ const removed=changeActorEvents(changed,0,0);assert.ok(removed);expected.actors[0]!.events.splice(0,1);
+ assert.deepEqual(JSON.parse(removed),expected);
+ assert.equal(changeActorEvents(JSON.stringify({effects:[{events:[]}]}),0),null);
+ assert.equal(changeActorEvents(JSON.stringify({actors:[{events:[{start:1,end:0,action:'walk'}]}]}),0),null);
 });
