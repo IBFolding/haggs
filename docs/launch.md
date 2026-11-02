@@ -41,10 +41,12 @@ In Stripe create recurring prices for the four plans (Platform $15, Creator $39,
 | `STRIPE_API_KEY` | secret key |
 | `STRIPE_PRICE_BYOK`, `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_MID`, `STRIPE_PRICE_PRO` | the four plan prices |
 | `STRIPE_PRICE_TOPUP_10`, `_25`, `_50` | the three packs |
-| `STRIPE_WEBHOOK_SECRET` | signing secret of a webhook to `/api/billing/webhook` for `invoice.paid` and `checkout.session.completed` |
+| `STRIPE_WEBHOOK_SECRET` | signing secret of a webhook to `/api/billing/webhook` for `invoice.paid`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `checkout.session.async_payment_failed` |
 | `HAGGS_WEBHOOK_SECRET` | the string you stored in `app_secrets` |
 | `COMFY_PLATFORM_KEY` | the platform's own Comfy API key |
 | `HAGGS_PLATFORM_KEYS=1` | people on a plan run on that key, paid for in credits |
 | `HAGGS_PLATFORM_CUT` | the percentage you keep of each paid plan and pack (private; leave it out of the repo) |
 
 A credit is one cent of generation at Comfy's list price. Set `HAGGS_PLATFORM_CUT` (a percentage, in Vercel only, not in the repo) to the share you keep of every paid plan and pack; the rest becomes the customer's credits, which also cover their storage. Leave it unset and paid plans include no credits. Customers are shown what their plan lets them make, never the split. Before charging anyone, top up the Comfy account behind `COMFY_PLATFORM_KEY` and watch its balance against the credits sold.
+
+Delayed-payment methods complete checkout before money settles. The webhook acknowledges unpaid completion without granting credits, then fulfills `checkout.session.async_payment_succeeded` only when the session is paid. Failed delayed payments grant nothing. Both successful event types use the Checkout Session ID as the ledger reference, so duplicate deliveries cannot add another pack. Deploying the handler does not update the Stripe endpoint's subscribed event list: verify that list in the matching sandbox/live environment before accepting delayed payments.

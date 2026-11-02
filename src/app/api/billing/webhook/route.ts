@@ -24,9 +24,12 @@ export async function POST(request: Request) {
   }
   const change = changeFor(event as never, process.env);
   if (!change) {
-    const o=event.data.object as unknown as {metadata?:Record<string,string>;parent?:{subscription_details?:{metadata?:Record<string,string>}};subscription_details?:{metadata?:Record<string,string>}};
+    const o=event.data.object as unknown as {payment_status?:string;metadata?:Record<string,string>;parent?:{subscription_details?:{metadata?:Record<string,string>}};subscription_details?:{metadata?:Record<string,string>}};
     const meta=o.parent?.subscription_details?.metadata??o.subscription_details?.metadata??o.metadata;
-    if((event.type==="invoice.paid"||event.type==="checkout.session.completed") && (meta?.haggs_plan_version||meta?.haggs_pack_version))return new Response("Payment entitlement needs review; credits were not changed",{status:500});
+    // Delayed methods complete checkout before payment settles. Acknowledge that
+    // event without credits; the later success event performs fulfillment.
+    const paidCheckout = (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") && o.payment_status === "paid";
+    if((event.type==="invoice.paid"||paidCheckout) && (meta?.haggs_plan_version||meta?.haggs_pack_version))return new Response("Payment entitlement needs review; credits were not changed",{status:500});
     return Response.json({ ok: true, ignored: true });
   }
   const db = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });

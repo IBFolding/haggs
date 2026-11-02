@@ -171,3 +171,28 @@ test("status distinguishes legacy renewal allowance from fixed-price allowance",
     assert.equal((await status(fakeStripe([{ price: "price_b", status: "active", end: 100 }]).stripe, prices, user)).credits, 0);
   } finally { if (previous === undefined) delete process.env.HAGGS_PLATFORM_CUT; else process.env.HAGGS_PLATFORM_CUT = previous; }
 });
+
+test("delayed successful pack payments grant once using the same session reference", () => {
+  for (const pack of TOPUPS) {
+    const object = { id: "cs_delayed", payment_status: "paid", amount_total: pack.usd * 100, currency: "usd", client_reference_id: "u1", metadata: { haggs_user: "u1", haggs_topup: pack.id, haggs_pack_version: TOPUP_VERSION, haggs_credit_grant: String(pack.credits), haggs_price_id: "price_fixed" } };
+    const event = (type: string, patch = {}) => ({ id: `evt_${type}`, type, data: { object: { ...object, ...patch } } });
+    const expected = changeFor(event("checkout.session.completed"), {});
+    assert.ok(expected);
+    assert.deepEqual(changeFor(event("checkout.session.async_payment_succeeded"), {}), expected);
+    assert.equal(changeFor(event("checkout.session.completed", { payment_status: "unpaid" }), {}), null);
+    assert.equal(changeFor(event("checkout.session.async_payment_succeeded", { amount_total: 1 }), {}), null);
+    assert.equal(changeFor(event("checkout.session.async_payment_failed"), {}), null);
+  }
+});
+
+test("an existing subscription must be managed instead of bought again", async () => {
+  for (const state of ["active", "trialing", "past_due", "unpaid", "incomplete", "paused"]) {
+    const { stripe, calls } = fakeStripe([{ price: "price_s", status: state, end: 100, ending: true }]);
+    await assert.rejects(checkout(stripe, env, "mid", user, "https://haggs.test"), /Manage.*subscription/);
+    assert.equal(calls.checkout, undefined);
+  }
+  for (const state of ["canceled", "incomplete_expired"]) {
+    const { stripe } = fakeStripe([{ price: "price_s", status: state, end: 100 }]);
+    assert.equal(await checkout(stripe, env, "mid", user, "https://haggs.test"), "https://checkout.stripe.test/s");
+  }
+});
