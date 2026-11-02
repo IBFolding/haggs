@@ -1,4 +1,5 @@
 import { anthropicHeaders, anthropicErrorReason } from "./anthropic-config";
+import {writerMessage,type ReferenceImage} from "./image-input";
 /**
  * The writer: from a format and an idea to filled-in sheets.
  *
@@ -49,7 +50,7 @@ const clock = (s: number) => (s < 120 ? `${s}s` : `${Math.round((s / 60) * 10) /
 const window = (at: number, until: number, total: number) =>
   total <= 180 ? `${at}–${until}s` : `${Math.round((at / 60) * 10) / 10}–${Math.round((until / 60) * 10) / 10} min`;
 
-export type DraftRequest = { system: string; user: string; maxTokens: number };
+export type DraftRequest = { system: string; user: string; maxTokens: number; images?: ReferenceImage[] };
 
 export function draftRequest(format: Format, idea: string, notes: string): DraftRequest {
   const beats = format.beats.map((b, i) => `${i + 1}. ${b.title} (${window(b.at, b.until, format.seconds)}): ${b.job}`).join("\n");
@@ -207,6 +208,8 @@ export async function askClaude<T = Draft>({
   let workspaceHeaders: Record<string, string>;
   try { workspaceHeaders = anthropicHeaders(workspaceId); } catch { return { ok: false, reason: "Enter an Anthropic workspace ID beginning wrkspc_, or leave it blank for a workspace-scoped key." }; }
   let response: Response;
+  let content:ReturnType<typeof writerMessage>;
+  try{content=writerMessage(request.user,request.images);}catch{return {ok:false,reason:"Reference images could not be prepared. Use bounded PNG or JPEG previews."};}
   try {
     response = await fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -217,7 +220,7 @@ export async function askClaude<T = Draft>({
         model: WRITER_MODEL,
         max_tokens: request.maxTokens,
         system: request.system,
-        messages: [{ role: "user", content: request.user }],
+        messages: [{ role: "user", content }],
         output_config: { format: { type: "json_schema", schema } },
       }),
     });
