@@ -80,7 +80,13 @@ const tidyProp = (input: Prop): Prop => {
 };
 
 export function updateProp(s: GreyScene, id: string, change: Partial<Omit<Prop, "id">>): GreyScene {
-  return { ...s, props: (s.props ?? []).map((p) => (p.id === id ? tidyProp({ ...p, ...change }) : p)) };
+  return { ...s, props: (s.props ?? []).map((p) => {
+    if (p.id !== id) return p;
+    const next = { ...p, ...change };
+    // Choosing an image replaces procedural geometry in every editing path.
+    if ("url" in change && !("primitive" in change)) delete next.primitive;
+    return tidyProp(next);
+  }) };
 }
 
 /** Gives a prop a real 3D model for the Blender set, or takes it away with null. Files that aren't glb, gltf, obj or fbx are ignored. */

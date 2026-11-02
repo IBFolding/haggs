@@ -909,7 +909,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                       onGrey={(g) => onShot(shot.id, (s2) => ({ ...s2, grey: g }))}
                       onApprove={() => onShot(shot.id, (s2) => ({ ...s2, approved: true }))}
                       onTake={(url, usd, guideScene, guideFrame, guideTime) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "image", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene), guideFrame, guideTime))}
-                      onShot={(url, usd, guideScene, guideFrame, guideTime) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "video", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room shot", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene), guideFrame, guideTime))}
+                      onShot={(url, usd, guideScene, guideFrame, guideTime, seconds) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "video", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room shot", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene), guideFrame, guideTime, seconds))}
                     />
                   )}
                   {tab === "reshoot" && reshootMode === "grey" && (

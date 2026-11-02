@@ -120,7 +120,7 @@ const PLAN = 8;
 const MONEY = (n: number) => creditsText(n);
 const LENS_NAME = (mm: number) => (mm <= 24 ? "wide" : mm >= 85 ? "telephoto" : "natural");
 
-export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onShot, scene, onScene, onDesign }: { onDesign?: (grey: GreyFrame, scene: SceneData) => void; scene?: SceneData; onScene?: (scene: SceneData) => void; shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number, scene?: SceneData | undefined, frame?: GreyFrame, time?: number) => void; /** The finished shot, as a video take. */ onShot?: (url: string, usd: number, scene?: SceneData | undefined, frame?: GreyFrame, time?: number) => void }) {
+export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onShot, scene, onScene, onDesign }: { onDesign?: (grey: GreyFrame, scene: SceneData) => void; scene?: SceneData; onScene?: (scene: SceneData) => void; shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number, scene?: SceneData | undefined, frame?: GreyFrame, time?: number) => void; /** The finished shot, as a video take. */ onShot?: (url: string, usd: number, scene?: SceneData | undefined, frame?: GreyFrame, time?: number, seconds?: number) => void }) {
   const saved = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
   const [t, setT] = useState(0);
   const [rec, setRec] = useState(false);
@@ -263,7 +263,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
         if (made.needsKey) openKeys();
         return setProblem(`${made.reason} The first frame is kept as a take.`);
       }
-      onShot(made.url, made.usd, scene, saved, 0);
+      onShot(made.url, made.usd, scene, saved, 0, made.seconds);
       setCandidate(null);
     } catch (e) {
       setProblem(e instanceof Error ? e.message : "That didn't work.");
