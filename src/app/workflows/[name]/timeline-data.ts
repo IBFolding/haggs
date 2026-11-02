@@ -21,6 +21,11 @@ export function updateTimeline(raw: string, item: number, path: (string | number
   if (key === undefined || (!object(target) && !Array.isArray(target)) || !(key in target)) return null;
   const prior = (target as Record<string | number, unknown>)[key];
   if (typeof prior !== typeof value || (typeof value === 'number' && !Number.isFinite(value))) return null;
+  // Both bundled node packs reject paths with duplicate or negative times.
+  if (path.length===3 && path[0]==='path' && typeof path[1]==='number' && path[2]===0 && typeof value==='number') {
+    const points=parsed.items[item]?.path;
+    if (value<0 || !Array.isArray(points) || points.some((p,index)=>index!==path[1] && Array.isArray(p) && p[0]===value)) return null;
+  }
   (target as Record<string | number, unknown>)[key] = value;
   return JSON.stringify(parsed.root, null, 2);
 }
