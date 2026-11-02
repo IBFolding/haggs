@@ -951,6 +951,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                 if (timelineCollapsed) requestAnimationFrame(() => { if (scroller.current) scroller.current.scrollLeft = timelineScroll.current; });
               }}>{timelineCollapsed ? "Expand timeline +" : "Collapse timeline −"}</button>
               <span className="ed-time-summary">{cut.clips.length} clips · {clock(cut.total)}</span>
+              <button className="pill" disabled={!selected} onClick={removeSelected} title="Remove the selected segment and close the gap. Source footage stays in Media. Undo restores it.">Remove from timeline</button>
               <span className="ed-keys" title="Keyboard shortcuts">Space play · ←/→ step · S split · I/O trim · M marker · ⌘Z undo</span>
               <button hidden={!advanced} className="plain" onClick={() => apply((current) => { const at = Math.round(t * 10) / 10; const next = addMarker(current, at, "", cut!.total); const added = next.markers!.find((m) => m.at === at && !(current.markers ?? []).some((c) => c.id === m.id)); if (added) setMarkerEdit(added.id); return next; })} title="Leave a note at the playhead (M). , and . jump between notes">+ Marker</button>
               <button className="plain" onClick={() => setCard(card ? null : { text: "", sub: "", busy: false })} title="Words on black, placed after the clip under the playhead">+ Title card</button>
