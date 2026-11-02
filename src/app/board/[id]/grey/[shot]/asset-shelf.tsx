@@ -1,4 +1,5 @@
 'use client';
+import {propImage} from "../../../../../story/grey-primitive-image";
 import {useEffect,useRef,useState} from 'react';
 import type {BankItem} from '../../../../../story/bank';
 import {addLight,replaceRoomSource,type GreyScene} from '../../../../../story/grey-scene';
@@ -17,7 +18,7 @@ export function AssetShelf({scene,selected,places,objects,actors,onChange,onSele
 const [busy,setBusy]=useState(false);const [error,setError]=useState('');
  const picker=useRef<HTMLInputElement>(null),source=useRef<HTMLInputElement>(null),live=useRef(scene);live.current=scene;
  const saved=(category==='actors'?actors:category==='background'?places:objects).map(x=>({id:x.id,name:x.name,image:x.image}));
- const placed=category==='background'?[]:(scene.props??[]).filter(p=>category==='actors'?p.role==='actor':p.role!=='actor').map(p=>({id:p.id,name:p.name,image:p.url}));
+ const placed=category==='background'?[]:(scene.props??[]).filter(p=>category==='actors'?p.role==='actor':p.role!=='actor').map(p=>({id:p.id,name:p.name,image:propImage(p)}));
  const samples=category==='objects'?GREY_PROPS:[];
  const items=[...saved,...placed.filter(p=>!samples.some(sample=>sample.name===p.name)),...samples].filter((x,i,all)=>x.image&&all.findIndex(a=>a.image===x.image)===i&&x.name.toLowerCase().includes(search.toLowerCase())&&(!onlyFavorites||favorites.includes(x.id)));
  async function place(name:string,url:string,kind=category){

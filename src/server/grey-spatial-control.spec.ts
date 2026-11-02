@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { defaultGrey } from "../story/grey";
 import { addStandInProp } from "../story/grey-space";
 import { renderControlVideo } from "./grey-control-video";
-import { ffmpegBin } from "./ffmpeg";
+import { ffmpegBin,ffprobeBin } from "./ffmpeg";
 const exec = promisify(execFile);
 test("spatial materials and props encode locally into a decodable control video without a model call", async()=>{
  const grey=defaultGrey();grey.camKeys=[{...grey.cam,t:0},{...grey.cam,t:1,distance:4}];
@@ -18,6 +18,8 @@ test("spatial materials and props encode locally into a decodable control video 
  const dir=await mkdtemp(join(tmpdir(),"grey-spatial-test-"));
  try {
   const file=join(dir,"control.mp4");await writeFile(file,clip.bytes);
+  const probe=await exec(ffprobeBin(),["-v","error","-show_entries","format=duration","-of","json",file]);
+  assert.equal(Number(JSON.parse(probe.stdout).format.duration),clip.seconds,"reported duration includes the encoded final frame");
   const {stdout}=await exec(ffmpegBin(),["-v","error","-i",file,"-frames:v","1","-f","rawvideo","-pix_fmt","rgb24","-"],{encoding:"buffer",maxBuffer:320*180*3+1000});
   assert.equal(stdout.length,320*180*3);
   const offset=(10*320+10)*3;assert.ok(stdout[offset]!>stdout[offset+2]!,"plaster wall is warm, rather than legacy grey-blue");

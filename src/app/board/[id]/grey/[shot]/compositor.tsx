@@ -1,4 +1,5 @@
 "use client";
+import {propImage} from "../../../../../story/grey-primitive-image";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -129,7 +130,7 @@ export function Compositor({
         onPointerUp={end}
       >
         {propShadow(p) > 0 && <i className="cp-pshadow" style={{ opacity: propShadow(p) }} />}
-        <img src={p.url} alt={p.name} draggable={false} />
+        <img src={propImage(p)} alt={p.name} draggable={false} />
         {on && !p.locked && (
           <>
             <i className="cp-size" onPointerDown={(e) => start(e, "size", p.id, p)} onPointerMove={move} onPointerUp={end} aria-label="Resize" />

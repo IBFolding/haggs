@@ -22,7 +22,7 @@ function rememberedTakes(shot: Shot): Take[] {
   return takesOf(shot).map(t => {
     if (t.url !== shot.render?.url || t.at !== shot.render?.at) return t;
     const { greyScene: _previous, ...rest } = t;
-    return { ...rest, trimIn: shot.trimIn ?? 0, ...(shot.greyScene ? {greyScene: shot.greyScene} : {}) };
+    return { ...rest, seconds: shot.seconds, trimIn: shot.trimIn ?? 0, ...(shot.greyScene ? {greyScene: shot.greyScene} : {}) };
   });
 }
 
@@ -40,7 +40,7 @@ export function chooseTake(shot: Shot, takeId: string): Shot {
   const take = takes.find((t) => t.id === takeId);
   if (!take) throw new Error("That take is not on this shot any more.");
   const {greyScene: _oldScene, ...rest} = shot;
-  return { ...rest, takes, render: asRender(take), trimIn: take.trimIn ?? 0, ...(take.greyScene ? {greyScene:take.greyScene} : {}) };
+  return { ...rest, takes, render: asRender(take), ...(take.seconds !== undefined ? {seconds:take.seconds} : {}), trimIn: take.trimIn ?? 0, ...(take.greyScene ? {greyScene:take.greyScene} : {}) };
 }
 
 export function toggleFavorite(shot: Shot, takeId: string): Shot {

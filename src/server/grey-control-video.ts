@@ -5,17 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { GreyFrame } from "../story/grey";
-import { CONTROL_FPS, controlSeconds, fitToClip, frameTimes, greyFrameSvg } from "../story/grey-control";
+import { CONTROL_FPS, fitControl, frameTimes, greyFrameSvg } from "../story/grey-control";
 import { ffmpegBin } from "./ffmpeg";
 
 /** The blockout drawn frame by frame and encoded as an mp4: the control video a video model follows. */
 export async function renderControlVideo(input: GreyFrame, size: { w: number; h: number }, scene?: GreyScene): Promise<{ bytes: Uint8Array; seconds: number }> {
   const sharp = (await import("sharp")).default;
-  const seconds = controlSeconds(input);
-  const grey = fitToClip(input);
-  const originalEnd = input.camKeys?.at(-1)?.t ?? 0;
-  const scale = originalEnd > seconds ? seconds / originalEnd : 1;
-  const fittedScene = scene ? { ...scene, props: (scene.props ?? []).map(p => ({ ...p, ...(p.keys ? { keys:p.keys.map(k=>({...k,t:k.t*scale})) } : {}) })) } : undefined;
+  const {seconds,end,grey,scene:fittedScene}=fitControl(input,scene);
   const dir = await mkdtemp(join(tmpdir(), "haggs-control-"));
   const out = join(dir, "control.mp4");
   try {
@@ -23,7 +19,7 @@ export async function renderControlVideo(input: GreyFrame, size: { w: number; h:
     let problem = "";
     ff.stderr.on("data", (d: Buffer) => { problem += d.toString(); });
     const closed = new Promise<number>((resolve, reject) => { ff.once("error", () => reject(new Error("ffmpeg could not start."))); ff.once("close", (code) => resolve(code ?? 1)); });
-    for (const t of frameTimes(seconds, CONTROL_FPS)) {
+    for (const t of frameTimes(end, CONTROL_FPS)) {
       const png = await sharp(Buffer.from(greyFrameSvg(grey, t, size, fittedScene))).png().toBuffer();
       if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once("drain", r));
     }

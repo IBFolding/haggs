@@ -17,3 +17,10 @@ test("box renders owned geometry regardless of untrusted URL and material",async
  assert.equal(plan.inputs.filter(i=>i.role==="primitive").length,1);
  assert.ok(!plan.inputs.some(i=>i.ref===box.url||i.ref==="hidden"));
 });
+
+import {propImage} from "../story/grey-primitive-image";
+test("browser primitive SVG and server PNG use identical material geometry",async()=>{
+ const box={...addStandInProp({}).props![0]!,material:"wood" as const};
+ const svg=decodeURIComponent(propImage(box).split(",")[1]!);
+ assert.deepEqual(await primitivePng(box),await sharp(Buffer.from(svg)).png().toBuffer());
+});

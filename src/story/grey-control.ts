@@ -48,23 +48,36 @@ export const frameTimes = (seconds: number, fps: number): number[] => Array.from
 export const CONTROL_MAX_SECONDS = 5;
 export const CONTROL_FPS = 25;
 
-/** How long the shot runs: as long as the camera move, at most five seconds, in whole eight-frame steps plus one (what the video model needs). A still camera gets about four. */
-export function controlSeconds(grey: GreyFrame): number {
-  const keys = grey.camKeys ?? [];
-  const want = keys.length > 1 ? Math.min(CONTROL_MAX_SECONDS, Math.max(1, keys[keys.length - 1]!.t)) : 3.84;
+/** Relevant motion shares one clock, so shorter camera paths keep their timing relative to props. */
+function motionEnd(grey: GreyFrame, scene?: GreyScene): number {
+  const keys = [...(grey.camKeys?.length && grey.camKeys.length > 1 ? grey.camKeys : []), ...(scene?.props ?? []).filter(p=>!p.hidden).flatMap(p=>p.keys ?? [])];
+  return keys.reduce((end,key)=>Number.isFinite(key.t)?Math.max(end,key.t):end,0);
+}
+/** Last control frame time, in whole eight-frame steps. A static scene gets about four seconds. */
+export function controlSeconds(grey: GreyFrame, scene?: GreyScene): number {
+  const end = motionEnd(grey,scene);
+  const want = end > 0 ? Math.min(CONTROL_MAX_SECONDS, Math.max(1,end)) : 3.84;
   const frames = 8 * Math.max(1, Math.floor((want * CONTROL_FPS) / 8)) + 1;
   return (frames - 1) / CONTROL_FPS;
 }
 
 /** The blockout with its camera move squeezed to fit the clip, when the move is longer than the clip can be. */
-export function fitToClip(grey: GreyFrame): GreyFrame {
+export function fitToClip(grey: GreyFrame, scene?: GreyScene): GreyFrame {
   const keys = grey.camKeys;
   if (!keys || keys.length < 2) return grey;
-  const end = keys[keys.length - 1]!.t;
-  const clip = controlSeconds(grey);
+  const end = motionEnd(grey,scene);
+  const clip = controlSeconds(grey,scene);
   if (end <= clip) return grey;
   const k = clip / end;
   return { ...grey, camKeys: keys.map((key) => ({ ...key, t: +(key.t * k).toFixed(3) })) };
+}
+
+/** Fit camera and prop keys together and report the encoded duration, including the last frame. */
+export function fitControl(grey: GreyFrame, scene?: GreyScene) {
+  const end=controlSeconds(grey,scene), original=motionEnd(grey,scene);
+  const scale=original>end?end/original:1;
+  const fittedScene=scene?{...scene,props:(scene.props??[]).map(p=>({...p,...(p.keys?{keys:p.keys.map(k=>({...k,t:+(k.t*scale).toFixed(3)}))}:{})}))}:undefined;
+  return {grey:fitToClip(grey,scene),scene:fittedScene,end,seconds:frameTimes(end,CONTROL_FPS).length/CONTROL_FPS};
 }
 
 /** What the shot should be, in words: the beat, the camera and light, and that the people stay as they are in the first frame. */
