@@ -1,7 +1,7 @@
 import { hashPrompt, promptFor } from "./assemble";
 import { normalize, view } from "./boards";
 import type { Project, Take } from "./model";
-import { takesOf } from "./takes";
+import { chooseTake, takesOf } from "./takes";
 
 /**
  * Takes sent by Claude over MCP: renders made outside the app (a batch run,
@@ -48,8 +48,9 @@ export function applyTakes(project: Project, proposal: TakesProposal): { project
     if (takes.some((t) => t.url === sent.url)) continue;
     // Stamped with the prompt the shot has now, so a take that just arrived isn't stale.
     const take: Take = { id: "take-" + crypto.randomUUID().slice(0, 8), url: sent.url, kind: sent.kind, usd: sent.usd ?? null, promptHash: hashPrompt(promptFor(seen, at)), at: Date.now(), ...(sent.origin ? { origin: sent.origin } : {}) };
-    shot.takes = [...takes, take];
-    if (sent.use !== false) shot.render = { url: take.url, kind: take.kind, usd: take.usd, promptHash: take.promptHash, at: take.at };
+    const withTake = { ...shot, takes: [...takes, take] };
+    // Use the same transition as the editor: remember the old scene/trim before selecting new footage.
+    shots[at] = sent.use === false ? withTake : chooseTake(withTake, take.id);
     added++;
   }
   return { project: { ...base, boards: base.boards!.map((b) => (b.id === board.id ? { ...b, shots } : b)) }, added };
