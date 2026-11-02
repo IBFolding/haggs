@@ -82,6 +82,28 @@ export function splitShot(project: Project, shotId: string, at: number): Project
 
 const MIN_SHOT = 0.2;
 
+/** Remove one occurrence, never its source files. The cut lays the remaining shots end to end. */
+export function removeFromTimeline(project: Project, shotId: string): Project {
+  const shot = project.shots.find((s) => s.id === shotId);
+  if (!shot) return project;
+  const media = [...(project.media ?? [])];
+  const takes = rememberedTakes(shot);
+  // Older/imported projects can have an active render missing from their take list.
+  if (shot.render && !takes.some(t => t.url === shot.render!.url && t.at === shot.render!.at)) {
+    takes.push({ id: "take-active", ...shot.render, seconds: shot.seconds, trimIn: shot.trimIn ?? 0 });
+  }
+  for (const take of takes) {
+    if (media.some(m => m.sourceTake?.id === take.id && m.sourceTake.url === take.url && m.sourceTake.at === take.at && m.sourceTake.trimIn === take.trimIn && m.sourceTake.seconds === take.seconds)) continue;
+    media.push({
+      id: crypto.randomUUID(), url: take.url, kind: take.kind,
+      name: `${shot.heading || "Untitled shot"} — ${take.origin || "take"}`,
+      origin: "Removed from timeline", status: "review", note: "Source kept for reuse. No media file was deleted.",
+      sourceTake: take,
+    });
+  }
+  return { ...project, media, shots: project.shots.filter(s => s.id !== shotId) };
+}
+
 /** Cuts the start of a shot off at `at` seconds into it: the footage now starts later and the shot is shorter. */
 export function trimHead(project: Project, shotId: string, at: number): Project {
   const shot = project.shots.find((s) => s.id === shotId);
