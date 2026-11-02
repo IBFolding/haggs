@@ -30,7 +30,7 @@ import { openContest, openContestForDisplay, savedContestName } from "../server/
 import { haggsPreview } from "../comfy/haggs-preview";
 import { isSavedHaggsPreview, savedHaggsPreviewName, openHaggsPreview, openHaggsPreviewForDisplay, previewInputProblem, previewValues } from "../server/haggs-preview-workflows";
 import { ltxWorkflow } from "../comfy/ltx";
-import { openLtx, openLtxForDisplay } from "../server/ltx-workflows";
+import { openLtx, openLtxForDisplay, savedLtxName } from "../server/ltx-workflows";
 import { STEPS } from "../comfy/recipe";
 import { localFile, localUrl } from "../server/local-media";
 
@@ -97,6 +97,8 @@ async function open(key: string | undefined, source: Source): Promise<Opened> {
     if (!address) throw new Error("This Haggs effect requires a connected local ComfyUI with the matching custom nodes installed.");
     return openContest(savedContest, catalog);
   }
+  const savedLtx = savedLtxName(source.file);
+  if (savedLtx) return openLtx(savedLtx, catalog);
   // An API-format file is already a prompt: wrap each node so the editor-format path can read it unchanged.
   const ui = (raw as { nodes?: unknown }).nodes ? (raw as UiWorkflow) : apiToUi(raw as Record<string, { class_type: string; inputs: Record<string, unknown> }>);
   const { prompt, problems } = prepare(ui, catalog);
@@ -163,14 +165,16 @@ export type OpenedApp = { ok: true; name: string; title: string; description: st
 
 export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const key = await comfyKey();
-  const isHaggsEffect = "template" in source && Boolean(contestVariant(source.template));
+  const displayEffect = "template" in source ? source.template : savedContestName(source.file);
+  const isHaggsEffect = Boolean(displayEffect && contestVariant(displayEffect));
   const displayPreview = "template" in source ? source.template : savedHaggsPreviewName(source.file);
   const isHaggsPreview = Boolean(displayPreview && haggsPreview(displayPreview));
-  const isLtx = "template" in source && Boolean(ltxWorkflow(source.template));
+  const displayLtx = "template" in source ? source.template : savedLtxName(source.file);
+  const isLtx = Boolean(displayLtx && ltxWorkflow(displayLtx));
   if (!isHaggsEffect && !isHaggsPreview && !isLtx && !key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
-  const name = isHaggsPreview && displayPreview ? displayPreview : "template" in source ? source.template : "your workflow";
+  const name = (isHaggsPreview && displayPreview) || (isHaggsEffect && displayEffect) || (isLtx && displayLtx) || ("template" in source ? source.template : "your workflow");
   try {
-    const opened = isHaggsEffect && "template" in source ? openContestForDisplay(source.template) : isHaggsPreview && displayPreview ? openHaggsPreviewForDisplay(displayPreview) : isLtx && "template" in source ? openLtxForDisplay(source.template) : await open(key, source);
+    const opened = isHaggsEffect && displayEffect ? openContestForDisplay(displayEffect) : isHaggsPreview && displayPreview ? openHaggsPreviewForDisplay(displayPreview) : isLtx && displayLtx ? openLtxForDisplay(displayLtx) : await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
     const samples = Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && f.sample ? [[String(prompt[f.node]?.inputs[f.input] ?? ""), f.sample]] : [])));
     return {
