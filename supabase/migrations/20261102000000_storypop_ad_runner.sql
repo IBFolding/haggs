@@ -35,3 +35,34 @@ begin
   get diagnostics n = row_count;
   return n > 0;
 end $$;
+
+-- Ad builds are paid for from the StoryPop ad account's credits. Same rules as credits_spend / credits_refund,
+-- but called by the server with the shared secret instead of by a signed-in person.
+create or replace function public.storypop_credits_spend(target uuid, cents integer, memo text, ref text, secret text)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare p integer; t integer; from_plan integer;
+begin
+  if secret is null or secret <> (select value from public.app_secrets where key = 'webhook') then raise exception 'not allowed'; end if;
+  if target is null or cents is null or cents <= 0 then return false; end if;
+  if not exists (select 1 from public.storypop_links where user_id = target) then raise exception 'not linked'; end if;
+  perform pg_advisory_xact_lock(hashtext(target::text));
+  select coalesce(sum(delta) filter (where bucket = 'plan'), 0), coalesce(sum(delta) filter (where bucket = 'topup'), 0)
+    into p, t from public.credit_ledger where user_id = target;
+  if p + t < cents then return false; end if;
+  from_plan := least(greatest(p, 0), cents);
+  if from_plan > 0 then insert into public.credit_ledger (user_id, bucket, delta, kind, memo, ref) values (target, 'plan', -from_plan, 'spend', memo, ref) on conflict do nothing; end if;
+  if cents - from_plan > 0 then insert into public.credit_ledger (user_id, bucket, delta, kind, memo, ref) values (target, 'topup', -(cents - from_plan), 'spend', memo, ref) on conflict do nothing; end if;
+  return true;
+end $$;
+
+create or replace function public.storypop_credits_refund(target uuid, ref text, secret text)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if secret is null or secret <> (select value from public.app_secrets where key = 'webhook') then raise exception 'not allowed'; end if;
+  insert into public.credit_ledger (user_id, bucket, delta, kind, memo, ref)
+    select user_id, bucket, -delta, 'refund', 'Ad build did not complete', storypop_credits_refund.ref
+    from public.credit_ledger where user_id = target and kind = 'spend' and credit_ledger.ref = storypop_credits_refund.ref
+    on conflict do nothing;
+end $$;

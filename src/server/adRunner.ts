@@ -15,6 +15,12 @@ export type AdJob = {
 
 export type AdRunnerDeps = {
   claim: (max: number) => Promise<AdJob[]>;
+  /** Credits one ad picture costs. */
+  priceCents: number;
+  /** Takes the credits for a job from the StoryPop ad account. False when the account can't cover it. */
+  spend: (jobId: string, cents: number) => Promise<boolean>;
+  /** Gives back what a job spent. Safe to call twice. */
+  refund: (jobId: string) => Promise<void>;
   generate: (prompt: string) => Promise<string | null>;
   settle: (jobId: string, status: "completed" | "failed", url?: string) => Promise<boolean>;
   notify: (event: StoryPopEvent) => Promise<boolean>;
@@ -47,47 +53,46 @@ export function buildAdPrompt(input: AdJob["input"]): string | null {
   ].filter(Boolean).join(" ");
 }
 
-/** Claims queued jobs, makes each one, and settles it. A failed job is settled as failed so StoryPop doesn't count the build. */
+/** Claims queued jobs, pays for and makes each one, and settles it. A job that can't be made gets its credits back and is settled as failed, so StoryPop doesn't count the build. */
 export async function runAdJobs(deps: AdRunnerDeps, max = 3): Promise<{ done: number; failed: number }> {
   const jobs = await deps.claim(max);
   let done = 0;
   let failed = 0;
+  const fail = async (job: AdJob, reason: string) => {
+    const settled = await deps.settle(job.id, "failed");
+    if (settled) await deps.notify({ type: "job.failed", haggsUserId: job.ownerId, haggsJobId: job.id, reason, title: "Ad version" });
+    failed += 1;
+  };
   for (const job of jobs) {
     const prompt = buildAdPrompt(job.input);
+    if (!prompt) {
+      await fail(job, "That ad style isn't available yet");
+      continue;
+    }
+    let funded = false;
+    try {
+      funded = await deps.spend(job.id, deps.priceCents);
+    } catch {
+      funded = false;
+    }
+    if (!funded) {
+      await fail(job, "The ad builder is out of credits right now");
+      continue;
+    }
     let url: string | null = null;
-    if (prompt) {
-      try {
-        url = await deps.generate(prompt);
-      } catch {
-        url = null;
-      }
+    try {
+      url = await deps.generate(prompt);
+    } catch {
+      url = null;
     }
     if (url) {
       const settled = await deps.settle(job.id, "completed", url);
       if (settled) await deps.notify({ type: "job.completed", haggsUserId: job.ownerId, haggsJobId: job.id, resultUrl: url, title: "Ad version" });
       done += 1;
     } else {
-      const settled = await deps.settle(job.id, "failed");
-      if (settled) await deps.notify({ type: "job.failed", haggsUserId: job.ownerId, haggsJobId: job.id, reason: prompt ? "The image service didn't return a picture" : "That ad style isn't available yet", title: "Ad version" });
-      failed += 1;
+      await deps.refund(job.id).catch(() => undefined);
+      await fail(job, "The image service didn't return a picture");
     }
   }
   return { done, failed };
-}
-
-/** Real image service: fal.ai text-to-image. The model can be changed with STORYPOP_AD_IMAGE_MODEL. */
-export async function generateWithFal(prompt: string, env: Record<string, string | undefined> = process.env, fetcher: typeof fetch = fetch): Promise<string | null> {
-  const key = env.STORYPOP_AD_FAL_KEY?.trim() || env.FAL_KEY?.trim();
-  if (!key) return null;
-  const model = env.STORYPOP_AD_IMAGE_MODEL?.trim() || "fal-ai/flux/schnell";
-  const res = await fetcher(`https://fal.run/${model}`, {
-    method: "POST",
-    headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, image_size: "portrait_16_9", num_images: 1, enable_safety_checker: true }),
-    signal: AbortSignal.timeout(90_000)
-  }).catch(() => null);
-  if (!res?.ok) return null;
-  const data = (await res.json().catch(() => null)) as { images?: { url?: string }[] } | null;
-  const url = data?.images?.[0]?.url;
-  return typeof url === "string" && /^https:\/\//.test(url) ? url : null;
 }
