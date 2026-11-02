@@ -23,7 +23,7 @@ export type StoryPopEvent = {
   title?: string;
 };
 
-export const JOB_KINDS = ["remix", "template", "project", "pop", "fix_audio"] as const;
+export const JOB_KINDS = ["remix", "template", "project", "pop", "fix_audio", "ad"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

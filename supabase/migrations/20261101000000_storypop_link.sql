@@ -17,7 +17,7 @@ create table if not exists public.storypop_jobs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   reference text not null,
-  kind text not null check (kind in ('remix', 'template', 'project', 'pop', 'fix_audio')),
+  kind text not null check (kind in ('remix', 'template', 'project', 'pop', 'fix_audio', 'ad')),
   input jsonb not null default '{}'::jsonb,
   status text not null default 'queued' check (status in ('queued', 'running', 'completed', 'failed')),
   result_url text,
