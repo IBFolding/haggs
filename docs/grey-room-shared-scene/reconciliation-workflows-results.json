@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "desktop: main workflow introduction and Scene Forge link survive shared CSS reconciliation without horizontal overflow",
+    "desktop: Scene Forge opens saved labels, retains empty clips and keeps playable export disabled",
+    "mobile: main workflow introduction and Scene Forge link survive shared CSS reconciliation without horizontal overflow",
+    "mobile: Scene Forge opens saved labels, retains empty clips and keeps playable export disabled",
+    "Scene Forge saves the reopened project without changing labels or clip slots"
+  ],
+  "errors": []
+}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { defaultKv } from "../../../../../story/kv";
 import { sceneIsEmpty, type GreyScene } from "../../../../../story/grey-scene";
-import { applySet, captureSet, createSetStore, type SavedSet } from "../../../../../story/set-bank";
+import { applySetParts, applySet, captureSet, createSetStore, type SavedSet } from "../../../../../story/set-bank";
 
 /** Saved sets: keep the room you built, put it on another shot, or on every shot in the scene. */
 export function SetsPanel({ scene, others, onUse, onUseEverywhere }: {
@@ -35,8 +35,14 @@ export function SetsPanel({ scene, others, onUse, onUseEverywhere }: {
     }
   }
 
+  function useParts(saved:SavedSet,part:"props"|"room") {
+    setProblem(null);
+    try {onUse(applySetParts(scene,saved,part));setDone(part==="props"?"Missing props added. Existing props and footage are kept.":"Room materials applied. Props and footage are kept.");}
+    catch(e){setProblem(e instanceof Error?e.message:"The set could not be applied.");}
+  }
+
   return (
-    <section className="gs-sec">
+    <section className="gs-sec gs-saved-sets">
       <h3>Saved sets</h3>
       <p className="gs-soft">Keep this set — the room, props, lights and look — to use again on another shot. It doesn't include the actor.</p>
       <div className="gs-row">
@@ -50,6 +56,8 @@ export function SetsPanel({ scene, others, onUse, onUseEverywhere }: {
             <li key={s.id}>
               <span className="gs-lname" title={s.name}>{s.name} <small className="gs-soft">{s.scene.props?.length ?? 0} props</small></span>
               <span className="gs-lact gs-lact-text">
+                <button disabled={!s.scene.props?.length} onClick={()=>useParts(s,"props")}>Add props</button>
+                <button disabled={!s.scene.space} onClick={()=>useParts(s,"room")}>Use room materials</button>
                 <button onClick={() => { onUse(applySet(scene, s)); setDone(`${s.name} is on this shot.`); }}>Use here</button>
                 {others > 0 && (confirm === s.id
                   ? <button className="warn" onClick={() => { onUseEverywhere(s); setConfirm(null); setDone(`${s.name} is on all ${others + 1} shots. Each still needs its own cut-out.`); }}>Replace {others} other sets?</button>

@@ -1,0 +1,31 @@
+{
+  "checks": [
+    "desktop WebGL viewport mounts",
+    "figure nudge, prop insertion, floor/wall materials and direction persist",
+    "desktop pointer drag commits shared scene position",
+    "native viewport drops apply a room material and place an object at the pointer without changing existing assets",
+    "reopen retains scene and source/reference data; original generation and camera paths remain",
+    "camera preset saves existing path shared with viewport",
+    "camera undo and redo restore the full saved path without changing scene assets",
+    "viewport playback and key navigation share the original timeline; saving a scrubbed key preserves existing endpoints",
+    "overhead camera dragging and accessible camera nudges edit the current path key while preserving other keys and scene assets",
+    "390px mobile layout has no horizontal overflow and accessible move controls",
+    "mobile touch drag commits a figure position",
+    "mobile figure facing and Face camera persist room-relative orientation while preserving scene assets and camera paths",
+    "mobile material palette supports tap then surface placement without native drag support",
+    "portrait camera frame preserves 9:16 aspect on mobile",
+    "visual AI review previews choices and camera motion without saving, and scene changes require explicit re-review",
+    "manual AI request, validated review, explicit additive apply and spatial generation guide; prior scene and path retained",
+    "AI proposal undo and redo restore people and scene together with original source and references intact",
+    "AI camera motion previews without saving, requires explicit selection, applies shared keys and can be undone",
+    "automatic AI rollout fails closed without provider calls or scene changes; manual handoff stays available",
+    "mobile prop motion keys save, animate, navigate and remove through the shared shot timeline",
+    "mobile duplication creates an independent prop and keeps the original and source assets intact",
+    "reviewed AI prop materials survive apply and manual material edits reach the generation guide",
+    "mobile inspector renames, resizes, rotates, locks, hides and removes selected stand-ins while preserving source assets and references",
+    "existing cut editor thumbnails and sequence preview render the saved shared scene without changing it",
+    "mobile setup-shot creation retries a failed save without duplicates, opens an independent draft and preserves the original shot and assets",
+    "mobile saved-set reuse adds independent animated props and room materials without replacing existing assets, and undo restores both"
+  ],
+  "errors": []
+}

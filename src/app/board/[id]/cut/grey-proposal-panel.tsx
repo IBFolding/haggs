@@ -1,0 +1,95 @@
+"use client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { quoteGreyProposal, generateGreyProposal } from "../../../grey-proposal-actions";
+import type { ProposalQuote } from "../../../../server/grey-proposal-gateway";
+import { proposalContext } from "../../../../story/grey-proposal-context";
+import type { GreyFrame } from "../../../../story/grey";
+import type { GreyScene } from "../../../../story/grey-scene";
+import type { SceneProposal } from "../../../../story/grey-space";
+import { ALL_PROPOSAL_PARTS, type ProposalSelection, manualProposalRequest, readSceneProposal } from "../../../../story/grey-proposal";
+
+import { previewSceneProposal } from "../../../../story/grey-proposal-preview";
+
+export function GreyProposalPanel({ grey, scene, vertical, onApply }: { vertical: boolean; grey: GreyFrame; scene: GreyScene; onApply: (grey: GreyFrame, scene: GreyScene) => void }) {
+  const [request, setRequest] = useState("");
+  const [reply, setReply] = useState("");
+  const [proposal, setProposal] = useState<SceneProposal | null>(null);
+  const [camera, setCamera] = useState(false);
+  const [selection,setSelection]=useState<ProposalSelection>(ALL_PROPOSAL_PARTS);
+  const [reviewedStamp,setReviewedStamp]=useState("");
+  const [previewTime,setPreviewTime]=useState(0);
+  const sceneStamp=JSON.stringify({grey,scene});
+  const latestScene=useRef(sceneStamp);latestScene.current=sceneStamp;
+  const stale=reviewedStamp!==sceneStamp;
+  const preview=useMemo(()=>{if(!proposal||stale)return null;try{return {ok:true as const,...previewSceneProposal(grey,scene,proposal,camera,selection,vertical,previewTime)};}catch(e){return {ok:false as const,reason:(e as Error).message};}},[grey,scene,proposal,camera,selection,vertical,previewTime,stale]);
+  function review(next:SceneProposal){setProposal(next);setCamera(false);setSelection(ALL_PROPOSAL_PARTS);setPreviewTime(0);setReviewedStamp(sceneStamp);}
+  const [status, setStatus] = useState("");
+  const [quote,setQuote]=useState<ProposalQuote|null>(null);
+  const [consent,setConsent]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const pending=useRef(false),epoch=useRef(0);
+  const contextStamp=JSON.stringify({direction:scene.direction,references:scene.references,grey,props:scene.props,space:scene.space});
+  const latest=useRef(contextStamp);latest.current=contextStamp;
+  useEffect(()=>{setQuote(null);setConsent(false);},[contextStamp]);
+  useEffect(()=>()=>{epoch.current++;},[]);
+  const context=()=>proposalContext({description:scene.direction??"",references:scene.references??[],grey,scene});
+  async function automatic(send:boolean) {
+    if(pending.current)return;
+    pending.current=true;setBusy(true);setStatus("");
+    const start=contextStamp,run=++epoch.current;
+    try {
+      if(send) {
+        if(!quote||!consent)return;
+        setProposal(null);
+        const result=await generateGreyProposal(context(),quote.id,true);
+        if(run!==epoch.current)return;
+        setQuote(null);setConsent(false);
+        if(!result.ok){setStatus(result.reason);return;}
+        if(latest.current!==start){setStatus("The scene changed while the proposal was prepared. Request a new proposal for the current scene.");return;}
+        review(result.proposal);setStatus("Proposal ready for review. Nothing has been applied.");
+      } else {
+        const result=await quoteGreyProposal(context());
+        if(run!==epoch.current||latest.current!==start)return;
+        setQuote(result.ok?result:null);setConsent(false);
+        if(!result.ok)setStatus(result.reason);
+      }
+    } catch {if(run===epoch.current)setStatus("The request could not finish. Check provider activity before trying again if a model request was sent.");}
+    finally {pending.current=false;if(run===epoch.current)setBusy(false);}
+  }
+  return <details className="gr-proposal">
+    <summary>Plan the scene with AI</summary>
+    <p>Ask the configured Claude provider for a scene proposal, then review it before applying. This sends scene text and reference names, not images. Automatic requests require reviewed pricing to be enabled.</p>
+    <button className="pill" disabled={busy||!(scene.direction??"").trim()} onClick={()=>void automatic(false)}>{busy?"Working…":"Get AI proposal quote"}</button>
+    {quote&&<div aria-label="AI proposal cost"><p>{quote.model}: estimated ${quote.estimateUsd.toFixed(4)} on your existing provider account. Actual billing may differ. Quote is valid for five minutes from quoting. This creates a proposal only, not pictures or video.</p><label><input type="checkbox" checked={consent} disabled={busy} onChange={e=>setConsent(e.target.checked)}/> Allow one provider request at the displayed estimate</label><button className="pill" disabled={busy||!consent} onClick={()=>void automatic(true)}>Request AI proposal</button></div>}
+    <p>Use your AI chat to propose the room, people, props, materials, light and camera. Describe the scene below, prepare a request, then paste the reply here for review. This manual handoff makes no model call from Haggs. Attach reference pictures in your chat if you want image analysis.</p>
+    <button className="pill" onClick={() => { try { setRequest(manualProposalRequest({ description:scene.direction ?? "", references:scene.references ?? [], grey, scene }));setStatus(""); } catch(e) { setStatus((e as Error).message); } }}>Prepare AI request</button>
+    {request && <label>Request to copy<textarea aria-label="AI scene request" readOnly value={request} onFocus={e=>e.currentTarget.select()} /></label>}
+    <label>AI reply<textarea aria-label="AI scene reply" value={reply} maxLength={50000} disabled={busy} onChange={e=>{setReply(e.target.value);setProposal(null);}} /></label>
+    <button className="pill" disabled={busy||!reply.trim()} onClick={()=>{try {review(readSceneProposal(reply));setStatus("");}catch(e){setStatus((e as Error).message);}}}>Review proposal</button>
+    {proposal && <div className="gr-proposal-review" aria-label="Scene proposal review">
+      <b>{proposal.summary}</b>
+      <p>Floor: {proposal.room.floor}. Wall: {proposal.room.wall}.</p>
+      <p>People to add: {proposal.people.map(p=>p.label+(p.facing===undefined?"":` (facing ${p.facing}°)`)).join(", ") || "None"}. Props to add: {proposal.props.map(p=>p.name+(p.material?` (${p.material})`:"")).join(", ") || "None"}. Existing names are kept in place.</p>
+      <p>Proposed camera: {proposal.camera.lens} mm, {proposal.camera.distance} m away, {proposal.camera.height} m high, angle {proposal.camera.angle}°. {proposal.cameraPath?` Camera move: ${proposal.cameraPath.length} keys over 6 seconds.`:" Still camera."} Light: {proposal.light.az}° direction, {proposal.light.el}° elevation.</p>
+      <div aria-label="Proposal choices">
+        <label><input type="checkbox" checked={selection.people} onChange={e=>setSelection({...selection,people:e.target.checked})}/> Add proposed people</label>
+        <label><input type="checkbox" checked={selection.props} onChange={e=>setSelection({...selection,props:e.target.checked})}/> Add proposed props</label>
+        <label><input type="checkbox" checked={selection.room} onChange={e=>setSelection({...selection,room:e.target.checked})}/> Use proposed room materials</label>
+      </div>
+      <label><input type="checkbox" aria-label="Use proposed camera and key light" checked={camera} onChange={e=>setCamera(e.target.checked)} /> Use proposed camera and key light{grey.camKeys?.length ? (proposal.cameraPath?" (replaces the current camera path with the proposed move)":" (replaces the current camera path with a still camera)") : ""}</label>
+      {stale&&<p role="status">The scene changed after review. <button className="pill" onClick={()=>{setReviewedStamp(sceneStamp);setStatus("");}}>Review against current scene</button></p>}
+      {preview?.ok&&<>
+        <div className="gr-proposal-compare" aria-label="Visual proposal comparison">
+          <figure><img alt="Current scene preview" src={`data:image/svg+xml,${encodeURIComponent(preview.before)}`}/><figcaption>Current scene</figcaption></figure>
+          <figure><img alt="Proposed scene preview" src={`data:image/svg+xml,${encodeURIComponent(preview.after)}`}/><figcaption>After applying your choices</figcaption></figure>
+        </div>
+        <p>{preview.peopleAdded} {preview.peopleAdded===1?"person":"people"} and {preview.propsAdded} {preview.propsAdded===1?"prop":"props"} will be added. {camera?(proposal.cameraPath?"The proposed camera move replaces the current path.":"The proposed still camera replaces the current path."):"Your camera path is kept."} This is a local blockout preview; nothing has been applied.</p>
+        <label>Preview time<input aria-label="Proposal preview time" type="range" min={0} max={6} step={.1} value={previewTime} onChange={e=>setPreviewTime(Number(e.target.value))}/> {previewTime.toFixed(1)} s</label>
+      </>}
+      {preview&&!preview.ok&&<p role="status">{preview.reason}</p>}
+      <button className="pill on" disabled={busy||stale||!preview?.ok} onClick={()=>{if(latestScene.current!==reviewedStamp||!preview?.ok){setStatus("Review the current scene before applying.");return;}onApply(preview.candidate.grey,preview.candidate.scene);setProposal(null);setStatus("Proposal applied. Fine-tune the scene, then make and approve a first frame.");}}>Apply reviewed proposal</button>
+      <button className="plain" onClick={()=>setProposal(null)}>Discard proposal</button>
+    </div>}
+    {status && <p role="status">{status}</p>}
+  </details>;
+}

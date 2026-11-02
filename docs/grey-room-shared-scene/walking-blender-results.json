@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "Full export builds articulated walking meshes",
+    "All joints match shared guide samples at first middle and final frames",
+    "Walking stand-in replaces duplicate cylinder",
+    "Static legacy stand-in remains",
+    "Export opens on frame one"
+  ],
+  "rendered": false
+}

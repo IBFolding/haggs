@@ -160,6 +160,8 @@ export type Effect = { id: string; name: string; url: string; /** Seconds from t
 
 /** One version of a shot's footage — a generation, a reroll, an import. */
 export type Take = {
+  /** Immutable inputs recorded when a Grey Room generation starts. */
+  greySetup?: { frame?: import("./grey").GreyFrame; scene: import("./grey-scene").GreyScene; time: number };
   /** Editable Grey Room state and source trim belonging to this take. */
   greyScene?: import("./grey-scene").GreyScene;
   trimIn?: number;

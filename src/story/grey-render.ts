@@ -14,7 +14,7 @@ import { actorShadow, atmosphere, exprAt, propShadow, type GreyScene, type Key, 
  */
 
 export type PlanInput = {
-  role: "backdrop" | "surface" | "texture" | "actor" | "prop" | "shadow" | "light" | "air" | "footage-picture" | "footage";
+  role: "backdrop" | "surface" | "texture" | "actor" | "prop" | "shadow" | "light" | "air" | "footage-picture" | "footage" | "primitive";
   /** A media link for backdrop, actor, props and footage; the light's or the prop's id for a light or a shadow; the kind of air (rain, fog…). */
   ref: string;
   /** Flags that go before this input's `-i`. */
@@ -99,7 +99,7 @@ export function greyPlan(scene: GreyScene, size: { w: number; h: number }, secon
         parts.push(`[${at}][${j}:v]overlay=x=${sx}:y=${sy}:shortest=1[sh${j}]`);
         at = `sh${j}`;
       }
-      inputs.push({ role: "prop", ref: p.url, args: loop });
+      inputs.push({ role: p.primitive==="box"?"primitive":"prop", ref: p.primitive==="box"?p.id:p.url, args: loop });
       const i = inputs.length - 1;
       const rad = (p.rotate * Math.PI) / 180;
       const grow = moves(p.keys, "w");

@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import { buildCut, ffmpegScript } from "./cut";
 import { createProject, newShot } from "./model";
@@ -33,7 +34,7 @@ test("the exported file matches the cut it was built from", { skip: !hasFfmpeg, 
 
     const make = (file: string, kind: "image" | "video", seconds: number) => ({
       ...newShot(), heading: file, seconds,
-      render: { url: `file://${join(dir, file)}`, kind, usd: 0, promptHash: "h", at: 1 },
+      render: { url: pathToFileURL(join(dir, file)).href, kind, usd: 0, promptHash: "h", at: 1 },
     });
     const project = {
       ...createProject("E2E Cut"),

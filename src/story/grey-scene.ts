@@ -1,3 +1,4 @@
+import { roomSpace, materialSchema, type SpatialMaterial, type RoomSpace } from "./grey-space";
 import { validSelection, type AreaSelection } from "./grey-selection";
 /**
  * The set built around one shot in the Grey Room: where it takes place, the
@@ -9,7 +10,7 @@ import { validSelection, type AreaSelection } from "./grey-selection";
 export type Matte = { kind?: "image" | "video"; url: string; at: number; price: string };
 /** A moment in the shot where some of an item's values are set. Between two keys a value moves in a straight line; before the first and after the last it holds. */
 export type Key = { t: number; x?: number; y?: number; w?: number; rotate?: number; opacity?: number; intensity?: number; size?: number; scale?: number };
-export type Prop = { role?: "actor" | "object"; id: string; name: string; url: string; x: number; y: number; w: number; rotate: number; behind: boolean; opacity: number; flip?: boolean; locked?: boolean; hidden?: boolean; /** How dark the contact shadow under it is, 0–1. Default 0.4. */ shadow?: number; keys?: Key[];
+export type Prop = { material?: SpatialMaterial | undefined; primitive?: "box"; role?: "actor" | "object"; id: string; name: string; url: string; x: number; y: number; w: number; rotate: number; behind: boolean; opacity: number; flip?: boolean; locked?: boolean; hidden?: boolean; /** How dark the contact shadow under it is, 0–1. Default 0.4. */ shadow?: number; keys?: Key[];
   /** A real 3D model for the Blender set (glb, gltf, obj or fbx). The picture above stays what the preview shows. */
   model?: { url: string; name: string } };
 export type LightKind = "key" | "fill" | "glow" | "practical";
@@ -29,6 +30,9 @@ export type Backdrop = { url: string; name: string; scale: number; x: number; y:
 export type RoomReference = { id: string; url: string; name: string };
 
 export type GreyScene = {
+  /** Material choices for the shared spatial preview. */
+  space?: RoomSpace;
+  direction?: string;
   references?: RoomReference[];
   /** The uncomposited source, kept when a rendered draft becomes the active take. */
   source?: { url: string; kind: "video" | "image"; revision?: string; trimIn?: number };
@@ -58,7 +62,7 @@ export function setShadow(s: GreyScene, change: Partial<{ amount: number; angle:
   return { ...s, shadow: { amount: unit(next.amount), angle: ((Math.round(next.angle) % 360) + 360) % 360 } };
 }
 
-export const sceneIsEmpty = (s: GreyScene | undefined) => !s || !(s.references?.length || s.place || s.matte || s.backdrop || s.surfaces?.length || s.props?.length || s.lights?.length || s.atmos?.length || (s.look && JSON.stringify(s.look) !== JSON.stringify(NEUTRAL)));
+export const sceneIsEmpty = (s: GreyScene | undefined) => !s || !(s.direction || s.space || s.references?.length || s.place || s.matte || s.backdrop || s.surfaces?.length || s.props?.length || s.lights?.length || s.atmos?.length || (s.look && JSON.stringify(s.look) !== JSON.stringify(NEUTRAL)));
 
 /* ── props ── */
 
@@ -69,9 +73,10 @@ export function addProp(s: GreyScene, p: { name: string; url: string; behind?: b
 
 const tidyModel = (m: Prop["model"]): Prop["model"] => (m && typeof m.url === "string" && typeof m.name === "string" && MODEL_EXT.test(m.url) ? { url: m.url, name: m.name.slice(0, 60) } : undefined);
 const tidyProp = (input: Prop): Prop => {
-  const { model, ...p } = input;
+  const { model, material, ...p } = input;
+  const palette = materialSchema.safeParse(material).data;
   const kept = tidyModel(model);
-  return { ...p, ...(kept ? { model: kept } : {}), ...(p.shadow === undefined ? {} : { shadow: unit(p.shadow) }), x: unit(p.x), y: unit(p.y), w: clamp(p.w, 0.03, 1.5), rotate: ((Math.round(p.rotate) % 360) + 360) % 360, opacity: unit(p.opacity) };
+  return { ...p, ...(palette ? { material: palette } : {}), ...(kept ? { model: kept } : {}), ...(p.shadow === undefined ? {} : { shadow: unit(p.shadow) }), x: unit(p.x), y: unit(p.y), w: clamp(p.w, 0.03, 1.5), rotate: ((Math.round(p.rotate) % 360) + 360) % 360, opacity: unit(p.opacity) };
 };
 
 export function updateProp(s: GreyScene, id: string, change: Partial<Omit<Prop, "id">>): GreyScene {
@@ -180,6 +185,8 @@ export function normalizeScene(raw: GreyScene | undefined): GreyScene {
   const isProp = (p: unknown): p is Prop => !!p && typeof p === "object" && typeof (p as Prop).id === "string" && typeof (p as Prop).url === "string" && Number.isFinite((p as Prop).x) && Number.isFinite((p as Prop).y);
   const isLight = (l: unknown): l is Light => !!l && typeof l === "object" && typeof (l as Light).id === "string" && typeof (l as Light).kind === "string";
   return {
+    ...(typeof raw.direction === "string" ? { direction: raw.direction.slice(0, 4000) } : {}),
+    ...(raw.space ? { space: roomSpace(raw.space) } : {}),
     ...(raw.source && typeof raw.source.url === "string" && (raw.source.kind === "video" || raw.source.kind === "image") ? { source: { url: raw.source.url, kind: raw.source.kind, ...(Number.isFinite(raw.source.trimIn) && raw.source.trimIn! > 0 ? {trimIn:raw.source.trimIn} : {}), ...(typeof raw.source.revision === "string" ? {revision:raw.source.revision} : {}) } } : {}),
     ...(Array.isArray(raw.references) ? { references: raw.references.filter(r => r && typeof r.id === "string" && typeof r.url === "string" && typeof r.name === "string").slice(0, 60) } : {}),
     ...(raw.place ? { place: raw.place } : {}),

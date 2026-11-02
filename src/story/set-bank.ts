@@ -31,6 +31,17 @@ export function applySet(shot: GreyScene, saved: SavedSet): GreyScene {
   };
 }
 
+/** Selective reuse leaves footage, masks, existing layers and shot-specific choices untouched. */
+export function applySetParts(shot: GreyScene, saved: SavedSet, part: "props" | "room"): GreyScene {
+  const set=normalizeScene(saved.scene);
+  if(part==="room")return set.space?{...shot,space:{...set.space}}:shot;
+  const names=new Set((shot.props??[]).map(p=>p.name.trim().toLowerCase()));
+  const additions=(set.props??[]).filter(p=>{const name=p.name.trim().toLowerCase();if(names.has(name))return false;names.add(name);return true;});
+  if(!additions.length)return shot;
+  if((shot.props?.length??0)+additions.length>100)throw Error("Adding these props would exceed 100 props. Existing props were kept.");
+  return {...shot,props:[...(shot.props??[]),...structuredClone(additions).map(p=>({...p,id:uid()}))]};
+}
+
 export function createSetStore(kv: Kv) {
   return {
     async list(): Promise<SavedSet[]> {

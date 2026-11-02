@@ -52,10 +52,11 @@ const STARTERS = [
  * The shelf on the left: everything you can bring into the picture, one tab per kind.
  * It stays mounted while you change tabs, so an upload or a prop being made is never lost.
  */
-export function AssetsPanel({ tab, onTab, scene, places, props, actors, vertical, footageUrl, isVideo, others, selected, onSelect, onChange, onReplace, onUseEverywhere, cutout }: {
+export function AssetsPanel({ tab, onTab, scene, savedScene, places, props, actors, vertical, footageUrl, isVideo, others, selected, onSelect, onChange, onReplace, onUseEverywhere, cutout }: {
   tab: AssetTab;
   onTab: (t: AssetTab) => void;
   scene: GreyScene;
+  savedScene?: GreyScene;
   places: BankItem[];
   /** Props you can drop in: your saved accessories with a picture. */
   props: BankItem[];
@@ -208,7 +209,7 @@ export function AssetsPanel({ tab, onTab, scene, places, props, actors, vertical
               {bd && <div className="gs-row"><button className={`pill${selected === "backdrop" ? " on" : ""}`} onClick={() => onSelect(selected === "backdrop" ? null : "backdrop")}>Zoom and position</button><button className="plain" onClick={() => { onChange({ ...scene, backdrop: undefined as never, place: undefined as never }); if (selected === "backdrop") onSelect(null); }}>Remove the background</button></div>}
               {!scene.matte && bd && <p className="gs-soft">Use Cut out first to see them in this place.</p>}
             </section>
-            <SetsPanel scene={scene} others={others} onUse={onReplace} onUseEverywhere={onUseEverywhere} />
+            <SetsPanel scene={savedScene??scene} others={others} onUse={onReplace} onUseEverywhere={onUseEverywhere} />
           </>
         )}
 
