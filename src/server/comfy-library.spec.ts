@@ -69,3 +69,22 @@ test("catalogLive is true after the catalog answers, so unknown names may 404", 
     globalThis.fetch = real;
   }
 });
+
+test("background catalog checks tolerate an outage and can retry", async () => {
+  const real=globalThis.fetch;let calls=0;
+  globalThis.fetch=(async()=>{calls++;throw new Error('offline');}) as typeof fetch;
+  try {
+    const {checked,opens}=await import('./comfy-library');
+    const root=`/dev/null/background-outage-${process.pid}`;
+    assert.equal(await checked(root,'test-key'),null);
+    assert.equal(await opens(root,'test-key'),null);
+    // The detached work must settle without an unhandled rejection; Node's test
+    // runner fails this test if either background promise escapes.
+    await new Promise(resolve=>setTimeout(resolve,100));
+    const first=calls;assert.ok(first>=2);
+    assert.equal(await checked(root,'test-key'),null);
+    assert.equal(await opens(root,'test-key'),null);
+    await new Promise(resolve=>setTimeout(resolve,100));
+    assert.ok(calls>first,'a later check can retry after the outage');
+  } finally {globalThis.fetch=real;}
+});

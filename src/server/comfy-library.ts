@@ -193,7 +193,9 @@ export async function checked(root: string, apiKey: string): Promise<Record<stri
       }),
     );
     await keepAnswer(root, "runnable.json", out);
-  })().finally(() => {
+  // These checks run in the background; a catalog outage must not become an
+  // unhandled rejection after the caller has already received "not ready".
+  })().catch(() => undefined).finally(() => {
     checking = null;
   });
   return null;
@@ -223,7 +225,7 @@ export async function opens(root: string, apiKey: string): Promise<Record<string
       }),
     );
     await keepAnswer(root, "open.json", out);
-  })().finally(() => {
+  })().catch(() => undefined).finally(() => {
     opening = null;
   });
   return null;
