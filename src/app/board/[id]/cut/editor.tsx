@@ -36,7 +36,7 @@ import { frameAt, makeCard, makeTitle } from "../../../cut-actions";
 import { addMarker, editMarker, removeMarker, stepMarker } from "../../../../story/markers";
 import { reshootFrameAt } from "../../../../story/reshoot";
 import { ReshootPanel } from "../../../reshoot-panel";
-import { addTake, chooseTake, cycleTake, removeTake, splitShot, takesOf, toggleFavorite, trimHead, trimTail } from "../../../../story/takes";
+import { addTake, chooseTake, cycleTake, removeTake, removeFromTimeline, splitShot, takesOf, toggleFavorite, trimHead, trimTail } from "../../../../story/takes";
 import { shoot } from "../../../shoot";
 import { EditTools } from "./tools";
 import { defaultKv } from "../../../../story/kv";
@@ -232,14 +232,14 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   useEffect(() => { void listVersions(kv, id, boardId).then(setVersions); }, [kv, id, boardId]);
   /** Any edit to the board from the editor, saved the same way the board saves. */
   const apply = useCallback(
-    (change: (current: Project) => Project) => {
+    (change: (current: Project) => Project, separate = false) => {
       const current = now.current;
       if (!current) return;
       const next = change(current);
       if (next === current) return;
       const t0 = Date.now();
-      if (t0 - lastEdit.current > 600 || past.current.length === 0) past.current = [...past.current.slice(-99), current];
-      lastEdit.current = t0;
+      if (separate || t0 - lastEdit.current > 600 || past.current.length === 0) past.current = [...past.current.slice(-99), current];
+      lastEdit.current = separate ? 0 : t0;
       future.current = [];
       now.current = next;
       setProject(next);
@@ -495,6 +495,16 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   const selected = cut.clips.find((c) => c.shotId === picked) ?? here?.clip ?? null;
   const shot = selected ? project.shots.find((s) => s.id === selected.shotId) : undefined;
 
+  const removeSelected = () => {
+    if (!selected) return;
+    const remaining = cut.clips.filter(c => c.shotId !== selected.shotId);
+    const next = remaining.find(c => c.start > selected.start) ?? remaining.at(-1);
+    setPlaying(false);
+    apply(current => removeFromTimeline(current, selected.shotId), true);
+    setPicked(next?.shotId ?? null);
+    seek(next ? (next.start > selected.start ? next.start - selected.seconds : next.start) : 0);
+  };
+
   const idxHere = cut.clips.findIndex((c) => c.shotId === here?.clip.shotId);
   const jump = (to: number) => {
     const c = cut.clips[Math.min(cut.clips.length - 1, Math.max(0, to))];
@@ -636,6 +646,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
         <div className="canvas">
           <div className="library-blank">
             <p>Nothing to cut yet.</p>
+            {past.current.length > 0 && <button className="pill" onClick={() => travel("undo")}>Undo</button>}
             <p className="library-blank-sub">
               The cut is made of the shots you have rendered, in board order.{" "}
               <Link href={`/board/${id}`}>Shoot one on the board</Link> and it appears here.
@@ -836,6 +847,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                       </div>
                       </Section><Section name="Cut tools" initial classic={classic}>
                       <div className="clip-actions">
+                        <button className="pill" onClick={removeSelected} title="Remove only this segment and close the gap. Source footage and takes stay in Media. Undo restores the segment.">Remove from timeline</button>
                         <button className="pill" disabled={!(t > selected.start + 0.2 && t < selected.start + selected.seconds)} title="Cut off the start of this clip at the playhead (I)" onClick={() => apply((current) => trimHead(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim start to playhead</button>
                         <button className="pill" disabled={!(t >= selected.start + 0.2 && t < selected.start + selected.seconds - 0.05)} title="Cut off the end of this clip at the playhead (O)" onClick={() => apply((current) => trimTail(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim end to playhead</button>
                         <button className="pill" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>

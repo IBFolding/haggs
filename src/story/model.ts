@@ -184,6 +184,8 @@ export type Take = {
  * project's Media tab until it is put on a shot.
  */
 export type Media = {
+  /** Original take retained when its timeline segment is removed. */
+  sourceTake?: Take;
   id: string;
   url: string;
   kind: "image" | "video";
