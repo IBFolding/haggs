@@ -1,6 +1,8 @@
+import { bakeFigureMotion, type FigureSample } from "./grey-blender-motion";
 import { atmosphere, type GreyScene, type Key } from "./grey-scene";
 import { camAt, type CamKey } from "./grey-camera";
-import type { GreyFrame } from "./grey";
+import { MATERIALS, roomSpace, propMaterial, type RoomSpace, type SpatialMaterial } from "./grey-space";
+import { subjectFacing, type GreyFrame } from "./grey";
 
 /**
  * A Grey Room set as a Blender scene, for the shots that need real 3D light,
@@ -19,6 +21,7 @@ export type BlenderManifest = {
   fps: number;
   frames: number;
   exposure: number;
+  room?: { light:{az:number;el:number}; floor: {color:string;roughness:number;metalness:number}; wall: {color:string;roughness:number;metalness:number} };
   actor?: { file: string; kind: "movie" | "image" };
   backdrop?: { file: string; scale: number; x: number; y: number; keys?: Key[] };
   /** The grey room camera. When present the set gets a perspective camera that makes this move. Metres and degrees, as in the Grey room. */
@@ -26,8 +29,8 @@ export type BlenderManifest = {
   /** The camera's keys at the shot's frame rate. */
   cameraKeys?: { frame: number; angle: number; distance: number; height: number; lens: number }[];
   /** Stand-in figures from the Grey room's room plan, metres from the middle. */
-  figures?: { label: string; x: number; z: number }[];
-  props: { name: string; file: string; x: number; y: number; w: number; rotate: number; opacity: number; behind: boolean; flip: boolean; /** A 3D model file; the script imports it instead of making a flat picture. */ model?: string; keys?: Key[] }[];
+  figures?: { label: string; x: number; z: number; facing?: number; motion?: FigureSample[] }[];
+  props: { primitive?: "box"; material?: {color:string;roughness:number;metalness:number}; name: string; file: string; x: number; y: number; w: number; rotate: number; opacity: number; behind: boolean; flip: boolean; /** A 3D model file; the script imports it instead of making a flat picture. */ model?: string; keys?: Key[] }[];
   lights: { kind: string; x: number; y: number; size: number; color: string; intensity: number; spot?: boolean; power?: number; keys?: Key[] }[];
   /** relative file name → where this app reads it from, so the bundle can copy it in. */
   assets: Record<string, string>;
@@ -49,13 +52,17 @@ export function blenderManifest(scene: GreyScene, o: { name: string; size: { w: 
   };
   const notes: string[] = ["Lights here are real Blender lights, so they light the props; the actor and the background are shown as they are, unlit."];
   if (atmosphere(scene).length) notes.push("Fog, rain, snow and the other air aren't in the Blender set. Add them in Blender or leave them to the Grey Room draft.");
-  if ((scene.surfaces ?? []).some((s) => s.mask && s.texture)) notes.push("New wall and floor materials aren't in the Blender set.");
+  if ((scene.surfaces ?? []).some((s) => s.mask && s.texture)) notes.push("Footage-bound wall and floor texture edits aren't in the Blender set; the shared room palette is exported separately when present.");
   if (scene.look && (scene.look.contrast || scene.look.saturation || scene.look.warmth || scene.look.vignette)) notes.push("Only the brightness of the look carries over; colour and contrast are best finished after rendering.");
   const actorUrl = scene.matte?.url ?? o.footage.url;
   const actorKind = scene.matte ? "movie" : o.footage.kind === "video" ? "movie" : "image";
   if (!scene.matte) notes.push("The actor isn't cut out yet, so the original footage fills the frame.");
   const grey = o.grey;
+  const spatial=Boolean(grey&&(scene.space||scene.props?.some(p=>p.primitive==="box")));
+  const palette=(key:SpatialMaterial)=>({...MATERIALS[key],metalness:key==="metal"?.65:0});
+  const room:RoomSpace=roomSpace(scene.space);
   const keys: CamKey[] = grey?.camKeys ?? [];
+  if (grey?.pose === "walk") notes.push("Walking figures use baked guide geometry at the export frame rate; they are geometric stand-ins, not rigged characters.");
   if (grey) notes.push(keys.length > 1 ? "The Grey Room camera move is a perspective camera in the set. The actor and the pictures are flat, so they show parallax rather than turning." : "The Grey Room camera is a perspective camera at its still position.");
   return {
     version: 1,
@@ -65,14 +72,15 @@ export function blenderManifest(scene: GreyScene, o: { name: string; size: { w: 
     fps: o.fps,
     frames: Math.max(1, Math.round(o.seconds * o.fps)),
     exposure: scene.look?.exposure ?? 0,
+    ...(spatial?{room:{floor:palette(room.floor),wall:palette(room.wall),light:{...grey!.light}}}:{}),
     ...(grey ? {
       camera: { angle: grey.cam.angle, distance: grey.cam.distance, height: grey.cam.height, lens: grey.cam.lens },
       ...(keys.length > 1 ? { cameraKeys: keys.map((k) => ({ frame: 1 + Math.round(k.t * o.fps), angle: camAt(grey.cam, keys, k.t).angle, distance: k.distance, height: k.height, lens: k.lens })) } : {}),
-      figures: grey.subjects.map((s) => ({ label: s.label, x: s.x, z: s.z })),
+      figures: grey.subjects.map((s) => ({ label: s.label, x: s.x, z: s.z, ...(Number.isFinite(s.facing)?{facing:subjectFacing(s)}:{}), ...(grey.pose==="walk"?{motion:bakeFigureMotion(grey,s,Math.max(1,Math.round(o.seconds*o.fps)),o.fps)}:{}) })),
     } : {}),
     actor: { file: add(actorUrl), kind: actorKind },
     ...(scene.backdrop ? { backdrop: { file: add(scene.backdrop.url), scale: scene.backdrop.scale, x: scene.backdrop.x, y: scene.backdrop.y, ...(scene.backdrop.keys ? { keys: scene.backdrop.keys } : {}) } } : {}),
-    props: (scene.props ?? []).filter((p) => !p.hidden).map((p) => ({ name: p.name, file: add(p.url), x: p.x, y: p.y, w: p.w, rotate: p.rotate, opacity: p.opacity, behind: p.behind, flip: p.flip === true, ...(p.model ? { model: add(p.model.url) } : {}), ...(p.keys ? { keys: p.keys } : {}) })),
+    props: (scene.props ?? []).filter((p) => !p.hidden).map((p) => ({ ...(spatial&&p.primitive==="box"?{primitive:"box" as const,material:propMaterial(p.material)?palette(p.material!):{color:"#a6b4c5",roughness:.8,metalness:0}}:{}), name: p.name, file: spatial&&p.primitive==="box"?"":add(p.url), x: p.x, y: p.y, w: p.w, rotate: p.rotate, opacity: p.opacity, behind: p.behind, flip: p.flip === true, ...(p.model ? { model: add(p.model.url) } : {}), ...(p.keys ? { keys: p.keys } : {}) })),
     lights: (scene.lights ?? []).map((l) => ({ kind: l.kind, x: l.x, y: l.y, size: l.size, color: l.color, intensity: l.intensity, ...(l.spot ? { spot: true } : {}), ...(l.power !== undefined ? { power: l.power } : {}), ...(l.keys ? { keys: l.keys } : {}) })),
     assets,
     notes,
@@ -110,6 +118,7 @@ ${m.notes.map((n) => `  - ${n}`).join("\n")}
 /** The Blender script. It reads scene.json next to it, so one script serves every shot. */
 export const BLENDER_SCRIPT = String.raw`# Builds a Haggs Grey Room set in Blender from scene.json (same folder).
 import bpy, json, math, os
+from mathutils import Vector
 
 def root():
     if "__file__" in globals():
@@ -282,8 +291,84 @@ if "backdrop" in S:
 actor = S["actor"]
 plane("Actor", actor["file"], UW, 0.0, movie=(actor["kind"] == "movie"), lit=False)
 
+# Shared spatial palette is a material study, not a reconstructed texture.
+def spatial_material(name, values, opacity=1.0):
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    rgb = tuple(int(values["color"].lstrip("#")[j:j+2], 16) / 255 for j in (0, 2, 4))
+    # Palette hex values are sRGB; Blender shader inputs use linear colour.
+    linear = tuple(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in rgb)
+    shader = mat.node_tree.nodes.get("Principled BSDF")
+    shader.inputs["Base Color"].default_value = (*linear, 1)
+    shader.inputs["Roughness"].default_value = values["roughness"]
+    shader.inputs["Metallic"].default_value = values["metalness"]
+    shader.inputs["Alpha"].default_value = opacity
+    if hasattr(mat, "surface_render_method"):
+        mat.surface_render_method = "DITHERED"
+    elif hasattr(mat, "blend_method"):
+        mat.blend_method = "BLEND"
+    return mat
+
+if "room" in S:
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, -1.2))
+    floor = bpy.context.active_object
+    floor.name = "Spatial floor"
+    floor.scale = (6, 6, 1)
+    floor.data.materials.append(spatial_material("Floor palette", S["room"]["floor"]))
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 3, 0.55), rotation=(math.radians(90), 0, 0))
+    wall = bpy.context.active_object
+    wall.name = "Spatial wall"
+    wall.scale = (6, 3.5, 1)
+    wall.data.materials.append(spatial_material("Wall palette", S["room"]["wall"]))
+    data = bpy.data.lights.new("Spatial key light", "SUN")
+    data.energy = 3
+    data.color = (1, 0.94, 0.86)
+    sun = bpy.data.objects.new("Spatial key light", data)
+    scene.collection.objects.link(sun)
+    az, el = math.radians(S["room"]["light"]["az"]), math.radians(S["room"]["light"]["el"])
+    sun.location = (math.sin(az) * math.cos(el) * 6, -math.cos(az) * math.cos(el) * 6, math.sin(el) * 6 - 1.2)
+    sun.rotation_euler = (Vector((0, 0, -1.2)) - sun.location).to_track_quat("-Z", "Y").to_euler()
+
+
 # Props: flat pictures, behind the actor or in front of them.
 for i, p in enumerate(S["props"]):
+    if p.get("primitive") == "box":
+        bpy.ops.mesh.primitive_cube_add(size=1)
+        o = bpy.context.active_object
+        o.name = p["name"] or ("Box %d" % (i + 1))
+        side = p["w"] * 4
+        o.location = ((p["x"] - 0.5) * 6, (p["y"] - 0.5) * 6, -1.2 + side / 2)
+        o.scale = (side,) * 3
+        o.rotation_euler = (0, 0, math.radians(-p["rotate"]))
+        mat = spatial_material(o.name + " palette", p["material"], p["opacity"])
+        o.data.materials.append(mat)
+        # Match the shared scene's linear channels, including grounded size changes.
+        prior_interpolation = bpy.context.preferences.edit.keyframe_new_interpolation_type
+        bpy.context.preferences.edit.keyframe_new_interpolation_type = "LINEAR"
+        for k in p.get("keys", []):
+            f = frame_of(k["t"])
+            if "x" in k:
+                o.location.x = (k["x"] - 0.5) * 6
+                o.keyframe_insert("location", index=0, frame=f)
+            if "y" in k:
+                o.location.y = (k["y"] - 0.5) * 6
+                o.keyframe_insert("location", index=1, frame=f)
+            if "w" in k:
+                side = k["w"] * 4
+                o.scale = (side,) * 3
+                o.location.z = -1.2 + side / 2
+                o.keyframe_insert("scale", frame=f)
+                o.keyframe_insert("location", index=2, frame=f)
+            if "rotate" in k:
+                o.rotation_euler.z = math.radians(-k["rotate"])
+                o.keyframe_insert("rotation_euler", index=2, frame=f)
+            if "opacity" in k:
+                alpha = mat.node_tree.nodes.get("Principled BSDF").inputs["Alpha"]
+                alpha.default_value = k["opacity"]
+                alpha.keyframe_insert("default_value", frame=f)
+        bpy.context.preferences.edit.keyframe_new_interpolation_type = prior_interpolation
+        continue
+
     depth = 2.0 + i * 0.01 if p["behind"] else -2.0 - i * 0.01
     o = None
     if p.get("model"):
@@ -367,8 +452,57 @@ if "camera" in S:
 
     # Stand-ins from the room plan, so the move has something to travel round.
     for fig in S.get("figures", []):
+        if fig.get("motion"):
+            # Samples are produced by the same figureSegments implementation as the shot guide.
+            parts = []
+            for index, seg in enumerate(fig["motion"][0]["segments"]):
+                if seg.get("head") or seg.get("face"):
+                    bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=12, ring_count=8)
+                else:
+                    bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=1, vertices=8)
+                part = bpy.context.active_object
+                part.name = "Walker " + fig["label"] + " segment " + str(index)
+                mat = bpy.data.materials.new(part.name)
+                mat.diffuse_color = (0.03, 0.03, 0.04, 1) if seg.get("face") else (0.52, 0.57, 0.63, 1)
+                part.data.materials.append(mat)
+                part.rotation_mode = "QUATERNION"
+                parts.append(part)
+            prior_interpolation = bpy.context.preferences.edit.keyframe_new_interpolation_type
+            bpy.context.preferences.edit.keyframe_new_interpolation_type = "LINEAR"
+            for sample in fig["motion"]:
+                for part, seg in zip(parts, sample["segments"]):
+                    a = Vector((seg["a"]["x"], seg["a"]["z"], seg["a"]["y"] - 1.2))
+                    b = Vector((seg["b"]["x"], seg["b"]["z"], seg["b"]["y"] - 1.2))
+                    part.location = (a + b) / 2
+                    r = seg["r"]
+                    if seg.get("head") or seg.get("face"):
+                        part.scale = (r, r, r)
+                    else:
+                        part.scale = (r, r, (b-a).length)
+                        rotation = (b-a).to_track_quat("Z", "Y")
+                        if part.rotation_quaternion.dot(rotation) < 0:
+                            rotation.negate()
+                        part.rotation_quaternion = rotation
+                    part.keyframe_insert("location", frame=sample["frame"])
+                    part.keyframe_insert("scale", frame=sample["frame"])
+                    part.keyframe_insert("rotation_quaternion", frame=sample["frame"])
+            bpy.context.preferences.edit.keyframe_new_interpolation_type = prior_interpolation
+            continue
+
         bpy.ops.mesh.primitive_cylinder_add(radius=0.25, depth=1.75, location=(fig["x"], fig["z"], -1.2 + 0.875))
         bpy.context.active_object.name = "Figure " + fig["label"]
+        # A direction cue for explicitly turned figures; legacy cylinders stay unchanged.
+        if "facing" in fig:
+            a = math.radians(fig["facing"])
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.07, location=(fig["x"] + math.sin(a) * 0.26, fig["z"] - math.cos(a) * 0.26, -1.2 + 1.60))
+            cue = bpy.context.active_object
+            cue.name = "Facing " + fig["label"]
+            mat = bpy.data.materials.new(cue.name)
+            mat.diffuse_color = (0.03, 0.03, 0.04, 1)
+            cue.data.materials.append(mat)
+
+
+scene.frame_set(1)
 
 # Where the video goes.
 out_dir = os.path.join(ROOT, "render")

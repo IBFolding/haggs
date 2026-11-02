@@ -13,7 +13,7 @@ import { MediaThumb } from "../../../../media-thumb";
 import { AssetsPanel, type AssetTab } from "./assets-panel";
 import { Compositor } from "./compositor";
 import { sceneForShot } from "../../../../../story/grey-source";
-import { finishCutout, undoPending } from "../../../../../story/grey-edit-safety";
+import { finishCutout, undoPending, restoreGreyEdit, sameGreyEdit, type GreyEditState } from "../../../../../story/grey-edit-safety";
 import { CutoutPanel } from "./cutout-panel";
 import { GreyRoom } from "../../cut/grey";
 import { Inspector } from "./inspector";
@@ -21,10 +21,12 @@ import { RenderPanel } from "./render-panel";
 import { createHistory, dropKey, keyTimes, mergeEdit, normalizeScene, removeLight, removeProp, resolveScene, type GreyScene } from "../../../../../story/grey-scene";
 import type { BankItem } from "../../../../../story/bank";
 import { commit, view } from "../../../../../story/boards";
-import { defaultKv } from "../../../../../story/kv";
+import { defaultKv, idbKv } from "../../../../../story/kv";
 import type { Project, Shot } from "../../../../../story/model";
 import { createProjectStore } from "../../../../../story/store";
 import { applySet, type SavedSet } from "../../../../../story/set-bank";
+import { appendGreySetupShot } from "../../../../../story/grey-setup-shot";
+import { addGreyTake } from "../../../../../story/grey-take";
 import { addTake } from "../../../../../story/takes";
 import { createSaveQueue } from "../../../../../story/use-autosave";
 import { creditsText } from "../../../../../story/price-text";
@@ -54,7 +56,15 @@ const money = (n: number) => creditsText(n);
 export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string; boardId?: string | undefined }) {
   const kv = useMemo(() => defaultKv(), []);
   const store = useMemo(() => createProjectStore(kv), [kv]);
-  const saves = useMemo(() => createSaveQueue(store), [store]);
+  const saveFailed=useRef(false),durableFailed=useRef(false);
+  const durableStore=useMemo(()=>createProjectStore(idbKv()),[]);
+  const [saveIssue,setSaveIssue]=useState("");
+  const saves = useMemo(() => createSaveQueue(store,600,()=>{saveFailed.current=true;setSaveIssue("Changes could not be saved. Keep this page open and retry.");},()=>{if(!durableFailed.current){saveFailed.current=false;setSaveIssue("");}}), [store]);
+  const [draftHeading,setDraftHeading]=useState("");
+  const [draftBeat,setDraftBeat]=useState("");
+  const [createdDraft,setCreatedDraft]=useState<string|null>(null);
+  const [shotBusy,setShotBusy]=useState(false);
+  const shotPending=useRef(false);
   const full = useRef<Project | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [missing, setMissing] = useState(false);
@@ -74,8 +84,9 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [showOriginal, setShowOriginal] = useState(false);
   const [scene, setSceneState] = useState<GreyScene>({});
   const liveScene = useRef<GreyScene>({});
+  const liveGrey=useRef<GreyEditState["grey"]>(undefined);
   const [selected, setSelected] = useState<string | null>(null);
-  const history = useRef(createHistory<GreyScene>({}));
+  const history = useRef(createHistory<GreyEditState>({grey:undefined,scene:{}}));
   const [, bump] = useState(0);
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pending = useRef(false);
@@ -91,9 +102,12 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
       setProject(board);
       const first = sceneForShot(board.shots.find((x) => x.id === shotId));
       liveScene.current = first;
-      history.current = createHistory<GreyScene>(first);
+      liveGrey.current=board.shots.find(x=>x.id===shotId)?.grey;
+      history.current = createHistory<GreyEditState>({grey:liveGrey.current,scene:first});
       setSceneState(first);
       const start = first.source ?? board.shots.find((x) => x.id === shotId)?.render;
+      setMode(start?"scene":"blockout");setCreatedDraft(null);setDraftBeat("");
+      setDraftHeading(`${board.shots.find(x=>x.id===shotId)?.heading||"Shot"} — next`.slice(0,160));
       setTab(start?.kind === "video" && !first.matte ? "actors" : "room");
     });
     void loadBank().then((all) => { setPlaces(all.filter((i) => i.kind === "place")); setAccessories(all.filter((i) => i.kind === "accessory" && i.image)); setActors(all.filter(i => i.kind === "character" && i.image)); });
@@ -110,10 +124,10 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const back = `/board/${id}/cut${boardId ? `?b=${boardId}` : ""}`;
 
   /** Writes the scene onto the shot and saves the project. */
-  function persist(next: GreyScene) {
+  function persist(next: GreyEditState) {
     if (!full.current) return;
     const current = view(full.current, boardId);
-    const updated: Project = { ...current, shots: current.shots.map(x => x.id === shotId ? { ...x, greyScene: next } : x) };
+    const updated: Project = { ...current, shots: current.shots.map(x => x.id === shotId ? restoreGreyEdit(x,next) : x) };
     full.current = commit(full.current, boardId, updated);
     setProject(updated);
     saves.queue(full.current);
@@ -129,6 +143,34 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     });
   }
 
+  /** The general workspace can fall back to memory; navigation requires a real IndexedDB write. */
+  async function flushDurably() {
+    try {
+      let snapshot:Project|null;
+      do {await saves.flush();snapshot=full.current;if(snapshot)await durableStore.save(snapshot);}while(full.current!==snapshot);
+      durableFailed.current=false;saveFailed.current=false;setSaveIssue("");
+    }catch{durableFailed.current=true;saveFailed.current=true;throw Error("Changes could not be saved to local storage. Keep this page open and retry.");}
+  }
+  async function retrySave() {
+    if(shotPending.current)return;shotPending.current=true;setShotBusy(true);
+    try{await flushDurably();}catch(e){setSaveIssue((e as Error).message);}finally{shotPending.current=false;setShotBusy(false);}
+  }
+  async function saveAndOpen(target:string) {
+    if(shotPending.current)return;shotPending.current=true;setShotBusy(true);
+    try{await flushDurably();if(!saveFailed.current)window.location.assign(`/board/${encodeURIComponent(id)}/grey/${encodeURIComponent(target)}${boardId?`?b=${encodeURIComponent(boardId)}`:""}`);}
+    catch(e){setSaveIssue((e as Error).message);}
+    finally{shotPending.current=false;setShotBusy(false);}
+  }
+  async function createSetupShot() {
+    if(shotPending.current||!full.current)return;shotPending.current=true;setShotBusy(true);
+    try {
+      await flushDurably();
+      if(!createdDraft){const result=appendGreySetupShot(full.current,boardId,shotId,liveScene.current,draftHeading,draftBeat);full.current=result.project;setProject(view(result.project,boardId));setCreatedDraft(result.shot.id);saves.queue(result.project);}
+      await flushDurably();
+    } catch(e){setSaveIssue((e as Error).message);}
+    finally{shotPending.current=false;setShotBusy(false);}
+  }
+
   /** A finished render becomes a new take on this shot, saved by this page so nothing else overwrites it. */
   function addTakeHere(url: string, usd: number, origin: string) {
     if (shot?.render && !scene.source) change({ ...scene, source: { url: shot.render.url, kind: shot.render.kind } }, true);
@@ -141,15 +183,19 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   }
 
   /** Every change shows at once. It counts as one undo step when you let go, or a moment after the last slider move. */
-  function change(next: GreyScene, commitNow = false) {
-    setShowOriginal(false);
-    liveScene.current = next;
-    setSceneState(next);
-    persist(next);
+  function changeState(next:GreyEditState,commitNow=false) {
+    if(sameGreyEdit(next,{grey:liveGrey.current,scene:liveScene.current}))return;
     clearTimeout(settle.current);
-    const done = () => { pending.current = false; history.current.push(next); bump((n) => n + 1); };
-    if (commitNow) done();
-    else { pending.current = true; settle.current = setTimeout(done, 500); }
+    // A discrete AI/apply edit must not swallow an earlier slider edit still waiting to settle.
+    if(commitNow&&pending.current)history.current.push({grey:liveGrey.current,scene:liveScene.current});
+    setShowOriginal(false);liveGrey.current=next.grey;liveScene.current=next.scene;
+    setSceneState(next.scene);persist(next);
+    const done=()=>{pending.current=false;history.current.push(next);bump(n=>n+1);};
+    if(commitNow)done();else{pending.current=true;settle.current=setTimeout(done,500);}
+  }
+  function change(next: GreyScene, commitNow = false) {changeState({grey:liveGrey.current,scene:next},commitNow);}
+  function restoreState(next:GreyEditState) {
+    liveGrey.current=next.grey;liveScene.current=next.scene;setSceneState(next.scene);setSelected(null);persist(next);bump(n=>n+1);
   }
 
   /** Puts a saved set on every other shot of this board. Each keeps its own cut-out. */
@@ -170,14 +216,14 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
 
   function undo() {
     clearTimeout(settle.current);
-    const prev = undoPending(history.current, pending.current ? liveScene.current : undefined);
+    const prev = undoPending(history.current, pending.current ? {grey:liveGrey.current,scene:liveScene.current} : undefined);
     pending.current = false;
-    if (prev) { liveScene.current = prev; setSceneState(prev); persist(prev); bump((n) => n + 1); }
+    if (prev) restoreState(prev);
   }
   function redo() {
     if (pending.current) return;
     const next = history.current.redo();
-    if (next) { liveScene.current = next; setSceneState(next); persist(next); bump((n) => n + 1); }
+    if (next) restoreState(next);
   }
 
   useEffect(() => {
@@ -290,7 +336,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     <div className="app">
       <Nav current="Editor" />
       <div className="canvas gw-canvas">
-        <div className="gw">
+        <div className="gw" aria-busy={shotBusy} inert={shotBusy?true:undefined}>
           <header className="gw-head">
             <Link className="plain" href={back}>← Back to the cut</Link>
             <h1>Grey Room</h1>
@@ -307,6 +353,16 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
             </span>
           </header>
 
+          {saveIssue&&<p role="alert">{saveIssue} <button className="pill" disabled={shotBusy} onClick={()=>void retrySave()}>Retry save</button></p>}
+          <details className="gr-shot-tools">
+            <summary>Shots and setup</summary>
+            <label>Open shot<select aria-label="Open Grey Room shot" value={shotId} disabled={shotBusy} onChange={e=>void saveAndOpen(e.target.value)}>{project.shots.map((s,i)=><option key={s.id} value={s.id}>{i+1}. {s.heading||"Untitled shot"}{s.render?"":" · draft"}</option>)}</select></label>
+            <p>Create a draft with this room, people, props, materials and camera. Footage, masks, takes and approvals stay on the original shot.</p>
+            <label>New shot name<input aria-label="New setup shot name" maxLength={160} value={draftHeading} disabled={shotBusy||!!createdDraft} onChange={e=>setDraftHeading(e.target.value)}/></label>
+            <label>What happens in the new shot?<textarea aria-label="New setup shot action" maxLength={4000} value={draftBeat} disabled={shotBusy||!!createdDraft} placeholder="Optional — leave blank to keep this shot's action" onChange={e=>setDraftBeat(e.target.value)}/></label>
+            {!createdDraft&&<button className="pill" disabled={shotBusy||!draftHeading.trim()} onClick={()=>void createSetupShot()}>{shotBusy?"Saving…":"Create draft from this setup"}</button>}
+            {createdDraft&&<p role="status">{saveIssue?"Draft is kept in this session until saving succeeds.":"Draft created."} <button className="pill" disabled={shotBusy||!!saveIssue} onClick={()=>void saveAndOpen(createdDraft)}>Open new draft</button><button className="plain" disabled={shotBusy||!!saveIssue} onClick={()=>{setCreatedDraft(null);setDraftBeat("");}}>Create another</button></p>}
+          </details>
           <ol className="gs-steps gw-guide" aria-label="Where you are">
             {STEPS.map((s2, i) => (
               <li key={s2.id}>
@@ -322,11 +378,15 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
               <GreyRoom
                 key={shot.id}
                 shot={shot}
+                scene={scene}
+                onScene={s => change(s)}
+                onDesign={(grey,nextScene)=>changeState({grey,scene:nextScene},true)}
                 vertical={vertical}
                 names={project.threads.filter((t) => t.kind === "character" && shot.threadIds.includes(t.id)).map((t) => t.name)}
-                onGrey={(g) => updateShot((x) => ({ ...x, grey: g }))}
+                onGrey={(grey)=>changeState({grey,scene:liveScene.current})}
                 onApprove={() => updateShot((x) => ({ ...x, approved: true }))}
-                onTake={(url, usd) => updateShot((x) => addTake(x, { url, kind: "image", usd, promptHash: x.render?.promptHash ?? "", at: Date.now() }, "Grey room"))}
+                onTake={(url, usd, guideScene) => updateShot((x) => addGreyTake(x, { url, kind: "image", usd, promptHash: x.render?.promptHash ?? "", at: Date.now() }, "Grey room", guideScene ?? liveScene.current, liveScene.current))}
+                onShot={(url, usd, guideScene) => updateShot((x) => addGreyTake(x, { url, kind: "video", usd, promptHash: x.render?.promptHash ?? "", at: Date.now() }, "Grey room shot", guideScene ?? liveScene.current, liveScene.current))}
               />
               <div className="gs-nav">
                 <span />
@@ -340,6 +400,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                   tab={tab}
                   onTab={setTab}
                   scene={shown}
+                  savedScene={scene}
                   places={places}
                   props={accessories}
                   actors={actors}

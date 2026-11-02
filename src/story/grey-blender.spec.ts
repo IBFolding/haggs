@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { blenderManifest, BLENDER_README, BLENDER_SCRIPT } from "./grey-blender";
 import { addLight, addProp, setAtmos, setLook, setPropModel, updateLight, updateProp, type GreyScene } from "./grey-scene";
 import { setKey } from "./grey-camera";
+import { addStandInProp } from "./grey-space";
 import { defaultGrey } from "./grey";
 
 const built = (): GreyScene => {
@@ -106,4 +107,29 @@ describe("the Blender script", () => {
     assert.match(BLENDER_SCRIPT, /import_scene\.gltf/);
     assert.doesNotMatch(BLENDER_SCRIPT, /\$\{/, "no template leftovers");
   });
+});
+
+
+it("Blender exports explicit figure facing and baked walking geometry",()=>{
+ const grey={...defaultGrey(),pose:"walk" as const};grey.subjects[0]={...grey.subjects[0]!,facing:450};
+ const m=blenderManifest(built(),{...opts,grey});
+ assert.equal(m.figures![0]!.facing,90);assert.match(m.notes.join(" "),/baked guide geometry/);
+ const legacy=blenderManifest(built(),{...opts,grey:defaultGrey()});assert.equal("facing" in legacy.figures![0]!,false);
+});
+
+
+it("shared box geometry, palette and key light export only with a grey camera",()=>{
+ let scene=addStandInProp({space:{floor:"wood",wall:"metal"}});
+ scene={...scene,props:scene.props!.map(p=>({...p,material:"metal",keys:[{t:0,x:.2,w:.25},{t:6,x:.8,w:.5}]}))};
+ const grey=defaultGrey(),m=blenderManifest(scene,{...opts,grey});
+ assert.equal(m.props[0]!.primitive,"box");assert.equal(m.props[0]!.file,"");assert.ok(!Object.values(m.assets).some(url=>url.startsWith("data:")));assert.equal(m.props[0]!.material!.metalness,.65);
+ assert.equal(m.room!.floor.color,"#976d45");assert.deepEqual(m.room!.light,grey.light);
+ assert.deepEqual(m.props[0]!.keys,scene.props![0]!.keys);
+ const legacy=blenderManifest(scene,opts);assert.equal(legacy.room,undefined);assert.equal(legacy.props[0]!.primitive,undefined);
+});
+it("mixed exports keep existing image/model props and hidden layer behavior",()=>{
+ let scene=addStandInProp(built());scene.props![1]!.hidden=true;
+ const m=blenderManifest(scene,{...opts,grey:defaultGrey()});
+ assert.equal(m.props.length,1);assert.equal(m.props[0]!.name,"Chair");assert.equal(m.props[0]!.primitive,undefined);assert.ok(m.room);
+ assert.deepEqual(m.props[0]!.keys,scene.props![0]!.keys);
 });

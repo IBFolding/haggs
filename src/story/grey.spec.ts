@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ROOM, defaultGrey, describeGrey, project, realPrompt, tidy } from "./grey";
+import { subjectFacing, faceCamera, ROOM, defaultGrey, describeGrey, project, realPrompt, tidy } from "./grey";
 
 const cam = (angle: number, extra = {}) => ({ angle, distance: 5, height: 1.5, lens: 35, ...extra });
 
@@ -59,4 +59,18 @@ test("a real take is locked until it is approved; a shot with nothing real on it
   assert.equal(needsApproval({ render: { url: "x" } }), true);
   assert.equal(needsApproval({ render: { url: "x" }, approved: true }), false);
   assert.equal(needsApproval({}), false);
+});
+
+
+test("individual facing normalizes safely while legacy figures remain unchanged",()=>{
+ const g=defaultGrey(),s=g.subjects[0]!;
+ assert.deepEqual(tidy(g).subjects,g.subjects);assert.equal(subjectFacing(s),0);
+ assert.equal(tidy({...g,subjects:[{...s,facing:450}]}).subjects[0]!.facing,90);
+ assert.equal(tidy({...g,subjects:[{...s,facing:NaN}]}).subjects[0]!.facing,undefined);
+ assert.equal(faceCamera(s,cam(90)),90);
+ assert.ok(faceCamera({...s,x:1},cam(0))>340);
+});
+test("first-frame prompts honor individual walking directions without promising faces toward camera",()=>{
+ const g={...defaultGrey(),pose:"walk" as const};g.subjects[0]={...g.subjects[0]!,facing:90};
+ const prompt=realPrompt("Cross the room",g);assert.match(prompt,/90 degrees/);assert.match(prompt,/shown facing directions/);assert.doesNotMatch(prompt,/walking toward the camera/);
 });

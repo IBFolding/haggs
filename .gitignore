@@ -21,3 +21,7 @@ tsconfig.tsbuildinfo
 # The bundled MCP server, made by scripts/mcp-start.mjs
 scripts/mcp.bundle.mjs
 scripts/mcp.bundle.json
+
+# Local Grey Room QA artifacts and temporary media
+/output/
+/runtime-tmp/

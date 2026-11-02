@@ -1,0 +1,9 @@
+{
+  "checks": [
+    "Full exported script builds in Blender",
+    "Turned figure cue points right at 90 degrees",
+    "Legacy cylinder has no new cue",
+    "Cue has dark material"
+  ],
+  "rendered": false
+}

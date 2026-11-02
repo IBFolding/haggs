@@ -7,7 +7,7 @@ import { tidyKeys, type CamKey } from "./grey-camera";
  * framing; dial it in, then ask for the real picture to be made from it.
  */
 
-export type GreySubject = { id: string; label: string; x: number; z: number };
+export type GreySubject = { id: string; label: string; x: number; z: number; facing?: number | undefined };
 export type GreyFrame = {
   trajectory?: import("./trajectory").Trajectory;
   /** Where the camera is round the room (0 = in front, looking the way the subjects face) and how far, in metres. */
@@ -17,7 +17,20 @@ export type GreyFrame = {
   camKeys?: CamKey[];
   /** The light: which way it comes from and how high. */
   light: { az: number; el: number };
+  /** How the figures stand: still, or walking. Walkers cross the frame over the clip, centred where you put them. */
+  pose?: "stand" | "walk";
 };
+
+/** Legacy figures face the front of the room. Explicit directions remain room-relative. */
+export const subjectFacing = (s: GreySubject) => Number.isFinite(s.facing) ? ((s.facing! % 360) + 360) % 360 : 0;
+export function faceCamera(s: GreySubject, cam: GreyFrame["cam"]): number {
+  const a=cam.angle*Math.PI/180,x=Math.sin(a)*cam.distance-s.x,z=-Math.cos(a)*cam.distance-s.z;
+  return Math.hypot(x,z)<.001?subjectFacing(s):((Math.atan2(x,-z)*180/Math.PI)%360+360)%360;
+}
+export function describeFacing(g: GreyFrame): string {
+  const explicit=g.subjects.filter(s=>Number.isFinite(s.facing));
+  return explicit.length?`Figure facing directions in the room (0 degrees is front): ${explicit.map(s=>`${s.label}: ${Math.round(subjectFacing(s))} degrees`).join(", ")}. `:"";
+}
 
 export const ROOM = 3; // the floor runs −3 to 3 metres each way
 
@@ -33,9 +46,10 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 export function tidy(g: GreyFrame): GreyFrame {
   return {
     ...(g.trajectory?{trajectory:g.trajectory}:{}),
+    ...(g.pose === "walk" ? { pose: "walk" as const } : {}),
     ...(tidyKeys(g.camKeys) ? { camKeys: tidyKeys(g.camKeys)! } : {}),
     cam: { angle: ((g.cam.angle % 360) + 360) % 360, distance: clamp(g.cam.distance, 1, 12), height: clamp(g.cam.height, 0.2, 6), lens: clamp(Math.round(g.cam.lens), 14, 135) },
-    subjects: g.subjects.slice(0, 6).map((s) => ({ ...s, label: s.label.slice(0, 24), x: clamp(s.x, -ROOM, ROOM), z: clamp(s.z, -ROOM, ROOM) })),
+    subjects: g.subjects.slice(0, 6).map((s) => { const {facing,...rest}=s; return { ...rest, ...(Number.isFinite(facing)?{facing:subjectFacing(s)}:{}), label: s.label.slice(0, 24), x: clamp(s.x, -ROOM, ROOM), z: clamp(s.z, -ROOM, ROOM) }; }),
     light: { az: ((g.light.az % 360) + 360) % 360, el: clamp(g.light.el, 5, 90) },
   };
 }
@@ -74,7 +88,7 @@ export function describeGrey(g: GreyFrame): string {
 /** The prompt that turns the grey blockout into the picture: what it is, what must not move. */
 export function realPrompt(beat: string, g: GreyFrame): string {
   const who = g.subjects.map((s) => s.label).filter(Boolean).join(", ");
-  return `Turn this grey 3D blockout into a photoreal cinematic film still. ${beat.trim().replace(/[.\s]+$/, "")}. ${who ? `The grey figures are: ${who}. ` : ""}${describeGrey(g)} Keep the composition exactly as the blockout shows it: the camera angle, where every figure stands, their size in the frame, the horizon. Replace the grey with real people, clothes, materials and a real place.`;
+  return `Turn this grey 3D blockout into a photoreal cinematic film still. ${beat.trim().replace(/[.\s]+$/, "")}. ${who ? `The grey figures are: ${who}. ` : ""}${g.pose === "walk" ? (g.subjects.some(s=>Number.isFinite(s.facing)) ? "The figures walk in their shown facing directions with natural body movement. Keep exactly the shown number of people. " : g.subjects.length === 1 ? "The one figure is walking toward the camera, facing it, so we see their face. Only this one person is in the shot. " : `The ${g.subjects.length} figures are walking toward the camera, facing it, so we see their faces. Only these ${g.subjects.length} people are in the shot. `) : ""}${describeFacing(g)}${describeGrey(g)} Keep the composition exactly as the blockout shows it: the camera angle, where every figure stands, their size in the frame, the horizon. Replace the grey with real people, clothes, materials and a real place.`;
 }
 
 /** A shot with a real take on it is locked: the tools that change it wait for an approval. */

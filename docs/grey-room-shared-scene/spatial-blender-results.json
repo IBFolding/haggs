@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "Export builds real cube geometry",
+    "Linear middle-frame position, grounded size and rotation match shared scene",
+    "Animated opacity and metal roughness/metalness match palette",
+    "Start and end keys retain expected poses",
+    "Six metre floor, wall and key light build",
+    "Legacy image prop remains a plane"
+  ],
+  "rendered": false
+}

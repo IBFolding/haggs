@@ -1,0 +1,15 @@
+{
+  "passed": [
+    "migration applied in isolated local Postgres",
+    "metadata quote round trip",
+    "duplicate creation refused",
+    "RLS/table grants deny anon reads",
+    "wrong secret and credential binding refused",
+    "anonymous RPC role works only with server secret",
+    "12 concurrent database claims yield exactly one winner",
+    "claim survives Postgres restart",
+    "claimed quote cannot be read or replayed",
+    "expired creation refused"
+  ],
+  "remoteConnections": false
+}

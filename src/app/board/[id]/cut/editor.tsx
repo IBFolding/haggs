@@ -25,6 +25,8 @@ import { atTime, buildCut, cutList, ffmpegScript, captionSpan } from "../../../.
 import { fcpxml } from "../../../../story/fcpxml";
 import { needsApproval, tidy } from "../../../../story/grey";
 import { GreyRoom, GreySequence } from "./grey";
+import { normalizeScene } from "../../../../story/grey-scene";
+import { addGreyTake } from "../../../../story/grey-take";
 import { Tracks, usePreviewSound, VoiceLines, VoiceMix } from "./sound";
 import { moveShot, newShot, setLook, type Shot } from "../../../../story/model";
 import { LookBar } from "../../../look-picker";
@@ -898,16 +900,20 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                     <GreyRoom
                       key={shot.id}
                       shot={shot}
+                      scene={normalizeScene(shot.greyScene)}
+                      onScene={(next) => onShot(shot.id, (s2) => ({ ...s2, greyScene: next }))}
+                      onDesign={(grey, greyScene) => onShot(shot.id, (s2) => ({ ...s2, grey, greyScene }))}
                       vertical={vertical}
                       names={project.threads.filter((t) => t.kind === "character" && shot.threadIds.includes(t.id)).map((t) => t.name)}
                       onGrey={(g) => onShot(shot.id, (s2) => ({ ...s2, grey: g }))}
                       onApprove={() => onShot(shot.id, (s2) => ({ ...s2, approved: true }))}
-                      onTake={(url, usd) => onShot(shot.id, (s2) => addTake(s2, { url, kind: "image", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room"))}
+                      onTake={(url, usd, guideScene) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "image", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene)))}
+                      onShot={(url, usd, guideScene) => onShot(shot.id, (s2) => addGreyTake(s2, { url, kind: "video", usd, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Grey room shot", guideScene ?? normalizeScene(s2.greyScene), normalizeScene(s2.greyScene)))}
                     />
                   )}
                   {tab === "reshoot" && reshootMode === "grey" && (
                     <GreySequence
-                      shots={cut.clips.map((c) => { const sh = project.shots.find((x) => x.id === c.shotId); return { id: c.shotId, heading: c.heading, seconds: c.seconds, ...(sh?.grey ? { grey: sh.grey } : {}) }; })}
+                      shots={cut.clips.map((c) => { const sh = project.shots.find((x) => x.id === c.shotId); return { id: c.shotId, heading: c.heading, seconds: c.seconds, ...(sh?.grey ? { grey: sh.grey } : {}), ...(sh?.greyScene ? { greyScene: sh.greyScene } : {}) }; })}
                       currentId={shot.id}
                       vertical={vertical}
                       names={(id) => { const sh = project.shots.find((x) => x.id === id); return sh ? project.threads.filter((t) => t.kind === "character" && sh.threadIds.includes(t.id)).map((t) => t.name) : []; }}

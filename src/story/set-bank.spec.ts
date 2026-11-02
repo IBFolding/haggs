@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { memoryKv } from "./kv";
 import { addLight, addProp, setLook, setShadow } from "./grey-scene";
-import { applySet, captureSet, createSetStore } from "./set-bank";
+import { applySetParts, applySet, captureSet, createSetStore } from "./set-bank";
 
 const built = () => {
   let s = addProp({ matte: { url: "m.webm", at: 1, price: "x" }, backdrop: { url: "room.png", name: "Room", scale: 2, x: 0.5, y: 0.5, blur: 0 }, place: "p1" }, { name: "Chair", url: "chair.png" });
@@ -53,4 +53,32 @@ it("saved looks never move a shot's source footage to another shot", () => {
  assert.equal(saved.scene.source, undefined);
  const other = {url:"/other.mp4",kind:"video" as const};
  assert.deepEqual(applySet({source:other}, {...saved,scene:{...saved.scene,source}}).source,other);
+});
+
+
+it("selective set reuse adds independent props without replacing existing layers or footage",()=>{
+ const original=built(),saved=captureSet(original,"Room");
+ saved.scene.props![0]!.keys=[{t:0,x:.2},{t:6,x:.8}];
+ const target={...built(),source:{url:"own.mp4",kind:"video" as const},direction:"Keep my direction"};
+ assert.equal(applySetParts(target,saved,"props"),target,"matching names are retained");
+ saved.scene.props![0]!.name="Table";
+ const next=applySetParts(target,saved,"props");
+ assert.deepEqual(next.props![0],target.props![0]);assert.equal(next.source,target.source);assert.equal(next.matte,target.matte);assert.equal(next.direction,target.direction);
+ assert.notEqual(next.props![1]!.id,saved.scene.props![0]!.id);
+ next.props![1]!.keys![0]!.x=.9;assert.equal(saved.scene.props![0]!.keys![0]!.x,.2);
+ assert.equal(applySetParts(next,saved,"props"),next,"reapplying does not duplicate matching props");
+});
+it("selective room materials retain masks, props and other shot choices",()=>{
+ const target={...built(),space:{floor:"wood" as const,wall:"plaster" as const}};
+ const saved=captureSet({...built(),space:{floor:"metal",wall:"concrete"}},"Industrial");
+ const next=applySetParts(target,saved,"room");
+ assert.deepEqual(next,{...target,space:{floor:"metal",wall:"concrete"}});assert.notEqual(next.space,saved.scene.space);
+ assert.equal(applySetParts(target,captureSet(built(),"Legacy"),"room"),target);
+});
+it("selective prop reuse refuses capacity overflow atomically",()=>{
+ const base=built(),prop=base.props![0]!;
+ const target={...base,props:Array.from({length:100},(_,i)=>({...prop,id:String(i),name:`Existing ${i}`}))};
+ const before=JSON.stringify(target);
+ assert.throws(()=>applySetParts(target,captureSet(base,"Room"),"props"),/100 props/);
+ assert.equal(JSON.stringify(target),before);
 });
