@@ -1,4 +1,4 @@
--- NEW migration: review and approve separately before any production application.
+-- Applied to production after user approval on 2026-11-02; see cap handoff.
 -- Lifetime Grey Room budget. Existing reservations never expire automatically.
 begin;
 create table public.grey_spend_accounts (
@@ -56,7 +56,7 @@ declare r public.grey_spend_reservations; begin
  update public.grey_spend_reservations set state='settled',actual_usd=actual where id=ref;
  return true;
 end $$;
-revoke all on function public.grey_spend_status(),public.grey_spend_set_cap(numeric),public.grey_spend_reserve(uuid,uuid,numeric,text),public.grey_spend_finish(uuid,numeric,text) from public;
+revoke all on function public.grey_spend_status(),public.grey_spend_set_cap(numeric),public.grey_spend_reserve(uuid,uuid,numeric,text),public.grey_spend_finish(uuid,numeric,text) from public,anon;
 grant execute on function public.grey_spend_status(),public.grey_spend_set_cap(numeric) to authenticated;
 grant execute on function public.grey_spend_reserve(uuid,uuid,numeric,text),public.grey_spend_finish(uuid,numeric,text) to anon,authenticated;
 commit;

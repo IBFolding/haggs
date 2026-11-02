@@ -1,18 +1,18 @@
 # Grey Room per-customer cap — local, not release-ready
 
-Branch fix/grey-media-consent starts at current main c173e16. No production settings, secrets, database schema, or paid jobs were changed by this increment.
+Branch fix/grey-media-consent starts at current main c173e16. Application changes remain local. The cap database migration was subsequently approved and applied to production on 2026-11-02; no production settings, secrets or paid jobs were changed.
 
 Implemented:
 - Independent HAGGS_GREY_STILL_ENABLED / HAGGS_GREY_VIDEO_ENABLED flags; planning retains HAGGS_GREY_AI_ENABLED and vision flag. Planning flag alone cannot enable media after this change.
 - Still/video server actions require exact-input, kind, provider-identity and estimate-bound single-use quotes. Video requires first-frame approval. UI obtains quote and explicitly confirms its displayed estimate.
 - Customer cap UI and authenticated server actions. Total lifetime cap, initially zero; no automatic monthly reset. Setting cap cannot reduce below charged plus reserved amounts.
-- Separate proposed migration 20261103000000_grey_user_spending_caps.sql: two RLS-protected tables and four narrow RPCs. Customer functions use auth.uid; reserve/finish require existing server secret. Direct table access denied. Per-account row locks serialize reservations and settlement. Unknown amounts keep reservations; duplicate finalization rejected; actual overcharges are recorded honestly.
+- Applied migration 20261103000000_grey_user_spending_caps.sql: two RLS-protected tables and four narrow RPCs. Customer functions use auth.uid; reserve/finish require existing server secret. Direct table access denied. Per-account row locks serialize reservations and settlement. Unknown amounts keep reservations; duplicate finalization rejected; actual overcharges are recorded honestly.
 - All three provider call paths wrapped by runWithGreyCap. Missing identity/cap/reservation/provider ceiling fails closed. No paid request until a verified maximum charge is available.
 
 Critical activation blockers:
 1. verifiedGreyMaximum deliberately returns undefined for every current provider route. Current Comfy USD0.20 is an estimate, NOT an enforceable maximum. A quote-sum budget cannot guarantee a real provider-spend cap. Need a provider-enforced ceiling or proven maximum for each supported action before enabling it.
-2. Runtime retains every submitted reservation as uncertain. Actual-cost reconciliation is not wired to provider billing yet. SQL supports idempotent settlement, but no automatic refund based on success/error guesses is used.
-3. New cap schema needs separate review and explicit production migration approval; prior quote-ledger approval does not cover it.
+2. Limited Claude usage reconciliation is implemented below. Comfy receipts and recovery of uncertain charges remain open; no automatic refund based on success/error guesses is used.
+3. Cap migration approval and production application are complete; see verification below.
 4. Independent security review, production build, desktop/mobile browser verification and deployed integration still required. Do not merge/deploy this branch as finished.
 
 Validation: 16 focused consent/gateway/cap/rollout tests passed; TypeScript noEmit passed; git diff --check passed. Disposable loopback-only Postgres tests passed 12 concurrent reservations, user isolation, lowered-cap rejection, uncertain retention, settlement/replay, invalid NaN settlement and access denial. No remote DB or paid calls. Test artifacts: output/grey-cap-tests.log, output/grey-cap-types.log, output/grey-cap-db-results.json; local DB harness output/check-grey-cap-db.py. Temporary DB clusters stopped and removed.
@@ -36,8 +36,20 @@ Implemented limited actual-usage reconciliation:
 
 Tests for this follow-up: billing parser/transport + gateway + reservation tests cover known charge, malformed/truncated output, network failure, duplicate report, invalid billing values, and settlement failure. No provider jobs or production changes.
 
-Next Claude action: establish a documented enforceable maximum for each chosen provider path (or explicitly agree a different budget contract), then wire it without replacing estimates with guesses. Review/apply the new cap migration only after separate approval; complete build, browser QA and deployed tests. Do not enable this local branch merely because the accounting unit tests pass.
+Next Claude action: establish a documented enforceable maximum for each chosen provider path (or explicitly agree a different budget contract), then wire it without replacing estimates with guesses. The cap migration is now applied; complete build, independent review, browser QA and deployed application tests. Do not enable this local branch merely because the accounting unit tests pass.
 
 Follow-up validation completed: 13 focused reconciliation/gateway tests, 4 existing writer transport tests, TypeScript noEmit and diff whitespace checks passed. No full build/browser review performed for this local follow-up.
 
 Potential narrower launch path for Claude to assess: Haggs-credit-funded media already debits a deterministic creditsFor(usd) amount before submission. A cap explicitly denominated in Haggs generation credits could bound the customer's debit even when Haggs's provider cost varies. This is a different contract from a USD cap on the customer's external BYOK account, and credit purchase dollars are not 1:1 with generation credits (see billing.ts packs/customer share). Do not silently relabel the current USD budget or claim it caps external provider spend. No such product change was implemented here.
+
+## Approved production cap migration — completed 2026-11-02
+
+Target: HAGGSFIELD production, Supabase project `pxkfxnvexsekhmcoqjxm`. Preflight confirmed both new tables and all four functions absent and the existing webhook secret present. Exact SQL was verified before execution, with a 5-second lock timeout and 30-second statement timeout. Migration committed successfully. Existing customer projects, media and billing tables were not modified.
+
+Postflight detected Supabase default function grants to anon. Explicitly revoked anon from the two customer functions in a corrective transaction, and incorporated `REVOKE ... FROM public,anon` into the source migration before its intended grants. Final checks passed: both tables have RLS; direct anon/authenticated table privileges are absent; all four SECURITY DEFINER/search_path and RPC grants match the intended policy; unauthenticated status is empty; the existing secret is accepted and an invalid secret rejected. No user budget rows were created by verification.
+
+Read-only production HTTP verification passed through the existing application adapter and configuration: quote read, invalid-secret rejection, direct table denial, anonymous cap-status denial, and a harmless finish lookup for a nonexistent reservation with the existing secret. Zero provider calls and zero HTTP writes. AI and vision rollout flags remain disabled. Evidence: `output/grey-paid-test-packet/production-cap-http-results.json`.
+
+The reproducible local harness is now `scripts/check-grey-cap-db.py`; it simulates Supabase default anon/authenticated EXECUTE grants. All nine checks passed again, including 12 concurrent reservation attempts. Requires local PostgreSQL tools and the external-drive runtime-tmp/output directories; temporary cluster is stopped and removed in finally.
+
+This resolves the database migration blocker only. Application changes are not released; provider maximum-charge guarantees, independent review, full build/browser QA and application rollout remain outstanding. No paid-test dollar cap has been supplied and no paid test ran.
