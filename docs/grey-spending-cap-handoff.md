@@ -52,4 +52,10 @@ Read-only production HTTP verification passed through the existing application a
 
 The reproducible local harness is now `scripts/check-grey-cap-db.py`; it simulates Supabase default anon/authenticated EXECUTE grants. All nine checks passed again, including 12 concurrent reservation attempts. Requires local PostgreSQL tools and the external-drive runtime-tmp/output directories; temporary cluster is stopped and removed in finally.
 
-This resolves the database migration blocker only. Application changes are not released; provider maximum-charge guarantees, independent review, full build/browser QA and application rollout remain outstanding. No paid-test dollar cap has been supplied and no paid test ran.
+This resolves the database migration blocker only. Application changes are not released; provider maximum-charge guarantees, independent review, full build/browser QA and application rollout remain outstanding. At the time of migration no paid-test dollar cap had been supplied; no paid test ran. See subsequent authorization below.
+
+## Subsequent user authorization — 2026-11-02
+
+User explicitly requested AI activation and authorized a USD 100 total limit for their own spending: “jus turn ai on! cost limit for me is 100$ they can approve to go over if need when prompted.” This resolves the missing numeric owner-test budget. It does not grant automatic overage: stop before exceeding USD 100 and obtain explicit approval for a new higher limit. Each customer must set/raise their own cap; do not set USD 100 globally or identify the owner by a guessed email/user ID.
+
+No paid requests or rollout settings were changed in response yet. Current application guard still deliberately blocks all provider routes without a verified maximum; production cap UI/guards remain unreleased. Enabling the old combined switch would not enforce this newly specified limit. Finish the guarded release and verify supported per-request maximums before spending.
