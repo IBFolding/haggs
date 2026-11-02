@@ -123,7 +123,7 @@ export function retimeSpatialPropKey(scene:GreyScene,id:string,from:number,to:nu
   const prop=scene.props?.find(p=>p.id===id);
   if(!prop?.keys?.length||prop.locked||![from,to].every(Number.isFinite)||from<0||from>CAM_SECONDS||to<0||to>CAM_SECONDS)return scene;
   const at=prop.keys.reduce((nearest,key,i)=>Math.abs(key.t-from)<.05&&(nearest<0||Math.abs(key.t-from)<Math.abs(prop.keys![nearest]!.t-from))?i:nearest,-1),target=Math.round(to*20)/20;
-  if(at<0||prop.keys.some((k,i)=>i!==at&&Math.abs(k.t-target)<.05-1e-9))return scene;
+  if(at<0||prop.keys.some((k,i)=>i!==at&&Math.abs(k.t-target)<.05))return scene;
   const keys=prop.keys.map((key,i)=>({...key,t:i===at?target:key.t})).sort((a,b)=>a.t-b.t);
   return {...scene,props:scene.props!.map(p=>p.id===id?{...p,keys}:p)};
 }

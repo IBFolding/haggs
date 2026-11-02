@@ -168,7 +168,7 @@ test("prop retiming preserves sparse channels, later keys and source assets; col
  p.keys=[{t:0,x:.2},{t:2,w:.5,opacity:.4},{t:9,x:.8,rotate:370}];p.model={url:"chair.glb",name:"Chair"};const original=JSON.stringify(scene);
  const moved=retimeSpatialPropKey(scene,p.id,0,1.5);
  assert.deepEqual(moved.props![0]!.keys,[{t:1.5,x:.2},...p.keys.slice(1)]);assert.deepEqual(moved.source,scene.source);assert.deepEqual(moved.props![0]!.model,p.model);assert.equal(moved.props![0]!.url,p.url);assert.equal(JSON.stringify(scene),original);
- for(const target of [2,2.01,-1,7,NaN,Infinity])assert.equal(retimeSpatialPropKey(scene,p.id,0,target),scene);
+ for(const target of [2,2.01,2.05,-1,7,NaN,Infinity])assert.equal(retimeSpatialPropKey(scene,p.id,0,target),scene);
  assert.equal(retimeSpatialPropKey(scene,p.id,4,1),scene);assert.equal(retimeSpatialPropKey(scene,"missing",0,1),scene);
  p.locked=true;assert.equal(retimeSpatialPropKey(scene,p.id,0,1),scene);
 });
