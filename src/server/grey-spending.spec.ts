@@ -12,3 +12,12 @@ test('uncertain reservations fail closed and unknown provider charges stay reser
  await withGreySpending(base,async()=>{calls++;return {ok:true};});assert.deepEqual(amounts,[null]);
  await assert.rejects(()=>withGreySpending(base,async()=>{throw Error('provider timeout');}));assert.deepEqual(amounts,[null,null]);
 });
+test('known charges settle even on output failure; ambiguous reports and settlement errors retain safety',async()=>{
+ const settled:(number|null)[]=[];const deps={userId:'one',maximumUsd:1,reserve:async()=>true,finish:async(_id:string,actual:number|null)=>{settled.push(actual);return true;}};
+ await withGreySpending(deps,async report=>{report(.12);return {ok:false};});
+ await assert.rejects(()=>withGreySpending(deps,async report=>{report(.2);throw Error('parse');}));
+ await withGreySpending(deps,async report=>{report(.1);report(.01);});
+ await withGreySpending(deps,async report=>{report(NaN);});
+ assert.deepEqual(settled,[.12,.2,null,null]);
+ const result=await withGreySpending({...deps,finish:async()=>{throw Error('unavailable');}},async report=>{report(.1);return 'output preserved';});assert.equal(result,'output preserved');
+});

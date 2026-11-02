@@ -197,6 +197,7 @@ export async function askClaude<T = Draft>({
   fetch: fetchImpl = fetch,
   schema = DRAFT_SCHEMA,
   read = validateDraft as unknown as (value: unknown) => T,
+  onBilling,
 }: {
   key: string;
   workspaceId?: string | undefined;
@@ -204,6 +205,7 @@ export async function askClaude<T = Draft>({
   fetch?: typeof fetch;
   schema?: Record<string, unknown>;
   read?: (value: unknown) => T;
+  onBilling?: (receipt:{model?:unknown;usage?:unknown})=>void;
 }): Promise<ClaudeResult<T>> {
   let workspaceHeaders: Record<string, string>;
   try { workspaceHeaders = anthropicHeaders(workspaceId); } catch { return { ok: false, reason: "Enter an Anthropic workspace ID beginning wrkspc_, or leave it blank for a workspace-scoped key." }; }
@@ -230,7 +232,9 @@ export async function askClaude<T = Draft>({
   if (response.status === 401) return { ok: false, reason: "Claude rejected the key. Replace it in Keys." };
   if (response.status === 429) return { ok: false, reason: "Your Claude account is rate-limited or out of credit. Nothing was retried." };
   if (!response.ok) return { ok: false, reason: anthropicErrorReason(response.status, await response.text().catch(() => "")) };
-  const data = (await response.json()) as { stop_reason?: string; content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
+  const data = (await response.json()) as { model?:unknown; stop_reason?: string; content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
+  // Observe billable usage even when output is truncated or invalid. Do not leak content or keys.
+  try{onBilling?.({model:data.model,usage:data.usage});}catch{/* Billing observer failure must retain its reservation. */}
   if (data.stop_reason === "max_tokens") return { ok: false, reason: "The draft ran out of room before it finished. Try a shorter format or a tighter idea." };
   const text = (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("");
   try {

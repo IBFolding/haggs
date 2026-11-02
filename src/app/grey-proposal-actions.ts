@@ -1,4 +1,5 @@
 "use server";
+import {greyClaudeCharge} from "../server/grey-claude-billing";
 import {runWithGreyCap} from "../server/grey-spending-live";
 import { cookies } from "next/headers";
 import { CLAUDE_COOKIE, claudeWorkspaceIn, keyIn } from "../server/keys";
@@ -12,7 +13,7 @@ const gateway=createGreyProposalGateway({
  store:sharedGreyQuoteStore(process.env),
  policy,
  credentials:async()=>{const jar=await cookies(),key=keyIn(jar,CLAUDE_COOKIE);return key?{key,workspaceId:claudeWorkspaceIn(jar)}:undefined;},
- send:(credentials,request,schema)=>runWithGreyCap("proposal",()=>askClaude({...credentials,request,schema,read:value=>sceneProposalSchema.parse(value)})),
+ send:(credentials,request,schema)=>runWithGreyCap("proposal",recordActual=>askClaude({...credentials,request,schema,read:value=>sceneProposalSchema.parse(value),onBilling:receipt=>{const charge=greyClaudeCharge(receipt,process.env);if(charge!==null)recordActual(charge);}})),
 });
 export async function quoteGreyProposal(context:unknown){return gateway.quote(context);}
 export async function generateGreyProposal(context:unknown,quoteId:string,consent:boolean){return gateway.generate(context,quoteId,consent);}
