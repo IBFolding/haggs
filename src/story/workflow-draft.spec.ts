@@ -20,3 +20,8 @@ test('a failed write blocks stale reload and a later retry can recover',async()=
  const store=createWorkflowDraftStore(kv);await assert.rejects(store.save('A',canvas('new')),/write failed/);await assert.rejects(store.load('A'),/write failed/);
  await store.save('A',canvas('new'));assert.equal((await store.load('A'))?.name,'new');
 });
+test('an invalid saved draft is not treated as a missing draft',async()=>{
+ const kv=memoryKv();await kv.set('A',{name:'important',nodes:'invalid',links:[]});
+ await assert.rejects(createWorkflowDraftStore(kv).load('A'),/invalid/);
+ assert.deepEqual(await kv.get('A'),{name:'important',nodes:'invalid',links:[]});
+});
