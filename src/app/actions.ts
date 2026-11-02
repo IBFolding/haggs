@@ -1,6 +1,7 @@
 "use server";
 import { generationFailure } from "../providers/action-error";
 import { checkGenerationStorage } from "../server/generation-storage";
+import { diagnoseAction } from "../server/action-diagnostics";
 
 import { partnerRefusal } from "../server/open-only";
 import { hosted, isBlobUrl, putBlob } from "../server/blob";
@@ -244,6 +245,10 @@ export async function run(
   /** A picture to end on (a bridge between two shots). */
   lastFrame?: string,
 ): Promise<RunResult> {
+  return diagnoseAction('media_generation',()=>runUndiagnosed(modelId,prompt,settings,images,firstFrame,lastFrame));
+}
+
+async function runUndiagnosed(modelId:string,prompt:string,settings:Record<string,unknown>,images?:string[],firstFrame?:boolean,lastFrame?:string):Promise<RunResult>{
   if (!prompt.trim()) return { ok: false, reason: "Describe something first." };
   // Every model on this path is a partner API (Comfy Router or fal).
   { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
@@ -425,6 +430,10 @@ export async function quoteEdit(request: EditRequest): Promise<number> {
 
 /** Runs one edit on Comfy Cloud and keeps the result. Never retried automatically. */
 export async function runEdit(request: EditRequest): Promise<EditResult> {
+  return diagnoseAction('video_edit',()=>runEditUndiagnosed(request));
+}
+
+async function runEditUndiagnosed(request:EditRequest):Promise<EditResult>{
   { const refused = await partnerRefusal(); if (refused) return { ok: false, reason: refused }; }
   const jar = await cookies();
   const own = keyIn(jar, COMFY_COOKIE);
