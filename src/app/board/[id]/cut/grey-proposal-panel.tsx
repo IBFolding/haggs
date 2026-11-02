@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { quoteGreyProposal, generateGreyProposal,greyProposalAvailability } from "../../../grey-proposal-actions";
 import type { ProposalQuote } from "../../../../server/grey-proposal-gateway";
 import { proposalContext,type ProposalContext } from "../../../../story/grey-proposal-context";
-import {prepareReferencePreview} from "../../../../story/grey-reference-preview";
+import {prepareReferencePreview,retainSelectedReferences} from "../../../../story/grey-reference-preview";
 import {MAX_REFERENCE_IMAGES} from "../../../../writer/image-input";
 import type { GreyFrame } from "../../../../story/grey";
 import type { GreyScene } from "../../../../story/grey-scene";
@@ -35,6 +35,7 @@ export function GreyProposalPanel({ grey, scene, vertical, onApply }: { vertical
   const [busy,setBusy]=useState(false);
   const [visionEnabled,setVisionEnabled]=useState(false);
   const [imageIds,setImageIds]=useState<string[]>([]);
+  useEffect(()=>{setImageIds(ids=>retainSelectedReferences(ids,scene.references??[]));},[scene.references]);
   const prepared=useRef<{stamp:string;context:ProposalContext}|null>(null);
   useEffect(()=>{let active=true;void greyProposalAvailability().then(result=>{if(active)setVisionEnabled(result.visionEnabled);}).catch(()=>{});return()=>{active=false;};},[]);
   const pending=useRef(false),epoch=useRef(0);

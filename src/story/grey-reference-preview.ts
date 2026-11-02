@@ -1,4 +1,10 @@
 import {referenceImageSchema,type ReferenceImage} from "../writer/image-input";
+/** Removed references cannot remain selected. Preserve surviving choices and stable state identity. */
+export function retainSelectedReferences(selected:string[],references:readonly {id:string}[]):string[]{
+ const available=new Set(references.map(reference=>reference.id));
+ const retained=selected.filter(id=>available.has(id));
+ return retained.length===selected.length?selected:retained;
+}
 /** Browser-only, explicit selection. Originals remain unchanged; failures never fall back to a server URL proxy. */
 export async function prepareReferencePreview(reference:{name:string;url:string}):Promise<ReferenceImage>{
  if(!/^(https:\/\/|\/(?!\/)|data:image\/(?:png|jpeg);base64,)/i.test(reference.url))throw Error("Use a saved PNG or JPEG reference image.");
