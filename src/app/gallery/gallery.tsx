@@ -18,6 +18,7 @@ import { createRunStore, isPicture, type PictureRun, type Run } from "../../stor
 import { Workspace } from "../workspace";
 import { Nav } from "../nav";
 import { useStartProject } from "../start-project";
+import { HostedRecoveryPanel } from "./hosted-recovery-panel";
 import { RecoverPanel } from "./recover-panel";
 import { ScriptShelf } from "./scripts";
 import { RunTile } from "../run-tile";
@@ -298,6 +299,7 @@ export function Gallery() {
             <div className="gl-main">
               {recoverOpen && (
                 <div className="gl-recover">
+                  <HostedRecoveryPanel runs={runs} onAdded={() => void runs.list().then(setAll)} />
                   <RecoverPanel runs={runs} added={new Set(all.map((r) => r.comfyJob).filter((x): x is string => Boolean(x)))} onAdded={() => void runs.list().then(setAll)} />
                 </div>
               )}

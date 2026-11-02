@@ -157,3 +157,8 @@ test("expired-preview recovery verifies exact job/file identity with reads only"
  assert.deepEqual(await runner.fetchJobOutput({job:"job-old",filename:"old.mp4",subfolder:"haggs"}),new Uint8Array([1,2,3]));
  assert.ok(!calls.some(url=>url.includes("prompt")));
 });
+
+test("hosted recovery activation cannot submit a paid job while private writes are paused",async()=>{
+ const keys=["HAGGS_HOSTED_OUTPUT_RECOVERY","HAGGS_PRIVATE_MEDIA_WRITES"],prior=keys.map(k=>process.env[k]);let requests=0;
+ try{process.env.HAGGS_HOSTED_OUTPUT_RECOVERY="1";process.env.HAGGS_PRIVATE_MEDIA_WRITES="0";const runner=createCloudRunner({apiKey:"fixture",fetch:async()=>{requests++;throw Error("must not call provider");},keep:async()=>"unused"});await assert.rejects(runner.run({}),/paused/);assert.equal(requests,0);}finally{keys.forEach((key,i)=>{if(prior[i]===undefined)delete process.env[key];else process.env[key]=prior[i];});}
+});

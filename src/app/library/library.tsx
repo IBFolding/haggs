@@ -206,7 +206,7 @@ export function Library() {
   );
 
   const download = useCallback(
-    async (summary: ProjectSummary) => {
+    async (summary: ProjectSummary, includeMedia = true) => {
       try {
       const project = await store.load(summary.id);
       if (!project) return;
@@ -218,7 +218,8 @@ export function Library() {
       } catch {
         sheets = undefined;
       }
-      const packed = await createMediaEnvelope(JSON.parse(exportProject(project, sheets)));
+      const envelope = JSON.parse(exportProject(project, sheets));
+      const packed = includeMedia ? await createMediaEnvelope(envelope) : envelope;
       const blob = new Blob([JSON.stringify(packed, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -401,7 +402,8 @@ export function Library() {
                       <Link className={styles.nextLink} href={status?.href ?? `/board/${summary.id}`}>{status?.action ?? "Open storyboard"} →</Link>
                       <span className="ph-acts">
                         <button className="ph-link" onClick={() => { setEditing(summary.id); setDraft(summary.name); }}>Rename</button>
-                        <button className="ph-link" onClick={() => void download(summary)}>Export</button>
+                        <button className="ph-link" title="Includes supported stored media. External links remain external; large media may need a separate download." onClick={() => void download(summary)}>Export with media</button>
+                        <button className="ph-link" title="Project data and links only; media still needs its source account or device." onClick={() => void download(summary, false)}>Export project links</button>
                       </span>
                     </div>
                   </li>

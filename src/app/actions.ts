@@ -1,4 +1,5 @@
 "use server";
+import { privateProviderInputs } from "../server/private-provider-input";
 import { keepProviderShots } from "../server/provider-output-saving";
 
 import { privateMediaPath } from "../server/private-media-url";
@@ -288,13 +289,13 @@ async function runUndiagnosed(modelId:string,prompt:string,settings:Record<strin
         : createFalProvider({ apiKey: key, endpoints: { [card.capability]: card.id } });
 
     try {
-      const sendable = images?.length ? await inlineLocal(images, process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV) : [];
+      const sendable = images?.length ? await privateProviderInputs(await inlineLocal(images, process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV)) : [];
       const result = await provider.run({
         capability: card.capability,
         prompt,
         ...(sendable.length ? { images: sendable } : {}),
         ...(firstFrame === false ? { firstFrame: false } : {}),
-        ...(lastFrame ? { lastFrame: (await inlineLocal([lastFrame], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV))[0]! } : {}),
+        ...(lastFrame ? { lastFrame: (await privateProviderInputs(await inlineLocal([lastFrame], process.env.HAGGS_LOCAL_MEDIA, process.env.NODE_ENV)))[0]! } : {}),
         count: outputCount(card, settings),
         // Only the fields this endpoint declares, under the names it declares
         // them. Nothing the model did not ask for reaches the request.

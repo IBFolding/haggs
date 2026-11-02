@@ -157,14 +157,14 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
       await response.body?.cancel();
       response = await fetchImpl(target.href, { redirect: "error", signal: AbortSignal.timeout(120_000) });
     }
-    if (!response.ok) throw fail("The result couldn't be downloaded. Download again; don't generate again.");
+    if (!response.ok) throw fail("The result couldn't be downloaded. Download again; don't generate again.", response.status);
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.length > 100 * 1024 * 1024) throw fail("The result is over 100 MB.");
     return bytes;
   }
 
   /** Submits a workflow and waits for the finished job. */
-  async function submitAndWait(workflow: Workflow): Promise<{ id: string; job: Record<string, unknown> }> {
+  async function submitAndWait(workflow: Workflow, accepted?: (id:string)=>Promise<void>): Promise<{ id: string; job: Record<string, unknown> }> {
     markJob("uncertain");
     let submitted:Record<string,unknown>;
     try { submitted = await call("/api/prompt", { prompt: workflow, extra_data: { api_key_comfy_org: apiKey } }); }
@@ -172,6 +172,7 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
     const id = submitted.prompt_id;
     if (typeof id !== "string" || !id || Object.keys((submitted.node_errors as object) ?? {}).length) {if(Object.keys((submitted.node_errors as object) ?? {}).length)markJob("rejected");throw fail("Comfy Cloud did not confirm an accepted workflow. Check your jobs before retrying.");}
     markJob("uncertain",id);
+    try { await accepted?.(id); } catch { throw fail(`Comfy accepted job ${id}, but journal confirmation is pending. Do not generate again.`); }
     const started = Date.now();
     for (;;) {
       let job: Record<string, unknown>;
@@ -190,18 +191,19 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
   /** Submits a workflow, waits, and keeps the file the output node saved. */
   async function run(workflow: Workflow, outputNode = "20"): Promise<{ url: string; kind: "image" | "video" | "audio"; jobId: string }> {
     await beforeRun?.();
-    const { id, job } = await submitAndWait(workflow);
+    const journal = process.env.HAGGS_HOSTED_OUTPUT_RECOVERY === "1" ? await (await import("../server/hosted-output-runtime")).beginHostedOutput(apiKey, outputNode) : null;
+    const { id, job } = await submitAndWait(workflow, journal ? journal.accepted : undefined);
     const output = ((job.outputs as Record<string, Record<string, unknown>>) ?? {})[outputNode] ?? {};
     // Cloud files a finished video under "images" (with animated: true); older outputs used "video"/"videos".
     const files = [...((output.video as unknown[]) ?? []), ...((output.videos as unknown[]) ?? []), ...((output.gifs as unknown[]) ?? []), ...((output.images as unknown[]) ?? []), ...((output.audio as unknown[]) ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
     const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm|png|jpe?g|webp|mp3|flac|wav)$/i.test(f.filename) && f.type === "output");
     if (!file) throw fail("The job finished without a result.");
     const ext = file.filename!.split(".").pop()!.toLowerCase().replace("jpeg", "jpg") as Kept;
-    try { await onOutputReady?.({ job: id, filename: file.filename!, subfolder: file.subfolder ?? "", extension: ext }); }
+    try { await journal?.ready({ filename: file.filename!, subfolder: file.subfolder ?? "", extension: ext }); await onOutputReady?.({ job: id, filename: file.filename!, subfolder: file.subfolder ?? "", extension: ext }); }
     catch { throw fail(`Comfy finished job ${id}, but its recovery record could not be confirmed. Check this job before retrying; no automatic retry was attempted.`); }
     const bytes = await download({ filename: file.filename!, ...(file.subfolder ? { subfolder: file.subfolder } : {}) });
     let url: string;
-    try { url = await keep(bytes, ext); }
+    try { url = journal ? await journal.save(bytes) : await keep(bytes, ext); }
     catch (error) { throw fail(`Comfy finished job ${id}, but saving failed: ${error instanceof Error ? error.message : 'storage unavailable'}. Recover this job; do not generate again.`); }
     return { url, kind: ext === "mp4" || ext === "webm" ? "video" : ext === "mp3" || ext === "flac" || ext === "wav" ? "audio" : "image", jobId: id };
   }
@@ -271,6 +273,14 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
       } catch {
         return null;
       }
+    },
+    /** Read-only lookup of a completed job's selected output; no signed URL is persisted. */
+    async inspectOutput(id:string,node:string):Promise<{filename:string;subfolder:string;extension:string}|null>{
+      if(!/^[-\w]{1,128}$/.test(id)||!/^[-\w]{1,128}$/.test(node))throw fail("Invalid recovery job.");
+      const job=await call(`/api/jobs/${encodeURIComponent(id)}`);
+      if(job.status!=="completed") {if(job.status==="failed"||job.status==="cancelled")return null;throw fail("This job is not finished. Check its status later; do not generate again.");}
+      const file=filesIn({[node]:(job.outputs as Record<string,unknown>|undefined)?.[node]}).find(f=>/\.(png|jpe?g|webp|mp4|webm|mp3|wav|flac)$/i.test(f.filename));
+      return file?{...file,extension:file.filename.split(".").pop()!.toLowerCase().replace("jpeg","jpg")}:null;
     },
     /** Recover only a file still associated with this authenticated account's exact job. */
     async fetchJobOutput(file: { job: string; filename: string; subfolder: string }): Promise<Uint8Array> {

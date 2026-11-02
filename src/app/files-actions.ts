@@ -1,4 +1,5 @@
 "use server";
+import { cancelDeletedHostedOutput } from "../server/hosted-output-runtime";
 
 import {storageAllowance,removedStorage} from "../server/storage-quota";
 import { listStoredMedia, deleteStoredMedia } from "../server/media-store";
@@ -31,7 +32,7 @@ export async function deleteFiles(urls: string[]): Promise<{ ok: true; deleted: 
   if (!hosted() || !user) return { ok: false, reason: "Sign in to delete files." };
   try {
     const ok = deletable(ownerOf(user), urls.slice(0, 200), await everything(ownerOf(user)));
-    if (ok.length) { for(const url of ok) { await deleteStoredMedia(url); await removedStorage(user.id,url); } }
+    if (ok.length) { for(const url of ok) { await deleteStoredMedia(url); await cancelDeletedHostedOutput(url); await removedStorage(user.id,url); } }
     return { ok: true, deleted: ok.length };
   } catch (caught) {
     return { ok: false, reason: caught instanceof Error ? caught.message : "The files couldn't be deleted." };
