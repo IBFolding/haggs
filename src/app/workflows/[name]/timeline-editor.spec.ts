@@ -41,3 +41,12 @@ test('invalid or unsupported timelines and unsafe paths do not get rewritten', (
   assert.equal(updateTimeline('{"actors":[{"start":0}]}',0,['start'],NaN), null);
   assert.equal(updateTimeline('{"actors":[{"start":0}]}',1,['start'],1), null);
 });
+test('position times cannot duplicate another point or become negative',()=>{
+ const raw=JSON.stringify({actors:[{path:[[0,.2,.4],[2,.8,.6]],events:[]}],other:'kept'});
+ assert.equal(updateTimeline(raw,0,['path',1,0],0),null);
+ assert.equal(updateTimeline(raw,0,['path',1,0],-1),null);
+ const changed=updateTimeline(raw,0,['path',1,0],1);
+ assert.ok(changed);
+ assert.deepEqual(JSON.parse(changed),{actors:[{path:[[0,.2,.4],[1,.8,.6]],events:[]}],other:'kept'});
+ assert.ok(updateTimeline(raw,0,['path',1,0],2));
+});
