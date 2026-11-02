@@ -5,7 +5,7 @@ The in-app proposal action now reuses Haggs' existing authenticated Claude write
 ## Request flow
 
 1. Describe the scene, then choose **Get AI proposal quote**. Quoting never invokes the model.
-2. The server validates bounded text/layout context and returns a five-minute estimate. Media URLs, source footage, masks, project/take records and image bytes are excluded from this transport. Reference names are context only; image analysis is not claimed.
+2. The server validates bounded text/layout context and returns a five-minute estimate. Media URLs, source footage, masks and project/take records are excluded. Reference names remain text context by default. A separate disabled vision gate supports explicitly selected, bounded inline previews; see REFERENCE-VISION.md.
 3. The user explicitly checks the cost-consent box, then chooses **Request AI proposal**.
 4. The server confirms the quote still matches the scene, provider credentials/workspace and pricing policy, then atomically consumes it before sending one authenticated request. There are no automatic retries.
 5. A schema-validated response enters the existing review panel. Nothing is applied until **Apply reviewed proposal**. The manual request/reply path remains available.
@@ -21,7 +21,7 @@ No persistent configuration values were changed. The local QA server explicitly 
 - Positive, finite `HAGGS_GREY_AI_INPUT_USD_PER_MILLION`
 - Positive, finite `HAGGS_GREY_AI_OUTPUT_USD_PER_MILLION`
 
-The estimate uses the bounded request/schema byte count plus a protocol allowance and the 2,500-token output limit. It is an estimate, not a hard billing cap; actual provider billing may differ. Real pricing and a paid validation request still need explicit approval before any rollout configuration is enabled.
+The estimate uses the bounded request/schema byte count plus a protocol allowance and the 2,500-token output limit. Selected image previews, when separately enabled, add a conservative encoded-byte/image allowance. It is an estimate, not a hard billing cap; actual provider billing may differ. Real pricing and a paid validation request still need explicit approval before any rollout configuration is enabled.
 
 Quotes now use a shared Supabase metadata store with an atomic claim, so separate workers and restarts cannot replay a consumed quote. The additive migration is tested in a disposable local Postgres cluster but remains unapplied remotely. Production wiring has no in-memory fallback. See MULTIWORKER.md for concurrency proof and rollout requirements.
 

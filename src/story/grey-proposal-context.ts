@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { SceneProposalRequest } from "./grey-space";
 import { spaceSchema, materialSchema } from "./grey-space";
-/** Only bounded text/layout context crosses the action boundary. No media URLs or project records. */
+import {referenceImagesSchema} from "../writer/image-input";
+/** Bounded layout and explicitly selected inline previews only. Never media URLs or project records. */
 export const proposalContextSchema = z.object({
   description:z.string().trim().min(1).max(4000),
   references:z.array(z.object({name:z.string().max(80)}).strict()).max(60),
@@ -9,6 +10,7 @@ export const proposalContextSchema = z.object({
   props:z.array(z.object({name:z.string().max(60),material:materialSchema.optional()}).strict()).max(100),
   camera:z.object({angle:z.number().finite().min(0).max(360),distance:z.number().finite().min(1).max(12),height:z.number().finite().min(.2).max(6),lens:z.number().finite().min(14).max(135)}).strict(),
   room:spaceSchema.optional(),
+  images:referenceImagesSchema.optional(),
 }).strict();
 export type ProposalContext=z.infer<typeof proposalContextSchema>;
 export function proposalContext(input:SceneProposalRequest):ProposalContext {
