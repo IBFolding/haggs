@@ -2,6 +2,7 @@
 
 import { syncProfileDraft, type ProfileDraft } from "../../account/profile-draft";
 import { ConnectClaude } from "./connect-claude";
+import { StoryPopPanel } from "./storypop-panel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -124,6 +125,7 @@ export default function Account() {
 
           <div className="acct-grid">
             <ConnectClaude />
+            <StoryPopPanel />
             <section className="acct-card acct-profile" aria-label="Profile">
               <div className="acct-card-head"><span className="eyebrow muted">Profile</span>{isPublic && savedProfile.handle ? <Link className="ex-mylink" href={`/u/${savedProfile.handle}`}>See your page →</Link> : <small>Private until you share something to Explore; then it&rsquo;s your public page</small>}</div>
               <div className="acct-who">
