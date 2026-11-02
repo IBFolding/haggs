@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {memoryKv,type Kv} from './kv';
+import {idbKv,memoryKv,type Kv} from './kv';
 import {createWorkflowDraftStore} from './workflow-draft';
 import type {Canvas} from '../comfy/canvas';
 const canvas=(name:string):Canvas=>({name,nodes:[],links:[]});
@@ -24,4 +24,7 @@ test('an invalid saved draft is not treated as a missing draft',async()=>{
  const kv=memoryKv();await kv.set('A',{name:'important',nodes:'invalid',links:[]});
  await assert.rejects(createWorkflowDraftStore(kv).load('A'),/invalid/);
  assert.deepEqual(await kv.get('A'),{name:'important',nodes:'invalid',links:[]});
+});
+test('missing browser storage fails rather than reporting an in-memory draft as saved',{skip:typeof indexedDB!=='undefined'},async()=>{
+ const store=createWorkflowDraftStore(idbKv());await assert.rejects(store.load('A'));await assert.rejects(store.save('A',canvas('draft')));
 });
