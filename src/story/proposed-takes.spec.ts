@@ -64,3 +64,39 @@ test("sent voice lines land on their shots, spoken, and the same file twice is o
   assert.throws(() => validateVoices({ board: "b1", lines: [{ shot: id, speaker: "X", text: "hi", voice: "v", url: "https://evil.test/x.mp3" }] }), /line 1/i);
   assert.throws(() => applyVoices(p, validateVoices({ board: "b1", lines: [{ shot: "nope", speaker: "X", text: "hi", voice: "v", url: "/api/local/a.mp3" }] })), /no shot/);
 });
+
+import {chooseTake} from "./takes";
+import {addStandInProp} from "./grey-space";
+import {defaultGrey} from "./grey";
+
+test("selected imported footage gets its own scene and trim, while the original setup survives reopen",()=>{
+ const p=project(),original=p.boards![0]!.shots[0]!;
+ const scene=addStandInProp({source:{url:original.render!.url,kind:"image"},space:{floor:"wood",wall:"plaster"}});
+ original.greyScene=scene;original.trimIn=2;original.grey=defaultGrey();original.approved=true;
+ original.takes![0]!.greySetup={scene:structuredClone(scene),frame:defaultGrey(),time:1};
+ const before=JSON.stringify(p);
+ const result=applyTakes(p,validateTakes({board:"b1",takes:[{shot:original.id,url:"/api/local/new.mp4",kind:"video"}]}));
+ const shot=result.project.boards![0]!.shots[0]!;
+ assert.equal(shot.greyScene,undefined);assert.equal(shot.trimIn,0);
+ assert.deepEqual(shot.grey,original.grey);assert.equal(shot.approved,true);
+ const reopened=JSON.parse(JSON.stringify(shot));
+ const restored=chooseTake(reopened,original.takes![0]!.id);
+ assert.deepEqual(restored.greyScene,scene);assert.equal(restored.trimIn,2);
+ assert.deepEqual(restored.takes![0]!.greySetup,original.takes![0]!.greySetup);
+ const again=chooseTake(restored,shot.takes!.at(-1)!.id);
+ assert.equal(again.greyScene,undefined);assert.equal(again.trimIn,0);
+ assert.equal(JSON.stringify(p),before);assert.deepEqual(result.project.boards![1],p.boards![1]);
+});
+
+test("shelved and batched AI imports preserve current edits until explicit take selection",()=>{
+ const p=project(),original=p.boards![0]!.shots[0]!;
+ original.greyScene=addStandInProp({});original.trimIn=1.5;
+ const result=applyTakes(p,validateTakes({board:"b1",takes:[{shot:original.id,url:"/api/local/shelf.mp4",kind:"video",use:false}]}));
+ const shelved=result.project.boards![0]!.shots[0]!;
+ assert.deepEqual(shelved.greyScene,original.greyScene);assert.equal(shelved.trimIn,1.5);assert.deepEqual(shelved.render,original.render);
+ const batch=applyTakes(result.project,validateTakes({board:"b1",takes:[{shot:original.id,url:"/api/local/b.mp4",kind:"video"},{shot:original.id,url:"/api/local/c.mp4",kind:"video"}]})).project.boards![0]!.shots[0]!;
+ assert.equal(batch.takes!.length,4);assert.equal(batch.render!.url,"/api/local/c.mp4");
+ const restored=chooseTake(batch,original.takes![0]!.id);
+ assert.deepEqual(restored.greyScene,original.greyScene);assert.equal(restored.trimIn,1.5);
+ assert.equal(chooseTake(restored,batch.takes![1]!.id).greyScene,undefined);
+});

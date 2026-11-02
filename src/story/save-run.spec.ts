@@ -76,3 +76,17 @@ test("a picture starts a new project: one board, its first shot showing the pict
   assert.match(shot.beat, /lighthouse/);
   assert.equal(p.media![0]!.url, run.url);
 });
+
+import {chooseTake} from "./takes";
+test("saving a workflow result as a take preserves the previous Grey setup and trim",()=>{
+ const p=project(),old=p.boards![0]!.shots[0]!;
+ old.render={url:"/api/local/old.mp4",kind:"video",usd:0,at:1,promptHash:"old"};
+ old.trimIn=2;old.greyScene={source:{url:old.render.url,kind:"video",trimIn:2},space:{floor:"wood",wall:"plaster"}};
+ const before=JSON.stringify(p);
+ const result=saveRun(p,null,run,{as:"take",boardId:"b1",shotId:"s1"});
+ const shot=result.project.boards![0]!.shots[0]!;
+ assert.equal(shot.greyScene,undefined);assert.equal(shot.trimIn,0);
+ const restored=chooseTake(shot,shot.takes![0]!.id);
+ assert.deepEqual(restored.greyScene,old.greyScene);assert.equal(restored.trimIn,2);
+ assert.equal(result.project.media![0]!.url,run.url);assert.equal(JSON.stringify(p),before);
+});
