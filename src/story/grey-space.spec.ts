@@ -161,3 +161,35 @@ test("prop key actions respect locks and reject invalid playheads",()=>{
   assert.equal(keySpatialProp(locked,id,0,true),locked);
   assert.equal(keySpatialProp(scene,"missing",0),scene);
 });
+
+
+test("prop retiming preserves sparse channels, later keys and source assets; collisions and locks refuse edits",async()=>{
+ const {retimeSpatialPropKey}=await import("./grey-space");const scene=addStandInProp({source:{url:"original.mp4",kind:"video"}}),p=scene.props![0]!;
+ p.keys=[{t:0,x:.2},{t:2,w:.5,opacity:.4},{t:9,x:.8,rotate:370}];p.model={url:"chair.glb",name:"Chair"};const original=JSON.stringify(scene);
+ const moved=retimeSpatialPropKey(scene,p.id,0,1.5);
+ assert.deepEqual(moved.props![0]!.keys,[{t:1.5,x:.2},...p.keys.slice(1)]);assert.deepEqual(moved.source,scene.source);assert.deepEqual(moved.props![0]!.model,p.model);assert.equal(moved.props![0]!.url,p.url);assert.equal(JSON.stringify(scene),original);
+ for(const target of [2,2.01,2.05,-1,7,NaN,Infinity])assert.equal(retimeSpatialPropKey(scene,p.id,0,target),scene);
+ assert.equal(retimeSpatialPropKey(scene,p.id,4,1),scene);assert.equal(retimeSpatialPropKey(scene,"missing",0,1),scene);
+ p.locked=true;assert.equal(retimeSpatialPropKey(scene,p.id,0,1),scene);
+});
+test("prop reversal mirrors every sparse channel over the complete path without trimming longer imported animation",async()=>{
+ const {reverseSpatialPropKeys}=await import("./grey-space");const scene=addStandInProp({source:{url:"original.mp4",kind:"video"}}),p=scene.props![0]!;
+ p.keys=[{t:1,x:.2,opacity:1},{t:3,w:.5},{t:5,x:.6,rotate:370},{t:9,x:.8,opacity:.2}];const original=JSON.stringify(scene);
+ const reversed=reverseSpatialPropKeys(scene,p.id);assert.deepEqual(reversed.props![0]!.keys!.map(k=>k.t),[1,5,7,9]);
+ for(const t of [0,1,2,3,5,7,9,10]){const a=resolveScene(scene,10-t).props![0]!,b=resolveScene(reversed,t).props![0]!;for(const channel of ["x","y","w","rotate","opacity"] as const)assert.ok(Math.abs(a[channel]-b[channel])<1e-9);}
+ assert.deepEqual(reverseSpatialPropKeys(reversed,p.id),scene);assert.equal(JSON.stringify(scene),original);assert.deepEqual(normalizeScene(JSON.parse(JSON.stringify(reversed))).props![0]!.keys,reversed.props![0]!.keys);
+ p.locked=true;assert.equal(reverseSpatialPropKeys(scene,p.id),scene);p.locked=false;p.keys=[{t:0,x:.1}];assert.equal(reverseSpatialPropKeys(scene,p.id),scene);p.keys=[{t:0,x:.1},{t:0,x:.2}];assert.equal(reverseSpatialPropKeys(scene,p.id),scene);
+});
+
+test("reversing imported prop keys preserves sub-millisecond spacing instead of collapsing keys",async()=>{
+ const {reverseSpatialPropKeys}=await import("./grey-space");const scene=addStandInProp({}),p=scene.props![0]!;p.keys=[{t:1,x:.1},{t:1.0004,x:.3},{t:2,x:.8}];
+ const reversed=reverseSpatialPropKeys(scene,p.id),keys=reversed.props![0]!.keys!;
+ assert.equal(keys.length,3);assert.ok(keys[1]!.t<keys[2]!.t);assert.ok(Math.abs(keys[1]!.t-1.9996)<1e-12);
+ for(const t of [1,1.9996,1.9998,2])assert.ok(Math.abs(resolveScene(reversed,t).props![0]!.x-resolveScene(scene,3-t).props![0]!.x)<1e-9);
+});
+
+test("retiming an imported close key selects the nearest moment and retains its neighbour",async()=>{
+ const {retimeSpatialPropKey}=await import("./grey-space");const scene=addStandInProp({}),p=scene.props![0]!;p.keys=[{t:0,x:.1},{t:.0004,w:.3},{t:4,x:.8}];
+ const moved=retimeSpatialPropKey(scene,p.id,.0004,2);
+ assert.deepEqual(moved.props![0]!.keys,[{t:0,x:.1},{t:2,w:.3},{t:4,x:.8}]);assert.deepEqual(p.keys,[{t:0,x:.1},{t:.0004,w:.3},{t:4,x:.8}]);
+});

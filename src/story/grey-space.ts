@@ -117,3 +117,23 @@ export function keySpatialProp(scene: GreyScene, id: string, time: number, remov
   const prop=keys?{...original,keys}:{...bare,...pose};
   return {...scene,props:scene.props!.map(p=>p.id===id?prop:p)};
 }
+
+/** Move a visible prop key without merging channels or replacing another moment. */
+export function retimeSpatialPropKey(scene:GreyScene,id:string,from:number,to:number):GreyScene {
+  const prop=scene.props?.find(p=>p.id===id);
+  if(!prop?.keys?.length||prop.locked||![from,to].every(Number.isFinite)||from<0||from>CAM_SECONDS||to<0||to>CAM_SECONDS)return scene;
+  const at=prop.keys.reduce((nearest,key,i)=>Math.abs(key.t-from)<.05&&(nearest<0||Math.abs(key.t-from)<Math.abs(prop.keys![nearest]!.t-from))?i:nearest,-1),target=Math.round(to*20)/20;
+  if(at<0||prop.keys.some((k,i)=>i!==at&&Math.abs(k.t-target)<.05))return scene;
+  const keys=prop.keys.map((key,i)=>({...key,t:i===at?target:key.t})).sort((a,b)=>a.t-b.t);
+  return {...scene,props:scene.props!.map(p=>p.id===id?{...p,keys}:p)};
+}
+
+/** Reverse the complete stored path, including sparse channels and keys beyond the viewport. */
+export function reverseSpatialPropKeys(scene:GreyScene,id:string):GreyScene {
+  const prop=scene.props?.find(p=>p.id===id);
+  if(!prop?.keys||prop.keys.length<2||prop.locked)return scene;
+  const ordered=[...prop.keys].sort((a,b)=>a.t-b.t),start=ordered[0]!.t,end=ordered.at(-1)!.t;
+  if(ordered.some((k,i)=>!Number.isFinite(k.t)||k.t<0||(i>0&&k.t<=ordered[i-1]!.t)))return scene;
+  const keys=ordered.reverse().map(k=>({...k,t:k.t===start?end:k.t===end?start:start+(end-k.t)}));
+  return {...scene,props:scene.props!.map(p=>p.id===id?{...p,keys}:p)};
+}

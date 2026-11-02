@@ -6,7 +6,7 @@ import { CAM_SECONDS } from "../../../../story/grey-camera";
 import { figureSegments } from "../../../../story/grey-figure";
 import { subjectFacing, faceCamera, type GreyFrame } from "../../../../story/grey";
 import { resolveScene, removeProp, type GreyScene } from "../../../../story/grey-scene";
-import { keySpatialProp, duplicateSpatialProp, SPATIAL_DRAG_TYPE, readSpatialDrop, applySpatialDrop, spatialCameraAt, type SpatialDrop, MATERIALS, propMaterial, materialSchema, editSpatialProp, addStandInProp, moveSpatialProp, propPosition, roomSpace } from "../../../../story/grey-space";
+import { retimeSpatialPropKey, reverseSpatialPropKeys, keySpatialProp, duplicateSpatialProp, SPATIAL_DRAG_TYPE, readSpatialDrop, applySpatialDrop, spatialCameraAt, type SpatialDrop, MATERIALS, propMaterial, materialSchema, editSpatialProp, addStandInProp, moveSpatialProp, propPosition, roomSpace } from "../../../../story/grey-space";
 
 type Props = { grey: GreyFrame; scene: GreyScene; vertical: boolean; time: number; playing: boolean; onSeek: (time:number) => void; onTogglePlay: () => void; onSetCameraKey: () => void; onMoveCameraKey: (from:number,to:number) => boolean; onReverseCameraPath: () => void; onGrey: (g: GreyFrame) => void; onCamera: (cam: GreyFrame["cam"]) => void; onScene: (s: GreyScene) => void };
 type Engine = { THREE: typeof Three; renderer: Three.WebGLRenderer; camera: Three.PerspectiveCamera; world: Three.Scene; render: () => void };
@@ -34,6 +34,8 @@ export function GreySpaceView(props: Props) {
   const [notice, setNotice] = useState("");
   const [keyTime,setKeyTime]=useState(String(props.time));
   useEffect(()=>setKeyTime(String(props.time)),[props.time]);
+  const [propKeyTime,setPropKeyTime]=useState(String(props.time));
+  useEffect(()=>setPropKeyTime(String(props.time)),[props.time,selected]);
   const drag = useRef<{ id: string; object: Three.Object3D; x: number; z: number; offsetX: number; offsetZ: number } | null>(null);
   const spatial = roomSpace(props.scene.space);
 
@@ -254,6 +256,12 @@ export function GreySpaceView(props: Props) {
       <button className="pill" disabled={nextProp===undefined||nextProp>CAM_SECONDS} onClick={()=>nextProp!==undefined&&props.onSeek(nextProp)}>Next prop key</button>
       <small>Save a starting key, move the time slider, then move or resize the prop. Keyed props animate automatically.</small>
     </div>}
+    {selectedProp&&<form className="gr-space-toolbar" aria-label="Edit prop motion timing" onSubmit={e=>{e.preventDefault();const next=propKeyTime.trim()?retimeSpatialPropKey(props.scene,selectedId,props.time,Number(propKeyTime)):props.scene;if(next===props.scene){setNotice("Choose an empty prop key time between 0 and 6 seconds. Other keys will be kept.");return;}props.onSeek(Math.round(Number(propKeyTime)*20)/20);props.onScene(next);setNotice("Prop key moved. Other keys and source files are kept.");}}>
+      <label>Prop key time<input aria-label="Prop key time" type="number" min={0} max={CAM_SECONDS} step={.05} required style={{width:90}} value={propKeyTime} disabled={selectedProp.locked||!propTimes.some(t=>Math.abs(t-props.time)<.05)} onChange={e=>setPropKeyTime(e.target.value)}/></label>
+      <button className="pill" type="submit" disabled={selectedProp.locked||!propTimes.some(t=>Math.abs(t-props.time)<.05)}>Move prop key</button>
+      <button className="pill" type="button" disabled={selectedProp.locked||propTimes.length<2} onClick={()=>{const next=reverseSpatialPropKeys(props.scene,selectedId);if(next===props.scene){setNotice("This prop needs distinct valid keys before its motion can be reversed.");return;}props.onSeek(props.time);props.onScene(next);setNotice("Prop motion reversed across its full saved path. Camera and source files are kept.");}}>Reverse prop motion</button>
+      {propTimes.some(t=>t>CAM_SECONDS)&&<small>This prop also has keys after 6 seconds. Reversing includes its full saved path.</small>}
+    </form>}
     <p className="gr-hint">Drag Add box or a material into the room. On touch, choose a material then tap its surface. In the overhead view, drag the green camera marker to frame the shot; existing paths gain a key at the playhead. Select any object or the camera to use the move buttons. Changes save with this shot. Materials are colour studies; footage surfaces keep their existing texture controls.</p>
     <p className="gr-hint">The guide below carries materials and prop stand-ins into first frames and control videos. Image props use geometric stand-ins; their names describe the intended objects. Paid model output has not been verified.</p>
   </section>;
