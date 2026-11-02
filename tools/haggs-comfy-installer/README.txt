@@ -13,7 +13,8 @@ The files in this bundle are open source; see the included pack licenses.
    Windows:    py install.py "C:\path\to\ComfyUI\custom_nodes"
 
 4. If the check is ready, repeat the command with --install at the end.
-   No existing node folder is overwritten. Restart ComfyUI afterward.
+   Matching packs already present are kept; only missing packs are copied.
+   Modified existing packs are never overwritten. Restart ComfyUI afterward.
 
 Some workflows also need additional nodes, model files and a suitable GPU.
 Follow the setup links in Haggs before downloading those; model files can be

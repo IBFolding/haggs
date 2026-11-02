@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Build a reproducible offline node-only installer ZIP from the checked-in packs."""
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -11,7 +12,9 @@ PACKS = {
     'ComfyUI-HaggsGameDirector': ROOT / 'public/workflows/game-director/custom_nodes/ComfyUI-HaggsGameDirector',
     'ComfyUI-HaggsStudio': ROOT / 'public/workflows/world-motion-vfx/custom_nodes/ComfyUI-HaggsStudio',
 }
-DEST = ROOT / 'public/workflows/haggs-local-node-installer.zip'
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--output', type=Path, default=ROOT / 'public/workflows/haggs-local-node-installer.zip')
+DEST = parser.parse_args().output
 files = {
     'install.py': (ROOT / 'tools/haggs-comfy-installer/install.py').read_bytes(),
     'README.txt': (ROOT / 'tools/haggs-comfy-installer/README.txt').read_bytes(),
@@ -34,4 +37,4 @@ with ZipFile(DEST, 'w') as archive:
         info.compress_type = ZIP_DEFLATED
         info.external_attr = 0o644 << 16
         archive.writestr(info, data)
-print(f'Built {DEST.relative_to(ROOT)} ({len(checksums)} node files, no model weights)')
+print(f'Built {DEST} ({len(checksums)} node files, no model weights)')
