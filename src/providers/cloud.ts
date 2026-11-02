@@ -172,7 +172,9 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
     markJob("uncertain",id);
     const started = Date.now();
     for (;;) {
-      const job = await call(`/api/jobs/${encodeURIComponent(id)}`);
+      let job: Record<string, unknown>;
+      try { job = await call(`/api/jobs/${encodeURIComponent(id)}`); }
+      catch { throw fail(`Comfy's job status couldn't be checked. Job ${id} was submitted and may still finish. Check your Comfy jobs or Gallery before trying again.`); }
       if (job.status === "completed") {markJob("completed",id);return { id, job };}
       if (job.status === "failed" || job.status === "cancelled") {
         const reason = (job.execution_error as { exception_message?: string } | undefined)?.exception_message ?? "";

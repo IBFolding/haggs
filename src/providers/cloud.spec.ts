@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { cloudEstimate, createCloudProvider, createCloudRunner, minimaxWorkflow } from "./cloud";
+import { generationFailure } from "./action-error";
 
 test("text to video uses MiniMax H3's text node with the settings inside the model option", () => {
   const w = minimaxWorkflow({ prompt: "A hill at night", seconds: 6, resolution: "768P", ratio: "16:9", seed: 7 });
@@ -68,6 +69,29 @@ test("a run uploads pictures, submits with the partner credential, waits, downlo
   const storage = calls.find((c) => c.url.startsWith("https://storage.googleapis.com/"))!;
   assert.equal(new Headers(storage.init?.headers).get("x-api-key"), null, "the key is never sent to storage");
   assert.ok(result.usd !== null && result.usd > 0);
+});
+
+test("status failures preserve the accepted job ID without resubmitting", async () => {
+  for (const failure of ["network", "unauthorized"] as const) {
+    let submissions = 0;
+    const fake = (async (url: string) => {
+      if (url.endsWith("/api/prompt")) { submissions++; return Response.json({ prompt_id: "job-401-test", node_errors: {} }); }
+      if (url.includes("/api/jobs/")) {
+        if (failure === "network") throw new Error("secret-key should not be shown");
+        return new Response("unauthorized", { status: 401 });
+      }
+      return new Response("unexpected", { status: 500 });
+    }) as unknown as typeof fetch;
+    const runner = createCloudRunner({ apiKey: "secret-key", fetch: fake, pollMs: 0, keep: async () => "x" });
+    await assert.rejects(runner.run({ "20": { class_type: "SaveVideo", inputs: {} } }), (error: Error) => {
+      assert.match(error.message, /job-401-test/);
+      assert.match(error.message, /may still finish/);
+      assert.doesNotMatch(error.message, /secret-key/);
+      assert.match(generationFailure(error, "Comfy").reason, /job-401-test/);
+      return true;
+    });
+    assert.equal(submissions, 1);
+  }
 });
 
 test("a failed job and an untrusted redirect both stop with a reason", async () => {
