@@ -11,12 +11,12 @@ This is a local candidate review, not a claim about deployed privacy. No store o
 | Account Files and quotas | Both stores listed/counted; deletes matched against owner-scoped listing | Existing tests plus typecheck; real quota/callback reconciliation pending |
 | Explore publish/unshare | Owner-bound post grants exact media URL; reads recheck post; delete revokes later reads | Synthetic grant/revoke tests pass. Draft constraint needs isolated DB validation before release |
 | Local Haggs viewing synced hosted private media | Requires the private reader/backend configuration and matching Supabase session | Not certified. A relative URL alone does not establish cross-installation playback |
-| Profile picture | Existing profile validation accepts public Blob URLs | Private avatar publication needs an explicit profile consent/access design before using private media as an avatar |
+| Profile picture | Existing profile validation accepts public Blob URLs | Consent, owner-bound mapping and exact profile-reference grant implemented; real schema/session verification pending |
 | Playable standard art | Parent document loads image, then hands data to sandbox | Source review only; actual private image/session test pending |
-| Playable atlas art | Current CodeFrame bypasses parent conversion and passes atlas URL to opaque sandbox | Known compatibility gap. Coordinate with Playable task; do not weaken sandbox or make media public to fix it |
+| Playable atlas art | Private atlas bytes now embedded unchanged by the authenticated parent | Synthetic byte-preservation tests pass; browser/session integration and reconciliation with Playable task remain pending |
 | Kinetic playback/export | Same-origin media/fetch paths | Source review only; browser codec/export/session acceptance pending |
 | Standalone HTML / Blender / downloaded projects | Relative private app URL cannot work independently | Must package authorized bytes at explicit export or retain an authenticated app dependency; not release-certified |
-| Provider output save failure | Existing temporary provider URL retained to preserve paid result | Durable private recovery is unresolved; no automatic paid retry or output discard |
+| Provider output save failure | Temporary provider URL retained with persisted warning in Studio/Gallery | Durable private recovery is unresolved; no automatic paid retry or output discard |
 
 ## Reversible rollout
 

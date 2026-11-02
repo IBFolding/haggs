@@ -49,6 +49,8 @@ export function RunTile({
         <img src={run.url} alt={run.prompt} loading="lazy" onError={gone} />
       )}
 
+      {run.storageWarning && <p className="library-error" role="alert">{run.storageWarning}</p>}
+
       {lost && <span className="cell-lost">This {run.kind === "video" ? "clip" : run.kind === "audio" ? "sound" : "picture"} has expired. The prompt is kept.</span>}
 
       <figcaption className="cell-face">

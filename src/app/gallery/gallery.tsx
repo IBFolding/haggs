@@ -205,7 +205,6 @@ export function Gallery() {
   const renderRun = (run: Run, previewable = true) => (
                 <div key={run.id} className="gallery-item">
                 {previewable && <button className={styles.previewButton} onClick={() => setPreviewId(run.id)}>Open preview <span>{run.kind}</span></button>}
-                {run.storageWarning && <p role="alert">{run.storageWarning}</p>}
                 <RunTile
                   key={run.id}
                   run={run}
