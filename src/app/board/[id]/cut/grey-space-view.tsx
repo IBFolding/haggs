@@ -8,7 +8,7 @@ import { subjectFacing, faceCamera, type GreyFrame } from "../../../../story/gre
 import { resolveScene, removeProp, type GreyScene } from "../../../../story/grey-scene";
 import { keySpatialProp, duplicateSpatialProp, SPATIAL_DRAG_TYPE, readSpatialDrop, applySpatialDrop, spatialCameraAt, type SpatialDrop, MATERIALS, propMaterial, materialSchema, editSpatialProp, addStandInProp, moveSpatialProp, propPosition, roomSpace } from "../../../../story/grey-space";
 
-type Props = { grey: GreyFrame; scene: GreyScene; vertical: boolean; time: number; playing: boolean; onSeek: (time:number) => void; onTogglePlay: () => void; onSetCameraKey: () => void; onGrey: (g: GreyFrame) => void; onCamera: (cam: GreyFrame["cam"]) => void; onScene: (s: GreyScene) => void };
+type Props = { grey: GreyFrame; scene: GreyScene; vertical: boolean; time: number; playing: boolean; onSeek: (time:number) => void; onTogglePlay: () => void; onSetCameraKey: () => void; onMoveCameraKey: (from:number,to:number) => boolean; onReverseCameraPath: () => void; onGrey: (g: GreyFrame) => void; onCamera: (cam: GreyFrame["cam"]) => void; onScene: (s: GreyScene) => void };
 type Engine = { THREE: typeof Three; renderer: Three.WebGLRenderer; camera: Three.PerspectiveCamera; world: Three.Scene; render: () => void };
 function dispose(world: Three.Scene) {
   world.traverse(o => {
@@ -32,6 +32,8 @@ export function GreySpaceView(props: Props) {
   const [plan, setPlan] = useState(false);
   const [paint, setPaint] = useState<keyof typeof MATERIALS | null>(null);
   const [notice, setNotice] = useState("");
+  const [keyTime,setKeyTime]=useState(String(props.time));
+  useEffect(()=>setKeyTime(String(props.time)),[props.time]);
   const drag = useRef<{ id: string; object: Three.Object3D; x: number; z: number; offsetX: number; offsetZ: number } | null>(null);
   const spatial = roomSpace(props.scene.space);
 
@@ -221,6 +223,11 @@ export function GreySpaceView(props: Props) {
       <button className="pill" onClick={()=>{props.onSeek(props.time);props.onSetCameraKey();}}>Save camera key</button>
       <label>Time<input aria-label="Viewport shot time" type="range" min={0} max={CAM_SECONDS} step={.05} value={props.time} onChange={e=>props.onSeek(Number(e.target.value))}/></label><output>{props.time.toFixed(1)} s</output>
     </div>
+    <form className="gr-space-toolbar" aria-label="Edit camera path timing" onSubmit={e=>{e.preventDefault();if(!keyTime.trim()||!props.onMoveCameraKey(props.time,Number(keyTime))){setNotice("Choose an empty key time between 0 and 6 seconds. Other keys will be kept.");return;}setNotice("Camera key moved. Other keys and scene objects are kept.");}}>
+      <label>Key time<input aria-label="Camera key time" type="number" min={0} max={CAM_SECONDS} step={.05} required value={keyTime} disabled={!keyTimes.some(t=>Math.abs(t-props.time)<=.04)} onChange={e=>setKeyTime(e.target.value)} style={{width:90}}/></label>
+      <button className="pill" type="submit" disabled={!keyTimes.some(t=>Math.abs(t-props.time)<=.04)}>Move camera key</button>
+      <button className="pill" type="button" disabled={new Set(keyTimes).size<2} onClick={()=>{props.onReverseCameraPath();setNotice("Camera move reversed. Scene objects and their motion are kept.");}}>Reverse camera move</button>
+    </form>
     {error && <p role="status">{error}</p>}
     {notice&&<p role="status">{notice}</p>}
     <div className="gr-space-toolbar"><label>Move<select aria-label="Select scene object" value={selected} onChange={e => select(e.target.value)}><option value="">Choose a figure, prop or camera</option><option value="camera:main">Camera</option>{props.grey.subjects.map(s => <option key={s.id} value={`subject:${s.id}`}>{s.label}</option>)}{props.scene.props?.map(p => <option key={p.id} value={`prop:${p.id}`}>{p.name}{p.locked ? " (locked)" : ""}</option>)}</select></label>{([ ["Left", "x", -.25], ["Right", "x", .25], ["Forward", "z", -.25], ["Back", "z", .25] ] as const).map(([label, axis, delta]) => <button className="pill" key={label} disabled={!selected||selectedProp?.locked} onClick={() => nudge(axis, delta)}>{label}</button>)}</div>
