@@ -3,8 +3,23 @@ import { test } from "node:test";
 
 import { appFile, createAppStore, readAppFile } from "./apps";
 import { memoryKv } from "./kv";
+import type { Canvas } from "../comfy/canvas";
 
 const workflow = JSON.stringify({ "1": { class_type: "LoadImage", inputs: { image: "a.png" } } });
+
+test("a shared canvas app keeps its editable layout after importing and reopening", async () => {
+  const canvas:Canvas={name:'Ad builder',nodes:[{id:'n1',kind:'picture-in',x:10,y:20},{id:'n2',kind:'animate',x:310,y:50,prompt:'Move gently',seconds:5,resolution:'720p'}],links:[{from:'n1',to:'n2'}]};
+  const text=appFile({id:'original',name:'Ad builder',description:'',workflow,canvas,createdAt:1,updatedAt:2});
+  const imported=readAppFile(text);assert.deepEqual(imported.canvas,canvas);
+  const store=createAppStore(memoryKv()),saved=await store.save(imported);
+  assert.deepEqual((await store.load(saved.id))?.canvas,canvas);
+});
+
+test("a malformed shared canvas is refused before it reaches the editor", () => {
+  const file=(canvas:unknown)=>JSON.stringify({format:'haggs.app/1',name:'Test',workflow,canvas});
+  const node={id:'n1',kind:'picture-in',x:0,y:0};
+  for(const canvas of [null,{name:'x',nodes:[{...node,kind:'unknown'}],links:[]},{name:'x',nodes:[node,node],links:[]},{name:'x',nodes:[node],links:[{from:'n1',to:'missing'}]},{name:'x',nodes:[{...node,x:'not a number'}],links:[]}])assert.throws(()=>readAppFile(file(canvas)),/editable layout is invalid/);
+});
 
 test("an app is saved with its workflow and cover, listed newest first, and renamed in place", async () => {
   const apps = createAppStore(memoryKv());

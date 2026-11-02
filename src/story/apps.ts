@@ -1,5 +1,5 @@
-import type { Canvas } from "../comfy/canvas";
-import type { Recipe } from "../comfy/recipe";
+import type { Canvas, CNode, Link } from "../comfy/canvas";
+import { STEPS, type Recipe } from "../comfy/recipe";
 import type { Kv } from "./kv";
 
 /**
@@ -42,6 +42,31 @@ export function createAppStore(kv: Kv) {
 
 const FORMAT = "haggs.app/1";
 
+/** Validate an editable layout from an untrusted shared app before opening it. */
+function readCanvas(raw:unknown):Canvas {
+  const fail=():never=>{throw new Error("That app's editable layout is invalid.");};
+  if(!raw||typeof raw!=="object"||Array.isArray(raw))return fail();
+  const canvas=raw as Record<string,unknown>;
+  if(typeof canvas.name!=="string"||canvas.name.length>200||!Array.isArray(canvas.nodes)||canvas.nodes.length>500||!Array.isArray(canvas.links)||canvas.links.length>5000)return fail();
+  const ids=new Set<string>(), kinds=new Set<string>(["library",...STEPS.map(step=>step.kind)]);
+  const nodes:CNode[]=canvas.nodes.map((value:unknown)=>{
+    if(!value||typeof value!=="object"||Array.isArray(value))return fail();
+    const node=value as Record<string,unknown>;
+    if(typeof node.id!=="string"||!node.id||node.id.length>120||ids.has(node.id)||typeof node.kind!=="string"||!kinds.has(node.kind)||typeof node.x!=="number"||!Number.isFinite(node.x)||typeof node.y!=="number"||!Number.isFinite(node.y))return fail();
+    for(const field of ["prompt","resolution","voice","template"] as const)if(node[field]!==undefined&&(typeof node[field]!=="string"||(node[field] as string).length>4000))return fail();
+    if(node.seconds!==undefined&&(typeof node.seconds!=="number"||!Number.isFinite(node.seconds)))return fail();
+    if(node.kind==="library"&&(typeof node.template!=="string"||!node.template))return fail();
+    ids.add(node.id);
+    return {id:node.id,kind:node.kind as CNode["kind"],x:node.x,y:node.y,...(typeof node.prompt==="string"?{prompt:node.prompt}:{}),...(typeof node.seconds==="number"?{seconds:node.seconds}:{}),...(typeof node.resolution==="string"?{resolution:node.resolution}:{}),...(typeof node.voice==="string"?{voice:node.voice}:{}),...(typeof node.template==="string"?{template:node.template}:{})};
+  });
+  const links:Link[]=canvas.links.map((value:unknown)=>{
+    if(!value||typeof value!=="object"||Array.isArray(value))return fail();const link=value as Record<string,unknown>;
+    if(typeof link.from!=="string"||typeof link.to!=="string"||!ids.has(link.from)||!ids.has(link.to)||link.from===link.to)return fail();
+    return {from:link.from,to:link.to};
+  });
+  return {name:canvas.name,nodes,links};
+}
+
 export function appFile(app: SavedApp): string {
   const { id: _id, createdAt: _c, updatedAt: _u, settings: _settings, ...rest } = app;
   return JSON.stringify({ format: FORMAT, ...rest }, null, 1);
@@ -64,6 +89,7 @@ export function readAppFile(text: string): NewApp {
     description: String(raw.description ?? "").slice(0, 400),
     workflow: raw.workflow,
     ...(raw.recipe && typeof raw.recipe === "object" ? { recipe: raw.recipe as Recipe } : {}),
+    ...(raw.canvas !== undefined ? { canvas: readCanvas(raw.canvas) } : {}),
     ...(safeCover ? { cover: safeCover } : {}),
   };
 }
