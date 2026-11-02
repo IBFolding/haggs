@@ -3,6 +3,9 @@ import { test } from "node:test";
 
 import { ltxEntries } from "../../../server/ltx-workflows";
 import { workflowDecision, workflowRoute } from "./workflow-route";
+import { HAGGS_PREVIEWS } from "../../../comfy/haggs-preview";
+import { LTX_WORKFLOWS } from "../../../comfy/ltx";
+import { CONTEST_EFFECTS, contestName } from "../../../comfy/contest-lab";
 
 test("reserved workflow routes keep their dedicated pages", () => {
   assert.equal(workflowRoute("import", []), "import");
@@ -43,4 +46,11 @@ test("an unknown name shows an unavailable state, not a 404, when the catalog di
   const entries = ltxEntries();
   assert.equal(workflowDecision("definitely-not-a-workflow", entries, false), "unavailable");
   assert.equal(workflowDecision("import", entries, false), "import");
+});
+
+test("bundled workflow apps remain reachable without the remote catalog", () => {
+  for (const item of HAGGS_PREVIEWS) assert.equal(workflowDecision(item.name, [], false), "app");
+  for (const item of LTX_WORKFLOWS) assert.equal(workflowDecision(item.name, [], false), "app");
+  for (const item of CONTEST_EFFECTS) for (const kind of ["reuse", "ltx"] as const) assert.equal(workflowDecision(contestName(item.slug, kind), [], false), "app");
+  assert.equal(workflowDecision("haggs_preview_not_real", [], true), "not-found");
 });

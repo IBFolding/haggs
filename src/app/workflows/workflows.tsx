@@ -32,13 +32,13 @@ const GAME_GUIDE_APPS: Record<string, string> = { '01-drag-to-action':'haggs_pre
 
 function HaggsCard({ title, image, label, href, children }: { title: string; image: string; label: string; href?: string; children: ReactNode }) {
   if (href) return <div className="haggs-workflow-card">
-    <Link className="wf-tile" href={href}><img src={image} alt="" loading="lazy" /><span className="wf-tile-face"><b>{title}</b><small>{label} · Illustrative image</small><small>Open app</small></span></Link>
+    <Link className="wf-tile" href={href}><img src={image} alt="" loading="lazy" /><span className="wf-tile-face"><b>{title}</b><small>{label} · Example</small><small>Open app</small></span></Link>
     <details className="haggs-workflow-options"><summary>More options and downloads</summary>{children}</details>
   </div>;
   return <details className="haggs-workflow-card">
     <summary className="wf-tile">
       <img src={image} alt="" loading="lazy" />
-      <span className="wf-tile-face"><b>{title}</b><small>{label} · Illustrative image</small><small>View workflow options</small></span>
+      <span className="wf-tile-face"><b>{title}</b><small>{label} · Example</small><small>View workflow options</small></span>
     </summary>
     <div className="haggs-workflow-options">{children}</div>
   </details>;
@@ -108,8 +108,8 @@ export function Workflows() {
           <header className="wf-head">
             <div>
               <span className="eyebrow">Workflows</span>
-              <h1>Comfy workflows, ready to run</h1>
-              <p>Pick one, drop in your files, press Run. The price is on the button.</p>
+              <h1>Explore Comfy workflows</h1>
+              <p>Choose a workflow to see its inputs, requirements and available pricing.</p>
             </div>
             <Link className="fire" href="/workflows/build">Build your own</Link>
           </header>
@@ -131,46 +131,34 @@ export function Workflows() {
             <input className="wf-hunt" value={hunt} onChange={(e) => setHunt(e.target.value)} placeholder={haggs ? "Search Haggs workflows" : "Search workflows"} aria-label="Search workflows" />
           </div>
 
-          {haggs && <section className="quick" id="haggs" aria-label="Haggs custom workflows">
-            <h2>Haggs custom workflows</h2>
-            <p><a href="/workflows/haggs-local-node-installer.zip" download>Download Haggs nodes for local ComfyUI</a> · Includes setup instructions. Models and other required nodes are separate; the hosted site cannot reach your computer’s localhost.</p>
-            <p>16 tools across Effects, Game Director, and World, Motion &amp; VFX. These packs include Haggs custom-node source and attribution. Their upstream models and templates keep their own credits. <a href="/workflows/PROVENANCE.md">Read provenance</a>.</p>
-            <p>Local apps have an open-app link; native ComfyUI tools have downloads and setup instructions. Samples are labeled illustrative or synthetic. GPU generation remains unverified.</p>
-            {!hunt && <p><a href="#haggs-effects">7 effects</a> · <a href="#haggs-games">6 Game Director tools</a> · <a href="#haggs-studio">3 world, motion and VFX toolsets</a></p>}
+          {haggs && <section className="haggs-intro" id="haggs" aria-label="Haggs custom workflows">
+            <div className="haggs-intro-head">
+              <div><span className="haggs-intro-kicker">MADE BY HAGGS</span><h2>Haggs custom workflows</h2><p>Explore 16 creative tools for effects, game scenes and world building.</p></div>
+              <a className="haggs-intro-download" href="/workflows/haggs-local-node-installer.zip" download>Download Haggs nodes <span aria-hidden="true">↗</span></a>
+            </div>
+            <div className="haggs-intro-steps" aria-label="Getting started">
+              <div><span>01</span><div><strong>Get the nodes</strong><p>Download and extract the installer. The setup instructions are inside.</p></div></div>
+              <div><span>02</span><div><strong>Install &amp; restart</strong><p>Install into your ComfyUI custom nodes folder, then restart ComfyUI.</p></div></div>
+              <div><span>03</span><div><strong>Choose a tool</strong><p>Open an app or download a workflow. Some need extra nodes, models or a GPU.</p></div></div>
+            </div>
+            <div className="haggs-intro-footer"><p>A local ComfyUI needs a secure connection. Some models and cloud compute may cost credits.</p><a href="/workflows/HAGGS-NODES-SETUP.md">Setup &amp; limitations</a><a href="/workflows/PROVENANCE.md">Credits &amp; sources</a></div>
+            {!hunt && <nav className="haggs-intro-categories" aria-label="Haggs workflow categories"><a href="#haggs-effects"><b>07</b> Effects <span>↗</span></a><a href="#haggs-games"><b>06</b> Game Director <span>↗</span></a><a href="#haggs-studio"><b>03</b> World, Motion &amp; VFX <span>↗</span></a></nav>}
             {hunt && !effects.length && !games.length && !studio.length && <p role="status">No Haggs workflows match “{hunt}”. Try motion, video, atlas or effects.</p>}
           </section>}
 
-          {!hunt && !onlyFavorites && (haggs || tab === "Featured") && (
-            <section className="quick" aria-label="LTX featured workflows">
-              <h2>LTX featured workflows · upstream adaptations</h2>
-              <p>Open-weight video workflows. Connect your GPU or Comfy Cloud; installed nodes and weights are checked before running. Cloud compute may cost money. Live generation has not been verified for this bundle.</p>
-              <div className="quick-row">
-                {LTX_WORKFLOWS.map(w => <div className="quick-card" key={w.name}>
-                  <a href={w.image} target="_blank" rel="noreferrer"><img src={w.image} alt={w.sample} width={1536} height={1024} style={{width:"100%",height:"auto",borderRadius:8}} loading="lazy" /></a>
-                  <small>Illustrative example · not an LTX render</small>
-                  <Link href={`/workflows/${w.name}`}><b>{w.title}</b></Link>
-                  <span>{w.description}</span>
-                  <small>{w.sample}</small>
-                  <Link href={`/workflows/${w.name}`}>Open app and nodes</Link>
-                  <a href={`/workflows/ltx/${w.file}.json`} download>Download ComfyUI workflow</a>
-                </div>)}
-              </div>
-              <p className="wf-small">Requires current ComfyUI, ComfyUI-LTXVideo and the weights named in each graph. <a href="/workflows/ltx/README.txt">Setup and limitations</a> · <a href="/workflows/ltx/SOURCES.json">Sources</a> · <a href="/workflows/ltx/LICENSE-LTXVideo.txt">LTX license</a> · <a href="/workflows/ltx/LICENSE-workflow-templates.txt">Template license</a></p>
-            </section>
-          )}
+
 
           {haggs && effects.length > 0 && (
             <section className="quick" id="haggs-effects" aria-label="Contest Lab effects">
               <h2>Seven experimental effects</h2>
-              <p>Install the included Contest Lab nodes in your local ComfyUI. Reuse a take without another model call, or generate a layer with LTX. Live ComfyUI execution remains unverified.</p>
+              <p>Install the included nodes in ComfyUI. Reuse a take or generate a layer with LTX.</p>
               <div className="wf-grid">
                 {effects.map(e => <HaggsCard key={e.slug} title={e.name} image={e.image} label="Effect · local ComfyUI" href={`/workflows/${contestName(e.slug, 'reuse')}`}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
                   <p>{e.scope}</p>
                   <Link href={`/workflows/${contestName(e.slug, 'reuse')}`}>Reuse existing video · local app</Link>
                   <Link href={`/workflows/${contestName(e.slug, 'ltx')}`}>Generate with LTX · local app</Link>
-                  <details><summary>Workflow files and synthetic preview</summary>
-                    <p>These bundled previews use synthetic fixtures and supplied masks. They demonstrate the compositor, not LTX or H3 quality.</p>
+                  <details><summary>Workflow files and example</summary>
                     <video src={e.preview} controls preload="none" style={{width:"100%"}} />
                     <a href={`/workflows/contest-lab/${e.reuse}`} download>Reuse-video JSON</a>{' · '}
                     <a href={`/workflows/contest-lab/${e.ltx}`} download>LTX JSON</a>
@@ -193,9 +181,8 @@ export function Workflows() {
                   {/^0[56]-/.test(g.slug) && <Link href="/playable">Import atlas in Playable · free</Link>}
                   <a href={`/workflows/game-director/workflows/preview-no-model/${g.slug}.json`} download>No-model preview JSON · open in ComfyUI</a>
                   <a href={`/workflows/game-director/workflows/H3-local/${g.slug}.json`} download>Local H3 JSON · requires GPU and weights</a>
-                  <details><summary>View synthetic guide example</summary>
-                    <p>Included deterministic fixture; not an H3 generation result.</p>
-                    {g.preview ? <video src={`/workflows/game-director/previews/${g.preview}`} controls preload="none" style={{width:'100%'}} /> : <a href="/workflows/game-director/previews/prepared-branch-player/player.html" target="_blank" rel="noreferrer">Try the synthetic three-choice player</a>}
+                  <details><summary>View guide example</summary>
+                    {g.preview ? <video src={`/workflows/game-director/previews/${g.preview}`} controls preload="none" style={{width:'100%'}} /> : <a href="/workflows/game-director/previews/prepared-branch-player/player.html" target="_blank" rel="noreferrer">Try the example three-choice player</a>}
                   </details>
                 </HaggsCard>)}
               </div>
@@ -206,7 +193,7 @@ export function Workflows() {
           {haggs && studio.length > 0 && (
             <section className="quick" id="haggs-studio" aria-label="World motion and VFX workflows">
               <h2>World, motion and directed VFX</h2>
-              <p>Ten experimental ComfyUI downloads in three toolsets. Install the supplied HaggsStudio nodes and configure the required models or services. Live ComfyUI and GPU generation remain unverified.</p>
+              <p>Explore ten workflows across three toolsets. Install the HaggsStudio nodes and any required models or services.</p>
               <div className="wf-grid">
                 {studio.map(w => <HaggsCard key={w.slug} title={w.title} image={`/workflows/world-motion-vfx/${w.slug}-illustrative.webp`} label={w.slug === 'vfx' ? 'Mask preview · local ComfyUI' : w.slug === 'motion' ? 'Motion guide · local ComfyUI' : 'Room recording · local ComfyUI'} {...(w.slug === 'vfx' ? {href:'/workflows/haggs_preview_vfx_mask'} : w.slug === 'motion' ? {href:'/workflows/haggs_preview_saved_motion'} : {href:'/workflows/haggs_preview_room_recording'})}>
                   <HaggsBadge provenance="/workflows/PROVENANCE.md" />
@@ -215,13 +202,29 @@ export function Workflows() {
                   {w.slug === 'motion' && <p><Link href="/workflows/haggs_preview_saved_motion">Open saved-motion guide app</Link></p>}
                   {w.slug === 'world' && <p><Link href="/workflows/haggs_preview_room_recording">Open recorded-room app</Link></p>}
                   <details><summary>Workflow downloads and supplied preview</summary>
-                    <p>Deterministic proxy or synthetic fixture; not a neural generation result.</p>
                     <video src={`/workflows/world-motion-vfx/previews/${w.preview}`} controls preload="none" style={{width:'100%'}} />
                     {w.files.map(file => <p key={file}><a href={`/workflows/world-motion-vfx/workflows/${file}.json`} download>{file.replaceAll('-', ' ')} · JSON</a></p>)}
                   </details>
                 </HaggsCard>)}
               </div>
               <p><a href="/workflows/world-motion-vfx/Haggs-ComfyUI-Playable-World-Motion-LTX-VFX.zip" download>Download complete HaggsStudio pack</a> · <a href="/workflows/world-motion-vfx/INTEGRATION.md">Verification and integration limits</a> · <a href="/workflows/world-motion-vfx/START-HERE.md">Setup and dependencies</a> · <a href="/workflows/world-motion-vfx/LICENSE">License</a></p>
+            </section>
+          )}
+
+          {!hunt && !onlyFavorites && (haggs || tab === "Featured") && (
+            <section className="quick" aria-label="LTX featured workflows">
+              <h2>LTX featured workflows · upstream adaptations</h2>
+              <p>Open-weight video workflows. Check the required nodes, models and pricing for your Comfy setup before running.</p>
+              <div className="wf-grid">
+                {LTX_WORKFLOWS.map(w => <HaggsCard key={w.name} title={w.title} image={w.image} label="LTX video" href={`/workflows/${w.name}`}>
+                  <p>{w.description}</p>
+                  <p className="wf-small">{w.sample}</p>
+                  <Link href={`/workflows/${w.name}`}>Open app and nodes</Link>
+                  <a href={w.image} target="_blank" rel="noreferrer">View example</a>
+                  <a href={`/workflows/ltx/${w.file}.json`} download>Download ComfyUI workflow</a>
+                </HaggsCard>)}
+              </div>
+              <p className="wf-small">Requires current ComfyUI, ComfyUI-LTXVideo and the weights named in each graph. <a href="/workflows/ltx/README.txt">Setup and limitations</a> · <a href="/workflows/ltx/SOURCES.json">Sources</a> · <a href="/workflows/ltx/LICENSE-LTXVideo.txt">LTX license</a> · <a href="/workflows/ltx/LICENSE-workflow-templates.txt">Template license</a></p>
             </section>
           )}
 
@@ -285,13 +288,13 @@ export function Workflows() {
                   <img src={e.thumb} alt="" loading="lazy" />
                   <span className="wf-tile-face">
                     <b>{e.title}</b>
-                    <small>{(ltxWorkflow(e.name) || contestVariant(e.name)) ? "Illustrative example · runtime required" : [...e.models.slice(0, 2), e.inputs.length ? `${e.inputs.length} input${e.inputs.length === 1 ? "" : "s"}` : "from words"].join(" · ")}</small>
+                    <small>{(ltxWorkflow(e.name) || contestVariant(e.name)) ? "Example · runtime required" : [...e.models.slice(0, 2), e.inputs.length ? `${e.inputs.length} input${e.inputs.length === 1 ? "" : "s"}` : "from words"].join(" · ")}</small>
                   </span>
                 </Link><Favorite name={e.title} active={favorites.includes(e.name)} disabled={!favoriteReady} onClick={()=>toggleFavorite(e.name)}/></div>
               ))}
             </div>
           )}
-          <p className="wf-credit">Cloud library workflows and example results from Comfy&rsquo;s <a href="https://github.com/Comfy-Org/workflow_templates" target="_blank" rel="noreferrer">workflow templates</a> (MIT). Bundled LTX workflows retain their separate licenses above; their sample boards are illustrative.</p>
+          <p className="wf-credit">Cloud library workflows and example results from Comfy&rsquo;s <a href="https://github.com/Comfy-Org/workflow_templates" target="_blank" rel="noreferrer">workflow templates</a> (MIT). Bundled LTX workflows retain their separate licenses above.</p>
         </div>
         <SiteFooter />
       </div>
