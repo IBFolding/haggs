@@ -386,6 +386,7 @@ function StudioBody({ surface = "Create" }: { surface?: Surface }) {
             prompt: sent,
             settings,
             url: shot.url,
+            ...(shot.storageWarning ? { storageWarning: shot.storageWarning } : {}),
             kind: shot.kind,
             usd: result.usd === null ? null : result.usd / result.shots.length,
           })) as PictureRun,

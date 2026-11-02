@@ -10,7 +10,7 @@ import { defaultKv } from "../story/kv";
  * tools keep theirs here.
  */
 
-function keep(run: { modelId: string; modelName: string; prompt: string; url: string; kind: "image" | "video" | "audio"; usd: number | null }) {
+function keep(run: { modelId: string; modelName: string; prompt: string; url: string; kind: "image" | "video" | "audio"; usd: number | null; storageWarning?: string }) {
   void createRunStore(defaultKv()).record({ ...run, settings: {} }).catch(() => undefined);
 }
 
@@ -30,9 +30,9 @@ export function galleryShot(prompt: string, modelId: string) {
 
 /** A finished picture from Photos-style runs. */
 export function galleryRun(prompt: string, modelId: string, modelName: string) {
-  return (r: { ok: boolean; shots?: { url: string; kind: "image" | "video" }[]; usd?: number | null }) => {
+  return (r: { ok: boolean; shots?: { url: string; kind: "image" | "video"; storageWarning?: string }[]; usd?: number | null }) => {
     const first = r.ok ? r.shots?.[0] : undefined;
-    if (first) keep({ modelId, modelName, prompt, url: first.url, kind: first.kind, usd: r.usd ?? null });
+    if (first) keep({ modelId, modelName, prompt, url: first.url, kind: first.kind, ...(first.storageWarning ? { storageWarning: first.storageWarning } : {}), usd: r.usd ?? null });
   };
 }
 

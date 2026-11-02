@@ -50,12 +50,12 @@ export function ShareToExplore({ run }: { run: Run }) {
     setStep("done");
   }
 
-  if (step === "done") return <div className="ex-shared">Shared. <Link href={`/u/${profile?.handle}`}>See it on your page</Link> <button className="plain" onClick={() => void unshare()}>Unshare</button>{note && <p role="alert">{note}</p>}<small>Unsharing stops access to private media on the next request. Previously downloaded copies and legacy public storage links cannot be recalled.</small></div>;
+  if (step === "done") return <div className="ex-shared">Shared. <Link href={`/u/${profile?.handle}`}>See it on your page</Link> <button className="plain" onClick={() => void unshare()}>Unshare</button>{note && <p role="alert">{note}</p>}<small>Unsharing removes this post. Media used as your public profile picture remains public until removed from that profile. Downloaded copies and legacy public links cannot be recalled.</small></div>;
   if (why) return <p className="ex-shared muted" title={why}>{why.includes("Account") ? <>To share, <Link href="/account">pick a handle</Link></> : null}</p>;
   if (step === "idle") return <button className="plain ex-share" onClick={() => setStep("ask")}>Share to Explore</button>;
   return (
     <div className="ex-ask" role="group" aria-label="Share to Explore">
-      <p>Anyone can see this {run.kind === "video" ? "clip" : "picture"}, its prompt, model and price, under @{profile?.handle}.</p>
+      <p>Anyone can see this {run.kind === "video" ? "clip" : "picture"}, its prompt, model and price, plus your public profile and profile picture, under @{profile?.handle}.</p>
       <div className="cm-row">
         <button className="pill" disabled={step === "busy"} onClick={() => void share()}>{step === "busy" ? "Sharing…" : "Share it"}</button>
         <button className="plain" disabled={step === "busy"} onClick={() => { setStep("idle"); setNote(null); }}>Cancel</button>

@@ -1,4 +1,5 @@
 "use server";
+import { keepProviderShots } from "../server/provider-output-saving";
 
 import { privateMediaPath } from "../server/private-media-url";
 import { readPrivateMedia } from "../server/private-media";
@@ -29,7 +30,6 @@ import type { Provider } from "../providers/types";
 
 import { CLAUDE_COOKIE, CLAUDE_WORKSPACE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, KEY_COOKIE, LOCAL_COOKIE, keyIn, localIn } from "../server/keys";
 import { localBase } from "../providers/local";
-import { keptExtension, mayFetchForKeeping } from "../server/keep-url";
 import { creditsText } from "../story/price-text";
 
 import { discoverWorkspaces, type WorkspaceDiscovery } from "../writer/anthropic-workspaces";
@@ -210,7 +210,7 @@ async function keepRender(bytes: Uint8Array, extension: Kept): Promise<string> {
   return localUrl("haggs-renders", name);
 }
 
-export type Shot = { url: string; kind: "image" | "video" };
+export type Shot = { url: string; kind: "image" | "video"; storageWarning?: string };
 
 /**
  * Provider links expire, which left Gallery tiles blank a day later. Every
@@ -218,20 +218,7 @@ export type Shot = { url: string; kind: "image" | "video" };
  * copy fails, the provider's link is still returned so the run is not lost.
  */
 async function keepShots(shots: Shot[]): Promise<Shot[]> {
-  return Promise.all(
-    shots.map(async (shot) => {
-      if (!mayFetchForKeeping(shot.url)) return shot;
-      try {
-        const got = await fetch(shot.url, { signal: AbortSignal.timeout(90_000) });
-        const size = Number(got.headers.get("content-length") ?? 0);
-        if (!got.ok || size > 200_000_000) return shot;
-        const bytes = new Uint8Array(await got.arrayBuffer());
-        return { ...shot, url: await keepRender(bytes, keptExtension(got.headers.get("content-type") ?? "", shot.kind)) };
-      } catch {
-        return shot;
-      }
-    }),
-  );
+  return keepProviderShots(shots, keepRender);
 }
 
 export type RunResult =

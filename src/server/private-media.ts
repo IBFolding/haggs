@@ -13,7 +13,10 @@ export async function readPrivateMedia(url: string, request?: Request, forwardRa
       if (!endpoint || !key) return false;
       const db = createClient(endpoint, key, { auth: { persistSession: false, autoRefreshToken: false } });
       const { data, error } = await db.from("posts").select("id").eq("url", location).eq("user_id", owner).limit(1);
-      return !error && Boolean(data?.length);
+      if (error) return false;
+      if (data?.length) return true;
+      const profile = await db.from("profiles").select("user_id").eq("user_id", owner).eq("picture", location).limit(1);
+      return !profile.error && Boolean(profile.data?.length);
     },
     read: async (path, range) => {
       const got = await get(path, { access: "private", token, useCache: false, ...(range ? { headers: { Range: range } } : {}) });

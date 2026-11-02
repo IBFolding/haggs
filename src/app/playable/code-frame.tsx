@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { privatePicture } from "../../playable/private-picture";
 import { keyOut } from "../../playable/art";
 import { SIZES, srcdoc } from "../../playable/kit";
 import type { CodeSpec } from "../../playable/spec";
@@ -49,6 +50,7 @@ export function CodeFrame({ spec, onBug }: { spec: CodeSpec; onBug: (message: st
   const frameRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [pictures, setPictures] = useState<Record<string, string> | null>(null);
+  const [pictureError, setPictureError] = useState<string | null>(null);
   const [run, setRun] = useState(0);
   const [score, setScore] = useState<number | null>(null);
   const [ended, setEnded] = useState<{ won: boolean; score: number } | null>(null);
@@ -56,9 +58,10 @@ export function CodeFrame({ spec, onBug }: { spec: CodeSpec; onBug: (message: st
   const made = spec.art.assets.filter((a) => a.url).map((a) => `${a.id}=${a.url!}:${Boolean(a.atlas)}`).join("|");
   useEffect(() => {
     let live = true;
-    void Promise.all(spec.art.assets.filter((a) => a.url).map(async (a) => [a.id, a.atlas ? a.url! : await framePicture(a.url!, a.kind === "sprite")] as const)).then((pairs) => {
+    setPictures(null); setPictureError(null);
+    void Promise.all(spec.art.assets.filter((a) => a.url).map(async (a) => [a.id, a.atlas ? await privatePicture(a.url!) : await framePicture(await privatePicture(a.url!), a.kind === "sprite")] as const)).then((pairs) => {
       if (live) setPictures(Object.fromEntries(pairs));
-    });
+    }).catch(() => { if (live) { setPictures(null); setPictureError("A private game picture could not be opened. Sign in and reload the game."); } });
     return () => { live = false; };
     // The links, not the spec object: a chat edit that keeps the art keeps the pictures.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,7 +93,7 @@ export function CodeFrame({ spec, onBug }: { spec: CodeSpec; onBug: (message: st
         {doc ? (
           <iframe ref={frameRef} key={run} className="pl-code-frame" title={spec.title} sandbox="allow-scripts" allow="autoplay; fullscreen" srcDoc={doc} />
         ) : (
-          <div className="pl-code-loading">Getting the pictures ready…</div>
+          <div className="pl-code-loading" role={pictureError ? "alert" : "status"}>{pictureError ?? "Getting the pictures ready…"}</div>
         )}
       </div>
       <div className="pl-stage-bar">
