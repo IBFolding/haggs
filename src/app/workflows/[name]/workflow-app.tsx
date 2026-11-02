@@ -172,6 +172,9 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
   const apps = useMemo(() => createAppStore(defaultKv()), []);
   const [mine, setMine] = useState<SavedApp | null>(savedApp ?? null);
   const [appNote, setAppNote] = useState<string | null>(null);
+  const [namingApp, setNamingApp] = useState(false);
+  const [appName, setAppName] = useState("");
+  const [savingApp, setSavingApp] = useState(false);
   const destinationPicker = <div className="wf-field"><label>Run location<select value={destination} disabled={running} onChange={e=>{setPreflight(null);setOpened(null);setResult(null);setDestination(e.target.value as "local"|"cloud");}}><option value="local">Your GPU</option><option value="cloud">Comfy Cloud</option></select></label><span>Your GPU requires ComfyUI reachable from the Haggs server. Cloud GPU time may be charged.</span><button className="plain" onClick={()=>openKeys()}>Connection settings</button></div>;
   // Back from building a character, place or accessory: it goes into the first empty picture slot.
   const [returned, setReturned] = useState<BankItem | null>(null);
@@ -183,16 +186,26 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     setReturned(null);
   }, [returned, opened, files]);
 
-  /** Save this workflow as one of your apps; the latest result becomes its cover. */
-  async function saveApp() {
+  /** Save settings with the app in this browser. */
+  function beginSaveApp() {
     if (!opened?.ok) return;
-    const title = window.prompt("Name your app:", mine?.name ?? (opened.title === "your workflow" ? name : opened.title));
-    if (!title?.trim()) return;
-    const cover: Cover | undefined = result?.ok && result.kind !== "audio" ? { url: result.url, kind: result.kind } : mine?.cover;
-    const workflow = file ?? opened.workflow;
-    const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: title.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, settings: values, ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(canvas ?? mine?.canvas ? { canvas: (canvas ?? mine?.canvas)! } : {}), ...(cover ? { cover } : {}) });
-    setMine(app);
-    setAppNote(cover ? "Saved to your apps, with this result as its cover." : "Saved to your apps. Run it and save again to give it a cover.");
+    setAppNote(null);
+    setAppName(mine?.name ?? (opened.title === "your workflow" ? name : opened.title));
+    setNamingApp(true);
+  }
+  async function saveApp() {
+    if (!opened?.ok || !appName.trim() || savingApp) return;
+    setSavingApp(true);
+    try {
+      const cover: Cover | undefined = result?.ok && result.kind !== "audio" ? { url: result.url, kind: result.kind } : mine?.cover;
+      const workflow = file ?? opened.workflow;
+      const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: appName.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, settings: values, ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(canvas ?? mine?.canvas ? { canvas: (canvas ?? mine?.canvas)! } : {}), ...(cover ? { cover } : {}) });
+      setMine(app);
+      setNamingApp(false);
+      setAppNote(cover ? "Saved to your apps, with this result as its cover." : "Saved to your apps. Your settings are kept in this browser.");
+    } catch {
+      setAppNote("Could not save the app. Check browser storage and try again.");
+    } finally { setSavingApp(false); }
   }
 
   /** The app as one file anyone can open in haggs, its cover inside. */
@@ -329,7 +342,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
               {ltxWorkflow(opened.name) && <p>Requires current ComfyUI, ComfyUI-LTXVideo and the named model weights. Live generation remains unverified. <a href="/workflows/ltx/README.txt">Setup and licenses</a></p>}
             </div>
             <div className="wf-appbar">
-              <button className="pill" onClick={() => void saveApp()}>{mine ? "Save app" : "Save as my app"}</button>
+              <button className="pill" onClick={beginSaveApp}>{mine ? "Save app" : "Save as my app"}</button>
               {mine && <button className="pill" onClick={() => void shareApp()}>Share app file</button>}
             </div>
             <div className="wf-tabs" role="tablist" aria-label="View">
@@ -338,6 +351,10 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
             </div>
           </header>
 
+          {namingApp && <form className="wf-field" onSubmit={event => { event.preventDefault(); void saveApp(); }}>
+            <label>App name<input autoFocus maxLength={80} value={appName} onChange={event => setAppName(event.target.value)} /></label>
+            <div className="sheet-row"><button className="pill" type="submit" disabled={savingApp || !appName.trim()}>{savingApp ? "Saving…" : "Save"}</button><button className="pill" type="button" disabled={savingApp} onClick={() => setNamingApp(false)}>Cancel</button></div>
+          </form>}
           {appNote && <p className="wf-note" role="status">{appNote}</p>}
           {tab === "nodes" ? (
             <Nodes
@@ -405,7 +422,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                     {result.kind === "video" ? <video src={result.url} controls autoPlay loop playsInline /> : result.kind === "image" ? <img src={result.url} alt="The result" /> : <audio src={result.url} controls autoPlay />}
                     <div className="sheet-row">
                       {kept && <button className="pill on" onClick={() => setSaving(kept)}>Save to project</button>}
-                      <button className="pill" onClick={() => void saveApp()}>{mine ? "Save app with this cover" : "Save as my app"}</button>
+                      <button className="pill" onClick={() => { beginSaveApp(); window.scrollTo({top: 0, behavior: "smooth"}); }}>{mine ? "Save app with this cover" : "Save as my app"}</button>
                       <a className="pill" href={result.url} download>Download</a>
                       <button className="pill" onClick={() => void run()}>Run again</button>
                     </div>
