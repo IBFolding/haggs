@@ -107,7 +107,15 @@ export async function checkout(stripe: StripeLike, env: Env, planId: string, use
   const price = await readPrice(stripe, plan.price);
   const recurring = price?.recurring as { interval?: string; interval_count?: number } | null | undefined;
   if (price && (!price.active || price.currency !== "usd" || price.unit_amount !== plan.monthly * 100 || recurring?.interval !== "month" || recurring.interval_count !== 1)) throw new BillingError("This subscription is not configured correctly. No checkout was created.");
-  const customer = (await customerOf(stripe, user)) ?? (await stripe.customers.create({ email: user.email, metadata: { haggs_user: user.id } })).id;
+  const existingCustomer = await customerOf(stripe, user);
+  if (existingCustomer) {
+    const subscriptions = await stripe.subscriptions.list({ customer: existingCustomer, status: "all", limit: 100 });
+    const planPrices = new Set(PLANS.flatMap(p => [env[p.priceEnv], env[LEGACY_PLAN_ENVS[p.id]!]]).filter(Boolean));
+    if (subscriptions.data.some(s => !["canceled", "incomplete_expired"].includes(s.status) && s.items.data.some(item => planPrices.has(item.price.id)))) {
+      throw new BillingError("Manage your existing subscription from your account instead of starting another one.");
+    }
+  }
+  const customer = existingCustomer ?? (await stripe.customers.create({ email: user.email, metadata: { haggs_user: user.id } })).id;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer,
@@ -196,7 +204,7 @@ export function changeFor(event: { id: string; type: string; data: { object: Rec
     // Existing subscriptions retain their legacy renewal mapping; never claw back balances.
     return { user: meta.haggs_user, bucket: "plan", cents: plan.id === "byok" ? 0 : creditsForPrice(plan.monthly), ref: o.id ?? event.id, kind: "renewal" };
   }
-  if (event.type === "checkout.session.completed" && o.metadata?.haggs_topup && o.payment_status === "paid") {
+  if ((event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") && o.metadata?.haggs_topup && o.payment_status === "paid") {
     const meta=o.metadata;
     if(!meta.haggs_user)return null;
     if(meta.haggs_pack_version){
