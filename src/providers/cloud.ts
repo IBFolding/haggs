@@ -190,6 +190,8 @@ export function createCloudRunner({ apiKey, fetch: fetchImpl = fetch, pollMs = 5
 
   /** Submits a workflow, waits, and keeps the file the output node saved. */
   async function run(workflow: Workflow, outputNode = "20"): Promise<{ url: string; kind: "image" | "video" | "audio"; jobId: string }> {
+    // Validate storage before any paid submission, including own-key jobs without recovery.
+    if (process.env.HAGGS_PRIVATE_MEDIA_WRITES === "1") (await import("../server/media-storage-config")).mediaWriteToken();
     await beforeRun?.();
     const journal = process.env.HAGGS_HOSTED_OUTPUT_RECOVERY === "1" ? await (await import("../server/hosted-output-runtime")).beginHostedOutput(apiKey, outputNode) : null;
     const { id, job } = await submitAndWait(workflow, journal ? journal.accepted : undefined);

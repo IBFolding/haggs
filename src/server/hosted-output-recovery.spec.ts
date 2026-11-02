@@ -22,3 +22,13 @@ test("atomic claims allow only one concurrent save and paused/canceled recovery 
  const paused=fixture();paused.pause();await assert.rejects(recoverHostedOutput(paused.io,id),/paused/);assert.equal(paused.counts().puts,0);
  const canceled=fixture();canceled.records.get(id)!.state='canceled';await assert.rejects(recoverHostedOutput(canceled.io,id),/deleted/);assert.equal(canceled.counts().puts,0);
 });
+
+test("accepted jobs return the discovered video or audio kind rather than stale null metadata",async()=>{
+ const {recoveredOutputResult}=await import('./hosted-output-recovery');
+ for(const [extension,kind] of [['mp4','video'],['webm','video'],['mp3','audio'],['wav','audio'],['flac','audio'],['png','image']] as const){
+  const f=fixture(),row=f.records.get(id)!;Object.assign(row,{state:'accepted',filename:null,subfolder:null,extension:null});
+  f.io.inspect=async()=>({filename:`output.${extension}`,subfolder:'haggs',extension});
+  const url=await recoverHostedOutput(f.io,id);
+  assert.deepEqual(recoveredOutputResult(f.records.get(id)!,url),{url,kind});assert.equal(f.counts().puts,1);
+ }
+});

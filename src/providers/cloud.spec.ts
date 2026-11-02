@@ -162,3 +162,14 @@ test("hosted recovery activation cannot submit a paid job while private writes a
  const keys=["HAGGS_HOSTED_OUTPUT_RECOVERY","HAGGS_PRIVATE_MEDIA_WRITES"],prior=keys.map(k=>process.env[k]);let requests=0;
  try{process.env.HAGGS_HOSTED_OUTPUT_RECOVERY="1";process.env.HAGGS_PRIVATE_MEDIA_WRITES="0";const runner=createCloudRunner({apiKey:"fixture",fetch:async()=>{requests++;throw Error("must not call provider");},keep:async()=>"unused"});await assert.rejects(runner.run({}),/paused/);assert.equal(requests,0);}finally{keys.forEach((key,i)=>{if(prior[i]===undefined)delete process.env[key];else process.env[key]=prior[i];});}
 });
+
+test("incomplete private storage refuses own-key jobs before provider access even when recovery is off", async () => {
+ const keys=["HAGGS_PRIVATE_MEDIA_WRITES","HAGGS_PRIVATE_BLOB_READ_WRITE_TOKEN","HAGGS_HOSTED_OUTPUT_RECOVERY"];
+ const prior=keys.map(key=>process.env[key]);let calls=0,keeps=0;
+ try {
+  process.env.HAGGS_PRIVATE_MEDIA_WRITES="1";delete process.env.HAGGS_PRIVATE_BLOB_READ_WRITE_TOKEN;delete process.env.HAGGS_HOSTED_OUTPUT_RECOVERY;
+  const runner=createCloudRunner({apiKey:"synthetic-own-key",fetch:(async()=>{calls++;throw Error("No provider access expected");}) as typeof fetch,keep:async()=>{keeps++;return "unexpected";}});
+  await assert.rejects(runner.run({"20":{class_type:"SaveVideo",inputs:{}}}),/Private media storage is not configured/);
+  assert.equal(calls,0);assert.equal(keeps,0);
+ } finally {keys.forEach((key,i)=>{if(prior[i]===undefined)delete process.env[key];else process.env[key]=prior[i];});}
+});
