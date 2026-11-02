@@ -224,3 +224,9 @@ describe("describeLighting", () => {
     assert.equal(describeLighting({}), "");
   });
 });
+
+it("key edits choose the nearest existing moment and preserve neighbouring sparse channels",async()=>{
+ const {withKey}=await import("./grey-scene");const keys=[{t:0,x:.2,intensity:.4},{t:.0004,x:.8,opacity:.5}];
+ assert.deepEqual(withKey(keys,.0004,{x:.6}),[keys[0],{...keys[1],x:.6}]);assert.deepEqual(withKey(keys,.0003,{intensity:.9}),[keys[0],{...keys[1],intensity:.9}]);
+ assert.deepEqual(keys,[{t:0,x:.2,intensity:.4},{t:.0004,x:.8,opacity:.5}]);
+});

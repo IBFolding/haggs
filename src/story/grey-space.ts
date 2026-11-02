@@ -137,3 +137,16 @@ export function reverseSpatialPropKeys(scene:GreyScene,id:string):GreyScene {
   const keys=ordered.reverse().map(k=>({...k,t:k.t===start?end:k.t===end?start:start+(end-k.t)}));
   return {...scene,props:scene.props!.map(p=>p.id===id?{...p,keys}:p)};
 }
+
+/** Explicit floor placement uses the same saved coordinates and prop animation path as dragging. */
+export function placeSpatialObject(grey:GreyFrame,scene:GreyScene,selected:string,x:number,z:number,time:number):{kind:"figure";grey:GreyFrame}|{kind:"prop";scene:GreyScene}|undefined {
+  if(![x,z,time].every(Number.isFinite)||Math.abs(x)>3||Math.abs(z)>3||time<0||time>CAM_SECONDS)return;
+  if(selected.startsWith("subject:")){
+    const id=selected.slice(8);if(!grey.subjects.some(s=>s.id===id))return;
+    return {kind:"figure",grey:{...grey,subjects:grey.subjects.map(s=>s.id===id?{...s,x,z}:s)}};
+  }
+  if(selected.startsWith("prop:")){
+    const id=selected.slice(5),prop=scene.props?.find(p=>p.id===id);if(!prop||prop.locked)return;
+    return {kind:"prop",scene:moveSpatialProp(scene,id,x,z,time)};
+  }
+}

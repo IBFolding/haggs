@@ -6,7 +6,7 @@ import { CAM_SECONDS } from "../../../../story/grey-camera";
 import { figureSegments } from "../../../../story/grey-figure";
 import { subjectFacing, faceCamera, type GreyFrame } from "../../../../story/grey";
 import { resolveScene, removeProp, type GreyScene } from "../../../../story/grey-scene";
-import { retimeSpatialPropKey, reverseSpatialPropKeys, keySpatialProp, duplicateSpatialProp, SPATIAL_DRAG_TYPE, readSpatialDrop, applySpatialDrop, spatialCameraAt, type SpatialDrop, MATERIALS, propMaterial, materialSchema, editSpatialProp, addStandInProp, moveSpatialProp, propPosition, roomSpace } from "../../../../story/grey-space";
+import { placeSpatialObject, retimeSpatialPropKey, reverseSpatialPropKeys, keySpatialProp, duplicateSpatialProp, SPATIAL_DRAG_TYPE, readSpatialDrop, applySpatialDrop, spatialCameraAt, type SpatialDrop, MATERIALS, propMaterial, materialSchema, editSpatialProp, addStandInProp, moveSpatialProp, propPosition, roomSpace } from "../../../../story/grey-space";
 
 type Props = { grey: GreyFrame; scene: GreyScene; vertical: boolean; time: number; playing: boolean; onSeek: (time:number) => void; onTogglePlay: () => void; onSetCameraKey: () => void; onMoveCameraKey: (from:number,to:number) => boolean; onReverseCameraPath: () => void; onGrey: (g: GreyFrame) => void; onCamera: (cam: GreyFrame["cam"]) => void; onScene: (s: GreyScene) => void };
 type Engine = { THREE: typeof Three; renderer: Three.WebGLRenderer; camera: Three.PerspectiveCamera; world: Three.Scene; render: () => void };
@@ -208,6 +208,15 @@ export function GreySpaceView(props: Props) {
   const propTimes=(selectedProp?.keys??[]).map(k=>k.t).sort((a,b)=>a-b);
   const previousProp=propTimes.filter(t=>t<props.time-.05).at(-1),nextProp=propTimes.find(t=>t>props.time+.05);
   const selectedFigure=selected.startsWith("subject:")?props.grey.subjects.find(s=>s.id===selectedId):undefined;
+  const position=selectedProp?propPosition(selectedProp):selectedFigure?{x:selectedFigure.x,z:selectedFigure.z}:undefined;
+  const [positionX,setPositionX]=useState(""),[positionZ,setPositionZ]=useState("");
+  useEffect(()=>{setPositionX(position?position.x.toFixed(2):"");setPositionZ(position?position.z.toFixed(2):"");},[selected,props.time,position?.x,position?.z]);
+  function place(x:number,z:number){
+    const next=placeSpatialObject(props.grey,props.scene,selected,x,z,props.time);
+    if(!next){setNotice("Choose an unlocked figure or prop and floor coordinates between −3 and 3 metres.");return;}
+    setPositionX(x.toFixed(2));setPositionZ(z.toFixed(2));props.onSeek(props.time);if(next.kind==="figure")props.onGrey(next.grey);else props.onScene(next.scene);
+    setNotice(next.kind==="figure"&&props.grey.pose==="walk"?"Walking path centre moved. Facing and camera are kept.":"Object placed. Camera, source files and other objects are kept.");
+  }
   const keyTimes=(props.grey.camKeys??[]).map(k=>k.t).sort((a,b)=>a-b);
   const previous=keyTimes.filter(t=>t<props.time-.04).at(-1),nextKey=keyTimes.find(t=>t>props.time+.04);
   return <section className="gr-space" aria-label="Shared 3D scene">
@@ -233,6 +242,13 @@ export function GreySpaceView(props: Props) {
     {error && <p role="status">{error}</p>}
     {notice&&<p role="status">{notice}</p>}
     <div className="gr-space-toolbar"><label>Move<select aria-label="Select scene object" value={selected} onChange={e => select(e.target.value)}><option value="">Choose a figure, prop or camera</option><option value="camera:main">Camera</option>{props.grey.subjects.map(s => <option key={s.id} value={`subject:${s.id}`}>{s.label}</option>)}{props.scene.props?.map(p => <option key={p.id} value={`prop:${p.id}`}>{p.name}{p.locked ? " (locked)" : ""}</option>)}</select></label>{([ ["Left", "x", -.25], ["Right", "x", .25], ["Forward", "z", -.25], ["Back", "z", .25] ] as const).map(([label, axis, delta]) => <button className="pill" key={label} disabled={!selected||selectedProp?.locked} onClick={() => nudge(axis, delta)}>{label}</button>)}</div>
+    {position&&<form className="gr-space-toolbar" aria-label="Place selected object" onSubmit={e=>{e.preventDefault();if(!positionX.trim()||!positionZ.trim()){setNotice("Enter both floor coordinates before placing the object.");return;}place(Number(positionX),Number(positionZ));}}>
+      <label>X (metres)<input aria-label="Selected object X" type="number" min={-3} max={3} step={.01} required style={{width:90}} value={positionX} disabled={selectedProp?.locked} onFocus={()=>props.onSeek(props.time)} onChange={e=>setPositionX(e.target.value)}/></label>
+      <label>Z (metres)<input aria-label="Selected object Z" type="number" min={-3} max={3} step={.01} required style={{width:90}} value={positionZ} disabled={selectedProp?.locked} onFocus={()=>props.onSeek(props.time)} onChange={e=>setPositionZ(e.target.value)}/></label>
+      <button className="pill" type="submit" disabled={selectedProp?.locked}>Place object</button>
+      <button className="pill" type="button" disabled={selectedProp?.locked} onClick={()=>place(0,0)}>Centre on floor</button>
+      <small>{selectedFigure&&props.grey.pose==="walk"?"Positions set the centre of the walking path.":selectedProp?.keys?.some(k=>k.x!==undefined||k.y!==undefined)?"Animated position channels record changes at the playhead.":"Enter a floor position in metres, then place the object."}</small>
+    </form>}
     {(selectedProp||selectedFigure)&&<div className="gr-space-toolbar" aria-label="Selected object controls">
       <label>Name<input aria-label="Selected object name" maxLength={selectedProp?60:24} value={selectedProp?.name??selectedFigure?.label??""} onChange={e=>selectedProp?props.onScene(editSpatialProp(props.scene,selectedId,{name:e.target.value},props.time)):props.onGrey({...props.grey,subjects:props.grey.subjects.map(s=>s.id===selectedId?{...s,label:e.target.value}:s)})}/></label>
       {selectedFigure&&<>
