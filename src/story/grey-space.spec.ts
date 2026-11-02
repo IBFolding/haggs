@@ -193,3 +193,39 @@ test("retiming an imported close key selects the nearest moment and retains its 
  const moved=retimeSpatialPropKey(scene,p.id,.0004,2);
  assert.deepEqual(moved.props![0]!.keys,[{t:0,x:.1},{t:2,w:.3},{t:4,x:.8}]);assert.deepEqual(p.keys,[{t:0,x:.1},{t:.0004,w:.3},{t:4,x:.8}]);
 });
+
+
+test("explicit figure placement preserves walking, facing, camera paths, other figures and source data",async()=>{
+ const {placeSpatialObject}=await import("./grey-space");const grey={...defaultGrey(["One","Two"]),pose:"walk" as const};grey.subjects[0]!.facing=75;
+ grey.camKeys=[{...grey.cam,t:0},{...grey.cam,t:6,angle:90}];const scene=addStandInProp({source:{url:"source.mp4",kind:"video"}}),before=JSON.stringify({grey,scene});
+ const moved=placeSpatialObject(grey,scene,`subject:${grey.subjects[0]!.id}`,1.25,-2.5,3);assert.equal(moved?.kind,"figure");if(moved?.kind!=="figure")return;
+ assert.deepEqual(moved.grey.subjects[0],{...grey.subjects[0],x:1.25,z:-2.5});assert.deepEqual(moved.grey.subjects[1],grey.subjects[1]);assert.deepEqual(moved.grey.camKeys,grey.camKeys);assert.equal(moved.grey.pose,"walk");assert.equal(JSON.stringify({grey,scene}),before);
+});
+test("explicit animated prop placement keys the playhead and preserves other times and assets",async()=>{
+ const {placeSpatialObject}=await import("./grey-space");const grey=defaultGrey(),scene=addStandInProp({source:{url:"source.mp4",kind:"video"}}),p=scene.props![0]!;
+ p.keys=[{t:0,x:.2,y:.3},{t:6,x:.8,y:.7}];p.model={url:"chair.glb",name:"Chair"};const before=JSON.stringify(scene);
+ const moved=placeSpatialObject(grey,scene,`prop:${p.id}`,1.5,-1.5,3);assert.equal(moved?.kind,"prop");if(moved?.kind!=="prop")return;
+ assert.deepEqual(propPosition(resolveScene(moved.scene,3).props![0]!),{x:1.5,z:-1.5});assert.deepEqual(resolveScene(moved.scene,0).props![0]!.x,.2);assert.deepEqual(resolveScene(moved.scene,6).props![0]!.y,.7);
+ assert.equal(moved.scene.props![0]!.url,p.url);assert.deepEqual(moved.scene.props![0]!.model,p.model);assert.deepEqual(moved.scene.source,scene.source);assert.equal(JSON.stringify(scene),before);
+ const reopened=normalizeScene(JSON.parse(JSON.stringify(moved.scene)));assert.deepEqual(propPosition(resolveScene(reopened,3).props![0]!),{x:1.5,z:-1.5});
+ p.locked=true;assert.equal(placeSpatialObject(grey,scene,`prop:${p.id}`,0,0,3),undefined);
+});
+test("explicit placement refuses missing objects, camera selection and invalid coordinates without changing the project",async()=>{
+ const {placeSpatialObject}=await import("./grey-space");const grey=defaultGrey(),scene=addStandInProp({}),before=JSON.stringify({grey,scene});
+ for(const selected of ["","camera:main","prop:missing","subject:missing"])assert.equal(placeSpatialObject(grey,scene,selected,0,0,0),undefined);
+ for(const [x,z,t] of [[4,0,0],[0,-4,0],[NaN,0,0],[0,Infinity,0],[0,0,-1],[0,0,7]])assert.equal(placeSpatialObject(grey,scene,`prop:${scene.props![0]!.id}`,x!,z!,t!),undefined);
+ assert.equal(JSON.stringify({grey,scene}),before);
+});
+
+test("precise placement at an imported close key updates that moment without overwriting its neighbour",async()=>{
+ const {placeSpatialObject}=await import("./grey-space");const grey=defaultGrey(),scene=addStandInProp({}),p=scene.props![0]!;p.keys=[{t:0,x:.2},{t:.0004,x:.8}];
+ const moved=placeSpatialObject(grey,scene,`prop:${p.id}`,0,0,.0004);assert.equal(moved?.kind,"prop");if(moved?.kind!=="prop")return;
+ assert.equal(resolveScene(moved.scene,0).props![0]!.x,.2);assert.equal(resolveScene(moved.scene,.0004).props![0]!.x,.5);assert.equal(moved.scene.props![0]!.keys!.length,2);
+});
+
+test("placement leaves unanimated position channels static while retaining other animated channels",async()=>{
+ const {placeSpatialObject}=await import("./grey-space");const grey=defaultGrey(),scene=addStandInProp({}),p=scene.props![0]!;p.keys=[{t:0,w:.2},{t:6,w:.8}];
+ const moved=placeSpatialObject(grey,scene,`prop:${p.id}`,1.5,-1.5,3);assert.equal(moved?.kind,"prop");if(moved?.kind!=="prop")return;
+ assert.deepEqual(moved.scene.props![0]!.keys,p.keys);for(const t of [0,3,6])assert.deepEqual(propPosition(resolveScene(moved.scene,t).props![0]!),{x:1.5,z:-1.5});
+ assert.equal(resolveScene(moved.scene,0).props![0]!.w,.2);assert.equal(resolveScene(moved.scene,6).props![0]!.w,.8);
+});

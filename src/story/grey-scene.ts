@@ -283,10 +283,10 @@ export function valueAt(base: number, keys: Key[] | undefined, channel: Channel,
   return a[channel]! + ((b[channel]! - a[channel]!) * (t - a.t)) / (b.t - a.t);
 }
 
-/** Sets values at a moment, joining a key that is already within a few hundredths of a second. */
+/** Sets values at a moment, joining the nearest key within a few hundredths of a second. */
 export function withKey(keys: Key[] | undefined, t: number, values: Partial<Omit<Key, "t">>): Key[] {
   const list = [...(keys ?? [])];
-  const at = list.findIndex((k) => Math.abs(k.t - t) < 0.05);
+  const at = list.reduce((nearest,key,i)=>Math.abs(key.t-t)<.05&&(nearest<0||Math.abs(key.t-t)<Math.abs(list[nearest]!.t-t))?i:nearest,-1);
   if (at >= 0) list[at] = { ...list[at]!, ...values };
   else list.push({ t: round(Math.max(0, t)), ...values });
   return list.sort((a, b) => a.t - b.t);
