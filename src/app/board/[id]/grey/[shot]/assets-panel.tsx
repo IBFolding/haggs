@@ -6,9 +6,9 @@ import { addUploadedLayer } from "../../../../../story/grey-tray";
 import { track } from "../../../../../activity/activity";
 import { propCutoutPrompt, propPrompt, PROP_INPUT } from "../../../../../comfy/prop-cutout";
 import { editEstimate } from "../../../../../providers/cloud-edits";
-import { run } from "../../../../actions";
+import { runGreyAssetImage as run } from "../../../../grey-legacy-actions";
 import { openKeys } from "../../../../nav";
-import { runWorkflow } from "../../../../workflow-actions";
+import { runGreyLocalWorkflow as runWorkflow } from "../../../../grey-legacy-actions";
 import { uploadFile } from "../../../../upload-client";
 import { BuildLink } from "../../../../return-bar";
 import type { BankItem } from "../../../../../story/bank";
@@ -159,10 +159,10 @@ export function AssetsPanel({ tab, onTab, scene, savedScene, places, props, acto
           <label className="gs-field">
             Make one from words
             <div className="gs-row">
-              <input className="gs-name" type="text" maxLength={200} value={words} onChange={(e) => setWords(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void makeProp(); }} placeholder="a worn leather armchair" />
-              <button className="pill on" disabled={busy !== null || !words.trim()} onClick={() => void makeProp()}>{busy === "make" ? "Making…" : "Make it"} <span className="cost">about ${editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" }).toFixed(2)}</span></button>
+              <input className="gs-name" type="text" maxLength={200} value={words} onChange={(e) => setWords(e.target.value)}  placeholder="a worn leather armchair" />
+              <button className="pill on" disabled={true} onClick={() => void makeProp()}>{busy === "make" ? "Making…" : "Make it"} <span className="cost">about ${editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" }).toFixed(2)}</span></button>
             </div>
-            <small>One picture, then the background is cut away. The cut-out is free apart from GPU time.</small>
+            <small>Cloud prop generation is paused until its maximum charge can be protected by your cap. Upload a prop or use a saved asset.</small>
           </label>
         )}
         <BuildLink className="plain" href={kind === "actor" ? "/characters" : "/accessories"} label="the Grey Room">{kind === "actor" ? "Open character builder" : "Build a couch, table or other accessory"}</BuildLink>
