@@ -85,7 +85,7 @@ async function liveDeps(): Promise<Deps> {
   };
   return {
     prepareStorage: async user => {
-      if(!process.env.BLOB_READ_WRITE_TOKEN)return undefined;
+      if(!process.env.BLOB_READ_WRITE_TOKEN&&!process.env.HAGGS_PRIVATE_BLOB_READ_WRITE_TOKEN)return undefined;
       const maxBytes=100*1024*1024; // Cloud runner rejects larger output before saving.
       await reconcileStorage(user,token);
       return {id:await reserveStorage(user,maxBytes),userId:user.id,maxBytes,saved:false};

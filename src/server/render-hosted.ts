@@ -3,6 +3,8 @@ import { extname, join } from "node:path";
 
 import type { Cut } from "../story/cut";
 import { isBlobUrl } from "./blob";
+import { privateMediaPath } from "./private-media-url";
+import { readPrivateMedia } from "./private-media";
 
 /**
  * Rendering on a deployment: the cut's files live in the app's store, so each
@@ -13,7 +15,7 @@ import { isBlobUrl } from "./blob";
 export const MAX_TOTAL_BYTES = 400 * 1024 * 1024;
 export const MAX_FILE_BYTES = 200 * 1024 * 1024;
 
-export async function stageHosted(cut: Cut, scratch: string, fetcher: typeof fetch = fetch, limits = { file: MAX_FILE_BYTES, total: MAX_TOTAL_BYTES }): Promise<Cut> {
+export async function stageHosted(cut: Cut, scratch: string, fetcher: typeof fetch = fetch, limits = { file: MAX_FILE_BYTES, total: MAX_TOTAL_BYTES }, privateReader: (url: string) => Promise<Response> = readPrivateMedia): Promise<Cut> {
   const media = join(scratch, "media");
   await mkdir(media, { recursive: true });
   const seen = new Map<string, string>();
@@ -21,10 +23,10 @@ export async function stageHosted(cut: Cut, scratch: string, fetcher: typeof fet
   const stage = async (url: string): Promise<string> => {
     const found = seen.get(url);
     if (found) return found;
-    if (!isBlobUrl(url)) throw new Error("A file in the cut isn't in this app's store.");
-    const ext = (extname(new URL(url).pathname).toLowerCase().replace(/[^.a-z0-9]/g, "") || ".bin").slice(0, 8);
+    if (!privateMediaPath(url) && !isBlobUrl(url)) throw new Error("A file in the cut isn't in this app's store.");
+    const ext = (extname(new URL(url, "https://media.invalid").pathname).toLowerCase().replace(/[^.a-z0-9]/g, "") || ".bin").slice(0, 8);
     const name = `m${seen.size + 1}${ext}`;
-    const got = await fetcher(url, { redirect: "error", signal: AbortSignal.timeout(120_000) });
+    const got = privateMediaPath(url) ? await privateReader(url) : await fetcher(url, { redirect: "error", signal: AbortSignal.timeout(120_000) });
     if (!got.ok) throw new Error("A file in the cut couldn't be fetched from the store.");
     const said = Number(got.headers.get("content-length") ?? 0);
     if (said > limits.file || total + said > limits.total) throw new Error("This cut is too big to render here. Trim it, or render it on your own machine.");

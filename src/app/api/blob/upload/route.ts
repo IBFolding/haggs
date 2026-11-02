@@ -2,6 +2,8 @@ import {reserveStorage,finishStorage,reconcileStorage,uploadFolder} from "../../
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
 import { ownerOf, requestToken, verifyUser } from "../../../../server/auth";
+import { privateBlobToken } from "../../../../server/private-media";
+import { privateMediaUrl } from "../../../../server/private-media-url";
 import { hosted } from "../../../../server/blob";
 import { allow, caller } from "../../../../server/limit";
 
@@ -24,6 +26,7 @@ export async function POST(request: Request) {
     const result = await handleUpload({
       request,
       body,
+      ...(privateBlobToken() ? { token: privateBlobToken()! } : {}),
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         // A person uploads into their own folder; guests into the shared one, unless sign-in is required.
         if (!user) throw new Error("Sign in to add files here.");
@@ -38,7 +41,7 @@ export async function POST(request: Request) {
         return {
         tokenPayload: JSON.stringify({userId:user.id,reservation}),
         validUntil: Date.now()+15*60*1000,
-        allowedContentTypes: ["video/*", "image/*", "audio/*"],
+        allowedContentTypes: privateBlobToken() ? ["video/mp4", "video/webm", "video/quicktime", "image/png", "image/jpeg", "image/webp", "audio/mpeg", "audio/mp4", "audio/aac", "audio/flac", "audio/wav", "audio/x-wav"] : ["video/*", "image/*", "audio/*"],
         maximumSizeInBytes: size,
         addRandomSuffix: true,
         };
@@ -46,7 +49,7 @@ export async function POST(request: Request) {
       onUploadCompleted: async ({blob, tokenPayload}) => {
         const saved=JSON.parse(tokenPayload ?? "{}");
         if(typeof saved.userId!=="string"||typeof saved.reservation!=="string")throw new Error("Missing storage reservation.");
-        await finishStorage(saved.userId,saved.reservation,blob.url);
+        await finishStorage(saved.userId,saved.reservation,privateBlobToken() ? privateMediaUrl(blob.pathname) : blob.url);
       },
     });
     return Response.json(result);
@@ -54,3 +57,5 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, reason: caught instanceof Error ? caught.message : "The upload couldn't start." }, { status: 400 });
   }
 }
+
+export async function GET() { return Response.json({ access: privateBlobToken() ? "private" : "public" }, { headers: { "Cache-Control": "no-store" } }); }

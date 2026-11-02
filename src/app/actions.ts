@@ -1,4 +1,7 @@
 "use server";
+
+import { privateMediaPath } from "../server/private-media-url";
+import { readPrivateMedia } from "../server/private-media";
 import { generationFailure } from "../providers/action-error";
 import { checkGenerationStorage } from "../server/generation-storage";
 import { diagnoseAction } from "../server/action-diagnostics";
@@ -414,8 +417,8 @@ async function bytesOf(url: string): Promise<{ bytes: Uint8Array; mime: string }
     return bytesOf(inlined!);
   }
   // A hosted server only fetches media from its own store.
-  if (hosted() && !isBlobUrl(url)) throw new Error("That take isn't in this app's file store.");
-  const got = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60_000) });
+  if (hosted() && !privateMediaPath(url) && !isBlobUrl(url)) throw new Error("That take isn't in this app's file store.");
+  const got = privateMediaPath(url) ? await readPrivateMedia(url) : await fetch(url, { redirect: "error", signal: AbortSignal.timeout(60_000) });
   if (!got.ok) throw new Error("That take couldn't be fetched.");
   return { bytes: new Uint8Array(await got.arrayBuffer()), mime: (got.headers.get("content-type") ?? "").split(";")[0]! };
 }

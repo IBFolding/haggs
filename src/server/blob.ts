@@ -1,6 +1,8 @@
 import {jobOutcome} from "../providers/job-outcome";
 import {reserveStorage,finishStorage} from "./storage-quota";
 import { put } from "@vercel/blob";
+import { privateBlobToken } from "./private-media";
+import { privateMediaUrl } from "./private-media-url";
 
 import { ownerOf, signInRequired, userNow } from "./auth";
 import { allow } from "./limit";
@@ -12,7 +14,7 @@ import { allow } from "./limit";
  * media folder as before.
  */
 
-export const hosted = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+export const hosted = () => Boolean(privateBlobToken() || process.env.BLOB_READ_WRITE_TOKEN);
 
 const TYPES: Record<string, string> = { mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", flac: "audio/flac", wav: "audio/wav" };
 
@@ -30,10 +32,11 @@ export async function putBlob(bytes: Uint8Array, extension: string, folder = "re
   const hold=jobOutcome.getStore()?.storage;
   const reusable=hold&&hold.userId===user.id&&!hold.saved&&bytes.byteLength<=hold.maxBytes;
   const reservation=reusable?hold.id:await reserveStorage(user,bytes.byteLength);
-  const made = await put(`haggs/${ownerOf(user)}/${folder}/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: "public", contentType: type, addRandomSuffix: true });
-  await finishStorage(user.id,reservation,made.url,bytes.byteLength);
+  const made = await put(`haggs/${ownerOf(user)}/${folder}/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: privateBlobToken() ? "private" : "public", ...(privateBlobToken() ? { token: privateBlobToken()! } : {}), contentType: type, addRandomSuffix: true });
+  const location = privateBlobToken() ? privateMediaUrl(made.pathname) : made.url;
+  await finishStorage(user.id,reservation,location,bytes.byteLength);
   if(reusable)hold.saved=true;
-  return made.url;
+  return location;
 }
 
 /** A link into this app's own store: the only web links the server will fetch media from when hosted. */
@@ -47,7 +50,7 @@ export function isBlobUrl(url: string): boolean {
 }
 
 /** The token for the file store: the deployment's own, or on a developer's machine the one set aside for keeping files in your account. */
-export const libraryToken = () => process.env.BLOB_READ_WRITE_TOKEN ?? process.env.HAGGS_SYNC_BLOB_TOKEN;
+export const libraryToken = () => privateBlobToken() ?? process.env.BLOB_READ_WRITE_TOKEN ?? process.env.HAGGS_SYNC_BLOB_TOKEN;
 
 /** Keeps a file in a signed-in person's own folder of the file store, and returns the public link. */
 export async function putLibrary(bytes: Uint8Array, extension: string, userId: string): Promise<string> {
@@ -62,8 +65,9 @@ export async function putLibrary(bytes: Uint8Array, extension: string, userId: s
   const hold=jobOutcome.getStore()?.storage;
   const reusable=hold&&hold.userId===user.id&&!hold.saved&&bytes.byteLength<=hold.maxBytes;
   const reservation=reusable?hold.id:await reserveStorage(user,bytes.byteLength);
-  const made = await put(`haggs/u-${userId}/library/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: "public", contentType: type, addRandomSuffix: true, token });
-  await finishStorage(userId,reservation,made.url,bytes.byteLength);
+  const made = await put(`haggs/u-${userId}/library/${day}-${crypto.randomUUID().slice(0, 8)}.${ext}`, Buffer.from(bytes), { access: privateBlobToken() ? "private" : "public", contentType: type, addRandomSuffix: true, token });
+  const location = privateBlobToken() ? privateMediaUrl(made.pathname) : made.url;
+  await finishStorage(userId,reservation,location,bytes.byteLength);
   if(reusable)hold.saved=true;
-  return made.url;
+  return location;
 }

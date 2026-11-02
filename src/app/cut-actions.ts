@@ -1,4 +1,5 @@
 "use server";
+import { privateMediaPath } from "../server/private-media-url";
 import { checkGenerationStorage } from "../server/generation-storage";
 
 import { partnerRefusal } from "../server/open-only";
@@ -27,7 +28,7 @@ const run = promisify(execFile);
 
 /** A frame of a take kept in the app's file store. The take is fetched to a scratch file and ffmpeg (shipped with the build) reads it there. */
 async function hostedFrame(url: string, at: number): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
-  if (!isBlobUrl(url)) return { ok: false, reason: "Only takes in this app's store can give a frame." };
+  if (!privateMediaPath(url) && !isBlobUrl(url)) return { ok: false, reason: "Only takes in this app's store can give a frame." };
   if (!Number.isFinite(at) || at < 0 || at > 7200) return { ok: false, reason: "That moment isn't in the take." };
   const dir = await mkdtemp(join(tmpdir(), "haggs-frame-"));
   try {
@@ -156,7 +157,7 @@ export async function terminalFrame(url:string, from:number, seconds:number):Pro
  try {
    let src:string;
    if(hosted()) {
-     if(!isBlobUrl(url))return {ok:false,reason:"This clip must be in the app’s media store before a frame can be extracted."};
+     if(!privateMediaPath(url) && !isBlobUrl(url))return {ok:false,reason:"This clip must be in the app’s media store before a frame can be extracted."};
      src=join(dir,"source.mp4");await writeFile(src,(await readMedia(url)).bytes);
    } else {
      const root=process.env.HAGGS_LOCAL_MEDIA;

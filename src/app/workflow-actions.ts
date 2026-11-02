@@ -1,4 +1,6 @@
 "use server";
+
+import { privateMediaPath } from "../server/private-media-url";
 import { checkGenerationStorage } from "../server/generation-storage";
 
 import { isBlobUrl } from "../server/blob";
@@ -206,7 +208,7 @@ async function mediaBytes(source: string): Promise<{ bytes: Uint8Array; mime: st
     if (file.type.startsWith("video/")) return { bytes: await (await import("../server/video-fit")).fittedVideo(file.path), mime: file.type };
     return { bytes: new Uint8Array(await readFile(file.path)), mime: file.type };
   }
-  if (isBlobUrl(source)) return readMedia(source);
+  if (privateMediaPath(source) || isBlobUrl(source)) return readMedia(source);
   if (source.startsWith("https://raw.githubusercontent.com/Comfy-Org/workflow_templates/")) {
     const got = await fetch(source, { redirect: "error", signal: AbortSignal.timeout(60_000) });
     if (!got.ok) throw new Error("Comfy's example file couldn't be fetched.");

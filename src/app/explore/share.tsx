@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { readProfile } from "../../account/profile";
 import { cantShare, exploreMessage, profileRow, shareRow } from "../../community/explore";
@@ -20,6 +20,23 @@ export function ShareToExplore({ run }: { run: Run }) {
   const profile = session ? readProfile(session.user.user_metadata?.profile) : null;
   const why = session ? cantShare(run, profile) : "Sign in to share.";
 
+  useEffect(() => {
+    let active = true;
+    const db = supabase();
+    if (session && db) void db.from("posts").select("id").eq("user_id", session.user.id).eq("url", run.url).limit(1).then(({ data, error }) => { if (active && !error) setStep(data?.length ? "done" : "idle"); });
+    else setStep("idle");
+    return () => { active = false; };
+  }, [session?.user.id, run.url]);
+
+  async function unshare() {
+    const db = supabase();
+    if (!db || !session) return;
+    setNote(null);
+    const { error } = await db.from("posts").delete().eq("user_id", session.user.id).eq("url", run.url);
+    if (error) return setNote("It could not be unshared. Please try again.");
+    setStep("idle");
+  }
+
   async function share() {
     if (!session || !profile || (run.kind !== "image" && run.kind !== "video")) return;
     setStep("busy"); setNote(null);
@@ -33,7 +50,7 @@ export function ShareToExplore({ run }: { run: Run }) {
     setStep("done");
   }
 
-  if (step === "done") return <p className="ex-shared">Shared. <Link href={`/u/${profile?.handle}`}>See it on your page</Link></p>;
+  if (step === "done") return <div className="ex-shared">Shared. <Link href={`/u/${profile?.handle}`}>See it on your page</Link> <button className="plain" onClick={() => void unshare()}>Unshare</button>{note && <p role="alert">{note}</p>}<small>Unsharing stops access to private media on the next request. Previously downloaded copies and legacy public storage links cannot be recalled.</small></div>;
   if (why) return <p className="ex-shared muted" title={why}>{why.includes("Account") ? <>To share, <Link href="/account">pick a handle</Link></> : null}</p>;
   if (step === "idle") return <button className="plain ex-share" onClick={() => setStep("ask")}>Share to Explore</button>;
   return (

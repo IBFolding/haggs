@@ -1,3 +1,4 @@
+import { privateMediaPath } from "../server/private-media-url";
 import { SOCIALS, cleanProfile, socialUrl, websiteUrl, type Profile, type SocialId } from "../account/profile";
 
 /**
@@ -11,6 +12,7 @@ export type Post = { id: string; userId: string; kind: "image" | "video"; url: s
 
 /** Only files already in haggs's own store can be shared, so a post can never point anywhere else. */
 export const isStoreUrl = (url: string): boolean => {
+  if (privateMediaPath(url)) return true;
   try {
     const u = new URL(url);
     return u.protocol === "https:" && /^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/.test(u.hostname);
