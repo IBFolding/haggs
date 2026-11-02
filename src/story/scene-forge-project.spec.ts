@@ -1,0 +1,5 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {parseSceneProject,sceneProject} from './scene-forge-project';
+const clips=[{name:'a.mp4',data:'data:video/mp4;base64,AAAA'},{name:'b.webm',data:'data:video/webm;base64,BBBB'},{name:'c.mp4',data:'data:video/mp4;base64,CCCC'}];
+test('editable project round-trips all three labels and videos',()=>{const project=sceneProject(['Walk','Run','Turn'],clips);assert.deepEqual(parseSceneProject(JSON.stringify(project)),project);});
+test('invalid project and unsupported media are rejected',()=>{assert.throws(()=>parseSceneProject('{}'));assert.throws(()=>parseSceneProject('{'));assert.throws(()=>sceneProject(['a','b','c'],[...clips.slice(0,2),{name:'evil',data:'data:text/html;base64,AAAA'}]));assert.throws(()=>sceneProject(['a','b'],clips));});
+test('an unfinished project can be saved and restored without adding placeholder videos',()=>{const project=sceneProject(['Walk','Run','Turn'],[clips[0]!,null,null]);assert.deepEqual(parseSceneProject(JSON.stringify(project)),project);assert.equal(project.clips[1],null);});
