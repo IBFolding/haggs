@@ -11,7 +11,7 @@ import { track as inHeader } from "../../../../activity/activity";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { figuresMarkup } from "../../../../story/grey-figure";
-import { CAM_SECONDS, PRESETS, camAt, dropKey, drawnKeys, presetKeys, setKey, wordsToKeys } from "../../../../story/grey-camera";
+import { CAM_SECONDS, PRESETS, camAt, dropKey, drawnKeys, presetKeys, setKey, wordsToKeys,retimeKey,reverseKeys } from "../../../../story/grey-camera";
 import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, tidy, type GreyFrame } from "../../../../story/grey";
 import type { Shot } from "../../../../story/model";
 import { editEstimate } from "../../../../providers/cloud-edits";
@@ -278,7 +278,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
       <p className="gr-says">Work the shot out in grey. Nothing here costs anything until you make it real.</p>
 
       {scene && onDesign && <GreyProposalPanel vertical={vertical} grey={saved} scene={scene} onApply={onDesign} />}
-      {scene && onScene && <GreySpaceView grey={grey} scene={scene} vertical={vertical} time={t} playing={playing} onSeek={time=>{setPlaying(false);setT(time);}} onTogglePlay={()=>{if(t>=CAM_SECONDS)setT(0);setPlaying(p=>!p);}} onSetCameraKey={()=>set({...saved,camKeys:setKey(saved.camKeys,t,grey.cam)})} onCamera={setCam} onGrey={g => set({ ...g, cam: saved.cam })} onScene={onScene} />}
+      {scene && onScene && <GreySpaceView grey={grey} scene={scene} vertical={vertical} time={t} playing={playing} onSeek={time=>{setPlaying(false);setT(time);}} onTogglePlay={()=>{if(t>=CAM_SECONDS)setT(0);setPlaying(p=>!p);}} onSetCameraKey={()=>set({...saved,camKeys:setKey(saved.camKeys,t,grey.cam)})} onMoveCameraKey={(from,to)=>{const keys=retimeKey(saved.camKeys,from,to);if(!keys)return false;setPlaying(false);set({...saved,camKeys:keys});setT(Math.round(to*20)/20);return true;}} onReverseCameraPath={()=>{const keys=reverseKeys(saved.camKeys);if(keys){setPlaying(false);withKeys(keys,"Camera move reversed.");}}} onCamera={setCam} onGrey={g => set({ ...g, cam: saved.cam })} onScene={onScene} />}
       <GreyScene grey={grey} vertical={vertical} svgRef={svg} t={t} scene={scene} />
       <TrajectoryPanel value={grey.trajectory} vertical={vertical} onChange={trajectory=>{const {trajectory:_,...rest}=grey;onGrey(trajectory?{...rest,trajectory}:rest)}} />
 

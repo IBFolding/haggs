@@ -47,6 +47,22 @@ export const dropKey = (keys: CamKey[] | undefined, t: number): CamKey[] | undef
   return rest.length ? rest : undefined;
 };
 
+/** Move one existing key without replacing another key or changing camera values. */
+export function retimeKey(keys:CamKey[]|undefined,from:number,to:number):CamKey[]|undefined {
+  if(!keys?.length||!Number.isFinite(from)||!Number.isFinite(to)||to<0||to>CAM_SECONDS)return undefined;
+  const index=keys.findIndex(k=>Math.abs(k.t-from)<=.04),target=tick(to);
+  if(index<0||keys.some((k,i)=>i!==index&&Math.abs(k.t-target)<=.04))return undefined;
+  return sorted(keys.map((key,i)=>({...key,t:i===index?target:key.t})));
+}
+
+/** Reverse the move within its existing interval, retaining unwrapped orbit angles and holds. */
+export function reverseKeys(keys:CamKey[]|undefined):CamKey[]|undefined {
+  if(!keys||keys.length<2)return undefined;
+  const ordered=sorted(keys),start=ordered[0]!.t,end=ordered.at(-1)!.t;
+  if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)return undefined;
+  return ordered.reverse().map(key=>({...key,t:tick(start+end-key.t)}));
+}
+
 /** The camera made safe: real ranges, sorted, at most 12 keys inside the path's length. Angles stay unwrapped (−40, 400) so an orbit eases the way it was drawn instead of the short way round. */
 export function tidyKeys(keys: unknown): CamKey[] | undefined {
   if (!Array.isArray(keys)) return undefined;

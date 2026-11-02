@@ -1,9 +1,25 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { CAM_SECONDS, camAt, dropKey, drawnKeys, presetKeys, setKey, stepOf, tidyKeys, wordsToKeys } from "./grey-camera";
+import { CAM_SECONDS, camAt, dropKey, drawnKeys, presetKeys, setKey, stepOf, tidyKeys, wordsToKeys,retimeKey,reverseKeys } from "./grey-camera";
 
 const cam = { angle: 20, distance: 5, height: 1.5, lens: 35 };
+
+test("retiming moves only the chosen camera key and refuses occupied or invalid times",()=>{
+ const keys=[{...cam,t:0},{...cam,t:2,angle:380},{...cam,t:6,distance:2}],before=JSON.stringify(keys);
+ const moved=retimeKey(keys,2,3.12)!;
+ assert.deepEqual(moved.map(k=>k.t),[0,3.1,6]);assert.deepEqual(moved[1],{...keys[1],t:3.1});assert.equal(JSON.stringify(keys),before);
+ for(const at of [-1,7,NaN,Infinity,0,6,5.999])assert.equal(retimeKey(keys,2,at),undefined);
+ assert.equal(retimeKey(keys,4,3),undefined);assert.equal(retimeKey(undefined,0,1),undefined);
+ assert.deepEqual(retimeKey(keys,0,4)!.map(k=>k.t),[2,4,6]);
+});
+test("reversing preserves the motion interval, orbit angles and all camera values",()=>{
+ const keys=[{...cam,t:1,angle:-40},{...cam,t:2,angle:180,lens:50},{...cam,t:5,angle:400,height:3}],before=JSON.stringify(keys);
+ const reversed=reverseKeys(keys)!;assert.deepEqual(reversed.map(k=>k.t),[1,4,5]);
+ for(const t of [1,1.5,2,3,4,5]){const actual=camAt(cam,reversed,t),expected=camAt(cam,keys,6-t);for(const field of ["angle","distance","height","lens"] as const)assert.ok(Math.abs(actual[field]-expected[field])<1e-9);}
+ assert.deepEqual(reverseKeys(reversed),keys);assert.equal(JSON.stringify(keys),before);
+ assert.equal(reverseKeys([keys[0]!]),undefined);assert.equal(reverseKeys(undefined),undefined);
+});
 
 test("with no keys the camera is the still camera", () => {
   assert.deepEqual(camAt(cam, undefined, 3), cam);
