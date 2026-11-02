@@ -8,10 +8,24 @@ import {proposalContext} from "../story/grey-proposal-context";
 import {defaultGrey} from "../story/grey";
 import {askClaude} from "../writer/draft";
 import {MAX_REFERENCE_BYTES,type ReferenceImage} from "../writer/image-input";
+import {CLAUDE_COOKIE,CLAUDE_WORKSPACE_COOKIE,keyIn,claudeWorkspaceIn} from "./keys";
 const image=async(color="red"):Promise<ReferenceImage>=>({name:"Chosen room",mediaType:"image/png",data:(await sharp({create:{width:1000,height:600,channels:3,background:color}}).png().toBuffer()).toString("base64")});
 const context=()=>proposalContext({description:"Stage this room",references:[{id:"private",name:"Reference name",url:"https://private.invalid/original"}],grey:defaultGrey(),scene:{}});
 const proposal={version:1 as const,summary:"Room",room:{floor:"wood" as const,wall:"plaster" as const},people:[],props:[],camera:defaultGrey().cam,light:defaultGrey().light};
 const enabled:ProposalPolicy={enabled:true,visionEnabled:true,model:"mock",inputUsdPerMillion:3,outputUsdPerMillion:15};
+test("Grey Room reuses the writer's saved Claude connection and rejects changed connection quotes",async()=>{
+ const saved=new Map([[CLAUDE_COOKIE,"existing-test-key"],[CLAUDE_WORKSPACE_COOKIE,"wrkspc_existing"]]);
+ const jar={get:(name:string)=>saved.has(name)?{value:saved.get(name)!}:undefined} as Parameters<typeof keyIn>[0];
+ let sends=0;
+ const gateway=createGreyProposalGateway({store:memoryGreyQuoteStore(),policy:()=>enabled,
+  credentials:async()=>{const key=keyIn(jar,CLAUDE_COOKIE);return key?{key,workspaceId:claudeWorkspaceIn(jar)}:undefined;},
+  send:async credentials=>{sends++;assert.equal(credentials.key,"existing-test-key");assert.equal(credentials.workspaceId,"wrkspc_existing");return {ok:true,draft:proposal};},
+ });
+ const ctx={...context(),images:[await image()]},quote=await gateway.quote(ctx);assert.ok(quote.ok);assert.equal(sends,0);
+ assert.doesNotMatch(JSON.stringify(quote),/existing-test-key|wrkspc_existing/);
+ saved.set(CLAUDE_WORKSPACE_COOKIE,"wrkspc_changed");assert.equal((await gateway.generate(ctx,quote.id,true)).ok,false);assert.equal(sends,0);
+ saved.set(CLAUDE_WORKSPACE_COOKIE,"wrkspc_existing");assert.equal((await gateway.generate(ctx,quote.id,true)).ok,true);assert.equal(sends,1);
+});
 test("reference bytes are decoded, resized and stripped of metadata without changing their original",async()=>{
  const bytes=await sharp({create:{width:1200,height:800,channels:3,background:"blue"}}).withExif({IFD0:{Artist:"PRIVATE ARTIST"}}).jpeg().toBuffer();
  const raw:ReferenceImage={name:"Room",mediaType:"image/jpeg",data:bytes.toString("base64")},before=JSON.stringify(raw);
