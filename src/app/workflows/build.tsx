@@ -13,7 +13,7 @@ import { libraryPrompts, listWorkflows, planCanvas } from "../workflow-actions";
 import { checkPlan, planToCanvas, type Plan } from "../../comfy/canvas";
 import { alternativesFor, isOpen } from "../../comfy/alternatives";
 import { quickById } from "../../comfy/quick";
-import { defaultKv } from "../../story/kv";
+import { idbKv } from "../../story/kv";
 import { createWorkflowDraftStore } from "../../story/workflow-draft";
 import { WorkflowApp } from "./[name]/workflow-app";
 
@@ -30,7 +30,8 @@ const info = (k: StepKind) => STEPS.find((s) => s.kind === k)!;
 const newId = () => `n${Math.random().toString(36).slice(2, 8)}`;
 const FIRST: CNode[] = [{ id: "start", kind: "picture-in", x: 40, y: 80 }];
 let drafts:ReturnType<typeof createWorkflowDraftStore>|undefined;
-const workflowDraftStore=()=>drafts??=createWorkflowDraftStore(defaultKv());
+// Drafts must not silently fall back to volatile memory if browser storage fails.
+const workflowDraftStore=()=>drafts??=createWorkflowDraftStore(idbKv());
 
 export function BuildWorkflow({ start }: { start?: Canvas }) {
   // A ready-made app opens straight as a simple form; its canvas is one tap away.
@@ -53,11 +54,11 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   const agentInbox = useAgentInbox("canvas");
   const sent = agentInbox.items.filter((i) => i.kind === "canvas").map((i) => ({ id: i.id, summary: i.summary, plan: i.payload as Plan }));
   const surface = useRef<HTMLDivElement>(null);
-  const [loadedDraft,setLoadedDraft]=useState<string|null>(null),[draftError,setDraftError]=useState(false);
+  const [loadedDraft,setLoadedDraft]=useState<string|null>(null),[draftError,setDraftError]=useState(false),[saveError,setSaveError]=useState(false);
   const draftKey=`workflow-builder/draft/${quick?.id??"custom"}`;
   const draftReady=Boolean(start)||loadedDraft===draftKey;
-  useEffect(()=>{let live=true;if(start)return;setLoadedDraft(null);setDraftError(false);void workflowDraftStore().load(draftKey).then(saved=>{if(!live)return;setCanvas(saved&&Array.isArray(saved.nodes)&&Array.isArray(saved.links)?saved:quick?.canvas??{name:'My app',nodes:FIRST,links:[]});setLoadedDraft(draftKey);}).catch(()=>{if(live)setDraftError(true);});return()=>{live=false;};},[draftKey,start,quick]);
-  useEffect(()=>{if(draftReady&&!start)void workflowDraftStore().save(draftKey,canvas).catch(()=>setNote("Draft could not be saved. Keep this page open and try again."));},[canvas,draftReady,draftKey,start]);
+  useEffect(()=>{let live=true;if(start)return;setLoadedDraft(null);setDraftError(false);setSaveError(false);void workflowDraftStore().load(draftKey).then(saved=>{if(!live)return;setCanvas(saved&&Array.isArray(saved.nodes)&&Array.isArray(saved.links)?saved:quick?.canvas??{name:'My app',nodes:FIRST,links:[]});setLoadedDraft(draftKey);}).catch(()=>{if(live)setDraftError(true);});return()=>{live=false;};},[draftKey,start,quick]);
+  useEffect(()=>{let live=true;if(draftReady&&!start)void workflowDraftStore().save(draftKey,canvas).then(()=>{if(live)setSaveError(false);}).catch(()=>{if(live)setSaveError(true);});return()=>{live=false;};},[canvas,draftReady,draftKey,start]);
 
   // Library workflows already on a saved canvas need loading before it can compile.
   useEffect(() => {
@@ -216,7 +217,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
     place({ kind: "library", template: e.name });
   }
 
-  if (!draftReady) return <div className="app"><Nav current="Workflows" /><main><h1>Build a workflow</h1>{draftError?<p role="alert">Your saved draft could not be loaded. Reload the page to try again.</p>:<p role="status">Loading your draft…</p>}</main></div>;
+  if (!draftReady) return <div className="app"><Nav current="Workflows" /><main><h1>Build a workflow</h1>{draftError?<p role="alert">Your draft could not be loaded. Check your browser storage and reload to try again.</p>:<p role="status">Loading your draft…</p>}</main></div>;
   if (trying && compiled.json) return <WorkflowApp name={canvas.name} file={compiled.json} canvas={canvas} onBack={() => setTrying(false)} />;
 
   const at = (id: string) => canvas.nodes.find((n) => n.id === id)!;
@@ -352,6 +353,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
         </div>
 
         <div className="cv-status" role="status">
+          {saveError && <span className="library-error" role="alert">Draft could not be saved. Keep this page open. <button className="plain" onClick={()=>{void workflowDraftStore().save(draftKey,canvas).then(()=>setSaveError(false)).catch(()=>setSaveError(true));}}>Try saving again</button></span>}
           {needKey && <span className="key-callout inline"><b>Choose how to run this to build it.</b> Browsing is free; this app needs a way to run before it can be put together. <button className="plain" onClick={() => openKeys()}>Choose how to run</button></span>}
           {note && <span>{note}</span>}
           {compiled.error ? <span className="library-error">{compiled.error}</span> : <span>Ready: this canvas runs as one workflow.</span>}
