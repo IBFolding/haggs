@@ -24,3 +24,23 @@ export function updateTimeline(raw: string, item: number, path: (string | number
   (target as Record<string | number, unknown>)[key] = value;
   return JSON.stringify(parsed.root, null, 2);
 }
+
+/** Add or remove a position without rewriting any other timeline fields. */
+export function changePathPoints(raw: string, item: number, remove?: number): string | null {
+  const parsed=parseTimeline(raw), entry=parsed?.items[item];
+  if (!parsed || !entry || !Array.isArray(entry.path) || !entry.path.length || entry.path.length>100) return null;
+  const points=entry.path;
+  if (!points.every(p=>Array.isArray(p) && p.length===3 && p.every(n=>typeof n==='number' && Number.isFinite(n)) && p[0]>=0 && p[1]>=0 && p[1]<=1 && p[2]>=0 && p[2]<=1)) return null;
+  if (new Set(points.map(p=>p[0])).size!==points.length) return null;
+  if (remove!==undefined) {
+    if (!Number.isInteger(remove) || remove<0 || remove>=points.length || points.length===1) return null;
+    points.splice(remove,1);
+  } else {
+    if (points.length===100) return null;
+    const last=points.reduce((a,b)=>a[0]>b[0]?a:b);
+    const time=last[0]+1;
+    if (!Number.isFinite(time) || time<=last[0]) return null;
+    points.push([time,last[1],last[2]]);
+  }
+  return JSON.stringify(parsed.root,null,2);
+}
