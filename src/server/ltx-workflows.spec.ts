@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { LTX_WORKFLOWS } from '../comfy/ltx';
 import { fill } from '../comfy/apps';
 import { prepare, type Catalog } from '../comfy/convert';
-import { ltxEntries, ltxTemplate, openLtx, openLtxForDisplay } from './ltx-workflows';
+import { ltxEntries, ltxTemplate, openLtx, openLtxForDisplay, savedLtxName } from './ltx-workflows';
 
 // A deliberately incomplete catalog checks bindings and fail-closed behavior;
 // it is NOT a claim that the full LTX graph is installed or executable.
@@ -86,4 +86,16 @@ test('curated LTX apps refuse unavailable named weights instead of replacing the
   mismatch.UNETLoader = { input: { required: { unet_name: [['ltx-2.5-a-different-model.safetensors']], weight_dtype: [['default']] } }, output: ['MODEL'] };
   const opened = openLtx('haggs_ltx_repair_cut', mismatch);
   assert.ok(opened.problems.some(p => p.includes('unet_name') && p.includes("isn't one of its choices")));
+});
+
+
+test('only exact saved LTX graphs regain their curated identity', () => {
+  for (const workflow of LTX_WORKFLOWS) {
+    const graph = ltxTemplate(workflow.name)!;
+    assert.equal(savedLtxName(JSON.stringify(graph)), workflow.name);
+    graph.nodes[0]!.title = 'changed';
+    assert.equal(savedLtxName(JSON.stringify(graph)), null);
+  }
+  assert.equal(savedLtxName('{'), null);
+  assert.equal(savedLtxName('x'.repeat(5_000_001)), null);
 });

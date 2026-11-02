@@ -13,6 +13,14 @@ export function ltxTemplate(name: string): UiWorkflow | null {
   const index = LTX_WORKFLOWS.findIndex(w => w.name === name);
   return index < 0 ? null : structuredClone(graphs[index]) as unknown as UiWorkflow;
 }
+/** Recognize only an unchanged bundled LTX workflow. */
+export function savedLtxName(file: string): string | null {
+  if (file.length > 5_000_000) return null;
+  try {
+    const candidate = JSON.stringify(JSON.parse(file));
+    return LTX_WORKFLOWS.find((_, i) => candidate === JSON.stringify(graphs[i]))?.name ?? null;
+  } catch { return null; }
+}
 export function ltxEntries(): Entry[] {
   return LTX_WORKFLOWS.map(w => ({ name: w.name, title: w.title, description: w.description, category: 'Video', kind: 'video', tags: ['LTX', 'Open weights'], models: ['LTX 2.5'], thumb: w.image, usage: 0, inputs: [], runnable: null, open: true }));
 }
