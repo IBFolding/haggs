@@ -9,7 +9,7 @@ import type { Kv } from "./kv";
  */
 
 export type Cover = { url: string; kind: "image" | "video" };
-export type SavedApp = { id: string; name: string; description: string; workflow: string; recipe?: Recipe; /** The canvas it was built on, to open and change again. */ canvas?: Canvas; cover?: Cover; /** Set when this copy came from the Community shelf: runs are charged to the creator's fee. */ community?: { id: string; feeCents: number; creatorName: string }; createdAt: number; updatedAt: number };
+export type SavedApp = { id: string; name: string; description: string; workflow: string; settings?: Record<string, string | number>; recipe?: Recipe; /** The canvas it was built on, to open and change again. */ canvas?: Canvas; cover?: Cover; /** Set when this copy came from the Community shelf: runs are charged to the creator's fee. */ community?: { id: string; feeCents: number; creatorName: string }; createdAt: number; updatedAt: number };
 export type NewApp = Omit<SavedApp, "id" | "createdAt" | "updatedAt"> & Partial<Pick<SavedApp, "id" | "createdAt">>;
 
 const INDEX = "apps/index";
@@ -43,7 +43,7 @@ export function createAppStore(kv: Kv) {
 const FORMAT = "haggs.app/1";
 
 export function appFile(app: SavedApp): string {
-  const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = app;
+  const { id: _id, createdAt: _c, updatedAt: _u, settings: _settings, ...rest } = app;
   return JSON.stringify({ format: FORMAT, ...rest }, null, 1);
 }
 

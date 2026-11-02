@@ -159,7 +159,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
 
   const [opened, setOpened] = useState<OpenedApp | null>(null);
   const [tab, setTab] = useState<"app" | "nodes">("app");
-  const [values, setValues] = useState<Record<string, string | number>>({});
+  const [values, setValues] = useState<Record<string, string | number>>(() => savedApp?.settings ?? {});
   const [files, setFiles] = useState<Record<string, string>>({});
   const [quote, setQuote] = useState<Quote | null>(null);
   const [seconds, setSeconds] = useState<number | null>(null);
@@ -190,7 +190,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     if (!title?.trim()) return;
     const cover: Cover | undefined = result?.ok && result.kind !== "audio" ? { url: result.url, kind: result.kind } : mine?.cover;
     const workflow = file ?? opened.workflow;
-    const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: title.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(canvas ?? mine?.canvas ? { canvas: (canvas ?? mine?.canvas)! } : {}), ...(cover ? { cover } : {}) });
+    const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: title.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, settings: values, ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(canvas ?? mine?.canvas ? { canvas: (canvas ?? mine?.canvas)! } : {}), ...(cover ? { cover } : {}) });
     setMine(app);
     setAppNote(cover ? "Saved to your apps, with this result as its cover." : "Saved to your apps. Run it and save again to give it a cover.");
   }
@@ -367,7 +367,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 </details>}
                 {opened.app.fields.map((f) => {
                   const k = keyOf(f);
-                  if (f.kind === "text" && f.input === "timeline_json" && haggsPreview(name) && ["900", "10000"].includes(f.node)) return <TimelineEditor key={k} value={String(values[k] ?? f.value)} onChange={value => setValues(v => ({...v, [k]: value}))} />;
+                  if (f.kind === "text" && f.input === "timeline_json" && haggsPreview(opened.name) && ["900", "10000"].includes(f.node)) return <TimelineEditor key={k} value={String(values[k] ?? f.value)} onChange={value => setValues(v => ({...v, [k]: value}))} />;
                   if (f.kind === "text") return (
                     <label key={k} className="wf-field">
                       <span>{f.label}</span>
