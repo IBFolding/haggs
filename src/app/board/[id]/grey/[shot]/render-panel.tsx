@@ -7,7 +7,7 @@ import { editEstimate } from "../../../../../providers/cloud-edits";
 import type { BankItem } from "../../../../../story/bank";
 import { atmosphere, describeLighting, describeScene, sceneIsEmpty, type GreyScene } from "../../../../../story/grey-scene";
 import type { Project, Shot } from "../../../../../story/model";
-import { runEdit } from "../../../../actions";
+import { runGreyFinishing as runEdit } from "../../../../grey-legacy-actions";
 import { openKeys } from "../../../../nav";
 import { uploadFile } from "../../../../upload-client";
 import { creditsText } from "../../../../../story/price-text";
@@ -154,18 +154,18 @@ export function RenderPanel({ advanced = true, scene, project, shot, places, onT
         {notes.map((n) => <p key={n} className="gs-soft">{n}</p>)}
       </section>
 
-      <details open={advanced}><summary>AI finishing & Blender options</summary>
+      <details open={advanced}><summary>AI finishing & Blender options</summary><p className="gs-soft">Paid AI finishing is paused until its maximum charge can be protected by your cap. Free drafts and Blender export remain available.</p>
       <section className="gs-sec">
         <h3>2. Relight the actor <span className="gs-soft">(optional)</span></h3>
         <p className="gs-soft">An AI pass so the light on the people matches the lights you placed{lighting ? `: ${lighting}` : ""}. It can change skin and expression slightly, which is why you look before you keep it.</p>
-        <button className="pill on" disabled={busy !== null || !draft} onClick={() => void relight()}>{busy === "relit" ? "Relighting…" : relit ? "Relight again" : "Relight"} <span className="cost">about {money(relightCost)}</span></button>
+        <button className="pill on" disabled={true} onClick={() => void relight()}>{busy === "relit" ? "Relighting…" : relit ? "Relight again" : "Relight"} <span className="cost">about {money(relightCost)}</span></button>
         {!draft && <p className="gs-soft">Make a draft first.</p>}
       </section>
 
       <section className="gs-sec">
         <h3>3. Make it real</h3>
         <p className="gs-soft">A video model blends the actor, set and props into one filmed picture, keeping the performance. It starts from {relit ? "your relit version" : "your draft"}.</p>
-        <button className="fire" disabled={busy !== null || !draft} onClick={() => void makeReal()}>{busy === "real" ? "Working…" : "Make it real"} <span className="cost">about {money(realCost)}</span></button>
+        <button className="fire" disabled={true} onClick={() => void makeReal()}>{busy === "real" ? "Working…" : "Make it real"} <span className="cost">about {money(realCost)}</span></button>
       </section>
 
       <section className="gs-sec">

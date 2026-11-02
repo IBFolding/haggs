@@ -8,10 +8,10 @@ import { actorMattePrompt, imageMattePrompt, IMAGE_MATTE_INPUT, MATTE_INPUT } fr
 import { surfaceWords, texturePrompt } from "../../../../../comfy/surface-texture";
 import { editEstimate } from "../../../../../providers/cloud-edits";
 import { addSurface, removeSurface, updateSurface, type GreyScene, type Surface } from "../../../../../story/grey-scene";
-import { run } from "../../../../actions";
+import { runGreyAssetImage as run } from "../../../../grey-legacy-actions";
 import { openKeys } from "../../../../nav";
 import { uploadFile } from "../../../../upload-client";
-import { runWorkflow } from "../../../../workflow-actions";
+import { runGreyLocalWorkflow as runWorkflow } from "../../../../grey-legacy-actions";
 import { Slide } from "./slide";
 import { AreaSelector } from "./area-selector";
 
@@ -185,11 +185,11 @@ function TextureControls({ sf, busy, onUpload, onMake }: { sf: Surface; busy: bo
   const pick = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   return (
-    <div className="gs-tex">
+    <div className="gs-tex"><p className="gs-soft">Cloud texture generation is paused until its maximum charge can be protected by your cap. Upload a material reference or choose a saved texture. Cutouts run only on Your GPU.</p>
       {sf.texture && <figure className="gs-material-card"><img src={sf.texture.url} alt={sf.texture.name} /><figcaption>{sf.texture.name}</figcaption></figure>}
       <div className="gs-row">
-        <input className="gs-name" type="text" maxLength={200} value={text} placeholder="aged red brick" onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !busy && text.trim()) onMake(text); }} aria-label={`Material for the ${sf.label}`} />
-        <button className="pill on" disabled={busy || !text.trim()} onClick={() => onMake(text)}>{busy ? "Making…" : "Make it"} <span className="cost">about ${editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" }).toFixed(2)}</span></button>
+        <input className="gs-name" type="text" maxLength={200} value={text} placeholder="aged red brick" onChange={(e) => setText(e.target.value)}  aria-label={`Material for the ${sf.label}`} />
+        <button className="pill on" disabled={true} onClick={() => onMake(text)}>{busy ? "Making…" : "Make it"} <span className="cost">about ${editEstimate({ tool: "flux3", seconds: 0, resolution: "1K" }).toFixed(2)}</span></button>
       </div>
       <div className="gs-row">
         <button className="pill" disabled={busy} onClick={() => pick.current?.click()}>Upload material reference</button>
