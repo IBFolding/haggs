@@ -1,6 +1,14 @@
 "use server";
 
-import { greyGenerationEnabled, GREY_GENERATION_HOLD } from "../server/grey-generation-policy";
+import { greyStillEnabled, greyVideoEnabled, GREY_GENERATION_HOLD } from "../server/grey-generation-policy";
+import {runWithGreyCap} from "../server/grey-spending-live";
+import {cookies} from "next/headers";
+import {COMFY_COOKIE,LOCAL_COOKIE,keyIn} from "../server/keys";
+import {userNow} from "../server/auth";
+import {editEstimate} from "../providers/cloud-edits";
+import {createGreyMediaConsent,type GreyMediaConsent,type GreyMediaKind} from "../server/grey-media-consent";
+import {sharedGreyQuoteStore} from "../server/grey-quote-store";
+import {platformOn} from "../server/platform";
 import { runEdit, type EditResult } from "./actions";
 import { normalizeScene, type GreyScene } from "../story/grey-scene";
 import { createCloudRunner } from "../providers/cloud";
@@ -13,11 +21,12 @@ import { keepResult } from "../server/keep";
 import { readMedia } from "../server/media";
 import { charged, comfyAccess } from "../server/platform";
 
-export async function greyGenerationAvailability(){return {enabled:greyGenerationEnabled(),reason:GREY_GENERATION_HOLD};}
+export async function greyGenerationAvailability(){return {enabled:greyStillEnabled()||greyVideoEnabled(),still:greyStillEnabled(),video:greyVideoEnabled(),reason:GREY_GENERATION_HOLD};}
 /** This restricted wrapper is the only paid still-image entry point used by Grey Room. */
-export async function makeGreyFirstFrame(input:{frame:string;prompt:string;ratio:"9:16"|"16:9"}):Promise<EditResult>{
-  if(!greyGenerationEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
-  return runEdit({tool:"kontext",frame:input.frame,prompt:input.prompt,ratio:input.ratio});
+export async function makeGreyFirstFrame(input:{frame:string;prompt:string;ratio:"9:16"|"16:9"},approval?:GreyMediaConsent):Promise<EditResult>{
+  if(!greyStillEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
+  const permit=await mediaConsent.consume("still",input,approval);if(!permit.ok)return permit;
+  return runWithGreyCap("still",()=>runEdit({tool:"kontext",frame:input.frame,prompt:input.prompt,ratio:input.ratio}));
 }
 
 export type GreyShot = { ok: true; url: string; usd: number; seconds: number } | { ok: false; reason: string; needsKey?: true };
@@ -27,8 +36,10 @@ export type GreyShot = { ok: true; url: string; usd: number; seconds: number } |
  * the blockout's camera move and figures become a control video the model follows. Open weights: no partner credits,
  * the GPU time is billed to the account. Never retried automatically.
  */
-export async function makeGreyShot(input: { grey: GreyFrame; frame: string; beat: string; vertical: boolean; scene?: GreyScene | undefined }): Promise<GreyShot> {
-  if(!greyGenerationEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
+export async function makeGreyShot(input: { grey: GreyFrame; frame: string; beat: string; vertical: boolean; scene?: GreyScene | undefined },approval?:GreyMediaConsent): Promise<GreyShot> {
+  if(!greyVideoEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
+  const permit=await mediaConsent.consume("video",input,approval);if(!permit.ok)return permit;
+  return runWithGreyCap("video",async()=>{
   const acc = await comfyAccess(GREY_SHOT_USD, "Grey Room shot", "Add a Comfy key to make the shot.");
   if (!acc.ok) return { ok: false, reason: acc.reason, ...(acc.needsKey ? { needsKey: true as const } : {}) };
   return charged(acc, async (key) => {
@@ -49,4 +60,16 @@ export async function makeGreyShot(input: { grey: GreyFrame; frame: string; beat
       return { ok: false as const, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The shot didn't finish." };
     }
   });
+  });
 }
+
+const mediaConsent=createGreyMediaConsent({
+ store:sharedGreyQuoteStore(process.env),
+ policy:kind=>({enabled:kind==='still'?greyStillEnabled():greyVideoEnabled(),estimateUsd:kind==='still'?editEstimate({tool:'kontext',seconds:0}):GREY_SHOT_USD}),
+ identity:async()=>{
+  const jar=await cookies(),own=keyIn(jar,COMFY_COOKIE),user=await userNow();
+  if(!own&&(!platformOn()||!user))return undefined;
+  return {own:own??null,user:user?.id??null,local:jar.get(LOCAL_COOKIE)?.value??null,platform:own?null:process.env.COMFY_PLATFORM_KEY,gate:process.env.HAGGS_GATE??null};
+ },
+});
+export async function quoteGreyMedia(kind:GreyMediaKind,input:unknown){return mediaConsent.quote(kind,input);}

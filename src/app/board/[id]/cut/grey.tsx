@@ -2,6 +2,7 @@
 
 import { greyFrameSvg } from "../../../../story/grey-control";
 import { guideSignature, spatialPrompt } from "../../../../story/grey-spatial-guide";
+import {GreySpendingPanel} from "./grey-spending-panel";
 import { GreyProposalPanel } from "./grey-proposal-panel";
 import { GreySpaceView } from "./grey-space-view";
 import type { GreyScene as SceneData } from "../../../../story/grey-scene";
@@ -16,7 +17,7 @@ import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, ti
 import type { Shot } from "../../../../story/model";
 import { editEstimate } from "../../../../providers/cloud-edits";
 import { openKeys } from "../../../nav";
-import { makeGreyShot, makeGreyFirstFrame, greyGenerationAvailability } from "../../../grey-shot-actions";
+import { makeGreyShot, makeGreyFirstFrame, greyGenerationAvailability, quoteGreyMedia } from "../../../grey-shot-actions";
 import { GREY_SHOT_USD } from "../../../../comfy/grey-shot";
 import { creditsText } from "../../../../story/price-text";
 
@@ -134,8 +135,10 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
   const plan = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<null | { kind: "cam" } | { kind: "sub"; id: string } | { kind: "draw" }>(null);
   const [busy, setBusy] = useState(false);
-  const [generationEnabled,setGenerationEnabled]=useState(false);
-  useEffect(()=>{let live=true;void greyGenerationAvailability().then(s=>{if(live)setGenerationEnabled(s.enabled);}).catch(()=>{});return()=>{live=false;};},[]);
+  const [stillEnabled,setStillEnabled]=useState(false);
+  const [videoEnabled,setVideoEnabled]=useState(false);
+  const generationEnabled=stillEnabled||videoEnabled;
+  useEffect(()=>{let live=true;void greyGenerationAvailability().then(s=>{if(live){setStillEnabled(s.still);setVideoEnabled(s.video);}}).catch(()=>{});return()=>{live=false;};},[]);
   const [making, setMaking] = useState<"real" | "frame" | "shot" | null>(null);
   /** The first frame for the shot, made and waiting for a yes before the video is paid for. */
   const [candidate, setCandidate] = useState<{ url: string; usd: number; signature: string } | null>(null);
@@ -211,14 +214,25 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
     return canvas.toDataURL("image/jpeg", 0.92);
   }
 
+  async function consentedStill(input:Parameters<typeof makeGreyFirstFrame>[0]) {
+    const quote=await quoteGreyMedia('still',input);if(!quote.ok)return quote;
+    if(!window.confirm(`Allow one Grey Room image request at an estimated $${quote.estimateUsd.toFixed(4)}? Actual provider billing may differ.`))return {ok:false as const,reason:'Image request canceled; nothing was submitted.'};
+    return makeGreyFirstFrame(input,{quoteId:quote.id,consent:true});
+  }
+  async function consentedVideo(input:Parameters<typeof makeGreyShot>[0]) {
+    const quote=await quoteGreyMedia('video',input);if(!quote.ok)return quote;
+    if(!window.confirm(`Approve this first frame and allow one video request at an estimated $${quote.estimateUsd.toFixed(4)}? Actual provider billing may differ.`))return {ok:false as const,reason:'Video request canceled; nothing was submitted.'};
+    return makeGreyShot(input,{quoteId:quote.id,consent:true,approvedFirstFrame:true});
+  }
+
   async function makeReal() {
-    if(!generationEnabled)return;
+    if(!stillEnabled)return;
     setBusy(true);
     setMaking("real");
     setProblem(null);
     try {
       const frame = await blockoutFrame();
-      const r = await inHeader({ label: `Making a real picture from the grey room`, href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit((realPrompt(shot.beat, grey) + " " + spatialPrompt(scene))) }, () => makeGreyFirstFrame({ frame, prompt: (realPrompt(shot.beat, grey) + " " + spatialPrompt(scene)), ratio: vertical ? "9:16" : "16:9" }));
+      const r = await inHeader({ label: `Making a real picture from the grey room`, href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit((realPrompt(shot.beat, grey) + " " + spatialPrompt(scene))) }, () => consentedStill({ frame, prompt: (realPrompt(shot.beat, grey) + " " + spatialPrompt(scene)), ratio: vertical ? "9:16" : "16:9" }));
       if (!r.ok) return setProblem(r.reason);
       onTake(r.url, r.usd, scene, saved, t);
     } catch (e) {
@@ -231,14 +245,14 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
 
   /** Step one of the shot: the first frame, made from the blockout. It waits for a yes, so a wrong frame never costs the video. */
   async function makeFrame() {
-    if(!generationEnabled)return;
+    if(!stillEnabled)return;
     setBusy(true);
     setMaking("frame");
     setProblem(null);
     try {
       const requestedSignature = signature;
       const frame = await blockoutFrame(0);
-      const first = await inHeader({ label: "Making the first frame", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit((realPrompt(shot.beat, { ...saved, cam: camAt(saved.cam, saved.camKeys, 0) }) + " " + spatialPrompt(scene))) }, () => makeGreyFirstFrame({ frame, prompt: (realPrompt(shot.beat, { ...saved, cam: camAt(saved.cam, saved.camKeys, 0) }) + " " + spatialPrompt(scene)), ratio: vertical ? "9:16" : "16:9" }));
+      const first = await inHeader({ label: "Making the first frame", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), after: galleryEdit((realPrompt(shot.beat, { ...saved, cam: camAt(saved.cam, saved.camKeys, 0) }) + " " + spatialPrompt(scene))) }, () => consentedStill({ frame, prompt: (realPrompt(shot.beat, { ...saved, cam: camAt(saved.cam, saved.camKeys, 0) }) + " " + spatialPrompt(scene)), ratio: vertical ? "9:16" : "16:9" }));
       if (!first.ok) return setProblem(first.reason);
       onTake(first.url, first.usd, scene, saved, 0);
       if (latestSignature.current === requestedSignature) setCandidate({ url: first.url, usd: first.usd, signature: requestedSignature });
@@ -253,14 +267,14 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
 
   /** Step two: the video, from the approved frame and the blockout's camera move and figures. */
   async function makeShot() {
-    if (!generationEnabled || !onShot || !candidate || candidate.signature !== signature) return;
+    if (!videoEnabled || !onShot || !candidate || candidate.signature !== signature) return;
     setBusy(true);
     setMaking("shot");
     setProblem(null);
     try {
-      const made = await inHeader({ label: "Making the shot from the blockout", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason) }, () => makeGreyShot({ grey: saved, frame: candidate.url, beat: shot.beat, vertical, scene }));
+      const made = await inHeader({ label: "Making the shot from the blockout", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason) }, () => consentedVideo({ grey: saved, frame: candidate.url, beat: shot.beat, vertical, scene }));
       if (!made.ok) {
-        if (made.needsKey) openKeys();
+        if ("needsKey" in made && made.needsKey) openKeys();
         return setProblem(`${made.reason} The first frame is kept as a take.`);
       }
       onShot(made.url, made.usd, scene, saved, 0, made.seconds);
@@ -277,6 +291,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
     <div className="gr">
       <p className="gr-says">Work the shot out in grey. Nothing here costs anything until you make it real.</p>
 
+      <GreySpendingPanel/>
       {scene && onDesign && <GreyProposalPanel vertical={vertical} grey={saved} scene={scene} onApply={onDesign} />}
       {scene && onScene && <GreySpaceView grey={grey} scene={scene} vertical={vertical} time={t} playing={playing} onSeek={time=>{setPlaying(false);setT(time);}} onTogglePlay={()=>{if(t>=CAM_SECONDS)setT(0);setPlaying(p=>!p);}} onSetCameraKey={()=>set({...saved,camKeys:setKey(saved.camKeys,t,grey.cam)})} onMoveCameraKey={(from,to)=>{const keys=retimeKey(saved.camKeys,from,to);if(!keys)return false;setPlaying(false);set({...saved,camKeys:keys});setT(Math.round(to*20)/20);return true;}} onReverseCameraPath={()=>{const keys=reverseKeys(saved.camKeys);if(keys){setPlaying(false);withKeys(keys,"Camera move reversed.");}}} onCamera={setCam} onGrey={g => set({ ...g, cam: saved.cam })} onScene={onScene} />}
       <GreyScene grey={grey} vertical={vertical} svgRef={svg} t={t} scene={scene} />
@@ -350,13 +365,13 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
         </div>
       ) : (
         <div className="gr-make">
-          <button className="fire" disabled={!generationEnabled || busy || locked || !hasBlockout} onClick={() => void makeReal()}>{making === "real" ? "Making it real…" : "Make it real"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }))}</span></button>
+          <button className="fire" disabled={!stillEnabled || busy || locked || !hasBlockout} onClick={() => void makeReal()}>{making === "real" ? "Making it real…" : "Make it real"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }))}</span></button>
           <small>Keeps this framing, this camera and where everyone stands. Lands as a new take.</small>
           {onShot && (
             <>
               {!candidate ? (
                 <>
-                  <button className="pill on" disabled={!generationEnabled || busy || locked || !hasBlockout} onClick={() => void makeFrame()}>{making === "frame" ? "Making the first frame…" : "Make the shot: first frame"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }))}</span></button>
+                  <button className="pill on" disabled={!stillEnabled || busy || locked || !hasBlockout} onClick={() => void makeFrame()}>{making === "frame" ? "Making the first frame…" : "Make the shot: first frame"} <span className="cost">about {MONEY(editEstimate({ tool: "kontext", seconds: 0 }))}</span></button>
                   <small>{saved.camKeys?.length ? "Step one makes the first frame from your blockout. You approve it before the video, which follows your camera move and where everyone stands." : "Step one makes the first frame from your blockout. You approve it before the video. Draw a camera path above and the video follows it."}</small>
                 </>
               ) : (
@@ -365,7 +380,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
                   <img src={candidate.url} alt="The first frame of the shot" />
                   <figcaption>Is this the look? The video starts from it and keeps the people, clothes and place.</figcaption>
                   <div className="gr-row">
-                    <button className="fire" disabled={!generationEnabled || busy} onClick={() => void makeShot()}>{making === "shot" ? "Making the shot… about two minutes" : "Yes, make the video"} <span className="cost">about {MONEY(GREY_SHOT_USD)}</span></button>
+                    <button className="fire" disabled={!videoEnabled || busy} onClick={() => void makeShot()}>{making === "shot" ? "Making the shot… about two minutes" : "Yes, make the video"} <span className="cost">about {MONEY(GREY_SHOT_USD)}</span></button>
                     <button className="plain" disabled={busy} onClick={() => setCandidate(null)}>Not this one</button>
                   </div>
                   <small>Open weights, so no partner credits; the GPU time is billed by Comfy. Lands as a video take.</small>
