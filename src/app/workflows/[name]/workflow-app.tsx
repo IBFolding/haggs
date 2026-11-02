@@ -4,6 +4,7 @@ import { TimelineEditor } from "./timeline-editor";
 import { contestVariant } from "../../../comfy/contest-lab";
 import { haggsPreview } from "../../../comfy/haggs-preview";
 import { ltxWorkflow } from "../../../comfy/ltx";
+import { openWorkflowSafely } from "../../../comfy/open-workflow-safe";
 import { track } from "../../../activity/activity";
 import { BankPicker, useReturnedPick } from "../../bank-picker";
 import type { BankItem } from "../../../story/bank";
@@ -228,7 +229,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     let live = true;
     setOpened(null);
     setQuote(null);
-    void openWorkflow(source).then((o) => {
+    void openWorkflowSafely(()=>openWorkflow(source)).then((o) => {
       if (!live) return;
       setOpened(o);
       if (o.ok) setQuote({ label: o.price, min: 0, max: 0, perSecond: false });
