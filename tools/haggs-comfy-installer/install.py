@@ -33,20 +33,44 @@ def verify_bundle(root):
         raise ValueError('The node bundle failed its integrity check. Download it again.')
 
 
+def installed_matches(source, target):
+    """Recognize an unchanged pack while preserving user-created files and links."""
+    if target.is_symlink() or not target.is_dir():
+        return False
+    def files(directory):
+        result = {}
+        for path in directory.rglob('*'):
+            relative = path.relative_to(directory)
+            # Comfy/Python creates bytecode caches after installation; leave them alone.
+            if '__pycache__' in relative.parts:
+                continue
+            if path.is_symlink():
+                return None
+            if path.is_file():
+                result[relative.as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+        return result
+    expected, existing = files(source), files(target)
+    return expected is not None and existing is not None and expected == existing
+
+
 def install(root, target, apply=False):
     root = Path(root)
     target = Path(target).expanduser()
     verify_bundle(root)
     if target.name != 'custom_nodes' or not target.is_dir():
         raise ValueError('Choose the existing custom_nodes folder inside your ComfyUI installation.')
-    conflicts = [name for name in PACKS if (target / name).exists() or (target / name).is_symlink()]
+    present = [name for name in PACKS if (target / name).exists() or (target / name).is_symlink()]
+    conflicts = [name for name in present if not installed_matches(root / 'nodes' / name, target / name)]
     if conflicts:
         raise ValueError('These folders already exist and were not changed: ' + ', '.join(conflicts))
+    missing = [name for name in PACKS if name not in present]
+    if not missing:
+        return 'All three Haggs node packs are already installed and unchanged. No files changed.'
     if not apply:
-        return 'Ready to install: ' + ', '.join(PACKS) + '. No files changed.'
+        return 'Ready to install: ' + ', '.join(missing) + ('. Already installed: ' + ', '.join(present) if present else '') + '. No files changed.'
     installed = []
     try:
-        for name in PACKS:
+        for name in missing:
             # copytree refuses an existing destination; do not overwrite user nodes.
             shutil.copytree(root / 'nodes' / name, target / name, symlinks=False)
             installed.append(name)
