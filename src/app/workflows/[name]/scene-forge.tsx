@@ -3,7 +3,7 @@ import {useRef,useState} from 'react';
 import Link from 'next/link';
 import {Nav} from '../../nav';
 import {sceneForgeHtml} from '../../../story/scene-forge';
-import {parseSceneProject,sceneProject,SCENE_PROJECT_LIMIT} from '../../../story/scene-forge-project';
+import {parseSceneProject,sceneProject,SCENE_PROJECT_LIMIT,type SceneProject} from '../../../story/scene-forge-project';
 import styles from './scene-forge.module.css';
 
 const LIMIT=20_000_000;
@@ -14,6 +14,7 @@ export function SceneForge() {
   const [selected,setSelected]=useState<number|null>(null);
   const [loading,setLoading]=useState([false,false,false]);
   const [importing,setImporting]=useState(false);
+  const [pendingProject,setPendingProject]=useState<SceneProject|null>(null);
   const [error,setError]=useState('');
   const sequence=useRef([0,0,0]);
   const ready=clips.every(Boolean)&&!loading.some(Boolean)&&!importing;
@@ -45,14 +46,18 @@ export function SceneForge() {
   }
   async function openProject(file:File|undefined) {
     if(!file||importing)return;
+    setPendingProject(null);
     if(file.size>SCENE_PROJECT_LIMIT){setError('This project is too large.');return;}
     setImporting(true);setError('');
     try {
-      const project=parseSceneProject(await file.text());
-      sequence.current=sequence.current.map(value=>value+1);
-      setLoading([false,false,false]);setClips(project.clips);setLabels(project.labels);setSelected(null);
+      setPendingProject(parseSceneProject(await file.text()));
     } catch(e) {setError(e instanceof Error?e.message:'Could not open the project.');}
     finally {setImporting(false);}
+  }
+  function replaceProject() {
+    if(!pendingProject||importing||loading.some(Boolean))return;
+    sequence.current=sequence.current.map(value=>value+1);
+    setLoading([false,false,false]);setClips(pendingProject.clips);setLabels(pendingProject.labels);setSelected(null);setPendingProject(null);setError('');
   }
   function download() {
     if(!ready)return;
@@ -65,7 +70,7 @@ export function SceneForge() {
   return <div className="app"><Nav current="Workflows"/><main className={`canvas ${styles.page}`}>
     <Link href="/workflows#haggs">← Haggs workflows</Link><div className={styles.heading}><div><span className="eyebrow">Game Director · no model required</span><h1>Playable Scene Forge</h1><p>Turn three prepared video clips into a scene with choices. Add your clips, name the actions, then try and download the player.</p></div></div>
     <p className={styles.note}>This player uses existing clips. It does not generate H3 video or create persistent game state. Files stay in this browser; the downloaded player contains your clips.</p>
-    <div className={styles.layout}><section className={styles.inputs} aria-label="Scene choices"><h2>1. Add your branches</h2>{clips.map((clip,i)=><div className={styles.card} key={i}><label>Choice {i+1}<input value={labels[i]} disabled={importing} maxLength={120} onChange={e=>setLabels(prev=>prev.map((v,j)=>j===i?e.target.value:v))}/></label><label className={styles.upload}> {loading[i] ? 'Loading video…' : clip ? clip.name : 'Choose an MP4 or WebM'}<input type="file" accept="video/mp4,video/webm" aria-label={`Video for choice ${i+1}`} disabled={importing} onChange={e=>{choose(i,e.currentTarget.files?.[0]);e.currentTarget.value='';}}/></label>{(clip||loading[i])&&<button type="button" className="pill" disabled={importing} onClick={()=>remove(i)} aria-label={`Remove video for choice ${i+1}`}>Remove video</button>}</div>)}<small>Up to 20 MB per clip. Use short, compatible videos.</small><label className={styles.upload}>Open saved project<input type="file" accept="application/json,.json" disabled={importing} onChange={e=>{void openProject(e.currentTarget.files?.[0]);e.currentTarget.value='';}}/></label><button type="button" className="pill" disabled={importing||loading.some(Boolean)} onClick={saveProject}>Save editable project</button><small>Project files contain your videos. Keep them somewhere private.</small>{error&&<p role="alert">{error}</p>}</section>
+    <div className={styles.layout}><section className={styles.inputs} aria-label="Scene choices"><h2>1. Add your branches</h2>{clips.map((clip,i)=><div className={styles.card} key={i}><label>Choice {i+1}<input value={labels[i]} disabled={importing} maxLength={120} onChange={e=>setLabels(prev=>prev.map((v,j)=>j===i?e.target.value:v))}/></label><label className={styles.upload}> {loading[i] ? 'Loading video…' : clip ? clip.name : 'Choose an MP4 or WebM'}<input type="file" accept="video/mp4,video/webm" aria-label={`Video for choice ${i+1}`} disabled={importing} onChange={e=>{choose(i,e.currentTarget.files?.[0]);e.currentTarget.value='';}}/></label>{(clip||loading[i])&&<button type="button" className="pill" disabled={importing} onClick={()=>remove(i)} aria-label={`Remove video for choice ${i+1}`}>Remove video</button>}</div>)}<small>Up to 20 MB per clip. Use short, compatible videos.</small><label className={styles.upload}>Open saved project<input type="file" accept="application/json,.json" disabled={importing} onChange={e=>{void openProject(e.currentTarget.files?.[0]);e.currentTarget.value='';}}/></label><button type="button" className="pill" disabled={importing||loading.some(Boolean)} onClick={saveProject}>Save editable project</button><small>Project files contain your videos. Keep them somewhere private.</small>{error&&<p role="alert">{error}</p>}{pendingProject&&<section className={styles.review} aria-label="Review project to open" aria-live="polite"><h2>Review project</h2><p>Opening this project replaces the scene currently on screen. Save your editable project first if you want to keep it.</p><ul>{pendingProject.labels.map((label,i)=><li key={i}>{label.trim()||`Choice ${i+1}`} · {pendingProject.clips[i]?.name??'No video yet'}</li>)}</ul><div className={styles.reviewActions}><button type="button" className="pill" onClick={()=>setPendingProject(null)}>Keep current scene</button><button type="button" className="fire" disabled={importing||loading.some(Boolean)} onClick={replaceProject}>Open this project</button></div></section>}</section>
     <section className={styles.preview} aria-label="Player preview"><h2>2. Try your scene</h2>{selected!==null&&clips[selected]&&!loading[selected]?<video key={clips[selected]!.data} src={clips[selected]!.data} controls autoPlay playsInline/>:<div className={styles.empty}>Choose a branch below to preview it.</div>}<div className={styles.choices}>{clips.map((clip,i)=><button className="pill" key={i} disabled={!clip||loading[i]||importing} onClick={()=>setSelected(i)}>{labels[i]?.trim()||`Choice ${i+1}`}</button>)}</div><button className="fire" disabled={!ready} onClick={download}>Download playable scene</button><p className="wf-small">One self-contained HTML file · choices replay the prepared clips.</p></section></div>
     <p><a href="/workflows/game-director/START-HERE.md">Full ComfyUI workflow and H3 requirements</a></p>
   </main></div>;
