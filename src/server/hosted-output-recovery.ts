@@ -47,3 +47,11 @@ export async function recoverHostedOutput(io:HostedIO,id:string):Promise<string>
   return await saveHostedOutput(io,id,await io.read(record.provider_job!,file));
  }catch(error){if(error instanceof OriginalUnavailable){await io.store.act(id,"missing");throw Error("No durable private copy was verified and the provider original is unavailable. Metadata cannot recover deleted bytes. No generation was submitted.");}throw error;}
 }
+
+/** Use the confirmed output metadata, never the caller's potentially stale journal listing. */
+export function recoveredOutputResult(record: HostedOutput | null, url: string) {
+ if (!record || !record.extension) throw Error("Recovered output metadata is unavailable. Recheck the journal; do not generate again.");
+ outputPath(record); // Reject unsupported extensions rather than silently calling them images.
+ const kind = record.extension === "mp4" || record.extension === "webm" ? "video" : record.extension === "mp3" || record.extension === "wav" || record.extension === "flac" ? "audio" : "image";
+ return {url, kind: kind as "image" | "video" | "audio"};
+}

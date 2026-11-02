@@ -10,7 +10,7 @@ import {privateMediaWrites} from "./media-storage-config";
 import {reserveStorage,finishStorage,removedStorage} from "./storage-quota";
 import {jobOutcome} from "../providers/job-outcome";
 import {createCloudRunner} from "../providers/cloud";
-import {credentialFingerprint,OriginalUnavailable,recoverHostedOutput,saveHostedOutput,outputPath,type HostedOutput,type HostedStore,type HostedFile,type HostedIO} from "./hosted-output-recovery";
+import {recoveredOutputResult,credentialFingerprint,OriginalUnavailable,recoverHostedOutput,saveHostedOutput,outputPath,type HostedOutput,type HostedStore,type HostedFile,type HostedIO} from "./hosted-output-recovery";
 export const hostedRecoveryEnabled=()=>process.env.HAGGS_HOSTED_OUTPUT_RECOVERY==="1";
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MIME:Record<string,string>={png:"image/png",jpg:"image/jpeg",webp:"image/webp",mp4:"video/mp4",webm:"video/webm",mp3:"audio/mpeg",wav:"audio/wav",flac:"audio/flac"};
@@ -59,7 +59,8 @@ export async function recoverHostedForRequest(request:Request,id:string){
  const context=await hostedContext(request),record=await context.store.get(id);if(!record)throw Error("Recovery record not found.");
  const key=record.scope==="platform"?process.env.COMFY_PLATFORM_KEY?.trim():keyIn(await cookies(),COMFY_COOKIE);
  if(!key)throw Error("The matching provider connection is not available.");
- return recoverHostedOutput(hostedIO(context,key),id);
+ const url=await recoverHostedOutput(hostedIO(context,key),id);
+ return recoveredOutputResult(await context.store.get(id),url);
 }
 export async function cancelDeletedHostedOutput(url:string){
  if(!hostedRecoveryEnabled())return;
