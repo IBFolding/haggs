@@ -34,3 +34,15 @@ test("a file that isn't an app, or carries a cover from somewhere else, is refus
   const odd = readAppFile(JSON.stringify({ format: "haggs.app/1", name: "x", workflow, cover: { url: "javascript:alert(1)", kind: "image" } }));
   assert.equal(odd.cover, undefined);
 });
+
+test("saved app settings survive reopening but are not included in shared files", async () => {
+  const store = createAppStore(memoryKv());
+  const settings = { "900/timeline_json": '{"actors":[]}', "2/strength": 0.5 };
+  const saved = await store.save({name:"My guide", description:"", workflow, settings});
+  assert.deepEqual((await store.load(saved.id))?.settings, settings);
+  const shared = appFile(saved);
+  assert.equal('settings' in JSON.parse(shared), false);
+  assert.equal(readAppFile(shared).settings, undefined);
+  const old = await store.save({name:"Older app", description:"", workflow});
+  assert.equal((await store.load(old.id))?.settings, undefined);
+});

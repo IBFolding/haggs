@@ -164,12 +164,13 @@ export type OpenedApp = { ok: true; name: string; title: string; description: st
 export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const key = await comfyKey();
   const isHaggsEffect = "template" in source && Boolean(contestVariant(source.template));
-  const isHaggsPreview = "template" in source && Boolean(haggsPreview(source.template));
+  const displayPreview = "template" in source ? source.template : savedHaggsPreviewName(source.file);
+  const isHaggsPreview = Boolean(displayPreview && haggsPreview(displayPreview));
   const isLtx = "template" in source && Boolean(ltxWorkflow(source.template));
   if (!isHaggsEffect && !isHaggsPreview && !isLtx && !key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
-  const name = "template" in source ? source.template : "your workflow";
+  const name = isHaggsPreview && displayPreview ? displayPreview : "template" in source ? source.template : "your workflow";
   try {
-    const opened = isHaggsEffect && "template" in source ? openContestForDisplay(source.template) : isHaggsPreview && "template" in source ? openHaggsPreviewForDisplay(source.template) : isLtx && "template" in source ? openLtxForDisplay(source.template) : await open(key, source);
+    const opened = isHaggsEffect && "template" in source ? openContestForDisplay(source.template) : isHaggsPreview && displayPreview ? openHaggsPreviewForDisplay(displayPreview) : isLtx && "template" in source ? openLtxForDisplay(source.template) : await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
     const samples = Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && f.sample ? [[String(prompt[f.node]?.inputs[f.input] ?? ""), f.sample]] : [])));
     return {
