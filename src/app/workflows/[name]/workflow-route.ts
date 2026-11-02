@@ -1,4 +1,7 @@
 import type { Entry } from "../../../server/comfy-library";
+import { haggsPreview } from "../../../comfy/haggs-preview";
+import { ltxWorkflow } from "../../../comfy/ltx";
+import { contestVariant } from "../../../comfy/contest-lab";
 
 export type WorkflowRoute = "import" | "build" | "mine" | "scene-forge" | "app" | "not-found";
 /** A final decision for a workflow URL: what workflowRoute says, or "unavailable" when a missing name cannot be proven because the catalog did not answer. */
@@ -13,6 +16,8 @@ export function workflowRoute(name: string, entries: readonly Pick<Entry, "name"
   if (name === "build") return "build";
   if (name === "mine") return "mine";
   if (name === "haggs_scene_forge") return "scene-forge";
+  // Bundled apps exist independently of the remote template catalog.
+  if (haggsPreview(name) || ltxWorkflow(name) || contestVariant(name)) return "app";
   return entries.some((entry) => entry.name === name) ? "app" : "not-found";
 }
 

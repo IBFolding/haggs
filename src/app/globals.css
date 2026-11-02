@@ -5018,3 +5018,26 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .kn-refs li.missing > span { color: #d33; }
 .kn-refs small { color: var(--text-2); }
 @media (max-width: 480px) { .kn-templates { grid-template-columns: 1fr; } }
+
+/* Haggs workflow setup: a compact guide above the actual tools. */
+.haggs-intro { display: grid; gap: 20px; margin: 14px 0 32px; padding: 24px; border: 1px solid rgba(114, 231, 154, .2); border-radius: 18px; background: linear-gradient(125deg, rgba(32, 54, 39, .46), rgba(20, 22, 23, .96) 58%); }
+.haggs-intro-head { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.haggs-intro-kicker { color: #8be6a9; font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+.haggs-intro h2 { margin: 7px 0 5px; font-size: 22px; letter-spacing: -.03em; }
+.haggs-intro-head p { margin: 0; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.haggs-intro-download { display: inline-flex; align-items: center; gap: 14px; flex: none; padding: 11px 15px; color: #101b12; background: #8be6a9; border-radius: 9px; font-size: 13px; font-weight: 750; text-decoration: none; }
+.haggs-intro-download:hover { background: #b3f3c6; }
+.haggs-intro-steps { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.haggs-intro-steps > div { display: flex; gap: 11px; align-items: flex-start; padding: 14px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(255,255,255,.025); }
+.haggs-intro-steps > div > span { color: #8be6a9; font: 700 11px/1.5 monospace; }
+.haggs-intro-steps strong { font-size: 13px; }
+.haggs-intro-steps p { margin: 5px 0 0; color: var(--text-2); font-size: 12px; line-height: 1.5; }
+.haggs-intro-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 11.5px; line-height: 1.5; }
+.haggs-intro-footer p { flex: 1 1 440px; margin: 0; color: var(--text-2); }
+.haggs-intro-footer a { color: #bceacb; text-underline-offset: 3px; }
+.haggs-intro-categories { display: flex; flex-wrap: wrap; gap: 8px; }
+.haggs-intro-categories a { display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: var(--text); font-size: 12px; text-decoration: none; }
+.haggs-intro-categories a:hover { border-color: #8be6a9; }
+.haggs-intro-categories b { color: #8be6a9; font: 700 10px monospace; }
+.haggs-intro-categories span { color: var(--text-2); }
+@media (max-width: 720px) { .haggs-intro { padding: 18px; gap: 16px; } .haggs-intro-head { align-items: flex-start; flex-direction: column; gap: 14px; } .haggs-intro-steps { grid-template-columns: 1fr; } .haggs-intro-steps > div { padding: 11px 12px; } }

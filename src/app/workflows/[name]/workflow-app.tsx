@@ -411,7 +411,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 ) : result && !result.ok ? (
                   <p className="library-error" role="alert">{result.reason}</p>
                 ) : opened.thumb ? (
-                  <figure className="wf-example"><img src={opened.thumb} alt="" /><figcaption>{(ltxWorkflow(opened.name) || contestVariant(opened.name) || haggsPreview(opened.name)) ? "Illustrative example made with image generation, not a verified workflow output. Yours appears here after a successful run." : "The example result. Yours appears here."}</figcaption></figure>
+                  <figure className="wf-example"><img src={opened.thumb} alt="" /><figcaption>{(ltxWorkflow(opened.name) || contestVariant(opened.name) || haggsPreview(opened.name)) ? "Example. Your result appears here after a successful run." : "The example result. Yours appears here."}</figcaption></figure>
                 ) : (
                   <div className="wf-result-wait">Your result appears here.</div>
                 )}
