@@ -1,5 +1,6 @@
 "use client";
 
+import { TimelineEditor } from "./timeline-editor";
 import { contestVariant } from "../../../comfy/contest-lab";
 import { haggsPreview } from "../../../comfy/haggs-preview";
 import { ltxWorkflow } from "../../../comfy/ltx";
@@ -366,6 +367,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 </details>}
                 {opened.app.fields.map((f) => {
                   const k = keyOf(f);
+                  if (f.kind === "text" && f.input === "timeline_json" && haggsPreview(name) && ["900", "10000"].includes(f.node)) return <TimelineEditor key={k} value={String(values[k] ?? f.value)} onChange={value => setValues(v => ({...v, [k]: value}))} />;
                   if (f.kind === "text") return (
                     <label key={k} className="wf-field">
                       <span>{f.label}</span>
