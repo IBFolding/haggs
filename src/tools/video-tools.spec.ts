@@ -110,3 +110,24 @@ test("rembg cuts a clip to a transparent WebM", { skip: !VENV || !toolPath("remb
   assert.ok(r.ok, JSON.stringify(r));
   if (r.ok) assert.equal(r.frames, 12);
 });
+
+test("Demucs splits a short tone-plus-noise clip into vocals and backing", { skip: !VENV || !hasPy("demucs") || !process.env.TORCH_HOME || process.env.HAGGS_SLOW_TESTS !== "1" }, async () => {
+  mkdirSync(join(dir, "dm"), { recursive: true });
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=220:d=8", "-c:a", "aac", join(dir, "dm", "c.m4a")]);
+  const r = await runVideoTool({ tool: "split-stems", stems: "two", url: "/api/local/dm/c.m4a" }, dir, "development");
+  assert.ok(r.ok, JSON.stringify(r));
+  if (r.ok) assert.deepEqual(r.stems?.map((s) => s.name).sort(), ["backing", "vocals"]);
+});
+
+import { titleBrief, titleHtml } from "./title-card";
+
+test("title text is escaped and limited, and colours must be hex", () => {
+  const b = titleBrief({ title: `<script>alert(1)</script> "x" & y`, ink: "red; background:url(x)", seconds: 99, shape: "bad" });
+  const html = titleHtml(b);
+  assert.ok(!html.includes("<script>alert"));
+  assert.ok(html.includes("&lt;script&gt;"));
+  assert.equal(b.ink, "#ffffff");
+  assert.equal(b.seconds, 10);
+  assert.equal(b.shape, "landscape");
+  assert.ok(titleHtml(titleBrief({ format: "webm" })).includes("background: transparent"));
+});

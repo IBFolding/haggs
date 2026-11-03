@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { COLOR_METHODS, CUT_EVERY, EXPORT_PRESETS, REMOVE_MODELS, type ColorMethod, type DetectMode, type ExportPreset, type Shot, type VideoTool } from "../../../tools/video-tools";
+import { COLOR_METHODS, CUT_EVERY, EXPORT_PRESETS, REMOVE_MODELS, STEM_MODES, type ColorMethod, type DetectMode, type ExportPreset, type Shot, type VideoTool } from "../../../tools/video-tools";
+import { TITLE_FORMATS, TITLE_SHAPES, TITLE_STYLES } from "../../../tools/title-card";
 import { uploadFile } from "../../upload-client";
 import styles from "../tools.module.css";
 
-type Result = { ok: true; url?: string; extra?: string; before?: number; after?: number; shots?: Shot[]; stills?: string[]; bpm?: number; beats?: number[]; cuts?: number[] } | { ok: false; reason: string };
+type Result = { ok: true; url?: string; extra?: string; before?: number; after?: number; shots?: Shot[]; stills?: string[]; bpm?: number; beats?: number[]; cuts?: number[]; stems?: { name: string; url: string }[] } | { ok: false; reason: string };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toFixed(2).padStart(5, "0")}`;
 
 export function ToolApp({ tool }: { tool: VideoTool }) {
@@ -22,6 +23,15 @@ export function ToolApp({ tool }: { tool: VideoTool }) {
   const [sensitivity, setSensitivity] = useState(27);
   const [threshold, setThreshold] = useState(-35);
   const [margin, setMargin] = useState(0.1);
+  const [stemMode, setStemMode] = useState<"two" | "four">("two");
+  const [titleText, setTitleText] = useState("Less thinking. More creating.");
+  const [subtitle, setSubtitle] = useState("");
+  const [titleStyle, setTitleStyle] = useState("blur");
+  const [shape, setShape] = useState("landscape");
+  const [titleFormat, setTitleFormat] = useState("mp4");
+  const [seconds, setSeconds] = useState(4);
+  const [ink, setInk] = useState("#ffffff");
+  const [ground, setGround] = useState("#000000");
   const [every, setEvery] = useState(4);
   const [method, setMethod] = useState<ColorMethod>("mkl");
   const [model, setModel] = useState<string>("u2net");
@@ -56,9 +66,9 @@ export function ToolApp({ tool }: { tool: VideoTool }) {
   }
 
   async function go() {
-    if (!source) return;
+    if (!source && tool.input !== "none") return;
     setBusy(true); setProblem(""); setResult(null);
-    const res = await fetch("/api/tools/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tool: tool.id, url: source.url, preset, mode, sensitivity, threshold, margin, every, method, model, reference: reference?.url }) }).catch(() => null);
+    const res = await fetch("/api/tools/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tool: tool.id, url: source?.url, title: titleText, subtitle, titleStyle, shape, format: titleFormat, seconds, ink, ground, preset, mode, sensitivity, threshold, margin, every, method, model, stems: stemMode, reference: reference?.url }) }).catch(() => null);
     const body = (await res?.json().catch(() => null)) as Result | null;
     setBusy(false);
     if (body?.ok) setResult(body);
@@ -92,10 +102,20 @@ export function ToolApp({ tool }: { tool: VideoTool }) {
       {here === "local" && !installed && <p className={styles.note} role="status">{tool.command} isn&apos;t installed here yet. Needs: {tool.needs}</p>}
 
       <section className={styles.run}>
-        <label className={styles.file}>
+        {tool.input !== "none" && <label className={styles.file}>
           <span>{source ? source.name : tool.input === "video-or-audio" ? "Choose a video or a song" : "Choose a video"}</span>
           <input type="file" accept={tool.input === "video-or-audio" ? "video/*,audio/*" : "video/*"} disabled={here !== "local"} onChange={(e) => void add(e.target.files?.[0])} />
-        </label>
+        </label>}
+        {tool.id === "animated-titles" && (<>
+          <label>Title<input value={titleText} maxLength={120} onChange={(e) => setTitleText(e.target.value)} /></label>
+          <label>Subtitle (optional)<input value={subtitle} maxLength={160} onChange={(e) => setSubtitle(e.target.value)} /></label>
+          <label>Animation<select value={titleStyle} onChange={(e) => setTitleStyle(e.target.value)}>{Object.entries(TITLE_STYLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+          <label>Shape<select value={shape} onChange={(e) => setShape(e.target.value)}>{Object.entries(TITLE_SHAPES).map(([k, [w, h]]) => <option key={k} value={k}>{k} {w}×{h}</option>)}</select></label>
+          <label>Output<select value={titleFormat} onChange={(e) => setTitleFormat(e.target.value)}>{Object.entries(TITLE_FORMATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+          <label>Length {seconds} s<input type="range" min={2} max={10} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} /></label>
+          <label>Text colour<input type="color" value={ink} onChange={(e) => setInk(e.target.value)} /></label>
+          {titleFormat === "mp4" && <label>Background colour<input type="color" value={ground} onChange={(e) => setGround(e.target.value)} /></label>}
+        </>)}
         {tool.id === "ffmpeg-export" && (
           <label>Export<select value={preset} onChange={(e) => setPreset(e.target.value as ExportPreset)}>{Object.entries(EXPORT_PRESETS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
         )}
@@ -114,10 +134,13 @@ export function ToolApp({ tool }: { tool: VideoTool }) {
           <label className={styles.file}><span>{reference ? reference.name : "Choose the reference picture"}</span><input type="file" accept="image/*" disabled={here !== "local"} onChange={(e) => void addReference(e.target.files?.[0])} /></label>
           <label>Method<select value={method} onChange={(e) => setMethod(e.target.value as ColorMethod)}>{Object.entries(COLOR_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         </>)}
+        {tool.id === "split-stems" && (
+          <label>Split into<select value={stemMode} onChange={(e) => setStemMode(e.target.value as "two" | "four")}>{Object.entries(STEM_MODES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+        )}
         {tool.id === "remove-bg" && (
           <label>Model<select value={model} onChange={(e) => setModel(e.target.value)}>{REMOVE_MODELS.map((m) => <option key={m} value={m}>{m}{m === "u2netp" ? " (smaller, faster)" : ""}</option>)}</select></label>
         )}
-        <button className={styles.go} onClick={() => void go()} disabled={!source || (tool.id === "color-match" && !reference) || busy || here !== "local" || !installed}>{busy ? "Working…" : "Run"}</button>
+        <button className={styles.go} onClick={() => void go()} disabled={(!source && tool.input !== "none") || (tool.id === "color-match" && !reference) || busy || here !== "local" || !installed}>{busy ? "Working…" : "Run"}</button>
         {problem && <p role="alert" className={styles.problem}>{problem}</p>}
       </section>
 
@@ -128,9 +151,10 @@ export function ToolApp({ tool }: { tool: VideoTool }) {
             <p><b>{result.bpm} BPM</b> · {result.beats.length} beats · {result.cuts?.length ?? 0} cut points every {every === 1 ? "beat" : `${every} beats`} · <button className="plain" onClick={cutList}>Copy cut list</button></p>
             <p className={styles.cuts}>{result.cuts?.map((c) => fmt(c)).join(" · ")}</p>
           </>)}
-          {result.url && (tool.id === "beat-cuts" && !result.url.endsWith(".mp4") ? <audio src={result.url} controls /> : <video src={result.url} controls preload="metadata" className={tool.id === "remove-bg" ? styles.alpha : undefined} />)}
+          {result.url && (tool.id === "beat-cuts" && !result.url.endsWith(".mp4") ? <audio src={result.url} controls /> : <video src={result.url} controls preload="metadata" className={tool.id === "remove-bg" || (tool.id === "animated-titles" && titleFormat !== "mp4") ? styles.alpha : undefined} />)}
           {result.url && <p><a href={result.url} download>Download{tool.id === "remove-bg" ? " WebM" : ""}</a>{result.extra && tool.id === "remove-bg" && <> · <a href={result.extra} download>Download ProRes 4444 (.mov)</a></>}</p>}
           {tool.id === "remove-bg" && result.stills?.[0] && <p><a href={result.stills[0]} download>Download still (PNG)</a></p>}
+          {result.stems?.map((st) => <div key={st.name} className={styles.stem}><b>{st.name}</b><audio src={st.url} controls preload="none" /><a href={st.url} download>Download</a></div>)}
           {result.shots && tool.id === "scene-detect" && (<>
             <p><b>{result.shots.length} shots</b> in {fmt(result.before ?? 0)} · <button className="plain" onClick={csv}>Copy as CSV</button></p>
             <div className={styles.shots}>

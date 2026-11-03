@@ -3,7 +3,7 @@
  * states the licence. Nothing here is bundled or redistributed: HAGGS only runs the program you installed.
  */
 
-export type VideoToolId = "ffmpeg-export" | "scene-detect" | "auto-editor" | "beat-cuts" | "color-match" | "remove-bg";
+export type VideoToolId = "ffmpeg-export" | "scene-detect" | "auto-editor" | "beat-cuts" | "color-match" | "remove-bg" | "split-stems" | "animated-titles";
 
 export type VideoTool = {
   id: VideoToolId;
@@ -21,7 +21,7 @@ export type VideoTool = {
   /** For tools that are a Python library run by a small script in tools/video-tools: the module that must import. */
   module?: string;
   /** What you add first. */
-  input: "video" | "video-or-audio";
+  input: "video" | "video-or-audio" | "none";
   install: string[];
   needs: string;
   /** Where it has actually been run. Anything not listed here is untested. */
@@ -120,6 +120,36 @@ export const VIDEO_TOOLS: VideoTool[] = [
     install: ["uv venv --python 3.11 video-tools-env", "uv pip install --python video-tools-env/bin/python \"rembg[cpu,cli]\"", "export HAGGS_VIDEO_TOOLS_BIN=\"$PWD/video-tools-env/bin\"", "export U2NET_HOME=\"$PWD/video-tools-env/models\"   # where rembg keeps its models"],
     needs: "Python 3.10+, rembg with onnxruntime, and ffmpeg. The first run makes rembg download the chosen model from its own GitHub releases (u2net is about 176 MB); HAGGS does not ship or host it, and the model's licence is set by its authors, so read rembg's README before using results commercially. CPU is slow: about half a second a frame here. Output is limited to the first 8 seconds at up to 24 fps and 960 px wide.",
     tested: "macOS 26 on Apple silicon (CPU), rembg 2.0.86 with u2net, Python 3.11. Not tested on Windows, Linux or a GPU.",
+  },
+  {
+    id: "split-stems",
+    name: "Split the music and voice",
+    does: "Splits a song or a video's soundtrack into separate vocals and backing, or into vocals, drums, bass and everything else.",
+    creator: "Alexandre Défossez",
+    github: "https://github.com/adefossez/demucs",
+    licence: "MIT",
+    licenceUrl: "https://github.com/adefossez/demucs/blob/main/LICENSE",
+    how: "local-tool",
+    input: "video-or-audio",
+    command: "demucs",
+    install: ["uv venv --python 3.11 video-tools-env", "uv pip install --python video-tools-env/bin/python demucs", "export HAGGS_VIDEO_TOOLS_BIN=\"$PWD/video-tools-env/bin\"", "export TORCH_HOME=\"$PWD/video-tools-env/models/torch\"   # where Demucs keeps its model"],
+    needs: "Python 3.10+, Demucs with PyTorch (a few GB of packages), and ffmpeg. The first run makes Demucs download its htdemucs model (about 80 MB); HAGGS does not host or ship it. CPU works: about three times faster than real time here. Output is limited to the first 2 minutes. Credit: this is the maintained fork of the original Meta Research project (facebookresearch/demucs, archived).",
+    tested: "macOS 26 on Apple silicon (CPU), Demucs 4.1.0, htdemucs, Python 3.11. Not tested on Windows, Linux or a GPU.",
+  },
+  {
+    id: "animated-titles",
+    name: "Animated titles",
+    does: "Type a title and get a rendered animated title card (or a transparent overlay to lay over a clip), made from HTML by HyperFrames.",
+    creator: "HeyGen",
+    github: "https://github.com/heygen-com/hyperframes",
+    licence: "Apache-2.0",
+    licenceUrl: "https://github.com/heygen-com/hyperframes/blob/main/LICENSE",
+    how: "local-tool",
+    input: "none",
+    command: "npx",
+    install: ["# Node.js 22+ and ffmpeg", "npx --yes hyperframes@0.9.6 --help   # fetches HyperFrames from npm on first use"],
+    needs: "Node.js 22+, ffmpeg, and network access: the first run fetches HyperFrames from npm and a headless Chrome, and each render loads GSAP from the jsDelivr CDN. HAGGS writes the title's HTML itself and runs HyperFrames 0.9.6 on it; nothing of HyperFrames is bundled. CPU or GPU; no model files. Note that HyperFrames collects usage telemetry unless you run `npx hyperframes telemetry disable`.",
+    tested: "macOS 26 on Apple silicon, Node 24, HyperFrames 0.9.6 (MP4). Not tested on Windows or Linux.",
   },
 ];
 
@@ -221,3 +251,12 @@ export function clickMixArgs(input: string, clicks: string, output: string, audi
 
 export const REMOVE_MODELS = ["u2net", "u2netp", "isnet-general-use", "silueta"] as const;
 export const isRemoveModel = (v: unknown): v is (typeof REMOVE_MODELS)[number] => REMOVE_MODELS.includes(v as "u2net");
+
+export const STEM_MODES = { two: "Vocals and backing", four: "Vocals, drums, bass and other" } as const;
+export type StemMode = keyof typeof STEM_MODES;
+export const isStemMode = (v: unknown): v is StemMode => v === "two" || v === "four";
+
+/** Demucs arguments; stems land in out/htdemucs/<track name>/. */
+export function demucsArgs(input: string, out: string, mode: StemMode): string[] {
+  return ["-n", "htdemucs", ...(mode === "two" ? ["--two-stems=vocals"] : []), "-o", out, input];
+}

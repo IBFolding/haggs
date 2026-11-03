@@ -26,3 +26,6 @@
 @media (max-width: 480px) { .credit { grid-template-columns: 1fr; } }
 .cuts { font-size: 12px; color: var(--text-2); line-height: 1.8; overflow-wrap: anywhere; margin: 0; }
 .alpha { background: repeating-conic-gradient(#555 0% 25%, #888 0% 50%) 50% / 20px 20px !important; }
+.stem { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.stem audio { width: 100%; min-width: 0; }
+@media (max-width: 480px) { .stem { grid-template-columns: 1fr; } }
