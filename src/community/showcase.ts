@@ -6,14 +6,14 @@
 
 export type ShowcaseItem = { id: string; kind: "image" | "video"; src: string; poster?: string; alt: string; label: string };
 
-/** WAYLIGHT: a short film made end to end in haggs. The stills are frames from its real takes; the reel is a 30 second cut of them. */
+/** WAYLIGHT: a short film made end to end in haggs. The stills are frames from its real takes; the reel is a 30 second trailer cut from them. */
 export const SHOWCASE_REEL: ShowcaseItem = {
   id: "waylight-sizzle",
   kind: "video",
   src: "/explore/waylight-sizzle.mp4",
   poster: "/explore/waylight-sizzle-poster.webp",
-  alt: "A 30 second sizzle reel of WAYLIGHT, a sci-fi love story: a woman at a river, a rocket launch, a hand against frosted glass, Earth from orbit.",
-  label: "WAYLIGHT, 30 second sizzle",
+  alt: "A 30 second widescreen trailer for WAYLIGHT, a sci-fi love story: quiet moments, then a fast run of a rocket launch, a hooded figure and shattering glass, ending on the title.",
+  label: "WAYLIGHT, 30 second trailer",
 };
 
 export const SHOWCASE: ShowcaseItem[] = [
