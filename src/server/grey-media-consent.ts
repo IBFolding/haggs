@@ -1,16 +1,16 @@
 import {createHash,randomUUID} from 'node:crypto';
 import type {GreyQuoteStore} from './grey-quote-store';
-export type GreyMediaKind='still'|'video'|'matte';
+export type GreyMediaKind='still'|'video'|'matte'|'relight'|'real';
 export type GreyMediaConsent={quoteId:string;consent:true;approvedFirstFrame?:boolean};
 export type GreyMediaQuote={ok:true;id:string;estimateUsd:number;expiresAt:number}|{ok:false;reason:string};
 const hash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 const failure=(reason:string)=>({ok:false as const,reason});
 /** Media quotes share the durable ledger, with a distinct domain to prevent proposal/media replay. */
-export function createGreyMediaConsent(deps:{store:GreyQuoteStore;policy:(kind:GreyMediaKind)=>{enabled:boolean;estimateUsd:number};identity:()=>Promise<unknown>;now?:()=>number}){
+export function createGreyMediaConsent(deps:{store:GreyQuoteStore;policy:(kind:GreyMediaKind,input?:unknown)=>{enabled:boolean;estimateUsd:number};identity:()=>Promise<unknown>;now?:()=>number}){
  const now=deps.now??Date.now;
  async function binding(kind:GreyMediaKind,input:unknown){
-  if(kind!=='still'&&kind!=='video'&&kind!=='matte')throw Error('Invalid media kind');
-  const policy=deps.policy(kind);
+  if(kind!=='still'&&kind!=='video'&&kind!=='matte'&&kind!=='relight'&&kind!=='real')throw Error('Invalid media kind');
+  const policy=deps.policy(kind,input);
   if(!policy.enabled||!Number.isFinite(policy.estimateUsd)||policy.estimateUsd<=0)throw Error('Media generation is not enabled.');
   const text=JSON.stringify(input);
   if(!text||text.length>8_000_000||!input||typeof input!=='object')throw Error('Invalid media request.');

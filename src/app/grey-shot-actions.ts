@@ -66,13 +66,32 @@ export async function makeGreyShot(input: { grey: GreyFrame; frame: string; beat
 
 const mediaConsent=createGreyMediaConsent({
  store:sharedGreyQuoteStore(process.env),
- policy:kind=>({enabled:kind==='still'?greyStillEnabled():kind==='matte'?greyMatteEnabled():greyVideoEnabled(),estimateUsd:kind==='still'?editEstimate({tool:'kontext',seconds:0}):kind==='matte'?(greyMatteEstimateUsd()??0):GREY_SHOT_USD}),
+ policy:(kind,input)=>({enabled:kind==='still'?greyStillEnabled():kind==='matte'?greyMatteEnabled():greyVideoEnabled(),estimateUsd:kind==='still'?editEstimate({tool:'kontext',seconds:0}):kind==='matte'?(greyMatteEstimateUsd()??0):kind==='relight'||kind==='real'?finishingEstimate(kind,input):GREY_SHOT_USD}),
  identity:async()=>{
   const jar=await cookies(),own=keyIn(jar,COMFY_COOKIE),user=await userNow();
   if(!own&&(!platformOn()||!user))return undefined;
   return {own:own??null,user:user?.id??null,local:jar.get(LOCAL_COOKIE)?.value??null,platform:own?null:process.env.COMFY_PLATFORM_KEY,gate:process.env.HAGGS_GATE??null};
  },
 });
+/** Relight and Make it real are priced from the clip length the person sees; the quote binds that length, so the price cannot change after approval. */
+function finishingEstimate(kind:'relight'|'real',input:unknown){
+  const seconds=Number((input as {seconds?:unknown}|undefined)?.seconds);
+  if(!Number.isFinite(seconds)||seconds<=0||seconds>30)return 0;
+  return kind==='relight'?editEstimate({tool:'aleph',seconds}):editEstimate({tool:'kling',seconds,resolution:'720p'});
+}
+type FinishingInput={video:string;seconds:number;prompt:string};
+/** Relight the actor on a Grey Room draft: Runway Aleph, switched on by the owner, an estimate you approve, held against your cap. */
+export async function relightGreyShot(input:FinishingInput,approval?:GreyMediaConsent):Promise<EditResult>{
+  if(!greyVideoEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
+  const permit=await mediaConsent.consume("relight",input,approval);if(!permit.ok)return permit;
+  return runWithGreyCap("relight",()=>runEdit({tool:"aleph",video:input.video,seconds:input.seconds,prompt:input.prompt}),finishingEstimate("relight",input));
+}
+/** Make it real: Kling blends the draft into one filmed picture. Same rules as every other paid Grey Room action. */
+export async function makeGreyReal(input:FinishingInput,approval?:GreyMediaConsent):Promise<EditResult>{
+  if(!greyVideoEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
+  const permit=await mediaConsent.consume("real",input,approval);if(!permit.ok)return permit;
+  return runWithGreyCap("real",()=>runEdit({tool:"kling",video:input.video,seconds:input.seconds,prompt:input.prompt,resolution:"720p"}),finishingEstimate("real",input));
+}
 export async function quoteGreyMedia(kind:GreyMediaKind,input:unknown){return mediaConsent.quote(kind,input);}
 
 /** The cut-out or area finder on Comfy Cloud. Same rules as the other paid Grey Room actions: switched on by the owner, an estimate you approve, held against your cap. */

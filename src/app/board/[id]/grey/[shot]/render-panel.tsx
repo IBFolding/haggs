@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { track } from "../../../../../activity/activity";
 import { editEstimate } from "../../../../../providers/cloud-edits";
 import type { BankItem } from "../../../../../story/bank";
 import { atmosphere, describeLighting, describeScene, sceneIsEmpty, type GreyScene } from "../../../../../story/grey-scene";
 import type { Project, Shot } from "../../../../../story/model";
-import { runGreyFinishing as runEdit } from "../../../../grey-legacy-actions";
+import { greyGenerationAvailability, makeGreyReal, quoteGreyMedia, relightGreyShot } from "../../../../grey-shot-actions";
 import { openKeys } from "../../../../nav";
 import { uploadFile } from "../../../../upload-client";
 import { creditsText } from "../../../../../story/price-text";
@@ -32,6 +32,8 @@ export function RenderPanel({ advanced = true, scene, project, shot, places, onT
   const [relit, setRelit] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [kept, setKept] = useState<string | null>(null);
+  const [paid, setPaid] = useState<boolean | null>(null);
+  useEffect(() => { void greyGenerationAvailability().then((a) => setPaid(a.video)).catch(() => setPaid(false)); }, []);
   const source = scene.source ?? shot.render;
   const seconds = shot.seconds ?? 4;
   const relightCost = editEstimate({ tool: "aleph", seconds });
@@ -78,7 +80,15 @@ export function RenderPanel({ advanced = true, scene, project, shot, places, onT
     setKept(null);
     const r = await track(
       { label, href: href(), failure: (x) => (x.ok ? null : x.reason) },
-      () => runEdit(tool === "aleph" ? { tool, video: source, seconds, prompt } : { tool, video: source, seconds, prompt, resolution: "720p" }),
+      async () => {
+        const input = { video: source, seconds, prompt };
+        const media = kind === "relit" ? "relight" : "real";
+        const quote = await quoteGreyMedia(media, input);
+        if (!quote.ok) return { ok: false as const, reason: quote.reason, needsKey: false };
+        if (!window.confirm(`Allow one ${kind === "relit" ? "relight" : "make-it-real"} request at an estimated $${quote.estimateUsd.toFixed(2)}? Actual provider billing may differ, and your Grey Room spending cap applies.`)) return { ok: false as const, reason: "Request canceled; nothing was submitted.", needsKey: false };
+        const approval = { quoteId: quote.id, consent: true as const };
+        return kind === "relit" ? relightGreyShot(input, approval) : makeGreyReal(input, approval);
+      },
     ).catch((e: unknown) => ({ ok: false as const, reason: e instanceof Error ? e.message : "The pass didn't run.", needsKey: false }));
     setBusy(null);
     if (!r.ok) {
@@ -154,18 +164,18 @@ export function RenderPanel({ advanced = true, scene, project, shot, places, onT
         {notes.map((n) => <p key={n} className="gs-soft">{n}</p>)}
       </section>
 
-      <details open={advanced}><summary>AI finishing & Blender options</summary><p className="gs-soft">Paid AI finishing is paused until its maximum charge can be protected by your cap. Free drafts and Blender export remain available.</p>
+      <details open={advanced}><summary>AI finishing & Blender options</summary><p className="gs-soft">{paid === false ? "Paid AI finishing is switched off on this site. Free drafts and Blender export remain available." : "Each paid step shows its price first and runs only after you approve it. Your Grey Room spending cap applies."}</p>
       <section className="gs-sec">
         <h3>2. Relight the actor <span className="gs-soft">(optional)</span></h3>
         <p className="gs-soft">An AI pass so the light on the people matches the lights you placed{lighting ? `: ${lighting}` : ""}. It can change skin and expression slightly, which is why you look before you keep it.</p>
-        <button className="pill on" disabled={true} onClick={() => void relight()}>{busy === "relit" ? "Relighting…" : relit ? "Relight again" : "Relight"} <span className="cost">about {money(relightCost)}</span></button>
+        <button className="pill on" disabled={busy !== null || !draft || paid !== true} onClick={() => void relight()}>{busy === "relit" ? "Relighting…" : relit ? "Relight again" : "Relight"} <span className="cost">about {money(relightCost)}</span></button>
         {!draft && <p className="gs-soft">Make a draft first.</p>}
       </section>
 
       <section className="gs-sec">
         <h3>3. Make it real</h3>
         <p className="gs-soft">A video model blends the actor, set and props into one filmed picture, keeping the performance. It starts from {relit ? "your relit version" : "your draft"}.</p>
-        <button className="fire" disabled={true} onClick={() => void makeReal()}>{busy === "real" ? "Working…" : "Make it real"} <span className="cost">about {money(realCost)}</span></button>
+        <button className="fire" disabled={busy !== null || !draft || paid !== true} onClick={() => void makeReal()}>{busy === "real" ? "Working…" : "Make it real"} <span className="cost">about {money(realCost)}</span></button>
       </section>
 
       <section className="gs-sec">

@@ -1,7 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 import {randomUUID} from 'node:crypto';
 import {greyPlanningMaximum} from './grey-planning-limit';
-export type GreySpendKind='proposal'|'still'|'video'|'matte';
+export type GreySpendKind='proposal'|'still'|'video'|'matte'|'relight'|'real';
 export type GreySpendStatus={capUsd:number;chargedUsd:number;reservedUsd:number};
 export function greySpendingStore(env:Record<string,string|undefined>,token?:string){
  const call=async(name:string,args:Record<string,unknown>={})=>{
