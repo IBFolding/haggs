@@ -272,7 +272,7 @@ const fmt = (n) => Math.floor(n).toLocaleString("en-US");
 
 let muted = false, paused = false, curMusic = null;
 const sfx = (n) => { if (!muted) HAGGS.sound(n); };
-const setMusic = (m) => { curMusic = m; HAGGS.music(muted ? null : m); };
+const setMusic = (m) => { curMusic = m; };
 
 let bestSaved = 0;
 try { bestSaved = Number(localStorage.getItem("starsling-best")) || 0; } catch (e) { bestSaved = 0; }
