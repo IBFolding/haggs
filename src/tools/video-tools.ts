@@ -3,7 +3,7 @@
  * states the licence. Nothing here is bundled or redistributed: HAGGS only runs the program you installed.
  */
 
-export type VideoToolId = "ffmpeg-export" | "scene-detect" | "auto-editor";
+export type VideoToolId = "ffmpeg-export" | "scene-detect" | "auto-editor" | "beat-cuts" | "color-match" | "remove-bg";
 
 export type VideoTool = {
   id: VideoToolId;
@@ -18,6 +18,10 @@ export type VideoTool = {
   how: "ffmpeg" | "local-tool";
   /** The command that provides it, looked up in HAGGS_VIDEO_TOOLS_BIN and then the PATH. */
   command: string;
+  /** For tools that are a Python library run by a small script in tools/video-tools: the module that must import. */
+  module?: string;
+  /** What you add first. */
+  input: "video" | "video-or-audio";
   install: string[];
   needs: string;
   /** Where it has actually been run. Anything not listed here is untested. */
@@ -34,6 +38,7 @@ export const VIDEO_TOOLS: VideoTool[] = [
     licence: "LGPL 2.1+ (GPL 2+ with some options)",
     licenceUrl: "https://github.com/FFmpeg/FFmpeg/blob/master/LICENSE.md",
     how: "ffmpeg",
+    input: "video",
     command: "ffmpeg",
     install: ["brew install ffmpeg"],
     needs: "ffmpeg on the PATH. CPU only; no model files.",
@@ -48,6 +53,7 @@ export const VIDEO_TOOLS: VideoTool[] = [
     licence: "BSD 3-Clause",
     licenceUrl: "https://github.com/Breakthrough/PySceneDetect/blob/main/LICENSE",
     how: "local-tool",
+    input: "video",
     command: "scenedetect",
     install: ["uv venv --python 3.11 video-tools-env", "uv pip install --python video-tools-env/bin/python scenedetect opencv-python-headless", "export HAGGS_VIDEO_TOOLS_BIN=\"$PWD/video-tools-env/bin\""],
     needs: "Python 3.10+, PySceneDetect with OpenCV, and ffmpeg. CPU only; no model files.",
@@ -62,10 +68,58 @@ export const VIDEO_TOOLS: VideoTool[] = [
     licence: "The Unlicense (public domain)",
     licenceUrl: "https://github.com/WyattBlue/auto-editor/blob/master/LICENSE",
     how: "local-tool",
+    input: "video",
     command: "auto-editor",
     install: ["uv venv --python 3.11 video-tools-env", "uv pip install --python video-tools-env/bin/python auto-editor", "export HAGGS_VIDEO_TOOLS_BIN=\"$PWD/video-tools-env/bin\""],
     needs: "Python 3.10+ and ffmpeg. The first run downloads Auto-Editor's own program from its GitHub releases. CPU only; no model files.",
     tested: "macOS 26 on Apple silicon, auto-editor 29.3.1. Not tested on Windows or Linux.",
+  },
+  {
+    id: "beat-cuts",
+    name: "Cut on the beat",
+    does: "Finds the tempo and every beat of a song or a video's soundtrack, lists cut points every 1, 2, 4 or 8 beats, and gives you a copy with a click on each beat so you can hear that they land.",
+    creator: "The librosa development team",
+    github: "https://github.com/librosa/librosa",
+    licence: "ISC",
+    licenceUrl: "https://github.com/librosa/librosa/blob/main/LICENSE.md",
+    how: "local-tool",
+    input: "video-or-audio",
+    command: "python",
+    module: "librosa",
+    install: ["uv venv --python 3.11 video-tools-env", "uv pip install --python video-tools-env/bin/python librosa soundfile", "export HAGGS_VIDEO_TOOLS_BIN=\"$PWD/video-tools-env/bin\""],
+    needs: "Python 3.10+, librosa and soundfile, and ffmpeg. CPU only; no model files. Beat tracking suits music with a steady pulse; speech or free tempo gives unreliable beats.",
+    tested: "macOS 26 on Apple silicon, librosa 0.11.0, Python 3.11. Not tested on Windows or Linux.",
+  },
+  {
+    id: "color-match",
+    name: "Match colour to a reference",
+    does: "Grades every frame of a clip toward the colours of one reference picture, so shots from different sources sit together.",
+    creator: "Christopher Hahne",
+    github: "https://github.com/hahnec/color-matcher",
+    licence: "GPL-3.0",
+    licenceUrl: "https://github.com/hahnec/color-matcher/blob/master/LICENSE",
+    how: "local-tool",
+    input: "video",
+    command: "python",
+    module: "color_matcher",
+    install: ["uv venv --python 3.11 video-tools-env", "uv pip install --python video-tools-env/bin/python color-matcher", "export HAGGS_VIDEO_TOOLS_BIN=\"$PWD/video-tools-env/bin\""],
+    needs: "Python 3.10+, color-matcher, and ffmpeg. CPU only; no model files. It matches each frame on its own, so shots with changing content can shimmer slightly. Output is limited to the first 10 seconds at up to 24 fps and 1280 px wide.",
+    tested: "macOS 26 on Apple silicon, color-matcher 0.6.0, Python 3.11. Not tested on Windows or Linux.",
+  },
+  {
+    id: "remove-bg",
+    name: "Remove the background",
+    does: "Cuts the subject out of every frame and gives you a clip with a transparent background.",
+    creator: "Daniel Gatis",
+    github: "https://github.com/danielgatis/rembg",
+    licence: "MIT (model weights have their own terms)",
+    licenceUrl: "https://github.com/danielgatis/rembg/blob/main/LICENSE.txt",
+    how: "local-tool",
+    input: "video",
+    command: "rembg",
+    install: ["uv venv --python 3.11 video-tools-env", "uv pip install --python video-tools-env/bin/python \"rembg[cpu,cli]\"", "export HAGGS_VIDEO_TOOLS_BIN=\"$PWD/video-tools-env/bin\"", "export U2NET_HOME=\"$PWD/video-tools-env/models\"   # where rembg keeps its models"],
+    needs: "Python 3.10+, rembg with onnxruntime, and ffmpeg. The first run makes rembg download the chosen model from its own GitHub releases (u2net is about 176 MB); HAGGS does not ship or host it, and the model's licence is set by its authors, so read rembg's README before using results commercially. CPU is slow: about half a second a frame here. Output is limited to the first 8 seconds at up to 24 fps and 960 px wide.",
+    tested: "macOS 26 on Apple silicon (CPU), rembg 2.0.86 with u2net, Python 3.11. Not tested on Windows, Linux or a GPU.",
   },
 ];
 
@@ -126,3 +180,44 @@ export function autoEditArgs(input: string, output: string, thresholdDb: number,
   const margin = clamp(marginSeconds, 0, 1, 0.1);
   return [input, "--edit", `audio:threshold=${db}dB`, "--margin", `${margin}sec`, "--progress", "none", "--no-open", "-o", output];
 }
+
+export type FrameJob = { seconds: number; fps: number; width: number };
+
+/** Frames of the first seconds of a clip, capped so a long clip can't run for hours. */
+export function frameArgs(input: string, dir: string, job: FrameJob): string[] {
+  return ["-y", "-hide_banner", "-loglevel", "error", "-t", String(job.seconds), "-i", input, "-vf", `fps=${job.fps},scale='min(${job.width},iw)':-2`, `${dir}/%06d.png`];
+}
+
+/** Frames back into an MP4 with the original soundtrack. */
+export function framesToVideoArgs(dir: string, input: string, output: string, job: FrameJob, audio: boolean): string[] {
+  return ["-y", "-hide_banner", "-loglevel", "error", "-framerate", String(job.fps), "-i", `${dir}/%06d.png`, "-t", String(job.seconds), "-i", input, "-map", "0:v", ...(audio ? ["-map", "1:a", "-c:a", "aac"] : []), "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-shortest", "-movflags", "+faststart", output];
+}
+
+/** Transparent frames into a WebM with alpha (plays in browsers) or ProRes 4444 (for editors). */
+export function alphaArgs(dir: string, output: string, fps: number): string[] {
+  const head = ["-y", "-hide_banner", "-loglevel", "error", "-framerate", String(fps), "-i", `${dir}/%06d.png`];
+  return output.endsWith(".mov") ? [...head, "-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le", output] : [...head, "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-b:v", "0", "-crf", "30", output];
+}
+
+export const COLOR_METHODS = { mkl: "Natural (MKL)", reinhard: "Reinhard", mvgd: "Gaussian (MVGD)", hm: "Histogram" } as const;
+export type ColorMethod = keyof typeof COLOR_METHODS;
+export const isColorMethod = (v: unknown): v is ColorMethod => typeof v === "string" && v in COLOR_METHODS;
+
+export const CUT_EVERY = [1, 2, 4, 8] as const;
+
+/** Cut points: every Nth beat, starting from the first. */
+export function cutsEvery(beats: number[], every: number): number[] {
+  const n = CUT_EVERY.includes(every as 1) ? every : 4;
+  return beats.filter((_, i) => i % n === 0);
+}
+
+/** A copy of the clip with the click track mixed over its own sound (or alone if it has none). */
+export function clickMixArgs(input: string, clicks: string, output: string, audio: boolean, video: boolean): string[] {
+  const head = ["-y", "-hide_banner", "-loglevel", "error", "-i", input, "-i", clicks];
+  if (!video) return [...head, "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[a]", "-map", "[a]", "-c:a", "aac", output];
+  if (!audio) return [...head, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest", output];
+  return [...head, "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", output];
+}
+
+export const REMOVE_MODELS = ["u2net", "u2netp", "isnet-general-use", "silueta"] as const;
+export const isRemoveModel = (v: unknown): v is (typeof REMOVE_MODELS)[number] => REMOVE_MODELS.includes(v as "u2net");
