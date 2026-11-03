@@ -20,3 +20,6 @@ export function split(cents: number): { creator: number; platform: number } {
 }
 
 export const feeLabel = (cents: number) => (cents === 0 ? "free to use" : `+ ${cents} credit${cents === 1 ? "" : "s"} to the creator`);
+
+/** What the Run button shows: the run's own price, then the creator's fee if there is one. */
+export const priceWithFee = (price: string, cents: number) => (cents > 0 ? `${price} + ${cents} credit${cents === 1 ? "" : "s"} to the creator` : price);

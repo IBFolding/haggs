@@ -24,3 +24,10 @@ test("the fee reads plainly on the Run button", () => {
   assert.equal(feeLabel(0), "free to use");
   assert.equal(feeLabel(12), "+ 12 credits to the creator");
 });
+
+import { priceWithFee } from "./fees";
+test("the run button shows the creator's fee after the price", () => {
+  assert.equal(priceWithFee("about 6 credits", 0), "about 6 credits");
+  assert.equal(priceWithFee("about 6 credits", 1), "about 6 credits + 1 credit to the creator");
+  assert.equal(priceWithFee("about 6 credits", 12), "about 6 credits + 12 credits to the creator");
+});
