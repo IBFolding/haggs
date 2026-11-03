@@ -102,14 +102,14 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   const [libCollapsed, setLibCollapsed] = useState(false);
   const timelineScroll = useRef(0);
   const toolsScroll = useRef(0);
-  const [showAllLanes, setShowAllLanes] = useState(false);
+  const [showAllLanes, setShowAllLanes] = useState(true);
   const [laneRequest,setLaneRequest]=useState({name:"",count:0});
   useEffect(()=>{if(!laneRequest.count)return;const frame=requestAnimationFrame(()=>{const selector=laneRequest.name==="music"?".music-maker input":laneRequest.name==="effects"?'[aria-label="Describe a sound effect"]':laneRequest.name==="titles"?'[aria-label="Title words"]':".voices-head button";document.querySelector<HTMLElement>(selector)?.focus()});return()=>cancelAnimationFrame(frame)},[laneRequest]);
   const [revealedLanes, setRevealedLanes] = useState<string[]>([]);
   useEffect(() => {
     try {
       setMode(localStorage.getItem("haggs.cut.view") === "simple" ? "simple" : "advanced");
-      setShowAllLanes(localStorage.getItem("haggs.cut.allLanes") === "true");
+      setShowAllLanes(localStorage.getItem("haggs.cut.allLanes") !== "false");
       setTimelineCollapsed(localStorage.getItem("haggs.cut.timelineCollapsed") === "true");
       setToolsCollapsed(localStorage.getItem("haggs.cut.toolsCollapsed") === "true");
       setLibCollapsed(localStorage.getItem("haggs.cut.libCollapsed") === "true");
@@ -702,7 +702,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                 <li key={c.shotId}>
                   <button aria-current={i === idxHere ? "true" : undefined} aria-label={`${c.index + 1}. ${c.heading || `Shot ${c.index + 1}`}`} onClick={() => jump(i)} title={c.heading || `Shot ${c.index + 1}`}>
                     <span className="ed-thumb">{c.kind === "video" ? <video src={`${c.url}#t=0.3`} muted playsInline preload="metadata" /> : <img src={c.url} alt="" loading="lazy" />}<em>{`${Math.floor(c.seconds / 60)}:${String(Math.round(c.seconds % 60)).padStart(2, "0")}`}</em></span>
-                    <span><b>{c.heading || `Shot ${c.index + 1}`}</b><small>{c.kind === "video" ? "Video" : "Still"} · {c.seconds.toFixed(1)} s</small></span>
+                    <span><b>{String(c.index + 1).padStart(2, "0")}. {c.heading || `Shot ${c.index + 1}`}</b><small>{c.kind === "video" ? "Video" : "Still"} · {c.seconds.toFixed(1)} s</small></span>
                   </button>
                 </li>
               ))}
@@ -735,7 +735,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                   setPlaying((p) => !p);
                 }}
               >
-                {playing ? "Pause" : t >= cut.total ? "Replay" : "Play"}
+                <span aria-hidden="true">{playing ? "❚❚" : "▶"}</span><span className="sr-only">{playing ? "Pause" : t >= cut.total ? "Replay" : "Play"}</span>
               </button>
               <button className="pill" onClick={() => jump(idxHere + 1)} aria-label="Next shot" disabled={idxHere >= cut.clips.length - 1}>⏭</button>
               <button className="pill" onClick={() => setShowText((v) => !v)} aria-label={showText ? "Captions on" : "Captions off"} aria-pressed={showText} title="Show or hide the captions on the preview. The render keeps them."><span aria-hidden="true">CC</span><span className="ed-control-label">{showText ? "Captions on" : "Captions off"}</span></button>
