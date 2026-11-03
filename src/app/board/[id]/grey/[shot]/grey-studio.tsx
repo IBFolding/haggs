@@ -20,6 +20,7 @@ import { GreyRoom } from "../../cut/grey";
 import { Inspector } from "./inspector";
 import { LayersPanel, addImageLayer } from "./layers-panel";
 import { StepCard, type StepTile } from "./step-card";
+import { NumSlide } from "./slide";
 import { LOOKS } from "./light-panel";
 import { GreyMovesPanel } from "../../cut/grey-moves-panel";
 import { checkDrop } from "../../../../../story/drop-files";
@@ -29,7 +30,7 @@ import { GreySpendingPanel } from "../../cut/grey-spending-panel";
 import { DropError, DropOverlay, useFileDrop } from "../../../../drop-zone";
 import { uploadFile } from "../../../../upload-client";
 import { RenderPanel } from "./render-panel";
-import { addLight, createHistory, dropKey, keyTimes, mergeEdit, normalizeScene, removeLight, removeProp, replaceRoomSource, resolveScene, setLook, type GreyScene } from "../../../../../story/grey-scene";
+import { addLight, createHistory, dropKey, keyTimes, mergeEdit, normalizeScene, removeLight, removeProp, replaceRoomSource, resolveScene, setLook, updateProp, type GreyScene } from "../../../../../story/grey-scene";
 import type { BankItem } from "../../../../../story/bank";
 import { commit, view } from "../../../../../story/boards";
 import { defaultKv, idbKv } from "../../../../../story/kv";
@@ -91,6 +92,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [tab, setTab] = useState<AssetTab>("room");
   const [drawer, setDrawer] = useState(false);
   const [step, setStep] = useState<StepId | null>(null);
+  const [tool, setTool] = useState<"move" | "scale" | "rotate">("move");
   const [leftOpen, setLeftOpen] = usePersistedFlag("haggs.grey.left", true);
   const [rightOpen, setRightOpen] = usePersistedFlag("haggs.grey.right", true);
   const [places, setPlaces] = useState<BankItem[]>([]);
@@ -382,7 +384,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     tiles = [{ id: "pick", label: "Pick actor", icon: "pick", on: picking, onClick: () => setPicking(!picking) }, { id: "orig", label: "Show original", icon: "original", on: showOriginal, onClick: () => setShowOriginal((v) => !v) }];
   } else if (current === "set") {
     primary = { label: "Add an object", onClick: () => objectInput.current?.click() };
-    tiles = (["objects", "actors", "surfaces"] as const).map((t) => ({ id: t, label: t === "objects" ? "Objects" : t === "actors" ? "Actors" : "Areas", icon: t === "surfaces" ? "areas" : t, on: tab === t, onClick: () => setTab(t) }));
+    tiles = (["move", "scale", "rotate"] as const).map((t) => ({ id: t, label: t === "move" ? "Move" : t === "scale" ? "Scale" : "Rotate", icon: t, on: tool === t, onClick: () => setTool(t) }));
   } else if (current === "light") {
     primary = { label: "Add a key light", onClick: () => { const n = addLight(liveScene.current, "key"); change(n, true); setSelected(n.lights!.at(-1)!.id); } };
     tiles = LOOKS.map((l) => ({ id: l.name, label: l.name, swatch: swatchOf(l.look), on: scene.look ? JSON.stringify(scene.look) === JSON.stringify(l.look) : false, onClick: () => change(setLook(liveScene.current, l.look), true) }));
@@ -558,6 +560,22 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                   {current === "blockout" && <button type="button" className="pill" onClick={() => setMode("blockout")} title="Work out the camera, the figures and the light in grey, for free">Open the grey blockout</button>}
                 </>}
               >
+                {current === "set" && (() => {
+                  const sel = shown.props?.find((p) => p.id === selected);
+                  const put = (change: Partial<NonNullable<typeof sel>>) => edit(updateProp(shown, sel!.id, change));
+                  return (
+                    <section className="gw-transform" aria-label={`${tool === "move" ? "Move" : tool === "scale" ? "Scale" : "Rotate"} the selected layer`}>
+                      {!sel ? <p className="gs-soft">Pick an object or actor on the picture, or in Layers, then {tool === "move" ? "move" : tool === "scale" ? "scale" : "rotate"} it here.</p> : sel.locked ? <p className="gs-soft">{sel.name} is locked. Unlock it to change it.</p> : (
+                        <>
+                          <b>{sel.name}</b>
+                          {tool === "move" && <><NumSlide label="Across" min={0} max={1} step={0.01} value={sel.x} onChange={(v) => put({ x: v })} /><NumSlide label="Down" min={0} max={1} step={0.01} value={sel.y} onChange={(v) => put({ y: v })} /></>}
+                          {tool === "scale" && <NumSlide label="Size" min={0.03} max={1.5} step={0.01} value={sel.w} onChange={(v) => put({ w: v })} />}
+                          {tool === "rotate" && <NumSlide label="Turn" min={0} max={359} step={1} value={sel.rotate} scale={1} unit="°" onChange={(v) => put({ rotate: v })} />}
+                        </>
+                      )}
+                    </section>
+                  );
+                })()}
                 {current === "render" && (
                   <section className="gw-versions" aria-label="Result versions">
                     <h3>Result versions</h3>

@@ -9,6 +9,9 @@ export type StepTile = { id: string; label: string; icon?: string; swatch?: stri
 const ICONS: Record<string, string> = {
   pick: "M5 4l14 7-6 2-2 6z",
   original: "M4 12a8 8 0 1 0 3-6.2M4 4v4h4",
+  move: "M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3",
+  scale: "M5 19V9M5 19h10M5 19 19 5M14 5h5v5",
+  rotate: "M20 12a8 8 0 1 1-3-6.2M20 4v4h-4",
   objects: "M4 20h16M6 20V10l6-5 6 5v10",
   actors: "M12 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6 20c0-4 2.7-6 6-6s6 2 6 6",
   areas: "M4 4h16v16H4zM4 14h16M14 4v16",

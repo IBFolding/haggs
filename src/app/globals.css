@@ -5335,3 +5335,5 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .gw-left.folded > .gw-side-toggle { margin: 0 auto 4px; }
 .gr-move { min-height: 60px; justify-content: flex-start; padding-top: 10px; }
 .gr-move span { white-space: nowrap; font-size: 10.5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.gw-transform { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font-size: 12.5px; }
+.gw-transform b { font-size: 13px; }
