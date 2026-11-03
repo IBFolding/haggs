@@ -20,6 +20,7 @@ import type { Canvas } from "../../../comfy/canvas";
 import type { Recipe } from "../../../comfy/recipe";
 import { chargeRun, refundRun } from "../../../community/community";
 import { dbOf } from "../../../community/supabase-db";
+import { feeLabel, priceWithFee } from "../../../community/fees";
 import { Nav, openKeys } from "../../nav";
 import { supabase } from "../../session";
 import { SaveToProject } from "../../save-to-project";
@@ -152,8 +153,8 @@ async function embed(url: string): Promise<string | null> {
 }
 
 export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBack }: { name: string; file?: string; recipe?: Recipe; canvas?: Canvas; saved?: SavedApp; onBack?: () => void }) {
-  const [destination, setDestination] = useState<"local" | "cloud">("local");
-  const source: Source = useMemo(() => ({...(file ? { file } : { template: name }), destination}), [name, file, destination]);
+  const [destination, setDestination] = useState<"auto" | "local" | "cloud">("auto");
+  const source: Source = useMemo(() => ({...(file ? { file } : { template: name }), ...(destination === "auto" ? {} : { destination })}), [name, file, destination]);
   const [preflight, setPreflight] = useState<Preflight | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkVersion,setCheckVersion] = useState(0);
@@ -200,7 +201,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     try {
       const cover: Cover | undefined = result?.ok && result.kind !== "audio" ? { url: result.url, kind: result.kind } : mine?.cover;
       const workflow = file ?? opened.workflow;
-      const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: appName.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, settings: values, ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(canvas ?? mine?.canvas ? { canvas: (canvas ?? mine?.canvas)! } : {}), ...(cover ? { cover } : {}) });
+      const app = await apps.save({ ...(mine ? { id: mine.id, createdAt: mine.createdAt } : {}), name: appName.trim().slice(0, 80), description: (mine?.description ?? opened.description ?? "").slice(0, 400), workflow, settings: values, ...(mine?.community ? { community: mine.community } : {}), ...(recipe ?? mine?.recipe ? { recipe: (recipe ?? mine?.recipe)! } : {}), ...(canvas ?? mine?.canvas ? { canvas: (canvas ?? mine?.canvas)! } : {}), ...(cover ? { cover } : {}) });
       setMine(app);
       setNamingApp(false);
       setAppNote(cover ? "Saved to your apps, with this result as its cover." : "Saved to your apps. Your settings are kept in this browser.");
@@ -243,7 +244,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
     let live = true;
     setPreflight(null);
     setChecking(true);
-    const timer = setTimeout(() => { void preflightWorkflow(source,values).then(r=>{if(live)setPreflight(r);}).catch(()=>{if(live)setPreflight({ok:false,destination,connection:"Check failed",cost:"Unknown",issues:["Connection check failed. Retry or update settings."],notes:[]});}).finally(()=>{if(live)setChecking(false);}); },300);
+    const timer = setTimeout(() => { void preflightWorkflow(source,values).then(r=>{if(live)setPreflight(r);}).catch(()=>{if(live)setPreflight({ok:false,destination:destination==="local"?"Your GPU":"Comfy Cloud",connection:"Check failed",cost:"Unknown",issues:["Connection check failed. Retry or update settings."],notes:[]});}).finally(()=>{if(live)setChecking(false);}); },300);
     return ()=>{live=false;clearTimeout(timer);};
   },[source,values,destination,checkVersion]);
 
@@ -337,6 +338,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
               {onBack ? <button className="wf-back plain" onClick={onBack}>← Back to choices</button> : <Link className="wf-back" href="/workflows">Workflows</Link>}
               <h1>{opened.title === "your workflow" ? name : opened.title}</h1>
               {opened.description && <p>{opened.description}</p>}
+              {savedApp?.community && <p className="wf-credit wf-credit-community">By {savedApp.community.creatorName || "a haggs user"} · Community app · {feeLabel(savedApp.community.feeCents)}{savedApp.community.feeCents > 0 ? `. The creator keeps 80%. It is added to the run price and taken when you press Run; a failed run is refunded.` : "."}</p>}
               {name === 'haggs_preview_saved_motion' && <p>Copy your saved HY-Motion NPZ into your ComfyUI input folder, then enter its filename below. For a synthetic example and node installation instructions, see <a href="/workflows/world-motion-vfx/START-HERE.md">Haggs Studio setup</a>.</p>}
               {name === 'haggs_preview_room_recording' && <p>First queue Playable World in ComfyUI, open its room and record five seconds. Paste the session ID shown by the node below. Creating and playing the room still happens in ComfyUI. <a href="/workflows/world-motion-vfx/START-HERE.md">Setup instructions</a></p>}
               {name === 'haggs_sam2_mask_preview' && <p>Install <a href="https://github.com/kijai/ComfyUI-segment-anything-2">ComfyUI Segment Anything 2</a> on your connected ComfyUI. Its tiny model may download on first run. Enter one point on the subject in the first frame, in pixels from the top left; for example, 100, 100. Download the compressed mask video and add it to a <Link href="/workflows#haggs-effects">compatible reuse effect</Link>; source, effect layer and mask must have matching frames and timing.</p>}
@@ -410,7 +412,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
                 })}
                 {blocked && <p className="library-error" role="alert">This one can&rsquo;t run here yet: {blocked}</p>}
                 <button className="fire wf-run" disabled={running || checking || !preflight?.ok || adding > 0 || Boolean(blocked)} onClick={() => void run()}>
-                  {running ? `Running on ${preflight?.destination ?? "Comfy"}…` : "Run"} <span className="cost">{price ?? "···"}</span>
+                  {running ? `Running on ${preflight?.destination ?? "Comfy"}…` : "Run"} <span className="cost">{price ? priceWithFee(price, savedApp?.community?.feeCents ?? 0) : "···"}</span>
                 </button>
                 <p className="wf-small">Your selected location is checked again before submission. No automatic fallback to another provider.</p>
               </div>

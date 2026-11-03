@@ -1,5 +1,6 @@
 import { shareDefinition } from "./share-definition";
 import type { SavedApp } from "../story/apps";
+import type { Recipe } from "../comfy/recipe";
 import { checkFee } from "./fees";
 
 /**
@@ -66,4 +67,28 @@ export async function chargeRun(db: Db, appId: string): Promise<{ run: string; f
 export async function refundRun(db: Db, run: string): Promise<void> {
   const { error } = await db.rpc("refund_app_run", { run });
   fail(error, "The fee couldn't be refunded.");
+}
+
+/** One published app, found by id on the shelf. */
+export async function getApp(db: Db, id: string): Promise<CommunityApp | null> {
+  return (await listApps(db)).find((a) => a.id === id) ?? null;
+}
+
+/**
+ * A published app as the same thing the runner opens for your own apps. It is not saved anywhere: opening it from the
+ * shelf is enough, and the creator's fee rides along so the runner charges it before the run and refunds a failure.
+ */
+export function asSavedApp(a: CommunityApp): SavedApp {
+  const now = Date.now();
+  return {
+    id: `community-${a.id}`,
+    name: a.name,
+    description: a.description,
+    workflow: a.workflow,
+    ...(a.recipe ? { recipe: a.recipe as Recipe } : {}),
+    ...(a.cover ? { cover: a.cover } : {}),
+    community: { id: a.id, feeCents: a.feeCents, creatorName: a.creatorName },
+    createdAt: now,
+    updatedAt: now,
+  };
 }

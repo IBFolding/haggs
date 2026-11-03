@@ -51,3 +51,15 @@ test("a failed run is refunded through the database", async () => {
   await refundRun(db, "run-1");
   assert.equal(calls[0]!.op, "rpc:refund_app_run");
 });
+
+import { asSavedApp, getApp } from "./community";
+test("a published app opens as a saved app that carries its creator's fee and name", async () => {
+  const { db } = fake();
+  const a = await getApp(db, "a");
+  assert.ok(a);
+  const saved = asSavedApp(a);
+  assert.deepEqual(saved.community, { id: "a", feeCents: 5, creatorName: "Pat" });
+  assert.equal(saved.name, "Rooftop");
+  assert.equal(saved.workflow, "{}");
+  assert.equal(await getApp(db, "missing"), null);
+});

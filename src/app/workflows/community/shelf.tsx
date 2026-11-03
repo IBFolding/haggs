@@ -1,15 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { listApps, type CommunityApp } from "../../../community/community";
 import { STUDIO_SAMPLES, THIRD_PARTY_WORKFLOWS, communityAppPath } from "../../../community/curated";
 import { feeLabel } from "../../../community/fees";
 import { dbOf } from "../../../community/supabase-db";
-import { createAppStore } from "../../../story/apps";
-import { defaultKv } from "../../../story/kv";
 import { Nav } from "../../nav";
 import { supabase, useSession } from "../../session";
 
@@ -17,13 +14,12 @@ const TALL = { aspectRatio: "auto", maxHeight: 420, objectFit: "contain" } as co
 
 /**
  * Apps other people published: free, or with a creator fee of up to 12¢ a
- * run. Adding one saves a copy in this browser; the fee is taken when you
- * run it, and given back if the run fails.
+ * run. Each opens as the same simple app as the other workflows; the creator's
+ * fee is shown before you run it, taken when you do, and given back if the
+ * run fails.
  */
 export function Shelf() {
-  const router = useRouter();
   const { session, ready } = useSession();
-  const apps = useMemo(() => createAppStore(defaultKv()), []);
   const [list, setList] = useState<CommunityApp[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sb = supabase();
@@ -32,18 +28,6 @@ export function Shelf() {
     if (!sb) return setList([]);
     void listApps(dbOf(sb)).then(setList).catch((e) => { setError(e instanceof Error ? e.message : "The shelf couldn't be loaded."); setList([]); });
   }, [sb]);
-
-  async function add(a: CommunityApp) {
-    const saved = await apps.save({
-      name: a.name,
-      description: a.description,
-      workflow: a.workflow,
-      ...(a.recipe ? { recipe: a.recipe as never } : {}),
-      ...(a.cover ? { cover: a.cover } : {}),
-      community: { id: a.id, feeCents: a.feeCents, creatorName: a.creatorName },
-    });
-    router.push(`/workflows/mine?id=${saved.id}`);
-  }
 
   return (
     <div className="app">
@@ -92,10 +76,10 @@ export function Shelf() {
           {(list ?? []).map((a) => (
             <article key={a.id} className="community-card">
               {a.cover ? (a.cover.kind === "video" ? <video src={a.cover.url} muted loop playsInline autoPlay /> : <img src={a.cover.url} alt="" />) : <div className="community-bare" />}
-              <h3>{a.name}</h3>
+              <h3><Link className="community-link" href={`/workflows/community/app?id=${a.id}`}>{a.name}</Link></h3>
               <p>{a.description}</p>
-              <small>{a.creatorName || "A haggs user"} · {a.runs} runs · {feeLabel(a.feeCents)}</small>
-              <button className="pill" onClick={() => void add(a)}>Add to my apps</button>
+              <small>By {a.creatorName || "A haggs user"} · {a.runs} runs · {feeLabel(a.feeCents)}</small>
+              <Link className="pill" href={`/workflows/community/app?id=${a.id}`}>Open app</Link>
             </article>
           ))}
         </div>
