@@ -7,6 +7,10 @@ import { EditorDialog } from "./editor-dialog";
 import { PassPanel } from "./pass-panel";
 import { ContinuityPanel } from "./continuity-panel";
 import { Section } from "./section";
+import { GuideCard, Pane, ToolRail, ToolTiles } from "./panel-rail";
+import { groupAfter, groupById, groupForTab, railFor, suggestNext, type GroupId, type PanelTab } from "../../../../story/panel-guide";
+import { DropZone } from "../../../drop-zone";
+import { uploadFile } from "../../../upload-client";
 import { ReviewPanel } from "./review-panel";
 import { ExportTargets } from "./export-targets";
 import { presetById } from "../../../../story/export-presets";
@@ -95,6 +99,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   const [mode, setMode] = useState<"simple" | "advanced">("advanced");
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
   const [toolsCollapsed, setToolsCollapsed] = useState(false);
+  const [libCollapsed, setLibCollapsed] = useState(false);
   const timelineScroll = useRef(0);
   const toolsScroll = useRef(0);
   const [showAllLanes, setShowAllLanes] = useState(false);
@@ -107,6 +112,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
       setShowAllLanes(localStorage.getItem("haggs.cut.allLanes") === "true");
       setTimelineCollapsed(localStorage.getItem("haggs.cut.timelineCollapsed") === "true");
       setToolsCollapsed(localStorage.getItem("haggs.cut.toolsCollapsed") === "true");
+      setLibCollapsed(localStorage.getItem("haggs.cut.libCollapsed") === "true");
     } catch { /* Storage restrictions must not block editing. */ }
   }, []);
   const changeMode = (next: "simple" | "advanced") => {
@@ -382,7 +388,14 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   const [pps, setPps] = useState(36);
   const [cutdownOpen, setCutdownOpen] = useState(false);
   const [cutdownBusy, setCutdownBusy] = useState(false);
-  const [tab, setTab] = useState<"shot" | "reshoot" | "voice" | "tools" | "sound" | "titles" | "review" | "passes">("shot");
+  // One tool group is open at a time. The old tabs are the groups' homes, so existing setTab calls still land in the right place.
+  const [group, setGroup] = useState<GroupId>("timing");
+  const [visited, setVisited] = useState<GroupId[]>([]);
+  const tab: PanelTab = groupById(group).tab;
+  const setTab = (next: PanelTab) => setGroup(groupForTab(next));
+  const openGroup = (id: GroupId) => { if (toolsCollapsed) { setToolsCollapsed(false); try { localStorage.setItem("haggs.cut.toolsCollapsed", "false"); } catch { /* Session-only preference. */ } } setGroup(id); setVisited((v) => (v.includes(id) ? v : [...v, id])); };
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaNote, setMediaNote] = useState<string | null>(null);
   /** Reshoot has two ways in: from the footage you have, or blocked out in grey first. */
   const [reshootMode, setReshootMode] = useState<"footage" | "grey">("footage");
   const [title, setTitle] = useState({ text: "", place: "lower" as "lower" | "center" | "top", seconds: 3, busy: false, problem: "" });
@@ -493,8 +506,31 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   if (!project || !cut) return <div className="app"><Nav current="Projects" /></div>;
 
   const selected = cut.clips.find((c) => c.shotId === picked) ?? here?.clip ?? null;
+  const selectedShotId = selected?.shotId ?? null;
+  // The walk-through is per shot: a new shot starts again at Prepare.
+  useEffect(() => { setVisited([]); setMediaNote(null); }, [selectedShotId]);
   const shot = selected ? project.shots.find((s) => s.id === selected.shotId) : undefined;
 
+  /** A file dropped or chosen in "Add media or a second image": an image joins this shot's reference images, a clip becomes a take. Nothing here is paid. */
+  async function addMedia(files: File[]) {
+    const file = files[0];
+    const target = selected?.shotId;
+    if (!file || !target) return;
+    setMediaBusy(true); setMediaNote(null);
+    try {
+      const made = await uploadFile(file);
+      if (!made.ok) { setMediaNote(made.reason); return; }
+      if (made.kind === "image") {
+        const have = project?.shots.find((x) => x.id === target)?.refs ?? [];
+        if (have.length >= 8) { setMediaNote("A shot holds 8 added images. Remove one first."); return; }
+        onShot(target, (s2) => ({ ...s2, refs: [...(s2.refs ?? []).filter((u) => u !== made.url), made.url].slice(-8) }));
+        setMediaNote("Added as a second image for this shot. It is sent with the shot when you roll again.");
+      } else if (made.kind === "video") {
+        onShot(target, (s2) => addTake(s2, { url: made.url, kind: "video", usd: null, promptHash: s2.render?.promptHash ?? "", at: Date.now() }, "Added clip"));
+        setMediaNote("Added as a new take. Your other takes stay below.");
+      } else setMediaNote("Add a picture or a video.");
+    } finally { setMediaBusy(false); }
+  }
   const removeSelected = () => {
     if (!selected) return;
     const remaining = cut.clips.filter(c => c.shotId !== selected.shotId);
@@ -654,13 +690,16 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
           </div>
         </div>
       ) : (
-        <div className="ed" data-tools-collapsed={toolsCollapsed} data-view={classic ? "classic" : mode}>
+        <div className="ed" data-tools-collapsed={toolsCollapsed} data-lib-collapsed={libCollapsed} data-view={classic ? "classic" : mode}>
           <aside className="ed-library" aria-label="Shots in this cut">
-            <span className="eyebrow muted">Shots</span>
+            <div className="ed-library-head">
+              <span className="eyebrow muted">Shots</span>
+              <button type="button" className="plain ed-library-toggle" aria-expanded={!libCollapsed} aria-label={libCollapsed ? "Expand the shot list" : "Collapse the shot list to thumbnails"} title={libCollapsed ? "Expand the shot list" : "Thumbnails only"} onClick={() => { const next = !libCollapsed; setLibCollapsed(next); try { localStorage.setItem("haggs.cut.libCollapsed", String(next)); } catch { /* Session-only preference. */ } }}>{libCollapsed ? "»" : "«"}</button>
+            </div>
             <ol>
               {cut.clips.map((c, i) => (
                 <li key={c.shotId}>
-                  <button aria-current={i === idxHere ? "true" : undefined} onClick={() => jump(i)} title={c.heading || `Shot ${c.index + 1}`}>
+                  <button aria-current={i === idxHere ? "true" : undefined} aria-label={`${c.index + 1}. ${c.heading || `Shot ${c.index + 1}`}`} onClick={() => jump(i)} title={c.heading || `Shot ${c.index + 1}`}>
                     {c.kind === "video" ? <video src={`${c.url}#t=0.3`} muted playsInline preload="metadata" /> : <img src={c.url} alt="" loading="lazy" />}
                     <span><b>{c.heading || `Shot ${c.index + 1}`}</b><small>{c.kind === "video" ? "Video" : "Still"} · {c.seconds.toFixed(1)} s</small></span>
                   </button>
@@ -721,19 +760,23 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
               setToolsCollapsed(!toolsCollapsed);
               try { localStorage.setItem("haggs.cut.toolsCollapsed", String(!toolsCollapsed)); } catch {}
               if (toolsCollapsed) requestAnimationFrame(() => { if (body) body.scrollTop = toolsScroll.current; });
-            }}>{toolsCollapsed ? "Expand Shot tools +" : "Collapse Shot tools −"}</button>
-            <div id="ed-tools-content" className="ed-tools-content" hidden={toolsCollapsed}>
+            }} aria-label={toolsCollapsed ? "Expand Shot tools" : "Collapse Shot tools to the icon rail"} title={toolsCollapsed ? "Expand Shot tools" : "Collapse to the icon rail"}>{toolsCollapsed ? "»" : "« Shot tools"}</button>
+            <div id="ed-tools-content" className="ed-tools-content">
             {!classic && <div className="ed-view-switch" role="group" aria-label="Editor view">
               <button className="pill" aria-pressed={mode === "simple"} onClick={() => changeMode("simple")}>Simple view</button>
               <button className="pill" aria-pressed={mode === "advanced"} onClick={() => changeMode("advanced")}>All tools</button>
               <small>View only. Your settings stay applied.</small>
             </div>}
             {!advanced && <p className="takes-note">Advanced settings remain active. All tools shows Reshoot, Edit, Grey Room, versions and markers.{(tab === "tools" || tab === "reshoot") ? " Your open advanced panel is kept until you choose another tab." : ""}</p>}
-            <div className="ed-tabs" role="tablist">
-              {([["shot", "Shot"], ["reshoot", "Reshoot"], ["voice", "Voice"], ["tools", "Edit"], ["sound", "Sound"], ["titles", "Titles"], ["review", "Review"], ["passes", "Passes"]] as const).filter(([key]) => advanced || !["reshoot", "tools"].includes(key) || key === tab).map(([id2, label]) => (
-                <button key={id2} role="tab" aria-selected={tab === id2} className={tab === id2 ? "on" : ""} onClick={(e) => { setTab(id2); e.currentTarget.scrollIntoView({ block: "nearest", inline: "center" }); }}>{label}</button>
-              ))}
-            </div>
+            {(() => {
+              const rail = railFor(advanced ? "advanced" : "simple", group);
+              const suggested = suggestNext(visited, rail, group);
+              return <>
+                <GuideCard rail={rail} visited={visited} open={group} suggested={suggested} onOpen={openGroup} />
+                <ToolTiles rail={rail} open={group} onOpen={openGroup} />
+                <div className="ed-panel">
+                  <ToolRail rail={rail} open={group} suggested={suggested} onOpen={openGroup} />
+                  <div className="ed-panel-main">
             <div className="ed-side-body">
               {tab === "passes" && shot ? <PassPanel key={shot.id} project={project} shot={shot} onShot={onShot} /> : tab === "review" ? <ReviewPanel shots={project.shots} selectedId={selected?.shotId ?? null} time={Math.max(0, Math.min(selected?.seconds ?? 0, t - (selected?.start ?? 0)))} onShot={onShot} onSelect={(shotId) => { setPicked(shotId); const clip = cut.clips.find(c => c.shotId === shotId); if(clip) seek(clip.start); }} /> : tab === "titles" ? (
                 <div className="tracks">
@@ -792,7 +835,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
 
                   {tab === "shot" && (
                     <>
-                      <Section name="Timing" initial classic={classic}>
+                      <Pane id="timing" open={group}>
                       <div className="ed-row">
                         <label>
                           Holds for
@@ -814,7 +857,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                           </label>
                         ))}
                       </div>
-                      </Section><Section name="Picture" classic={classic}>
+                      </Pane><Pane id="picture" open={group}>
                       <div className="ed-row">
                         <label title="Fit keeps the whole picture and leaves bars. Fill crops it to the frame around the point you pick.">
                           Frame
@@ -831,7 +874,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                         ))}
                       </div>
                       <LookPicker shot={shot} onShot={onShot} onAll={(fx) => apply((current) => ({ ...current, shots: current.shots.map((s2) => { const { fx: _drop, ...rest } = s2; return fx ? { ...rest, fx } : rest; }) }))} />
-                      </Section><Section name="Reframe path" classic={classic}><ReframePanel key={shot.id} shot={shot} time={Math.max(0,t-selected.start)} onShot={onShot} onSeek={at=>seek(selected.start+at)} /></Section><Section name="Caption" classic={classic}>
+                      </Pane><Pane id="reframe" open={group}><ReframePanel key={shot.id} shot={shot} time={Math.max(0,t-selected.start)} onShot={onShot} onSeek={at=>seek(selected.start+at)} /></Pane><Pane id="caption" open={group}>
                       <div className="ed-row ed-caption">
                         <label title="Words on screen for this shot. They stay a separate layer: fix them here any time, and burn them in only when you export.">
                           Caption
@@ -845,42 +888,21 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                           </label>
                         ))}
                       </div>
-                      </Section><Section name="Cut tools" initial classic={classic}>
+                      </Pane><Pane id="cut" open={group}>
                       <div className="clip-actions">
                         <button className="pill" onClick={removeSelected} title="Remove only this segment and close the gap. Source footage and takes stay in Media. Undo restores the segment.">Remove from timeline</button>
                         <button className="pill" disabled={!(t > selected.start + 0.2 && t < selected.start + selected.seconds)} title="Cut off the start of this clip at the playhead (I)" onClick={() => apply((current) => trimHead(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim start to playhead</button>
                         <button className="pill" disabled={!(t >= selected.start + 0.2 && t < selected.start + selected.seconds - 0.05)} title="Cut off the end of this clip at the playhead (O)" onClick={() => apply((current) => trimTail(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Trim end to playhead</button>
-                        <button className="pill" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>
                         <button className="pill" onClick={() => apply((current) => { const at = current.shots.findIndex((x) => x.id === shot.id); const shots = [...current.shots]; shots.splice(at + 1, 0, { ...newShot(), heading: shot.heading, threadIds: [...shot.threadIds] }); return { ...current, shots }; })}>Insert a shot after</button>
                         <button className="pill" disabled={expanding !== null || !cut.clips.some((c) => c.index > selected.index)} title="A shot between this one and the next: it starts on this shot's last frame and ends on the next one's first" onClick={() => void expand(shot.id, "bridge")}>{expanding === `${shot.id}:bridge` ? "Bridging…" : `Bridge to next · ${creditsText(expandPrice)}`}</button>
                         <button className="pill" disabled={expanding !== null} title="Carry this shot on from its last frame" onClick={() => void expand(shot.id, "extend")}>{expanding === `${shot.id}:extend` ? "Extending…" : `Extend · ${creditsText(expandPrice)}`}</button>
                       </div>
-                      </Section><Section name="Continuity" classic={classic}><ContinuityPanel key={shot.id} project={project} shot={shot} onShot={onShot} /></Section><Section name="Look" classic={classic}>
+                      </Pane><Pane id="continuity" open={group}><ContinuityPanel key={shot.id} project={project} shot={shot} onShot={onShot} /></Pane><Pane id="look" open={group}>
                         <LookBar value={shot.look ?? {}} video onChange={(look) => onShot(shot.id, (s2) => setLook(s2, look))} />
                         <p className="takes-note">Its words go into this shot&rsquo;s prompt. Roll again to get a take with it; the takes you have stay.</p>
-                      </Section><Section name="More" classic={classic}>
+                      </Pane><Pane id="more" open={group}>
                         <Link hidden={!advanced} className="pill" href={`/board/${project.id}/grey/${shot.id}${boardId ? `?b=${boardId}` : ""}`} onClick={e=>{e.preventDefault();const href=e.currentTarget.href;void saveBeforeGrey().then(ok=>{if(ok)router.push(href);});}} title="Cut out the actor, build a new set around them, place props and lights, then render a new take">Open in Grey Room</Link>
-                        <button className="pill on" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>
-                      </Section>
-                      <div className="takes" role="group" aria-label="Takes">
-                        {takesOf(shot).map((take, i) => {
-                          const on = take.url === shot.render?.url && take.at === shot.render?.at;
-                          return (
-                            <figure key={take.id} className={`take${on ? " on" : ""}`}>
-                              <button className="take-pick" onClick={() => onShot(shot.id, (s2) => chooseTake(s2, take.id))} aria-pressed={on} title={on ? "On the shot" : "Put this take on the shot"}>
-                                <MediaThumb url={take.url} kind={take.kind} at={0.3} />
-                              </button>
-                              <figcaption>
-                                <span>Take {i + 1}{take.origin ? ` · ${take.origin}` : ""}{take.usd !== null ? ` · ${creditsText(take.usd)}` : ""}</span>
-                                <button className={`take-star${take.favorite ? " on" : ""}`} aria-label={take.favorite ? "Unstar" : "Star"} onClick={() => onShot(shot.id, (s2) => toggleFavorite(s2, take.id))}>★</button>
-                                {!on && <button className="take-x" aria-label="Remove take" onClick={() => onShot(shot.id, (s2) => removeTake(s2, take.id))}>×</button>}
-                              </figcaption>
-                              {take.greySetup&&<button className="pill" style={{width:"100%",whiteSpace:"normal",minHeight:44,fontSize:12}} title={`Restore the input setup captured at ${take.greySetup.time.toFixed(1)} s; keep the selected media.`} onClick={()=>onShot(shot.id,s2=>restoreGreyTakeSetup(s2,take.id))}>Restore setup</button>}
-                            </figure>
-                          );
-                        })}
-                      </div>
-                      <p className="takes-note">Space plays. ← → step. ↑ ↓ on the timeline flip between takes. Rolling again adds a take and never replaces one.</p>
+                      </Pane>
                     </>
                   )}
 
@@ -934,6 +956,47 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                       onSet={(changes) => apply((c) => ({ ...c, shots: c.shots.map((x) => (changes[x.id] ? { ...x, grey: tidy(changes[x.id]!) } : x)) }))}
                     />
                   )}
+                </>
+              )}
+            </div>
+            <div className="ed-primary">
+              {group === "cut" && selected && shot && <button className="fire ed-big" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>}
+              {group === "more" && shot && <button className="fire ed-big" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>}
+              {(() => { const nextGroup = groupAfter(group, rail); return nextGroup ? <button className={group === "cut" || group === "more" ? "plain ed-next" : "fire ed-big"} onClick={() => openGroup(nextGroup.id)}>Next: {nextGroup.label} →</button> : null; })()}
+            </div>
+                  </div>
+                </div>
+              </>;
+            })()}
+            <div className="ed-foot">
+              <DropZone rules={{ kinds: ["image", "video"] }} disabled={!shot} busy={mediaBusy} onFiles={(files) => void addMedia(files)} label="Add media or a second image" hint={shot ? "Drop a file from your desktop, or click to choose" : "Pick a clip on the timeline first"} />
+              {mediaNote && <p className="takes-note" role="status">{mediaNote}</p>}
+              {shot && (shot.refs?.length ?? 0) > 0 && (
+                <ul className="ed-refs" aria-label="Added images for this shot">
+                  {shot.refs!.map((url, i) => <li key={url}><img src={url} alt={`Added image ${i + 1}`} /><button type="button" aria-label={`Remove added image ${i + 1}`} onClick={() => onShot(shot.id, (s2) => { const { refs: _r, ...rest } = s2; const left = (s2.refs ?? []).filter((u) => u !== url); return left.length ? { ...rest, refs: left } : rest; })}>×</button></li>)}
+                </ul>
+              )}
+              {selected && shot && (
+                <>
+                      <div className="takes" role="group" aria-label="Takes">
+                        {takesOf(shot).map((take, i) => {
+                          const on = take.url === shot.render?.url && take.at === shot.render?.at;
+                          return (
+                            <figure key={take.id} className={`take${on ? " on" : ""}`}>
+                              <button className="take-pick" onClick={() => onShot(shot.id, (s2) => chooseTake(s2, take.id))} aria-pressed={on} title={on ? "On the shot" : "Put this take on the shot"}>
+                                <MediaThumb url={take.url} kind={take.kind} at={0.3} />
+                              </button>
+                              <figcaption>
+                                <span>Take {i + 1}{take.origin ? ` · ${take.origin}` : ""}{take.usd !== null ? ` · ${creditsText(take.usd)}` : ""}</span>
+                                <button className={`take-star${take.favorite ? " on" : ""}`} aria-label={take.favorite ? "Unstar" : "Star"} onClick={() => onShot(shot.id, (s2) => toggleFavorite(s2, take.id))}>★</button>
+                                {!on && <button className="take-x" aria-label="Remove take" onClick={() => onShot(shot.id, (s2) => removeTake(s2, take.id))}>×</button>}
+                              </figcaption>
+                              {take.greySetup&&<button className="pill" style={{width:"100%",whiteSpace:"normal",minHeight:44,fontSize:12}} title={`Restore the input setup captured at ${take.greySetup.time.toFixed(1)} s; keep the selected media.`} onClick={()=>onShot(shot.id,s2=>restoreGreyTakeSetup(s2,take.id))}>Restore setup</button>}
+                            </figure>
+                          );
+                        })}
+                      </div>
+                      <p className="takes-note">Space plays. ← → step. ↑ ↓ on the timeline flip between takes. Rolling again adds a take and never replaces one.</p>
                 </>
               )}
             </div>
