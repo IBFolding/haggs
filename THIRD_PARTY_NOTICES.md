@@ -41,3 +41,5 @@ Each is credited on its app page with the creator's GitHub and licence.
 - [rembg](https://github.com/danielgatis/rembg) by Daniel Gatis: MIT. The segmentation models it downloads (for example u2net) have their own licences set by their authors and are not hosted or shipped by HAGGS.
 - [Demucs](https://github.com/adefossez/demucs) by Alexandre Défossez (maintained fork of Meta's archived facebookresearch/demucs): MIT. The htdemucs model it downloads is not hosted or shipped by HAGGS.
 - [HyperFrames](https://github.com/heygen-com/hyperframes) by HeyGen: Apache-2.0. HAGGS writes a title's HTML and runs the HyperFrames CLI from npm on it; nothing of HyperFrames is bundled.
+- [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) by Xintao Wang: BSD-3-Clause, run through the author's own ncnn-Vulkan release (also MIT). Nothing is bundled; the user downloads the release and its models from the author's GitHub.
+- [RIFE](https://github.com/hzwer/ECCV2022-RIFE) by Zhewei Huang (hzwer) and co-authors: MIT, run through [nihui/rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan) (MIT). Nothing is bundled; the user downloads the release from GitHub.

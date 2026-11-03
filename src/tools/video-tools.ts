@@ -3,7 +3,7 @@
  * states the licence. Nothing here is bundled or redistributed: HAGGS only runs the program you installed.
  */
 
-export type VideoToolId = "ffmpeg-export" | "scene-detect" | "auto-editor" | "beat-cuts" | "color-match" | "remove-bg" | "split-stems" | "animated-titles";
+export type VideoToolId = "ffmpeg-export" | "scene-detect" | "auto-editor" | "beat-cuts" | "color-match" | "remove-bg" | "split-stems" | "animated-titles" | "upscale" | "slow-motion";
 
 export type VideoTool = {
   id: VideoToolId;
@@ -20,6 +20,8 @@ export type VideoTool = {
   command: string;
   /** For tools that are a Python library run by a small script in tools/video-tools: the module that must import. */
   module?: string;
+  /** For a program shipped as a folder (binary plus its models): the environment variable that names the folder. */
+  dirEnv?: string;
   /** What you add first. */
   input: "video" | "video-or-audio" | "none";
   install: string[];
@@ -151,6 +153,38 @@ export const VIDEO_TOOLS: VideoTool[] = [
     needs: "Node.js 22+, ffmpeg, and network access: the first run fetches HyperFrames from npm and a headless Chrome, and each render loads GSAP from the jsDelivr CDN. HAGGS writes the title's HTML itself and runs HyperFrames 0.9.6 on it; nothing of HyperFrames is bundled. CPU or GPU; no model files. Note that HyperFrames collects usage telemetry unless you run `npx hyperframes telemetry disable`.",
     tested: "macOS 26 on Apple silicon, Node 24, HyperFrames 0.9.6 (MP4). Not tested on Windows or Linux.",
   },
+  {
+    id: "upscale",
+    name: "Upscale",
+    does: "Makes a clip sharper and larger, 2x, 3x or 4x, frame by frame, on your graphics chip.",
+    creator: "Xintao Wang",
+    github: "https://github.com/xinntao/Real-ESRGAN",
+    licence: "BSD 3-Clause (the ncnn-Vulkan build used here is MIT)",
+    licenceUrl: "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
+    how: "local-tool",
+    input: "video",
+    command: "realesrgan-ncnn-vulkan",
+    dirEnv: "HAGGS_REALESRGAN_DIR",
+    install: ["# Download the macOS (or Windows/Linux) ncnn-Vulkan release with models from", "# https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.2.5.0 and unzip it, then:", "export HAGGS_REALESRGAN_DIR=\"/path/to/unzipped/folder\"   # holds realesrgan-ncnn-vulkan and models/"],
+    needs: "A Vulkan-capable graphics chip (Metal through MoltenVK on a Mac) and ffmpeg. HAGGS downloads and ships nothing: you download the release from its author's GitHub, which includes the model files under the same project's terms. Output is limited to the first 4 seconds, read at up to 1920 px wide and 24 fps, so a long clip needs cutting first.",
+    tested: "macOS 26 on an Apple M4 (Metal), realesrgan-ncnn-vulkan 20220424 with realesr-animevideov3. Not tested on Windows, Linux, NVIDIA or AMD.",
+  },
+  {
+    id: "slow-motion",
+    name: "Smooth slow motion",
+    does: "Invents the frames between your frames so a clip plays as smooth 2x or 4x slow motion, or the same length at a higher frame rate.",
+    creator: "Zhewei Huang (hzwer) and co-authors, ported to ncnn by nihui",
+    github: "https://github.com/hzwer/ECCV2022-RIFE",
+    licence: "MIT (the ncnn-Vulkan build used here, nihui/rife-ncnn-vulkan, is MIT)",
+    licenceUrl: "https://github.com/hzwer/ECCV2022-RIFE/blob/main/LICENSE",
+    how: "local-tool",
+    input: "video",
+    command: "rife-ncnn-vulkan",
+    dirEnv: "HAGGS_RIFE_DIR",
+    install: ["# Download the macOS (or Windows/Linux) release from", "# https://github.com/nihui/rife-ncnn-vulkan/releases and unzip it, then:", "export HAGGS_RIFE_DIR=\"/path/to/unzipped/folder\"   # holds rife-ncnn-vulkan and the rife-* model folders"],
+    needs: "A Vulkan-capable graphics chip (Metal through MoltenVK on a Mac) and ffmpeg. HAGGS downloads and ships nothing; the release (about 440 MB with its models) comes from nihui's GitHub. Output is limited to the first 6 seconds, read at up to 1280 px wide and 30 fps. Slow motion drops the sound; the higher-frame-rate option keeps it. Fast motion, cuts and overlapping objects can show warping.",
+    tested: "macOS 26 on an Apple M4 (Metal), rife-ncnn-vulkan 20221029 with rife-v4.6. Not tested on Windows, Linux, NVIDIA or AMD.",
+  },
 ];
 
 export const videoTool = (id: string): VideoTool | undefined => VIDEO_TOOLS.find((t) => t.id === id);
@@ -219,8 +253,8 @@ export function frameArgs(input: string, dir: string, job: FrameJob): string[] {
 }
 
 /** Frames back into an MP4 with the original soundtrack. */
-export function framesToVideoArgs(dir: string, input: string, output: string, job: FrameJob, audio: boolean): string[] {
-  return ["-y", "-hide_banner", "-loglevel", "error", "-framerate", String(job.fps), "-i", `${dir}/%06d.png`, "-t", String(job.seconds), "-i", input, "-map", "0:v", ...(audio ? ["-map", "1:a", "-c:a", "aac"] : []), "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-shortest", "-movflags", "+faststart", output];
+export function framesToVideoArgs(dir: string, input: string, output: string, job: FrameJob, audio: boolean, pattern = "%06d.png"): string[] {
+  return ["-y", "-hide_banner", "-loglevel", "error", "-framerate", String(job.fps), "-i", `${dir}/${pattern}`, "-t", String(job.seconds), "-i", input, "-map", "0:v", ...(audio ? ["-map", "1:a", "-c:a", "aac"] : []), "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-shortest", "-movflags", "+faststart", output];
 }
 
 /** Transparent frames into a WebM with alpha (plays in browsers) or ProRes 4444 (for editors). */
@@ -259,4 +293,25 @@ export const isStemMode = (v: unknown): v is StemMode => v === "two" || v === "f
 /** Demucs arguments; stems land in out/htdemucs/<track name>/. */
 export function demucsArgs(input: string, out: string, mode: StemMode): string[] {
   return ["-n", "htdemucs", ...(mode === "two" ? ["--two-stems=vocals"] : []), "-o", out, input];
+}
+
+export const UPSCALE_MODELS = { "realesr-animevideov3": "Video (fast, 2x 3x 4x)", "realesrgan-x4plus": "Photo detail (4x)", "realesrgan-x4plus-anime": "Anime illustration (4x)" } as const;
+export type UpscaleModel = keyof typeof UPSCALE_MODELS;
+export const isUpscaleModel = (v: unknown): v is UpscaleModel => typeof v === "string" && v in UPSCALE_MODELS;
+
+/** Real-ESRGAN arguments. Only the video model does 2x and 3x; the others are 4x. */
+export function upscaleArgs(inDir: string, outDir: string, model: UpscaleModel, scale: number): string[] {
+  const s = model === "realesr-animevideov3" && [2, 3, 4].includes(scale) ? scale : 4;
+  return ["-i", inDir, "-o", outDir, "-n", model, "-s", String(s), "-f", "png"];
+}
+
+export const SLOW_MODELS = { "rife-v4.6": "General (v4.6)", "rife-anime": "Animation" } as const;
+export type SlowModel = keyof typeof SLOW_MODELS;
+export const isSlowModel = (v: unknown): v is SlowModel => typeof v === "string" && v in SLOW_MODELS;
+export const SLOW_FACTORS = [2, 4] as const;
+
+/** RIFE arguments: the target frame count is the input count times the factor. */
+export function rifeArgs(inDir: string, outDir: string, model: SlowModel, frames: number, factor: number): string[] {
+  const f = factor === 4 ? 4 : 2;
+  return ["-i", inDir, "-o", outDir, "-m", model, "-n", String(frames * f), "-f", "%08d.png"];
 }

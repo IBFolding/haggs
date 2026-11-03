@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { COLOR_METHODS, CUT_EVERY, EXPORT_PRESETS, REMOVE_MODELS, STEM_MODES, type ColorMethod, type DetectMode, type ExportPreset, type Shot, type VideoTool } from "../../../tools/video-tools";
+import { COLOR_METHODS, CUT_EVERY, EXPORT_PRESETS, REMOVE_MODELS, SLOW_MODELS, STEM_MODES, UPSCALE_MODELS, type ColorMethod, type DetectMode, type ExportPreset, type Shot, type VideoTool } from "../../../tools/video-tools";
 import { TITLE_FORMATS, TITLE_SHAPES, TITLE_STYLES } from "../../../tools/title-card";
 import { uploadFile } from "../../upload-client";
 import styles from "../tools.module.css";
@@ -32,6 +32,11 @@ export function ToolApp({ tool }: { tool: VideoTool }) {
   const [seconds, setSeconds] = useState(4);
   const [ink, setInk] = useState("#ffffff");
   const [ground, setGround] = useState("#000000");
+  const [upModel, setUpModel] = useState("realesr-animevideov3");
+  const [scale, setScale] = useState(2);
+  const [slowModel, setSlowModel] = useState("rife-v4.6");
+  const [factor, setFactor] = useState(2);
+  const [slowMode, setSlowMode] = useState("slow");
   const [every, setEvery] = useState(4);
   const [method, setMethod] = useState<ColorMethod>("mkl");
   const [model, setModel] = useState<string>("u2net");
@@ -68,7 +73,7 @@ export function ToolApp({ tool }: { tool: VideoTool }) {
   async function go() {
     if (!source && tool.input !== "none") return;
     setBusy(true); setProblem(""); setResult(null);
-    const res = await fetch("/api/tools/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tool: tool.id, url: source?.url, title: titleText, subtitle, titleStyle, shape, format: titleFormat, seconds, ink, ground, preset, mode, sensitivity, threshold, margin, every, method, model, stems: stemMode, reference: reference?.url }) }).catch(() => null);
+    const res = await fetch("/api/tools/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tool: tool.id, url: source?.url, title: titleText, subtitle, titleStyle, shape, format: titleFormat, seconds, ink, ground, preset, mode, sensitivity, threshold, margin, every, method, stems: stemMode, model: tool.id === "upscale" ? upModel : tool.id === "slow-motion" ? slowModel : model, scale, factor, slowMode, reference: reference?.url }) }).catch(() => null);
     const body = (await res?.json().catch(() => null)) as Result | null;
     setBusy(false);
     if (body?.ok) setResult(body);
@@ -137,6 +142,15 @@ export function ToolApp({ tool }: { tool: VideoTool }) {
         {tool.id === "split-stems" && (
           <label>Split into<select value={stemMode} onChange={(e) => setStemMode(e.target.value as "two" | "four")}>{Object.entries(STEM_MODES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         )}
+        {tool.id === "upscale" && (<>
+          <label>Model<select value={upModel} onChange={(e) => { setUpModel(e.target.value); if (e.target.value !== "realesr-animevideov3") setScale(4); }}>{Object.entries(UPSCALE_MODELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+          <label>Scale<select value={upModel === "realesr-animevideov3" ? scale : 4} disabled={upModel !== "realesr-animevideov3"} onChange={(e) => setScale(Number(e.target.value))}><option value={2}>2x</option><option value={3}>3x</option><option value={4}>4x</option></select></label>
+        </>)}
+        {tool.id === "slow-motion" && (<>
+          <label>Model<select value={slowModel} onChange={(e) => setSlowModel(e.target.value)}>{Object.entries(SLOW_MODELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+          <label>Make it<select value={factor} onChange={(e) => setFactor(Number(e.target.value))}><option value={2}>2x</option><option value={4}>4x</option></select></label>
+          <label>Result<select value={slowMode} onChange={(e) => setSlowMode(e.target.value)}><option value="slow">Slow motion (longer, no sound)</option><option value="smooth">Same length, higher frame rate (keeps sound)</option></select></label>
+        </>)}
         {tool.id === "remove-bg" && (
           <label>Model<select value={model} onChange={(e) => setModel(e.target.value)}>{REMOVE_MODELS.map((m) => <option key={m} value={m}>{m}{m === "u2netp" ? " (smaller, faster)" : ""}</option>)}</select></label>
         )}
