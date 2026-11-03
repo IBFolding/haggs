@@ -5294,3 +5294,34 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 @media (max-width: 800px) { .gw-head { flex-wrap: wrap; } }
 .gr-shot-tools { margin: 6px 0; padding: 8px 12px; }
 .gw { grid-template-columns: minmax(0, 1fr); }
+
+/* Grey Room step card: one main action, a few big visual buttons, the rest under More options. */
+.gw-tiles { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.gw-tiles.cols-1 { grid-template-columns: 1fr; } .gw-tiles.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gw-tiles.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gw-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 62px; padding: 8px 4px; border: 1px solid var(--line-hot); border-radius: 12px; background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; text-align: center; }
+.gw-tile:hover:not(:disabled) { color: var(--text); border-color: var(--text-3); }
+.gw-tile.on { border-color: var(--volt); color: var(--volt); background: var(--volt-soft); }
+.gw-tile:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.gw-swatch-tile { display: block; width: 100%; height: 26px; border-radius: 8px; }
+.gw-versions h3 { margin: 0 0 6px; font-size: 14px; }
+.gw-versions ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.gw-versions li { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.gw-versions li small { margin-left: auto; color: var(--volt); }
+.gw-ver-thumb { width: 64px; height: 38px; border-radius: 8px; overflow: hidden; background: #000; flex: none; display: block; }
+.gw-ver-thumb img, .gw-ver-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.gw-camrow { margin-top: 8px; } .gw-camrow h3 { margin: 0 0 6px; font-size: 13px; color: var(--text-2); font-weight: 600; }
+.gw-drop-hint { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); z-index: 5; padding: 8px 14px; border: 1.5px dashed var(--volt); border-radius: 10px; background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--text); font-size: 13px; pointer-events: none; }
+.gw-ratio { position: absolute; right: 10px; bottom: 10px; z-index: 5; padding: 3px 8px; border-radius: 6px; background: #000a; color: var(--text-2); font: 600 11px var(--mono); pointer-events: none; }
+.gw-layer-list b { margin-left: auto; font-size: 11px; }
+.gw-quick button { width: 52px; height: 52px; }
+/* Editor shot list: thumbnails carry their length. */
+.ed-thumb { position: relative; display: block; flex: none; }
+.ed-thumb em { position: absolute; right: 4px; bottom: 3px; padding: 0 4px; border-radius: 4px; background: #000b; color: #fff; font: 600 10px var(--mono); font-style: normal; }
+.ed-library-add { min-width: 32px; min-height: 32px; display: grid; place-items: center; border: 1px solid var(--line-hot); border-radius: 8px; font-size: 18px; line-height: 1; text-decoration: none; color: var(--text); }
+.ed-library-head { gap: 6px; } .ed-library-head .eyebrow { flex: 1; }
+.ed[data-lib-collapsed="true"] .ed-library-add { display: none; }
+.gw-camrow { width: 100%; align-self: stretch; }
+.gw-camrow .gr-moves { width: 100%; }
+.gw-camrow .gr-moves .gr-path-bar[role="radiogroup"] { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .gw-camrow .gr-moves .gr-path-bar[role="radiogroup"] { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); } }
+.gr-move span { font-size: 10.5px; }

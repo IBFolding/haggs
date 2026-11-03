@@ -18,13 +18,18 @@ import { finishCutout, undoPending, restoreGreyEdit, sameGreyEdit, type GreyEdit
 import { CutoutPanel } from "./cutout-panel";
 import { GreyRoom } from "../../cut/grey";
 import { Inspector } from "./inspector";
-import { LayersPanel } from "./layers-panel";
+import { LayersPanel, addImageLayer } from "./layers-panel";
+import { StepCard, type StepTile } from "./step-card";
+import { LOOKS } from "./light-panel";
+import { GreyMovesPanel } from "../../cut/grey-moves-panel";
+import { checkDrop } from "../../../../../story/drop-files";
+import { defaultGrey, tidy } from "../../../../../story/grey";
 import { MoreOptions, usePersistedFlag } from "./collapsible";
 import { GreySpendingPanel } from "../../cut/grey-spending-panel";
 import { DropError, DropOverlay, useFileDrop } from "../../../../drop-zone";
 import { uploadFile } from "../../../../upload-client";
 import { RenderPanel } from "./render-panel";
-import { createHistory, dropKey, keyTimes, mergeEdit, normalizeScene, removeLight, removeProp, replaceRoomSource, resolveScene, type GreyScene } from "../../../../../story/grey-scene";
+import { addLight, createHistory, dropKey, keyTimes, mergeEdit, normalizeScene, removeLight, removeProp, replaceRoomSource, resolveScene, setLook, type GreyScene } from "../../../../../story/grey-scene";
 import type { BankItem } from "../../../../../story/bank";
 import { commit, view } from "../../../../../story/boards";
 import { defaultKv, idbKv } from "../../../../../story/kv";
@@ -33,7 +38,7 @@ import { createProjectStore } from "../../../../../story/store";
 import { applySet, type SavedSet } from "../../../../../story/set-bank";
 import { appendGreySetupShot } from "../../../../../story/grey-setup-shot";
 import { addGreyTake } from "../../../../../story/grey-take";
-import { addTake } from "../../../../../story/takes";
+import { addTake, takesOf } from "../../../../../story/takes";
 import { createSaveQueue } from "../../../../../story/use-autosave";
 import { creditsText } from "../../../../../story/price-text";
 
@@ -98,6 +103,8 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [problem, setProblem] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
+  const roomInput = useRef<HTMLInputElement>(null);
+  const objectInput = useRef<HTMLInputElement>(null);
   const [showOriginal, setShowOriginal] = useState(false);
   const [scene, setSceneState] = useState<GreyScene>({});
   const liveScene = useRef<GreyScene>({});
@@ -353,8 +360,35 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     setSelected(null);
     setStep(id);
     setMode("scene");
-    if (id === "render") return setDrawer(true);
     setTab(id === "blockout" ? "room" : id === "cut" ? "actors" : id === "set" ? "objects" : "lights");
+  }
+  const swatchOf = (l: { warmth: number; saturation: number }) => l.warmth > 0.3 ? "linear-gradient(135deg,#f4b062,#8a4b2a)" : l.warmth < -0.3 ? "linear-gradient(135deg,#5b8fd0,#1d2c4a)" : l.saturation < -0.2 ? "linear-gradient(135deg,#a8a8a0,#4a4a46)" : "linear-gradient(135deg,#9a9a9a,#444)";
+  function chooseRoom(list: FileList | null) { const r = checkDrop(Array.from(list ?? []), { kinds: ["image"] }); stageDrop.setError(r.error); if (r.accepted[0]) void dropRoom(r.accepted[0]); }
+  async function chooseObject(list: FileList | null) {
+    const r = checkDrop(Array.from(list ?? []), { kinds: ["image"] });
+    if (!r.accepted[0]) return stageDrop.setError(r.error);
+    const res = await addImageLayer(r.accepted[0], liveScene.current, "object");
+    if (!res.ok) return stageDrop.setError(res.reason);
+    change(res.scene, true); setSelected(res.selected);
+  }
+  const openDrawer = () => setDrawer(true);
+  let primary: { label: string; onClick: () => void; disabled?: boolean; note?: string | undefined };
+  let tiles: StepTile[];
+  if (current === "blockout") {
+    primary = { label: "Choose room photo", onClick: () => roomInput.current?.click() };
+    tiles = [{ id: "blockout", label: "Grey blockout", icon: "areas", onClick: () => setMode("blockout") }];
+  } else if (current === "cut") {
+    primary = { label: running ? "Cutting out…" : matte ? "Cut out again" : "Auto cut out", onClick: () => void cutOut(), disabled: running || !isVideo, note: !isVideo ? "The cut-out works on video. This shot is a picture." : price ? `Cost: ${price}` : undefined };
+    tiles = [{ id: "pick", label: "Pick actor", icon: "pick", on: picking, onClick: () => setPicking(!picking) }, { id: "orig", label: "Show original", icon: "original", on: showOriginal, onClick: () => setShowOriginal((v) => !v) }];
+  } else if (current === "set") {
+    primary = { label: "Add an object", onClick: () => objectInput.current?.click() };
+    tiles = (["objects", "actors", "surfaces"] as const).map((t) => ({ id: t, label: t === "objects" ? "Objects" : t === "actors" ? "Actors" : "Areas", icon: t === "surfaces" ? "areas" : t, on: tab === t, onClick: () => setTab(t) }));
+  } else if (current === "light") {
+    primary = { label: "Add a key light", onClick: () => { const n = addLight(liveScene.current, "key"); change(n, true); setSelected(n.lights!.at(-1)!.id); } };
+    tiles = LOOKS.map((l) => ({ id: l.name, label: l.name, swatch: swatchOf(l.look), on: scene.look ? JSON.stringify(scene.look) === JSON.stringify(l.look) : false, onClick: () => change(setLook(liveScene.current, l.look), true) }));
+  } else {
+    primary = { label: "Render shot", onClick: openDrawer };
+    tiles = [{ id: "draft", label: "Draft (fast)", icon: "draft", onClick: openDrawer }, { id: "final", label: "Final", icon: "final", onClick: openDrawer }, { id: "up", label: "Upscale (4K)", icon: "upscale", onClick: openDrawer }];
   }
   const shotLink = (id2: string) => `/board/${id}/grey/${id2}${boardId ? `?b=${boardId}` : ""}`;
   const strip = project.shots.filter((x) => x.render);
@@ -449,10 +483,22 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                       onChange={(n, commit) => change(mergeEdit(scene, shown, n, time, animate), commit)}
                     />
                   ) : <p className="gs-note">This shot has no footage yet.</p>}
+                  {current === "blockout" && !stageDrop.active && <span className="gw-drop-hint" aria-hidden="true">Drop a room photo here</span>}
+                  <span className="gw-ratio" aria-hidden="true">{vertical ? "9:16" : "16:9"}</span>
                   {scene.backdrop && !matte && !showOriginal && footage?.kind === "video" && <span className="gs-chip warn">Background replacement needs a subject cut-out. Surface edits keep the original shot.</span>}
                   {picking && !matte && dots.map((d, i) => <i key={i} className="gs-dot" style={{ left: `${d.fx * 100}%`, top: `${d.fy * 100}%` }}>{i + 1}</i>)}
                 </div>
                 <DropError error={stageDrop.error} />
+                {(() => {
+                  const names = project.threads.filter((t) => t.kind === "character" && shot.threadIds.includes(t.id)).map((t) => t.name);
+                  const base = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
+                  return (
+                    <section className="gw-camrow" aria-label="Camera move">
+                      <h3>Camera move</h3>
+                      <GreyMovesPanel compact cam={base.cam} subjects={base.subjects} onApply={(keys) => changeState({ grey: tidy({ ...base, camKeys: keys, subjects: base.subjects, light: base.light }), scene: liveScene.current }, true)} />
+                    </section>
+                  );
+                })()}
                 <div className="gs-time gw-time" aria-label="Playhead">
                   <button className="pill" onClick={() => { if (!playing && time >= seconds - 0.05) setTime(0); setPlaying((p) => !p); }}>{playing ? "Pause" : "Play"}</button>
                   <div className="gs-track">
@@ -478,15 +524,15 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                 )}
               </section>
 
-              <aside className={`gw-right gw-stepcard${rightOpen ? "" : " folded"}`} aria-label="Controls">
-                <div className="gw-card-head">
-                  <span className="gw-badge" aria-hidden="true">{STEPS.findIndex((x) => x.id === current) + 1}</span>
-                  <div><h2>{STEP_COPY[current].title}</h2><p>{STEP_COPY[current].says}</p></div>
-                  <button type="button" className="gw-side-toggle" aria-expanded={rightOpen} onClick={() => setRightOpen(!rightOpen)} title={rightOpen ? "Fold the controls" : "Open the controls"} aria-label={rightOpen ? "Fold the controls" : "Open the controls"}>{rightOpen ? "»" : "«"}</button>
-                </div>
-                <div className="gw-card-body" hidden={!rightOpen}>
-                  {current === "render" && <button type="button" className="fire gw-primary" onClick={() => setDrawer(true)}>Render shot</button>}
-                  {current === "blockout" && <button type="button" className="pill gw-primary-soft" onClick={() => setMode("blockout")} title="Work out the camera, the figures and the light in grey, for free">Open the grey blockout</button>}
+              <StepCard
+                index={STEPS.findIndex((x) => x.id === current) + 1}
+                title={STEP_COPY[current].title}
+                says={STEP_COPY[current].says}
+                open={rightOpen}
+                onToggle={() => setRightOpen(!rightOpen)}
+                primary={primary}
+                tiles={tiles}
+                more={<>
                   <AssetsPanel
                     tab={tab}
                     onTab={setTab}
@@ -506,11 +552,25 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                     onUseEverywhere={useEverywhere}
                     cutout={<CutoutPanel isVideo={isVideo} matte={matte} describe={describe} onDescribe={setDescribe} picking={picking} onPicking={setPicking} dots={dots} onClearDots={() => setDots([])} running={running} price={price} problem={problem} onCutOut={() => void cutOut()} />}
                   />
-                  <MoreOptions label="More options: selected layer and scene look" open={Boolean(selected) || current === "light"}>
+                  <MoreOptions label="Selected layer and scene look" open={Boolean(selected) || current === "light"}>
                     <Inspector scene={shown} selected={selected} onSelect={setSelected} onChange={edit} footageUrl={footage?.url ?? null} isVideo={isVideo} places={places} props={accessories} />
                   </MoreOptions>
-                </div>
-              </aside>
+                  {current === "blockout" && <button type="button" className="pill" onClick={() => setMode("blockout")} title="Work out the camera, the figures and the light in grey, for free">Open the grey blockout</button>}
+                </>}
+              >
+                {current === "render" && (
+                  <section className="gw-versions" aria-label="Result versions">
+                    <h3>Result versions</h3>
+                    {takesOf(shot).length === 0 ? <p className="gs-soft">Nothing rendered yet.</p> : (
+                      <ul>{[...takesOf(shot)].reverse().slice(0, 4).map((t, i, all) => (
+                        <li key={t.id}><span className="gw-ver-thumb"><MediaThumb url={t.url} kind={t.kind} /></span><b>v{takesOf(shot).length - i}</b><span>{t.origin ?? "Take"}</span>{all.length > 0 && <small>{t.url === shot.render?.url ? "On the shot" : ""}</small>}</li>
+                      ))}</ul>
+                    )}
+                  </section>
+                )}
+              </StepCard>
+              <input ref={roomInput} type="file" accept="image/*" hidden aria-label="Choose room photo" onChange={(e) => { chooseRoom(e.target.files); e.target.value = ""; }} />
+              <input ref={objectInput} type="file" accept="image/*" hidden aria-label="Add an object picture" onChange={(e) => { void chooseObject(e.target.files); e.target.value = ""; }} />
             </div>
           )}
         </div>

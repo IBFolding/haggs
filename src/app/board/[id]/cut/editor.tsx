@@ -694,13 +694,14 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
           <aside className="ed-library" aria-label="Shots in this cut">
             <div className="ed-library-head">
               <span className="eyebrow muted">Shots</span>
+              <Link className="plain ed-library-add" href={`/board/${id}`} aria-label="Make a new shot" title="Make a new shot">+</Link>
               <button type="button" className="plain ed-library-toggle" aria-expanded={!libCollapsed} aria-label={libCollapsed ? "Expand the shot list" : "Collapse the shot list to thumbnails"} title={libCollapsed ? "Expand the shot list" : "Thumbnails only"} onClick={() => { const next = !libCollapsed; setLibCollapsed(next); try { localStorage.setItem("haggs.cut.libCollapsed", String(next)); } catch { /* Session-only preference. */ } }}>{libCollapsed ? "»" : "«"}</button>
             </div>
             <ol>
               {cut.clips.map((c, i) => (
                 <li key={c.shotId}>
                   <button aria-current={i === idxHere ? "true" : undefined} aria-label={`${c.index + 1}. ${c.heading || `Shot ${c.index + 1}`}`} onClick={() => jump(i)} title={c.heading || `Shot ${c.index + 1}`}>
-                    {c.kind === "video" ? <video src={`${c.url}#t=0.3`} muted playsInline preload="metadata" /> : <img src={c.url} alt="" loading="lazy" />}
+                    <span className="ed-thumb">{c.kind === "video" ? <video src={`${c.url}#t=0.3`} muted playsInline preload="metadata" /> : <img src={c.url} alt="" loading="lazy" />}<em>{`${Math.floor(c.seconds / 60)}:${String(Math.round(c.seconds % 60)).padStart(2, "0")}`}</em></span>
                     <span><b>{c.heading || `Shot ${c.index + 1}`}</b><small>{c.kind === "video" ? "Video" : "Still"} · {c.seconds.toFixed(1)} s</small></span>
                   </button>
                 </li>
