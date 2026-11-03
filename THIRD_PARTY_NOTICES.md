@@ -27,3 +27,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Free video tools (run locally, not bundled)
+
+The `/tools` apps run programs you install yourself; no code or model files from these projects are included in HAGGS.
+Each is credited on its app page with the creator's GitHub and licence.
+
+- [FFmpeg](https://github.com/FFmpeg/FFmpeg) by the FFmpeg developers: LGPL 2.1+ (GPL 2+ with some options).
+- [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) by Brandon Castellano (Breakthrough): BSD 3-Clause.
+- [Auto-Editor](https://github.com/WyattBlue/auto-editor) by Wyatt Blue: The Unlicense.
