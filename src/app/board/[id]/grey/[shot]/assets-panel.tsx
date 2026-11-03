@@ -10,10 +10,12 @@ import { runGreyAssetImage as run } from "../../../../grey-legacy-actions";
 import { openKeys } from "../../../../nav";
 import { runGreyLocalWorkflow as runWorkflow } from "../../../../grey-legacy-actions";
 import { uploadFile } from "../../../../upload-client";
+import { DropError, DropOverlay, useFileDrop } from "../../../../drop-zone";
 import { BuildLink } from "../../../../return-bar";
 import type { BankItem } from "../../../../../story/bank";
 import type { SavedSet } from "../../../../../story/set-bank";
 import { addProp, replaceRoomSource, updateProp, type GreyScene } from "../../../../../story/grey-scene";
+import { MoreOptions } from "./collapsible";
 import { LightsTab } from "./light-panel";
 import { ReferenceBoard } from "./reference-board";
 import { SetsPanel } from "./sets-panel";
@@ -86,6 +88,10 @@ export function AssetsPanel({ tab, onTab, scene, savedScene, places, props, acto
   const bd = scene.backdrop;
   const sel = scene.props?.find((p) => p.id === selected) ?? null;
   const kind = tab === "actors" ? "actor" : "object";
+  // Files dragged in from the desktop go through the same upload code as the click-to-choose buttons. Nothing here is paid.
+  const roomDrop = useFileDrop({ kinds: ["image"] }, (files) => void uploadRoom(files[0]), busy !== null);
+  const shelfDrop = useFileDrop({ kinds: ["image"] }, (files) => void upload(files[0], "prop"), busy !== null);
+  const backdropDrop = useFileDrop({ kinds: ["image"] }, (files) => void upload(files[0], "backdrop"), busy !== null);
 
   async function uploadRoom(file: File | undefined) {
     if (!file) return;
@@ -140,7 +146,8 @@ export function AssetsPanel({ tab, onTab, scene, savedScene, places, props, acto
   function shelf() {
     const items = kind === "actor" ? actors : props;
     return (
-      <section className="gs-sec">
+      <section className={`gs-sec dz-host${shelfDrop.active ? " over" : ""}`} {...shelfDrop.props}>
+        <DropOverlay active={shelfDrop.active} label={kind === "actor" ? "Drop to add an actor" : "Drop to add an object"} />
         <h3>{kind === "actor" ? "Place an actor" : "Furniture & props"}</h3>
         <p className="gs-soft">{kind === "actor" ? "Choose a saved character or upload an actor cut-out. Drag to place them, then adjust size and depth. A character sheet stays a flat image; use a transparent single-pose cut-out for compositing." : "Bring in a couch, table, lamp or other saved accessory. Drag to place it. Use a transparent cut-out; a full photograph appears as a rectangle."}</p>
         <p className="gs-soft">{sel ? `Click a thumbnail to swap ${sel.name}, or drag to add another.` : "Click to add. Drag onto the scene to choose its position."}</p>
@@ -154,6 +161,7 @@ export function AssetsPanel({ tab, onTab, scene, savedScene, places, props, acto
           <button className="gs-prop add" disabled={busy === "prop"} onClick={() => propPick.current?.click()}><b>+</b><span>{busy === "prop" ? "Adding…" : kind === "actor" ? "Upload actor" : "Upload object"}</span></button>
           <input ref={propPick} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0], "prop"); e.target.value = ""; }} />
         </div>
+        <MoreOptions label="More options: make one, build one">
         {kind !== "actor" && <div className="gs-row" aria-label="Furniture prompt starters">{STARTERS.map((p) => <button className="pill" key={p.name} onClick={() => setWords(p.words)}>{p.name}</button>)}</div>}
         {kind !== "actor" && (
           <label className="gs-field">
@@ -165,8 +173,11 @@ export function AssetsPanel({ tab, onTab, scene, savedScene, places, props, acto
             <small>Cloud prop generation is paused until its maximum charge can be protected by your cap. Upload a prop or use a saved asset.</small>
           </label>
         )}
+        <p className="gs-soft">Or drag a picture here from your desktop.</p>
+        <DropError error={shelfDrop.error} />
         <BuildLink className="plain" href={kind === "actor" ? "/characters" : "/accessories"} label="the Grey Room">{kind === "actor" ? "Open character builder" : "Build a couch, table or other accessory"}</BuildLink>
         <p className="gs-soft">A prop is a flat picture, so it can't turn to show another side. Pictures with a clear background sit best.</p>
+        </MoreOptions>
       </section>
     );
   }
@@ -181,12 +192,17 @@ export function AssetsPanel({ tab, onTab, scene, savedScene, places, props, acto
       <div className="gw-assets-body gs-panel">
         {tab === "room" && (
           <>
-            <section className="gs-sec gs-source-tools">
+            <section className={`gs-sec gs-source-tools dz-host${roomDrop.active ? " over" : ""}`} aria-label="Your starting image" {...roomDrop.props}>
+              <DropOverlay active={roomDrop.active} label="Drop to use as the room photo" />
               <div className="gs-surf-head"><h3>Your starting image</h3><button className="pill" disabled={busy !== null} onClick={() => sourcePick.current?.click()}>{busy === "room" ? "Adding…" : footageUrl ? "Change photo" : "Upload a photo"}</button></div>
               <p className="gs-soft">Bring your own room or scene. Changing the photo clears old outlines; your reference cards and placed layers stay.</p>
               <input ref={sourcePick} type="file" accept="image/*" hidden onChange={(e) => { void uploadRoom(e.target.files?.[0]); e.target.value = ""; }} />
+              <p className="gs-soft">Or drag a photo here from your desktop.</p>
+              <DropError error={roomDrop.error} />
             </section>
-            <section className="gs-sec">
+            <MoreOptions label="More options: background and saved sets">
+            <section className={`gs-sec dz-host${backdropDrop.active ? " over" : ""}`} {...backdropDrop.props}>
+              <DropOverlay active={backdropDrop.active} label="Drop to use as the background" />
               <h3>Background</h3>
               <p className="gs-soft">Choose the place around your subject. Cut out the subject first to reveal this background.</p>
               {places.length > 0 && (
@@ -208,29 +224,31 @@ export function AssetsPanel({ tab, onTab, scene, savedScene, places, props, acto
               </div>
               {bd && <div className="gs-row"><button className={`pill${selected === "backdrop" ? " on" : ""}`} onClick={() => onSelect(selected === "backdrop" ? null : "backdrop")}>Zoom and position</button><button className="plain" onClick={() => { onChange({ ...scene, backdrop: undefined as never, place: undefined as never }); if (selected === "backdrop") onSelect(null); }}>Remove the background</button></div>}
               {!scene.matte && bd && <p className="gs-soft">Use Cut out first to see them in this place.</p>}
+              <DropError error={backdropDrop.error} />
             </section>
             <SetsPanel scene={savedScene??scene} others={others} onUse={onReplace} onUseEverywhere={onUseEverywhere} />
+            </MoreOptions>
           </>
         )}
 
         {tab === "objects" && (
           <>
             {shelf()}
-            {board}
+            <MoreOptions label="More options: mood board">{board}</MoreOptions>
           </>
         )}
 
         {tab === "actors" && (
           <>
             {cutout}
-            {shelf()}
+            <MoreOptions label="More options: place an actor from the shelf">{shelf()}</MoreOptions>
           </>
         )}
 
         {tab === "surfaces" && (
           <>
             <SurfacesPanel mode="list" scene={scene} footageUrl={footageUrl} isVideo={isVideo} references={[]} onChange={onChange} selected={selected} onSelect={onSelect} />
-            {board}
+            <MoreOptions label="More options: mood board">{board}</MoreOptions>
           </>
         )}
 

@@ -18,8 +18,19 @@ import { finishCutout, undoPending, restoreGreyEdit, sameGreyEdit, type GreyEdit
 import { CutoutPanel } from "./cutout-panel";
 import { GreyRoom } from "../../cut/grey";
 import { Inspector } from "./inspector";
+import { LayersPanel, addImageLayer } from "./layers-panel";
+import { StepCard, type StepTile } from "./step-card";
+import { NumSlide } from "./slide";
+import { LOOKS } from "./light-panel";
+import { GreyMovesPanel } from "../../cut/grey-moves-panel";
+import { checkDrop } from "../../../../../story/drop-files";
+import { defaultGrey, tidy } from "../../../../../story/grey";
+import { MoreOptions, usePersistedFlag } from "./collapsible";
+import { GreySpendingPanel } from "../../cut/grey-spending-panel";
+import { DropError, DropOverlay, useFileDrop } from "../../../../drop-zone";
+import { uploadFile } from "../../../../upload-client";
 import { RenderPanel } from "./render-panel";
-import { createHistory, dropKey, keyTimes, mergeEdit, normalizeScene, removeLight, removeProp, resolveScene, type GreyScene } from "../../../../../story/grey-scene";
+import { addLight, createHistory, dropKey, keyTimes, mergeEdit, normalizeScene, removeLight, removeProp, replaceRoomSource, resolveScene, setLook, updateProp, type GreyScene } from "../../../../../story/grey-scene";
 import type { BankItem } from "../../../../../story/bank";
 import { commit, view } from "../../../../../story/boards";
 import { defaultKv, idbKv } from "../../../../../story/kv";
@@ -28,7 +39,7 @@ import { createProjectStore } from "../../../../../story/store";
 import { applySet, type SavedSet } from "../../../../../story/set-bank";
 import { appendGreySetupShot } from "../../../../../story/grey-setup-shot";
 import { addGreyTake } from "../../../../../story/grey-take";
-import { addTake } from "../../../../../story/takes";
+import { addTake, takesOf } from "../../../../../story/takes";
 import { createSaveQueue } from "../../../../../story/use-autosave";
 import { creditsText } from "../../../../../story/price-text";
 
@@ -51,6 +62,14 @@ const STEPS: { id: StepId; label: string }[] = [
   { id: "render", label: "Render" },
 ];
 
+const STEP_COPY: Record<StepId, { title: string; says: string; now: string }> = {
+  blockout: { title: "Blockout", says: "Choose the room your actor stands in.", now: "pick the room your actor stands in." },
+  cut: { title: "Cut out", says: "Isolate your actor from the background.", now: "remove the background from your actor." },
+  set: { title: "Set", says: "Position and scale your actor and props.", now: "place your actor and props in the scene." },
+  light: { title: "Air and look", says: "Set the light, mood and visual look for the shot.", now: "dial in the lighting, atmosphere and look." },
+  render: { title: "Render", says: "Make a draft, relight, make it real or take it into Blender.", now: "render your shot." },
+};
+
 const clean = <T extends { keys?: unknown }>(item: T): T => { if (item.keys === undefined) { const { keys: _k, ...rest } = item; return rest as T; } return item; };
 
 const money = (n: number) => creditsText(n);
@@ -72,6 +91,10 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [mode, setMode] = useState<"scene" | "blockout">("scene");
   const [tab, setTab] = useState<AssetTab>("room");
   const [drawer, setDrawer] = useState(false);
+  const [step, setStep] = useState<StepId | null>(null);
+  const [tool, setTool] = useState<"move" | "scale" | "rotate">("move");
+  const [leftOpen, setLeftOpen] = usePersistedFlag("haggs.grey.left", true);
+  const [rightOpen, setRightOpen] = usePersistedFlag("haggs.grey.right", true);
   const [places, setPlaces] = useState<BankItem[]>([]);
   const [actors, setActors] = useState<BankItem[]>([]);
   const [accessories, setAccessories] = useState<BankItem[]>([]);
@@ -82,6 +105,8 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [problem, setProblem] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
+  const roomInput = useRef<HTMLInputElement>(null);
+  const objectInput = useRef<HTMLInputElement>(null);
   const [showOriginal, setShowOriginal] = useState(false);
   const [scene, setSceneState] = useState<GreyScene>({});
   const liveScene = useRef<GreyScene>({});
@@ -94,6 +119,15 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [animate, setAnimate] = useState(false);
+  // A room photo dragged in from the desktop. It uses the same upload and the same set-the-source step as the Room tab. Nothing paid runs.
+  const stageDrop = useFileDrop({ kinds: ["image"] }, (files) => void dropRoom(files[0]!), false);
+  async function dropRoom(file: File) {
+    const r = await uploadFile(file);
+    if (!r.ok) return stageDrop.setError(r.reason);
+    if (r.kind !== "image") return stageDrop.setError("Choose a room photo.");
+    change(replaceRoomSource(liveScene.current, { url: r.url, kind: "image" }), true);
+    setSelected(null);
+  }
 
   useEffect(() => {
     void store.load(id).then((found) => {
@@ -323,12 +357,40 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   };
   // The next thing worth doing: the first step not finished, leaving out the optional blockout and the cut-out on a still picture.
   const next: StepId = (["cut", "set", "light"] as const).find((id) => !done[id] && (id !== "cut" || isVideo)) ?? "render";
+  const current: StepId = step ?? (footage ? next : "blockout");
   function go(id: StepId) {
     setSelected(null);
-    if (id === "blockout") return setMode("blockout");
+    setStep(id);
     setMode("scene");
-    if (id === "render") return setDrawer(true);
-    setTab(id === "cut" ? "actors" : id === "set" ? "room" : "lights");
+    setTab(id === "blockout" ? "room" : id === "cut" ? "actors" : id === "set" ? "objects" : "lights");
+  }
+  const swatchOf = (l: { warmth: number; saturation: number }) => l.warmth > 0.3 ? "linear-gradient(135deg,#f4b062,#8a4b2a)" : l.warmth < -0.3 ? "linear-gradient(135deg,#5b8fd0,#1d2c4a)" : l.saturation < -0.2 ? "linear-gradient(135deg,#a8a8a0,#4a4a46)" : "linear-gradient(135deg,#9a9a9a,#444)";
+  function chooseRoom(list: FileList | null) { const r = checkDrop(Array.from(list ?? []), { kinds: ["image"] }); stageDrop.setError(r.error); if (r.accepted[0]) void dropRoom(r.accepted[0]); }
+  async function chooseObject(list: FileList | null) {
+    const r = checkDrop(Array.from(list ?? []), { kinds: ["image"] });
+    if (!r.accepted[0]) return stageDrop.setError(r.error);
+    const res = await addImageLayer(r.accepted[0], liveScene.current, "object");
+    if (!res.ok) return stageDrop.setError(res.reason);
+    change(res.scene, true); setSelected(res.selected);
+  }
+  const openDrawer = () => setDrawer(true);
+  let primary: { label: string; onClick: () => void; disabled?: boolean; note?: string | undefined };
+  let tiles: StepTile[];
+  if (current === "blockout") {
+    primary = { label: "Choose room photo", onClick: () => roomInput.current?.click() };
+    tiles = [{ id: "blockout", label: "Grey blockout", icon: "areas", onClick: () => setMode("blockout") }];
+  } else if (current === "cut") {
+    primary = { label: running ? "Cutting out…" : matte ? "Cut out again" : "Auto cut out", onClick: () => void cutOut(), disabled: running || !isVideo, note: !isVideo ? "The cut-out works on video. This shot is a picture." : price ? `Cost: ${price}` : undefined };
+    tiles = [{ id: "pick", label: "Pick actor", icon: "pick", on: picking, onClick: () => setPicking(!picking) }, { id: "orig", label: "Show original", icon: "original", on: showOriginal, onClick: () => setShowOriginal((v) => !v) }];
+  } else if (current === "set") {
+    primary = { label: "Add an object", onClick: () => objectInput.current?.click() };
+    tiles = (["move", "scale", "rotate"] as const).map((t) => ({ id: t, label: t === "move" ? "Move" : t === "scale" ? "Scale" : "Rotate", icon: t, on: tool === t, onClick: () => setTool(t) }));
+  } else if (current === "light") {
+    primary = { label: "Add a key light", onClick: () => { const n = addLight(liveScene.current, "key"); change(n, true); setSelected(n.lights!.at(-1)!.id); } };
+    tiles = LOOKS.map((l) => ({ id: l.name, label: l.name, swatch: swatchOf(l.look), on: scene.look ? JSON.stringify(scene.look) === JSON.stringify(l.look) : false, onClick: () => change(setLook(liveScene.current, l.look), true) }));
+  } else {
+    primary = { label: "Render shot", onClick: openDrawer };
+    tiles = [{ id: "draft", label: "Draft (fast)", icon: "draft", onClick: openDrawer }, { id: "final", label: "Final", icon: "final", onClick: openDrawer }, { id: "up", label: "Upscale (4K)", icon: "upscale", onClick: openDrawer }];
   }
   const shotLink = (id2: string) => `/board/${id}/grey/${id2}${boardId ? `?b=${boardId}` : ""}`;
   const strip = project.shots.filter((x) => x.render);
@@ -346,38 +408,41 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
               <button role="tab" aria-selected={mode === "scene"} className={mode === "scene" ? "on" : ""} onClick={() => setMode("scene")} title="Build the set around your footage">Scene</button>
               <button role="tab" aria-selected={mode === "blockout"} className={mode === "blockout" ? "on" : ""} onClick={() => { setMode("blockout"); setSelected(null); }} title="Work out the camera, the figures and the light in grey, for free">Blockout</button>
             </div>
-            <span className="gs-tools">
-              <button className="pill" onClick={undo} disabled={!pending.current && !history.current.canUndo} title="Undo (⌘Z)">Undo</button>
-              <button className="pill" onClick={redo} disabled={pending.current || !history.current.canRedo} title="Redo (⇧⌘Z)">Redo</button>
-              <button className={`pill${showOriginal ? " on" : ""}`} aria-pressed={showOriginal} onClick={() => setShowOriginal((v) => !v)} title="Hold your original footage up against the set">Compare original</button>
-              <button className="fire" onClick={() => setDrawer(true)} title="Make a draft, relight, make it real, or take it into Blender">Render</button>
-            </span>
-          </header>
-
-          {saveIssue&&<p role="alert">{saveIssue} <button className="pill" disabled={shotBusy} onClick={()=>void retrySave()}>Retry save</button></p>}
-          <details className="gr-shot-tools">
-            <summary>Shots and setup</summary>
+            <details className="gr-shot-tools">
+            <summary>Shots and setup</summary><div className="gr-shot-pop">
             <label>Open shot<select aria-label="Open Grey Room shot" value={shotId} disabled={shotBusy} onChange={e=>void saveAndOpen(e.target.value)}>{project.shots.map((s,i)=><option key={s.id} value={s.id}>{i+1}. {s.heading||"Untitled shot"}{s.render?"":" · draft"}</option>)}</select></label>
             <p>Create a draft with this room, people, props, materials and camera. Footage, masks, takes and approvals stay on the original shot.</p>
             <label>New shot name<input aria-label="New setup shot name" maxLength={160} value={draftHeading} disabled={shotBusy||!!createdDraft} onChange={e=>setDraftHeading(e.target.value)}/></label>
             <label>What happens in the new shot?<textarea aria-label="New setup shot action" maxLength={4000} value={draftBeat} disabled={shotBusy||!!createdDraft} placeholder="Optional — leave blank to keep this shot's action" onChange={e=>setDraftBeat(e.target.value)}/></label>
             {!createdDraft&&<button className="pill" disabled={shotBusy||!draftHeading.trim()} onClick={()=>void createSetupShot()}>{shotBusy?"Saving…":"Create draft from this setup"}</button>}
             {createdDraft&&<p role="status">{saveIssue?"Draft is kept in this session until saving succeeds.":"Draft created."} <button className="pill" disabled={shotBusy||!!saveIssue} onClick={()=>void saveAndOpen(createdDraft)}>Open new draft</button><button className="plain" disabled={shotBusy||!!saveIssue} onClick={()=>{setCreatedDraft(null);setDraftBeat("");}}>Create another</button></p>}
-          </details>
+          </div></details>
+            <span className="gs-tools">
+              <button className="pill" onClick={undo} disabled={!pending.current && !history.current.canUndo} title="Undo (⌘Z)">Undo</button>
+              <button className="pill" onClick={redo} disabled={pending.current || !history.current.canRedo} title="Redo (⇧⌘Z)">Redo</button>
+              <button className={`pill${showOriginal ? " on" : ""}`} aria-pressed={showOriginal} onClick={() => setShowOriginal((v) => !v)} title="Hold your original footage up against the set">Compare original</button>
+              <button className="fire" onClick={() => setDrawer(true)} title="Make a draft, relight, make it real, or take it into Blender">Render</button>
+              <GreySpendingPanel />
+            </span>
+          </header>
+
+          {saveIssue&&<p role="alert">{saveIssue} <button className="pill" disabled={shotBusy} onClick={()=>void retrySave()}>Retry save</button></p>}
           <ol className="gs-steps gw-guide" aria-label="Where you are">
             {STEPS.map((s2, i) => (
               <li key={s2.id}>
-                <button className={`gs-step${(s2.id === "blockout" && mode === "blockout") ? " on" : ""}${done[s2.id] ? " past" : ""}${next === s2.id && mode === "scene" ? " next" : ""}`} aria-current={next === s2.id && mode === "scene" ? "step" : undefined} onClick={() => go(s2.id)}>
+                <button className={`gs-step${(mode === "scene" && current === s2.id) ? " on" : ""}${done[s2.id] ? " past" : ""}${next === s2.id && mode === "scene" ? " next" : ""}`} aria-current={mode === "scene" && current === s2.id ? "step" : undefined} onClick={() => go(s2.id)}>
                   <i>{done[s2.id] ? "✓" : i + 1}</i>{s2.label}
                 </button>
               </li>
             ))}
           </ol>
+          <p className="gw-now" role="status"><b>Now:</b> {mode === "blockout" ? "work out the camera and stand-ins in grey. It costs nothing." : STEP_COPY[current].now}</p>
 
           {mode === "blockout" ? (
             <div className="gs-blockout gw-blockout">
               <GreyRoom
                 key={shot.id}
+                hideSpending
                 shot={shot}
                 scene={scene}
                 onScene={s => change(s)}
@@ -396,30 +461,14 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
             </div>
           ) : (
             <div className="gw-main">
-              <aside className="gw-left" aria-label="Library">
-                <AssetsPanel
-                  tab={tab}
-                  onTab={setTab}
-                  scene={shown}
-                  savedScene={scene}
-                  places={places}
-                  props={accessories}
-                  actors={actors}
-                  vertical={vertical}
-                  footageUrl={footage?.url ?? null}
-                  isVideo={isVideo}
-                  others={project.shots.filter((x) => x.id !== shotId).length}
-                  selected={selected}
-                  onSelect={setSelected}
-                  onChange={edit}
-                  onReplace={(n) => change(n, true)}
-                  onUseEverywhere={useEverywhere}
-                  cutout={<CutoutPanel isVideo={isVideo} matte={matte} describe={describe} onDescribe={setDescribe} picking={picking} onPicking={setPicking} dots={dots} onClearDots={() => setDots([])} running={running} price={price} problem={problem} onCutOut={() => void cutOut()} />}
-                />
+              <aside className={`gw-left${leftOpen ? "" : " folded"}`} aria-label="Layers and assets">
+                <button type="button" className="gw-side-toggle" aria-expanded={leftOpen} onClick={() => setLeftOpen(!leftOpen)} title={leftOpen ? "Fold the layers panel" : "Open the layers panel"} aria-label={leftOpen ? "Fold the layers panel" : "Open the layers panel"}>{leftOpen ? "«" : "»"}</button>
+                <div hidden={!leftOpen}><LayersPanel scene={shown} selected={selected} onSelect={setSelected} onChange={edit} accessories={accessories} /></div>
               </aside>
 
               <section className="gw-center" aria-label="Preview">
-                <div ref={stage} className={`gw-stage${picking ? " picking" : ""}`} onClick={pick}>
+                <div ref={stage} className={`gw-stage dz-host${stageDrop.active ? " over" : ""}${picking ? " picking" : ""}`} onClick={pick} {...stageDrop.props}>
+                  <DropOverlay active={stageDrop.active} label="Drop to use as the room photo" />
                   {footage ? (
                     <Compositor
                       scene={showOriginal ? {} : shown}
@@ -436,9 +485,22 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                       onChange={(n, commit) => change(mergeEdit(scene, shown, n, time, animate), commit)}
                     />
                   ) : <p className="gs-note">This shot has no footage yet.</p>}
+                  {current === "blockout" && !stageDrop.active && <span className="gw-drop-hint" aria-hidden="true">Drop a room photo here</span>}
+                  <span className="gw-ratio" aria-hidden="true">{vertical ? "9:16" : "16:9"}</span>
                   {scene.backdrop && !matte && !showOriginal && footage?.kind === "video" && <span className="gs-chip warn">Background replacement needs a subject cut-out. Surface edits keep the original shot.</span>}
                   {picking && !matte && dots.map((d, i) => <i key={i} className="gs-dot" style={{ left: `${d.fx * 100}%`, top: `${d.fy * 100}%` }}>{i + 1}</i>)}
                 </div>
+                <DropError error={stageDrop.error} />
+                {(() => {
+                  const names = project.threads.filter((t) => t.kind === "character" && shot.threadIds.includes(t.id)).map((t) => t.name);
+                  const base = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
+                  return (
+                    <section className="gw-camrow" aria-label="Camera move">
+                      <h3>Camera move</h3>
+                      <GreyMovesPanel compact cam={base.cam} subjects={base.subjects} onApply={(keys) => changeState({ grey: tidy({ ...base, camKeys: keys, subjects: base.subjects, light: base.light }), scene: liveScene.current }, true)} />
+                    </section>
+                  );
+                })()}
                 <div className="gs-time gw-time" aria-label="Playhead">
                   <button className="pill" onClick={() => { if (!playing && time >= seconds - 0.05) setTime(0); setPlaying((p) => !p); }}>{playing ? "Pause" : "Play"}</button>
                   <div className="gs-track">
@@ -464,9 +526,69 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                 )}
               </section>
 
-              <aside className="gw-right" aria-label="Controls">
-                <Inspector scene={shown} selected={selected} onSelect={setSelected} onChange={edit} footageUrl={footage?.url ?? null} isVideo={isVideo} places={places} props={accessories} />
-              </aside>
+              <StepCard
+                index={STEPS.findIndex((x) => x.id === current) + 1}
+                title={STEP_COPY[current].title}
+                says={STEP_COPY[current].says}
+                open={rightOpen}
+                onToggle={() => setRightOpen(!rightOpen)}
+                primary={primary}
+                tiles={tiles}
+                more={<>
+                  <AssetsPanel
+                    tab={tab}
+                    onTab={setTab}
+                    scene={shown}
+                    savedScene={scene}
+                    places={places}
+                    props={accessories}
+                    actors={actors}
+                    vertical={vertical}
+                    footageUrl={footage?.url ?? null}
+                    isVideo={isVideo}
+                    others={project.shots.filter((x) => x.id !== shotId).length}
+                    selected={selected}
+                    onSelect={setSelected}
+                    onChange={edit}
+                    onReplace={(n) => change(n, true)}
+                    onUseEverywhere={useEverywhere}
+                    cutout={<CutoutPanel isVideo={isVideo} matte={matte} describe={describe} onDescribe={setDescribe} picking={picking} onPicking={setPicking} dots={dots} onClearDots={() => setDots([])} running={running} price={price} problem={problem} onCutOut={() => void cutOut()} />}
+                  />
+                  <MoreOptions label="Selected layer and scene look" open={Boolean(selected) || current === "light"}>
+                    <Inspector scene={shown} selected={selected} onSelect={setSelected} onChange={edit} footageUrl={footage?.url ?? null} isVideo={isVideo} places={places} props={accessories} />
+                  </MoreOptions>
+                  {current === "blockout" && <button type="button" className="pill" onClick={() => setMode("blockout")} title="Work out the camera, the figures and the light in grey, for free">Open the grey blockout</button>}
+                </>}
+              >
+                {current === "set" && (() => {
+                  const sel = shown.props?.find((p) => p.id === selected);
+                  const put = (change: Partial<NonNullable<typeof sel>>) => edit(updateProp(shown, sel!.id, change));
+                  return (
+                    <section className="gw-transform" aria-label={`${tool === "move" ? "Move" : tool === "scale" ? "Scale" : "Rotate"} the selected layer`}>
+                      {!sel ? <p className="gs-soft">Pick an object or actor on the picture, or in Layers, then {tool === "move" ? "move" : tool === "scale" ? "scale" : "rotate"} it here.</p> : sel.locked ? <p className="gs-soft">{sel.name} is locked. Unlock it to change it.</p> : (
+                        <>
+                          <b>{sel.name}</b>
+                          {tool === "move" && <><NumSlide label="Across" min={0} max={1} step={0.01} value={sel.x} onChange={(v) => put({ x: v })} /><NumSlide label="Down" min={0} max={1} step={0.01} value={sel.y} onChange={(v) => put({ y: v })} /></>}
+                          {tool === "scale" && <NumSlide label="Size" min={0.03} max={1.5} step={0.01} value={sel.w} onChange={(v) => put({ w: v })} />}
+                          {tool === "rotate" && <NumSlide label="Turn" min={0} max={359} step={1} value={sel.rotate} scale={1} unit="°" onChange={(v) => put({ rotate: v })} />}
+                        </>
+                      )}
+                    </section>
+                  );
+                })()}
+                {current === "render" && (
+                  <section className="gw-versions" aria-label="Result versions">
+                    <h3>Result versions</h3>
+                    {takesOf(shot).length === 0 ? <p className="gs-soft">Nothing rendered yet.</p> : (
+                      <ul>{[...takesOf(shot)].reverse().slice(0, 4).map((t, i, all) => (
+                        <li key={t.id}><span className="gw-ver-thumb"><MediaThumb url={t.url} kind={t.kind} /></span><b>v{takesOf(shot).length - i}</b><span>{t.origin ?? "Take"}</span>{all.length > 0 && <small>{t.url === shot.render?.url ? "On the shot" : ""}</small>}</li>
+                      ))}</ul>
+                    )}
+                  </section>
+                )}
+              </StepCard>
+              <input ref={roomInput} type="file" accept="image/*" hidden aria-label="Choose room photo" onChange={(e) => { chooseRoom(e.target.files); e.target.value = ""; }} />
+              <input ref={objectInput} type="file" accept="image/*" hidden aria-label="Add an object picture" onChange={(e) => { void chooseObject(e.target.files); e.target.value = ""; }} />
             </div>
           )}
         </div>

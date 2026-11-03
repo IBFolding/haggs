@@ -3,6 +3,7 @@
 import { greyFrameSvg } from "../../../../story/grey-control";
 import { guideSignature, spatialPrompt } from "../../../../story/grey-spatial-guide";
 import {GreySpendingPanel} from "./grey-spending-panel";
+import {MoreOptions} from "../grey/[shot]/collapsible";
 import { GreyProposalPanel } from "./grey-proposal-panel";
 import { GreyMovesPanel } from "./grey-moves-panel";
 import { GreySpaceView } from "./grey-space-view";
@@ -122,7 +123,7 @@ const PLAN = 8;
 const MONEY = (n: number) => creditsText(n);
 const LENS_NAME = (mm: number) => (mm <= 24 ? "wide" : mm >= 85 ? "telephoto" : "natural");
 
-export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onShot, scene, onScene, onDesign }: { onDesign?: (grey: GreyFrame, scene: SceneData) => void; scene?: SceneData; onScene?: (scene: SceneData) => void; shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number, scene?: SceneData | undefined, frame?: GreyFrame, time?: number) => void; /** The finished shot, as a video take. */ onShot?: (url: string, usd: number, scene?: SceneData | undefined, frame?: GreyFrame, time?: number, seconds?: number) => void }) {
+export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onShot, scene, onScene, onDesign, hideSpending = false }: { hideSpending?: boolean; onDesign?: (grey: GreyFrame, scene: SceneData) => void; scene?: SceneData; onScene?: (scene: SceneData) => void; shot: Shot; vertical: boolean; names: string[]; onGrey: (g: GreyFrame) => void; onApprove: () => void; onTake: (url: string, usd: number, scene?: SceneData | undefined, frame?: GreyFrame, time?: number) => void; /** The finished shot, as a video take. */ onShot?: (url: string, usd: number, scene?: SceneData | undefined, frame?: GreyFrame, time?: number, seconds?: number) => void }) {
   const saved = shot.grey ?? defaultGrey(names.length ? names : ["Subject"]);
   const [t, setT] = useState(0);
   const [rec, setRec] = useState(false);
@@ -292,10 +293,12 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
     <div className="gr">
       <p className="gr-says">Work the shot out in grey. Nothing here costs anything until you make it real.</p>
 
-      <GreySpendingPanel/>
-      {scene && onDesign && <GreyProposalPanel vertical={vertical} grey={saved} scene={scene} onApply={onDesign} />}
+      {!hideSpending&&<GreySpendingPanel/>}
       {scene && onScene && <GreySpaceView grey={grey} scene={scene} vertical={vertical} time={t} playing={playing} onSeek={time=>{setPlaying(false);setT(time);}} onTogglePlay={()=>{if(t>=CAM_SECONDS)setT(0);setPlaying(p=>!p);}} onSetCameraKey={()=>set({...saved,camKeys:setKey(saved.camKeys,t,grey.cam)})} onMoveCameraKey={(from,to)=>{const keys=retimeKey(saved.camKeys,from,to);if(!keys)return false;setPlaying(false);set({...saved,camKeys:keys});setT(Math.round(to*20)/20);return true;}} onReverseCameraPath={()=>{const keys=reverseKeys(saved.camKeys);if(keys){setPlaying(false);withKeys(keys,"Camera move reversed.");}}} onCamera={setCam} onGrey={g => set({ ...g, cam: saved.cam })} onScene={onScene} />}
       <GreyScene grey={grey} vertical={vertical} svgRef={svg} t={t} scene={scene} />
+      <GreyMovesPanel cam={grey.cam} subjects={grey.subjects} onApply={withKeys} />
+      <MoreOptions label="More options: plan with AI, path, camera and lights">
+      {scene && onDesign && <GreyProposalPanel vertical={vertical} grey={saved} scene={scene} onApply={onDesign} />}
       <TrajectoryPanel value={grey.trajectory} vertical={vertical} onChange={trajectory=>{const {trajectory:_,...rest}=grey;onGrey(trajectory?{...rest,trajectory}:rest)}} />
 
       <div className="gr-grid">
@@ -332,7 +335,6 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
             <div className="gr-path-bar">
               <button className={`pill${drawing ? " on" : ""}`} onClick={() => setDrawing(drawing ? null : [])}>{drawing ? "Draw a line on the plan…" : "Draw a path"}</button>
             </div>
-            <GreyMovesPanel cam={grey.cam} subjects={grey.subjects} onApply={withKeys} />
             <form className="gr-add" onSubmit={(e) => { e.preventDefault(); if (!words.trim()) return; const r = wordsToKeys(words, grey.cam); if (r.keys.length > 1) withKeys(r.keys, `Camera path made from your words: ${r.keys.length - 1} move${r.keys.length === 2 ? "" : "s"}.${r.unknown ? ` Skipped “${r.unknown}”.` : ""}`); else setMoved(`Didn’t understand “${r.unknown ?? words}”. Try push in, pull back, orbit left or right, crane up or down, zoom in or out, hold.`); }}>
               <input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Say it: push in, then orbit left and rise" aria-label="Describe the camera move" />
               <button className="plain" type="submit">Make path</button>
@@ -356,6 +358,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
           </form>
         </div>
       </div>
+      </MoreOptions>
 
       {!generationEnabled&&<p role="status">Paid Grey Room generation is not enabled. Editing, saved setups and local previews remain available.</p>}
       {locked && !candidate ? (
