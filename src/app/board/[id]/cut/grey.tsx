@@ -4,6 +4,7 @@ import { greyFrameSvg } from "../../../../story/grey-control";
 import { guideSignature, spatialPrompt } from "../../../../story/grey-spatial-guide";
 import {GreySpendingPanel} from "./grey-spending-panel";
 import { GreyProposalPanel } from "./grey-proposal-panel";
+import { GreyMovesPanel } from "./grey-moves-panel";
 import { GreySpaceView } from "./grey-space-view";
 import type { GreyScene as SceneData } from "../../../../story/grey-scene";
 import { TrajectoryPanel } from "./trajectory-panel";
@@ -12,7 +13,7 @@ import { track as inHeader } from "../../../../activity/activity";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { figuresMarkup } from "../../../../story/grey-figure";
-import { CAM_SECONDS, PRESETS, camAt, dropKey, drawnKeys, presetKeys, setKey, wordsToKeys,retimeKey,reverseKeys } from "../../../../story/grey-camera";
+import { CAM_SECONDS, camAt, dropKey, drawnKeys, setKey, wordsToKeys,retimeKey,reverseKeys } from "../../../../story/grey-camera";
 import { ROOM, defaultGrey, describeGrey, needsApproval, project, realPrompt, tidy, type GreyFrame } from "../../../../story/grey";
 import type { Shot } from "../../../../story/model";
 import { editEstimate } from "../../../../providers/cloud-edits";
@@ -329,9 +330,9 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
             </div>
             <small className="gr-time">{t.toFixed(1)} s of {CAM_SECONDS}{rec ? " · recording: moving the camera sets a key" : saved.camKeys?.length ? " · keyed: moving the camera sets a key here" : ""}</small>
             <div className="gr-path-bar">
-              {PRESETS.map((name) => <button key={name} className="pill" onClick={() => withKeys(presetKeys(name, grey.cam), `${name}: path laid.`)}>{name}</button>)}
               <button className={`pill${drawing ? " on" : ""}`} onClick={() => setDrawing(drawing ? null : [])}>{drawing ? "Draw a line on the plan…" : "Draw a path"}</button>
             </div>
+            <GreyMovesPanel cam={grey.cam} subjects={grey.subjects} onApply={withKeys} />
             <form className="gr-add" onSubmit={(e) => { e.preventDefault(); if (!words.trim()) return; const r = wordsToKeys(words, grey.cam); if (r.keys.length > 1) withKeys(r.keys, `Camera path made from your words: ${r.keys.length - 1} move${r.keys.length === 2 ? "" : "s"}.${r.unknown ? ` Skipped “${r.unknown}”.` : ""}`); else setMoved(`Didn’t understand “${r.unknown ?? words}”. Try push in, pull back, orbit left or right, crane up or down, zoom in or out, hold.`); }}>
               <input value={words} onChange={(e) => setWords(e.target.value)} placeholder="Say it: push in, then orbit left and rise" aria-label="Describe the camera move" />
               <button className="plain" type="submit">Make path</button>
