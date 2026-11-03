@@ -775,7 +775,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                       {group === "more" && shot && <button className="fire ed-big" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>}
                       {(() => { const nextGroup = groupAfter(group, rail); return nextGroup ? <button className={group === "cut" || group === "more" ? "plain ed-next" : "fire ed-big"} onClick={() => openGroup(nextGroup.id)}>Next: {nextGroup.label} →</button> : null; })()}
                     </div>
-                    <GuideCard rail={rail} visited={visited} open={group} suggested={suggested} onOpen={openGroup} />
+                    <GuideCard rail={rail} visited={visited} open={group} suggested={suggested} onOpen={openGroup} primaryGoesTo={group === "cut" || group === "more" ? undefined : groupAfter(group, rail)?.id} />
             <div className="ed-side-body">
               {tab === "passes" && shot ? <PassPanel key={shot.id} project={project} shot={shot} onShot={onShot} /> : tab === "review" ? <ReviewPanel shots={project.shots} selectedId={selected?.shotId ?? null} time={Math.max(0, Math.min(selected?.seconds ?? 0, t - (selected?.start ?? 0)))} onShot={onShot} onSelect={(shotId) => { setPicked(shotId); const clip = cut.clips.find(c => c.shotId === shotId); if(clip) seek(clip.start); }} /> : tab === "titles" ? (
                 <div className="tracks">

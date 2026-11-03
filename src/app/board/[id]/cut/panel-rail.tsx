@@ -40,7 +40,7 @@ export function ToolRail({ rail, open, suggested, onOpen }: { rail: Group[]; ope
 }
 
 /** The walk-through: three steps with progress dots and one suggested next group. It never blocks the rail. */
-export function GuideCard({ rail, visited, open, suggested, onOpen }: { rail: Group[]; visited: GroupId[]; open: GroupId; suggested: GroupId | null; onOpen: (id: GroupId) => void }) {
+export function GuideCard({ rail, visited, open, suggested, onOpen, primaryGoesTo }: { rail: Group[]; visited: GroupId[]; open: GroupId; suggested: GroupId | null; onOpen: (id: GroupId) => void; primaryGoesTo?: GroupId | undefined }) {
   const steps = stepProgress(visited, rail, open);
   const next = suggested ? groupById(suggested) : null;
   return (
@@ -54,7 +54,7 @@ export function GuideCard({ rail, visited, open, suggested, onOpen }: { rail: Gr
           </li>
         ))}
       </ol>
-      {next ? <button type="button" className="ed-guide-next" onClick={() => onOpen(next.id)}>Next step: <b>{next.label}</b> <span aria-hidden="true">→</span></button> : <p className="ed-guide-done">All tools opened. Pick any to go back.</p>}
+      {next && next.id !== primaryGoesTo ? <button type="button" className="ed-guide-next" onClick={() => onOpen(next.id)}>Next step: <b>{next.label}</b> <span aria-hidden="true">→</span></button> : !next ? <p className="ed-guide-done">All tools opened. Pick any to go back.</p> : null}
     </section>
   );
 }
