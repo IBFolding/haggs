@@ -50,8 +50,8 @@ export function DropError({ error }: { error: string | null }) {
 }
 
 /** A permanent drop zone: drag a file in from the desktop, or click it to choose one. */
-export function DropZone({ rules, onFiles, label, hint, busy = false, disabled = false, className = "", children }: {
-  rules: DropRules; onFiles: (files: File[]) => void; label: string; hint?: string; busy?: boolean; disabled?: boolean; className?: string; children?: ReactNode;
+export function DropZone({ rules, onFiles, label, hint, sub, busy = false, disabled = false, className = "", children }: {
+  rules: DropRules; onFiles: (files: File[]) => void; label: string; hint?: string; sub?: string; busy?: boolean; disabled?: boolean; className?: string; children?: ReactNode;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const { active, error, setError, props } = useFileDrop(rules, onFiles, disabled || busy);
@@ -61,6 +61,7 @@ export function DropZone({ rules, onFiles, label, hint, busy = false, disabled =
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="m4 18 5-5 4 4 3-3 4 4" /></svg>
         <b>{busy ? "Adding…" : active ? "Drop to add" : label}</b>
         {hint && <small>{hint}</small>}
+        {sub && <small>{sub}</small>}
       </button>
       <input ref={input} type="file" hidden multiple={rules.multiple === true} accept={acceptOf(rules)} aria-label={label} onChange={(e) => {
         const result = checkDrop(Array.from(e.target.files ?? []), rules);

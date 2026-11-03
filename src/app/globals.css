@@ -5168,3 +5168,64 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ed-side .ed-tools-toggle { min-height: 36px; }
 @media (max-width: 980px) { .ed[data-tools-collapsed="true"] { grid-template-columns: minmax(0, 1fr); } .ed-side[data-collapsed="true"] .ed-rail { flex-direction: row; } }
 .ed-side-body { overscroll-behavior: contain; }
+@media (min-width: 981px) { .ed { height: max(880px, calc(100vh - 150px)); flex: none; } }
+@media (min-width: 981px) { .app:has(> .canvas > .ed), .app:has(.ed) { height: auto; min-height: 100vh; } html:has(.ed), body:has(.ed) { overflow-y: auto; height: auto; } .ed-stage-area { padding-inline: 12px; } }
+/* Compact header of the tools panel so the open tool gets the room. */
+.ed-view-switch { padding: 6px 12px; }
+.ed-view-switch small { display: none; }
+.ed-guide { gap: 6px; padding: 8px 12px; }
+.ed-guide-next { min-height: 38px; padding: 4px 12px; }
+.ed-guide-hint { display: none; }
+.ed-tiles { padding: 8px 12px; gap: 6px; }
+.ed-tile { min-height: 54px; padding: 6px 4px; gap: 3px; font-size: 11.5px; }
+.ed-tile svg { width: 22px; height: 22px; }
+.ed-foot { max-height: 38%; padding: 8px 12px 10px; }
+.ed-foot .dz-pick { min-height: 54px; padding: 8px; }
+.ed-foot .takes { margin-top: 0; }
+.ed-side > .takes-note { display: none; }
+.ed-guide, .ed-tiles { flex: none; }
+.ed-panel-main > .ed-side-body { flex: 1 1 0; min-height: 120px; }
+.ed-refs li { width: 40px; height: 40px; }
+.ed-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ed-tile { min-height: 46px; font-size: 11px; }
+.ed-tile svg { width: 20px; height: 20px; }
+.ed-side .ed-pane .ed-row { flex-wrap: wrap; }
+
+/* Agreed look: panel head, big primary, stepper, drop zone, takes. */
+.ed-phead { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 12px 14px 4px; }
+.ed-phead h2 { margin: 0; font-size: 20px; }
+.ed-phead p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-3); }
+.ed-phead .ed-view-switch { display: flex; flex: none; gap: 0; padding: 2px; border: 1px solid var(--line-hot); border-radius: 999px; background: var(--bg); }
+.ed-phead .ed-view-switch button { padding: 4px 9px; border: 0; border-radius: 999px; background: none; color: var(--text-3); font: inherit; font-size: 11.5px; font-weight: 650; cursor: pointer; }
+.ed-phead .ed-view-switch [aria-pressed="true"] { background: var(--volt-soft); color: var(--volt); }
+.ed-phead .ed-view-switch button:focus-visible { outline: 2px solid var(--volt); }
+.ed-primary { border-top: 0; background: none; padding: 8px 14px 4px; order: 0; }
+.ed-big.fire, .ed-primary .fire { background: var(--volt); color: var(--volt-ink); border: 0; box-shadow: none; }
+.ed-guide { border-bottom: 0; padding: 6px 14px 4px; }
+.ed-guide-steps li { flex-direction: column; align-items: center; gap: 4px; position: relative; font-size: 12px; }
+.ed-guide-steps li::after { display: none; }
+.ed-guide-steps li:not(:last-child)::before { content: ""; position: absolute; top: 9px; left: calc(50% + 12px); right: calc(-50% + 12px); height: 2px; background: var(--line-hot); }
+.ed-guide-steps li.done:not(:last-child)::before { background: var(--volt); }
+.ed-guide-steps i { width: 18px; height: 18px; border: 2px solid var(--line-hot); background: var(--bg); position: relative; z-index: 1; }
+.ed-guide-steps li.current i { background: var(--volt); border-color: var(--volt); }
+.ed-guide-steps li.done i { background: var(--volt); border-color: var(--volt); color: var(--volt-ink); font-size: 10px; }
+.ed-guide-next { min-height: 30px; padding: 2px 10px; border-radius: 999px; font-size: 12px; justify-content: center; color: var(--text-2); }
+.ed-guide-next b { flex: none; color: var(--text); }
+.ed-foot { max-height: none; overflow: visible; border-top: 0; flex: none; }
+.ed-foot .dz { border-radius: 12px; }
+.ed-foot .dz-pick { min-height: 92px; }
+.ed-foot .dz-pick svg { width: 26px; height: 26px; }
+.ed-takes-head { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; font-size: 13px; }
+.ed-takes-head span { color: var(--text-3); font-weight: 500; }
+.ed-foot .takes { margin-top: 0; }
+.ed-foot .take figure, .ed-foot .take { flex: 0 0 96px; }
+.ed-panel-main > .ed-side-body { padding: 8px 14px; }
+.ed-pane .ed-shot-title, .ed-side-body > .ed-shot-title { display: none; }
+/* Shot list cards: a big thumbnail with its length on it. */
+.ed-library li button { align-items: flex-start; gap: 8px; padding: 4px; }
+.ed-library img, .ed-library video { width: 76px; height: 46px; border-radius: 8px; }
+.ed-library li button span { display: grid; align-content: start; min-width: 0; }
+.ed-library b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; }
+.ed-library small { display: none; }
+.ed-transport { gap: 10px; }
+.ed-transport > .fire:first-child { min-width: 44px; width: 44px; height: 44px; padding: 0; border-radius: 50%; }

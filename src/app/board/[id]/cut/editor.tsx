@@ -7,7 +7,7 @@ import { EditorDialog } from "./editor-dialog";
 import { PassPanel } from "./pass-panel";
 import { ContinuityPanel } from "./continuity-panel";
 import { Section } from "./section";
-import { GuideCard, Pane, ToolRail, ToolTiles } from "./panel-rail";
+import { GuideCard, Pane, PanelHead, ToolRail } from "./panel-rail";
 import { groupAfter, groupById, groupForTab, railFor, suggestNext, type GroupId, type PanelTab } from "../../../../story/panel-guide";
 import { DropZone } from "../../../drop-zone";
 import { uploadFile } from "../../../upload-client";
@@ -135,6 +135,8 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   const [fxDrag, setFxDrag] = useState<{ id: string; start: number } | null>(null);
   const [playing, setPlaying] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
+  // The walk-through is per shot: picking another shot starts again at Prepare.
+  useEffect(() => { setVisited([]); setMediaNote(null); }, [picked]);
 
   const tRef = useRef(0);
   const track = useRef<HTMLDivElement>(null);
@@ -395,6 +397,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   const setTab = (next: PanelTab) => setGroup(groupForTab(next));
   const openGroup = (id: GroupId) => { if (toolsCollapsed) { setToolsCollapsed(false); try { localStorage.setItem("haggs.cut.toolsCollapsed", "false"); } catch { /* Session-only preference. */ } } setGroup(id); setVisited((v) => (v.includes(id) ? v : [...v, id])); };
   const [mediaBusy, setMediaBusy] = useState(false);
+  const takePick = useRef<HTMLInputElement>(null);
   const [mediaNote, setMediaNote] = useState<string | null>(null);
   /** Reshoot has two ways in: from the footage you have, or blocked out in grey first. */
   const [reshootMode, setReshootMode] = useState<"footage" | "grey">("footage");
@@ -506,9 +509,6 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   if (!project || !cut) return <div className="app"><Nav current="Projects" /></div>;
 
   const selected = cut.clips.find((c) => c.shotId === picked) ?? here?.clip ?? null;
-  const selectedShotId = selected?.shotId ?? null;
-  // The walk-through is per shot: a new shot starts again at Prepare.
-  useEffect(() => { setVisited([]); setMediaNote(null); }, [selectedShotId]);
   const shot = selected ? project.shots.find((s) => s.id === selected.shotId) : undefined;
 
   /** A file dropped or chosen in "Add media or a second image": an image joins this shot's reference images, a clip becomes a take. Nothing here is paid. */
@@ -762,21 +762,20 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
               if (toolsCollapsed) requestAnimationFrame(() => { if (body) body.scrollTop = toolsScroll.current; });
             }} aria-label={toolsCollapsed ? "Expand Shot tools" : "Collapse Shot tools to the icon rail"} title={toolsCollapsed ? "Expand Shot tools" : "Collapse to the icon rail"}>{toolsCollapsed ? "»" : "« Shot tools"}</button>
             <div id="ed-tools-content" className="ed-tools-content">
-            {!classic && <div className="ed-view-switch" role="group" aria-label="Editor view">
-              <button className="pill" aria-pressed={mode === "simple"} onClick={() => changeMode("simple")}>Simple view</button>
-              <button className="pill" aria-pressed={mode === "advanced"} onClick={() => changeMode("advanced")}>All tools</button>
-              <small>View only. Your settings stay applied.</small>
-            </div>}
-            {!advanced && <p className="takes-note">Advanced settings remain active. All tools shows Reshoot, Edit, Grey Room, versions and markers.{(tab === "tools" || tab === "reshoot") ? " Your open advanced panel is kept until you choose another tab." : ""}</p>}
             {(() => {
               const rail = railFor(advanced ? "advanced" : "simple", group);
               const suggested = suggestNext(visited, rail, group);
               return <>
-                <GuideCard rail={rail} visited={visited} open={group} suggested={suggested} onOpen={openGroup} />
-                <ToolTiles rail={rail} open={group} onOpen={openGroup} />
                 <div className="ed-panel">
                   <ToolRail rail={rail} open={group} suggested={suggested} onOpen={openGroup} />
                   <div className="ed-panel-main">
+                    <PanelHead group={group} showMode={!classic} mode={mode} onMode={changeMode} note={!advanced ? "Advanced settings remain active. All tools shows Reshoot, Edit, Grey Room, versions and markers." : undefined} />
+                    <div className="ed-primary">
+                      {group === "cut" && selected && shot && <button className="fire ed-big" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>}
+                      {group === "more" && shot && <button className="fire ed-big" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>}
+                      {(() => { const nextGroup = groupAfter(group, rail); return nextGroup ? <button className={group === "cut" || group === "more" ? "plain ed-next" : "fire ed-big"} onClick={() => openGroup(nextGroup.id)}>Next: {nextGroup.label} →</button> : null; })()}
+                    </div>
+                    <GuideCard rail={rail} visited={visited} open={group} suggested={suggested} onOpen={openGroup} />
             <div className="ed-side-body">
               {tab === "passes" && shot ? <PassPanel key={shot.id} project={project} shot={shot} onShot={onShot} /> : tab === "review" ? <ReviewPanel shots={project.shots} selectedId={selected?.shotId ?? null} time={Math.max(0, Math.min(selected?.seconds ?? 0, t - (selected?.start ?? 0)))} onShot={onShot} onSelect={(shotId) => { setPicked(shotId); const clip = cut.clips.find(c => c.shotId === shotId); if(clip) seek(clip.start); }} /> : tab === "titles" ? (
                 <div className="tracks">
@@ -959,17 +958,8 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                 </>
               )}
             </div>
-            <div className="ed-primary">
-              {group === "cut" && selected && shot && <button className="fire ed-big" disabled={!(t > selected.start + 0.1 && t < selected.start + selected.seconds - 0.1)} title="Move the playhead inside this clip to split it there" onClick={() => apply((current) => splitShot(current, shot.id, Math.round((t - selected.start) * 30) / 30))}>Split at playhead</button>}
-              {group === "more" && shot && <button className="fire ed-big" disabled={rolling === shot.id || needsApproval(shot)} title={needsApproval(shot) ? "This real take is locked. Approve it under Reshoot → Block out in grey to alter it." : undefined} onClick={() => void rollAgain(shot.id)}>{rolling === shot.id ? "Rolling…" : "Roll again"}</button>}
-              {(() => { const nextGroup = groupAfter(group, rail); return nextGroup ? <button className={group === "cut" || group === "more" ? "plain ed-next" : "fire ed-big"} onClick={() => openGroup(nextGroup.id)}>Next: {nextGroup.label} →</button> : null; })()}
-            </div>
-                  </div>
-                </div>
-              </>;
-            })()}
             <div className="ed-foot">
-              <DropZone rules={{ kinds: ["image", "video"] }} disabled={!shot} busy={mediaBusy} onFiles={(files) => void addMedia(files)} label="Add media or a second image" hint={shot ? "Drop a file from your desktop, or click to choose" : "Pick a clip on the timeline first"} />
+              <DropZone rules={{ kinds: ["image", "video"] }} disabled={!shot} busy={mediaBusy} onFiles={(files) => void addMedia(files)} label="Add media or a second image" hint={shot ? "Drag and drop from your desktop, or click to browse" : "Pick a clip on the timeline first"} sub="Images or video" />
               {mediaNote && <p className="takes-note" role="status">{mediaNote}</p>}
               {shot && (shot.refs?.length ?? 0) > 0 && (
                 <ul className="ed-refs" aria-label="Added images for this shot">
@@ -978,6 +968,8 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
               )}
               {selected && shot && (
                 <>
+                      <div className="ed-takes-head"><b>Takes <span>({takesOf(shot).length})</span></b><button type="button" className="plain" disabled={mediaBusy} onClick={() => takePick.current?.click()}>Add take +</button></div>
+                      <input ref={takePick} type="file" hidden accept="video/*,image/*" aria-label="Add a take" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addMedia([f]); }} />
                       <div className="takes" role="group" aria-label="Takes">
                         {takesOf(shot).map((take, i) => {
                           const on = take.url === shot.render?.url && take.at === shot.render?.at;
@@ -1000,6 +992,10 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
                 </>
               )}
             </div>
+                  </div>
+                </div>
+              </>;
+            })()}
             </div>
           </aside>
 

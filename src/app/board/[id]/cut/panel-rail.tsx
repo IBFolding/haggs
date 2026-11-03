@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { STEPS, groupById, stepProgress, type Group, type GroupId } from "../../../../story/panel-guide";
+import { groupById, stepProgress, type Group, type GroupId } from "../../../../story/panel-guide";
 
 const PATHS: Record<GroupId, ReactNode> = {
   timing: <><circle cx="12" cy="13" r="7.5" /><path d="M12 9v4l2.5 2M9.5 3h5" /></>,
@@ -26,9 +26,6 @@ export function RailIcon({ id, size = 22 }: { id: GroupId; size?: number }) {
   return <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{PATHS[id]}</svg>;
 }
 
-/** The big visual tiles for the tools used most. They open the same groups the rail does. */
-export const TILES: GroupId[] = ["timing", "picture", "cut", "look"];
-
 export function ToolRail({ rail, open, suggested, onOpen }: { rail: Group[]; open: GroupId; suggested: GroupId | null; onOpen: (id: GroupId) => void }) {
   return (
     <nav className="ed-rail" aria-label="Shot tool groups">
@@ -42,7 +39,7 @@ export function ToolRail({ rail, open, suggested, onOpen }: { rail: Group[]; ope
   );
 }
 
-/** A small "where am I" guide: three steps with progress dots and one suggested next group. It never blocks the rail. */
+/** The walk-through: three steps with progress dots and one suggested next group. It never blocks the rail. */
 export function GuideCard({ rail, visited, open, suggested, onOpen }: { rail: Group[]; visited: GroupId[]; open: GroupId; suggested: GroupId | null; onOpen: (id: GroupId) => void }) {
   const steps = stepProgress(visited, rail, open);
   const next = suggested ? groupById(suggested) : null;
@@ -51,27 +48,29 @@ export function GuideCard({ rail, visited, open, suggested, onOpen }: { rail: Gr
       <ol className="ed-guide-steps">
         {steps.map((s, i) => (
           <li key={s.id} className={s.state} aria-current={s.state === "current" ? "step" : undefined}>
-            <i aria-hidden="true">{s.state === "done" ? "✓" : i + 1}</i>
+            <i aria-hidden="true">{s.state === "done" ? "✓" : ""}</i>
             <span>{s.label}</span>
-            <small className="sr-only">{s.seen} of {s.total} opened</small>
+            <small className="sr-only">Step {i + 1}: {s.seen} of {s.total} opened</small>
           </li>
         ))}
       </ol>
-      {next ? <button type="button" className="ed-guide-next" onClick={() => onOpen(next.id)}><small>Next step</small><b>{next.label}</b><span aria-hidden="true">→</span></button> : <p className="ed-guide-done">All tools opened. Pick any to go back.</p>}
-      <p className="ed-guide-hint">{STEPS.find((s) => s.id === groupById(open).step)?.label}: {groupById(open).hint}</p>
+      {next ? <button type="button" className="ed-guide-next" onClick={() => onOpen(next.id)}>Next step: <b>{next.label}</b> <span aria-hidden="true">→</span></button> : <p className="ed-guide-done">All tools opened. Pick any to go back.</p>}
     </section>
   );
 }
 
-export function ToolTiles({ rail, open, onOpen }: { rail: Group[]; open: GroupId; onOpen: (id: GroupId) => void }) {
+/** The open group's name and one plain line, with the view switch tucked at the side. */
+export function PanelHead({ group, showMode, mode, onMode, note }: { group: GroupId; showMode: boolean; mode: "simple" | "advanced"; onMode: (m: "simple" | "advanced") => void; note?: string | undefined }) {
+  const g = groupById(group);
   return (
-    <div className="ed-tiles" role="group" aria-label="Most used tools">
-      {TILES.filter((id) => rail.some((g) => g.id === id)).map((id) => (
-        <button key={id} type="button" className={`ed-tile${open === id ? " on" : ""}`} aria-pressed={open === id} onClick={() => onOpen(id)}>
-          <RailIcon id={id} size={28} />
-          <span>{groupById(id).label}</span>
-        </button>
-      ))}
+    <div className="ed-phead">
+      <div><h2>{g.label === "Roll" ? "Roll again" : g.label}</h2><p>{g.hint}</p></div>
+      {showMode && (
+        <div className="ed-view-switch" role="group" aria-label="Editor view" title={note ?? "View only. Your settings stay applied."}>
+          <button type="button" aria-pressed={mode === "simple"} onClick={() => onMode("simple")}>Simple</button>
+          <button type="button" aria-pressed={mode === "advanced"} onClick={() => onMode("advanced")}>All tools</button>
+        </div>
+      )}
     </div>
   );
 }
