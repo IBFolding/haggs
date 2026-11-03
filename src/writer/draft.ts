@@ -190,6 +190,18 @@ export type ClaudeResult<T = Draft> =
   | { ok: false; reason: string };
 
 /** One call to Claude. Your key, your account; nothing is retried behind your back. */
+/** What to log when the provider refuses a request: status, error type, a short redacted message and the request id. Never the key, prompt or images. */
+export function providerFailure(response: Pick<Response, "status" | "headers">, body: string) {
+  let type = "unknown";
+  let message = "";
+  try {
+    const error = (JSON.parse(body) as { error?: { type?: unknown; message?: unknown } }).error;
+    if (typeof error?.type === "string" && /^[a-z_]{1,40}$/.test(error.type)) type = error.type;
+    if (typeof error?.message === "string") message = error.message.replace(/sk-ant-[\w-]+/g, "[key]").replace(/\s+/g, " ").slice(0, 240);
+  } catch { /* A non-JSON body is not logged. */ }
+  return { status: response.status, type, message, requestId: response.headers.get("request-id") ?? undefined };
+}
+
 export async function askClaude<T = Draft>({
   key,
   workspaceId,
@@ -224,7 +236,7 @@ export async function askClaude<T = Draft>({
       body: JSON.stringify({
         model: WRITER_MODEL,
         max_tokens: request.maxTokens,
-        ...(boundedGreyPlanning?{service_tier:"standard_only",inference_geo:"global",speed:"standard"}:{}),
+        ...(boundedGreyPlanning?{service_tier:"standard_only",inference_geo:"global"}:{}),
         system: request.system,
         messages: [{ role: "user", content }],
         output_config: { format: { type: "json_schema", schema } },
@@ -235,7 +247,11 @@ export async function askClaude<T = Draft>({
   }
   if (response.status === 401) return { ok: false, reason: "Claude rejected the key. Replace it in Keys." };
   if (response.status === 429) return { ok: false, reason: "Your Claude account is rate-limited or out of credit. Nothing was retried." };
-  if (!response.ok) return { ok: false, reason: anthropicErrorReason(response.status, await response.text().catch(() => "")) };
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    if (boundedGreyPlanning) console.warn("[grey-proposal] provider rejected the request", providerFailure(response, detail));
+    return { ok: false, reason: anthropicErrorReason(response.status, detail) };
+  }
   const data = (await response.json()) as { model?:unknown; stop_reason?: string; content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
   // Observe billable usage even when output is truncated or invalid. Do not leak content or keys.
   try{onBilling?.({model:data.model,usage:data.usage});}catch{/* Billing observer failure must retain its reservation. */}
