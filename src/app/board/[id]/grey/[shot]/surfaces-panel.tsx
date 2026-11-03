@@ -11,6 +11,7 @@ import { addSurface, removeSurface, updateSurface, type GreyScene, type Surface 
 import { runGreyAssetImage as run } from "../../../../grey-legacy-actions";
 import { openKeys } from "../../../../nav";
 import { uploadFile } from "../../../../upload-client";
+import { DropError, DropOverlay, useFileDrop } from "../../../../drop-zone";
 import { runGreyLocalWorkflow as runWorkflow } from "../../../../grey-legacy-actions";
 import { Slide } from "./slide";
 import { AreaSelector } from "./area-selector";
@@ -184,8 +185,10 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
 function TextureControls({ sf, busy, onUpload, onMake }: { sf: Surface; busy: boolean; onUpload: (f: File | undefined) => void; onMake: (words: string) => void }) {
   const pick = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
+  const drop = useFileDrop({ kinds: ["image"] }, (files) => onUpload(files[0]), busy);
   return (
-    <div className="gs-tex"><p className="gs-soft">Cloud texture generation is paused until its maximum charge can be protected by your cap. Upload a material reference or choose a saved texture. Cutouts run only on Your GPU.</p>
+    <div className={`gs-tex dz-host${drop.active ? " over" : ""}`} {...drop.props}>
+      <DropOverlay active={drop.active} label={`Drop a material for the ${sf.label}`} /><p className="gs-soft">Cloud texture generation is paused until its maximum charge can be protected by your cap. Upload a material reference or choose a saved texture. Cutouts run only on Your GPU.</p>
       {sf.texture && <figure className="gs-material-card"><img src={sf.texture.url} alt={sf.texture.name} /><figcaption>{sf.texture.name}</figcaption></figure>}
       <div className="gs-row">
         <input className="gs-name" type="text" maxLength={200} value={text} placeholder="aged red brick" onChange={(e) => setText(e.target.value)}  aria-label={`Material for the ${sf.label}`} />
@@ -196,6 +199,8 @@ function TextureControls({ sf, busy, onUpload, onMake }: { sf: Surface; busy: bo
         {sf.texture && <span className="gs-soft">Using {sf.texture.name}</span>}
         <input ref={pick} type="file" accept="image/*" hidden onChange={(e) => { onUpload(e.target.files?.[0]); e.target.value = ""; }} />
       </div>
+      <p className="gs-soft">Or drag a material picture here from your desktop.</p>
+      <DropError error={drop.error} />
     </div>
   );
 }
