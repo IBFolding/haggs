@@ -20,6 +20,8 @@ import { GreyRoom } from "../../cut/grey";
 import { Inspector } from "./inspector";
 import { LayersPanel, addImageLayer } from "./layers-panel";
 import { StepCard, type StepTile } from "./step-card";
+import { runMatte } from "../../../../grey-matte-run";
+import { useMatteWhere } from "../../../../grey-where";
 import { NumSlide } from "./slide";
 import { applyTrayReference } from "../../../../../story/grey-tray";
 import { addSurface } from "../../../../../story/grey-scene";
@@ -108,6 +110,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [problem, setProblem] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
+  const matteWhere = useMatteWhere();
   const roomInput = useRef<HTMLInputElement>(null);
   const objectInput = useRef<HTMLInputElement>(null);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -317,7 +320,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     const prompt = actorMattePrompt({ describe, points: dots.map((d) => d.at) });
     const r = await track(
       { label: "Cutting out the actor", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), result: (x) => (x.ok ? { url: x.url } : null) },
-      () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [MATTE_INPUT]: footage }),
+      () => runMatte(matteWhere.where, JSON.stringify(prompt), { [MATTE_INPUT]: footage }, () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [MATTE_INPUT]: footage })),
     ).catch((e: unknown) => ({ ok: false as const, reason: e instanceof Error ? e.message : "The cut-out didn't run.", needsKey: false }));
     setRunning(false);
     if (!r.ok) {
@@ -398,8 +401,8 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     primary = { label: "Choose room photo", onClick: () => roomInput.current?.click() };
     tiles = [{ id: "blockout", label: "Grey blockout", icon: "areas", onClick: () => setMode("blockout") }];
   } else if (current === "cut") {
-    primary = { label: running ? "Cutting out…" : matte ? "Cut out again" : "Auto cut out", onClick: () => void cutOut(), disabled: running || !isVideo, note: !isVideo ? "The cut-out works on video. This shot is a picture." : price ? `Cost: ${price}` : undefined };
-    tiles = [{ id: "pick", label: "Pick actor", icon: "pick", on: picking, onClick: () => setPicking(!picking) }, { id: "orig", label: "Show original", icon: "original", on: showOriginal, onClick: () => setShowOriginal((v) => !v) }];
+    primary = { label: running ? "Cutting out…" : matte ? "Cut out again" : "Auto cut out", onClick: () => void cutOut(), disabled: running || !isVideo, note: !isVideo ? "The cut-out works on video. This shot is a picture." : matteWhere.where === "cloud" ? "Runs on Comfy Cloud. You approve the estimated maximum first; it is held against your cap." : price ? `Cost: ${price}` : undefined };
+    tiles = [...(matteWhere.cloudOk ? [{ id: "gpu", label: "Your GPU", icon: "draft", on: matteWhere.where === "gpu", onClick: () => matteWhere.setWhere("gpu") }, { id: "cloud", label: "Comfy Cloud", icon: "upscale", on: matteWhere.where === "cloud", onClick: () => matteWhere.setWhere("cloud") }] : []), { id: "pick", label: "Pick actor", icon: "pick", on: picking, onClick: () => setPicking(!picking) }, { id: "orig", label: "Show original", icon: "original", on: showOriginal, onClick: () => setShowOriginal((v) => !v) }];
   } else if (current === "set") {
     primary = { label: "Add an object", onClick: () => objectInput.current?.click() };
     tiles = (["move", "scale", "rotate"] as const).map((t) => ({ id: t, label: t === "move" ? "Move" : t === "scale" ? "Scale" : "Rotate", icon: t, on: tool === t, onClick: () => setTool(t) }));

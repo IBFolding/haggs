@@ -37,3 +37,14 @@ test('scale updates animated size keys instead of being hidden by them',()=>{
  const next=applyGreyActions(keyed,[{type:'object.scale',id,factor:.5}]);
  assert.deepEqual(next.props![0]!.keys,[{t:0,w:.1},{t:2,w:.2}]);
 });
+test('an MCP proposal can set a floor material and a look, and never touches the source or starts a paid job',()=>{
+ const next=applyGreyActions(scene,[{type:'area.material',area:'Floor',name:'Smoked oak',url:'/grey-room/smoked-oak.webp'},{type:'look.set',preset:'Warm evening'}]);
+ const floor=next.surfaces?.find(s=>s.label==='Floor');
+ assert.equal(floor?.texture?.url,'/grey-room/smoked-oak.webp');assert.equal(floor?.mask,undefined);
+ assert.equal(next.look?.warmth,0.6);assert.deepEqual(next.source,scene.source);assert.equal(scene.surfaces,undefined);
+});
+test('area and look actions reject unknown areas, presets and unsafe URLs',()=>{
+ assert.throws(()=>applyGreyActions(scene,[{type:'area.material',area:'Ceiling',name:'x',url:'/a.png'}]));
+ assert.throws(()=>applyGreyActions(scene,[{type:'area.material',area:'Floor',name:'x',url:'javascript:alert(1)'}]));
+ assert.throws(()=>applyGreyActions(scene,[{type:'look.set',preset:'Neon'}]));
+});

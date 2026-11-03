@@ -1,7 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 import {randomUUID} from 'node:crypto';
 import {greyPlanningMaximum} from './grey-planning-limit';
-export type GreySpendKind='proposal'|'still'|'video';
+export type GreySpendKind='proposal'|'still'|'video'|'matte';
 export type GreySpendStatus={capUsd:number;chargedUsd:number;reservedUsd:number};
 export function greySpendingStore(env:Record<string,string|undefined>,token?:string){
  const call=async(name:string,args:Record<string,unknown>={})=>{
@@ -24,4 +24,5 @@ export async function withGreySpending<T>(deps:{userId:string|undefined;maximumU
  try{return await run(recordActual);}finally{try{await deps.finish(ref,actual);}catch{/* The original reservation remains held. */}}
 }
 /** Planning uses the full documented model context, never a token-count estimate. */
-export function verifiedGreyMaximum(kind:GreySpendKind,env:Record<string,string|undefined>=process.env):number|undefined{return kind==='proposal'?greyPlanningMaximum(env):undefined;}
+/** Media runs reserve exactly the estimate the person approved (the server re-checks it against the quote it issued). Without an approved estimate there is no maximum, so nothing runs. */
+export function verifiedGreyMaximum(kind:GreySpendKind,env:Record<string,string|undefined>=process.env,approvedUsd?:number):number|undefined{if(kind==='proposal')return greyPlanningMaximum(env);return typeof approvedUsd==='number'&&Number.isFinite(approvedUsd)&&approvedUsd>0?approvedUsd:undefined;}
