@@ -7,7 +7,7 @@ export const maxDuration = 300;
 
 export async function GET(request: Request) {
   if (hosted() || !bridgeAllowed(request)) return new Response("Not found", { status: 404 });
-  return Response.json({ ok: true, installed: availability(), folder: !!process.env.HAGGS_LOCAL_MEDIA });
+  return Response.json({ ok: true, installed: await availability(), folder: !!process.env.HAGGS_LOCAL_MEDIA });
 }
 
 export async function POST(request: Request) {

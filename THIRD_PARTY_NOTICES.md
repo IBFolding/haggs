@@ -36,3 +36,6 @@ Each is credited on its app page with the creator's GitHub and licence.
 - [FFmpeg](https://github.com/FFmpeg/FFmpeg) by the FFmpeg developers: LGPL 2.1+ (GPL 2+ with some options).
 - [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) by Brandon Castellano (Breakthrough): BSD 3-Clause.
 - [Auto-Editor](https://github.com/WyattBlue/auto-editor) by Wyatt Blue: The Unlicense.
+- [librosa](https://github.com/librosa/librosa) by the librosa development team: ISC. Run by `tools/video-tools/beats.py`.
+- [color-matcher](https://github.com/hahnec/color-matcher) by Christopher Hahne: GPL-3.0. Not bundled; `tools/video-tools/match_color.py` is a separate program that imports the copy you installed.
+- [rembg](https://github.com/danielgatis/rembg) by Daniel Gatis: MIT. The segmentation models it downloads (for example u2net) have their own licences set by their authors and are not hosted or shipped by HAGGS.
