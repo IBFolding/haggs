@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { normalizeScene, addLight, addProp, removeProp, updateLight, updateProp, type GreyScene } from './grey-scene';
+import { normalizeScene, addLight, addProp, removeProp, setLook, updateLight, updateProp, type GreyScene } from './grey-scene';
+import { applyTrayReference } from './grey-tray';
+import { LOOKS, LOOK_NAMES } from './grey-looks';
 
 const id = z.string().min(1).max(100);
 const unit = z.number().finite().min(0).max(1);
@@ -10,6 +12,8 @@ export const greyActionSchema = z.discriminatedUnion('type', [
   z.object({type:z.literal('object.scale'), id, factor:z.number().finite().min(.02).max(20)}).strict(),
   z.object({type:z.literal('object.rotate'), id, degrees:z.number().finite().min(-360).max(360)}).strict(),
   z.object({type:z.literal('object.remove'), id}).strict(),
+  z.object({type:z.literal('area.material'), area:z.enum(['Floor','Wall','Door','Window']), name:z.string().min(1).max(60), url:media}).strict(),
+  z.object({type:z.literal('look.set'), preset:z.enum(LOOK_NAMES)}).strict(),
   z.object({type:z.literal('lighting.add'), kind:z.enum(['key','fill','glow','practical'])}).strict(),
   z.object({type:z.literal('lighting.adjust'), id, x:unit.optional(), y:unit.optional(), intensity:unit.optional(), color:z.string().regex(/^#[0-9a-f]{6}$/i).optional()}).strict(),
 ]);
@@ -28,7 +32,12 @@ export function applyGreyActions(scene: GreyScene, input: unknown): GreyScene {
     if (action.type === 'object.add') {
       next = addProp(next, action);
       next = updateProp(next, next.props!.at(-1)!.id, {role:action.role ?? 'object'});
-    } else if (action.type === 'lighting.add') next = addLight(next, action.kind);
+    } else if (action.type === 'area.material') {
+      const result = applyTrayReference(next, action.area, { id: 'mcp', url: action.url, name: action.name });
+      if (result.kind === 'missing') throw new Error('That area could not be added.');
+      next = result.scene;
+    } else if (action.type === 'look.set') next = setLook(next, LOOKS.find(l => l.name === action.preset)!.look);
+    else if (action.type === 'lighting.add') next = addLight(next, action.kind);
     else if (action.type === 'lighting.adjust') {
       if (!next.lights?.some(l=>l.id===action.id)) throw new Error('That light no longer exists. Refresh the scene.');
       const {type:_type,id:lightId,...patch}=action;
@@ -70,6 +79,8 @@ export function describeGreyAction(scene:GreyScene,a:GreyAction):string {
  case 'object.move':return `Move ${name} to ${Math.round(a.x*100)}% across, ${Math.round(a.y*100)}% down`;
  case 'object.rotate':return `Rotate ${name} by ${a.degrees}°`;
  case 'object.remove':return `Remove ${name}`;
+ case 'area.material':return `Use ${a.name} as the ${a.area.toLowerCase()} material (outline it afterwards to see it)`;
+ case 'look.set':return `Set the look to ${a.preset}`;
  case 'lighting.add':return `Add a ${a.kind} preview light`;
  case 'lighting.adjust':return `Adjust ${name} preview light`;
  }

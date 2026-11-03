@@ -1,6 +1,7 @@
 "use server";
 
-import { greyStillEnabled, greyVideoEnabled, GREY_GENERATION_HOLD } from "../server/grey-generation-policy";
+import { greyStillEnabled, greyVideoEnabled, greyMatteEnabled, greyMatteEstimateUsd, GREY_GENERATION_HOLD } from "../server/grey-generation-policy";
+import { runWorkflow } from "./workflow-actions";
 import {runWithGreyCap} from "../server/grey-spending-live";
 import {cookies} from "next/headers";
 import {COMFY_COOKIE,LOCAL_COOKIE,keyIn} from "../server/keys";
@@ -21,12 +22,12 @@ import { keepResult } from "../server/keep";
 import { readMedia } from "../server/media";
 import { charged, comfyAccess } from "../server/platform";
 
-export async function greyGenerationAvailability(){return {enabled:greyStillEnabled()||greyVideoEnabled(),still:greyStillEnabled(),video:greyVideoEnabled(),reason:GREY_GENERATION_HOLD};}
+export async function greyGenerationAvailability(){return {enabled:greyStillEnabled()||greyVideoEnabled(),still:greyStillEnabled(),video:greyVideoEnabled(),matte:greyMatteEnabled(),reason:GREY_GENERATION_HOLD};}
 /** This restricted wrapper is the only paid still-image entry point used by Grey Room. */
 export async function makeGreyFirstFrame(input:{frame:string;prompt:string;ratio:"9:16"|"16:9"},approval?:GreyMediaConsent):Promise<EditResult>{
   if(!greyStillEnabled())return {ok:false,reason:GREY_GENERATION_HOLD};
   const permit=await mediaConsent.consume("still",input,approval);if(!permit.ok)return permit;
-  return runWithGreyCap("still",()=>runEdit({tool:"kontext",frame:input.frame,prompt:input.prompt,ratio:input.ratio}));
+  return runWithGreyCap("still",()=>runEdit({tool:"kontext",frame:input.frame,prompt:input.prompt,ratio:input.ratio}),editEstimate({tool:"kontext",seconds:0}));
 }
 
 export type GreyShot = { ok: true; url: string; usd: number; seconds: number } | { ok: false; reason: string; needsKey?: true };
@@ -60,12 +61,12 @@ export async function makeGreyShot(input: { grey: GreyFrame; frame: string; beat
       return { ok: false as const, reason: caught instanceof Error ? caught.message.replace(/^\[comfy-cloud\] /, "") : "The shot didn't finish." };
     }
   });
-  });
+  },GREY_SHOT_USD);
 }
 
 const mediaConsent=createGreyMediaConsent({
  store:sharedGreyQuoteStore(process.env),
- policy:kind=>({enabled:kind==='still'?greyStillEnabled():greyVideoEnabled(),estimateUsd:kind==='still'?editEstimate({tool:'kontext',seconds:0}):GREY_SHOT_USD}),
+ policy:kind=>({enabled:kind==='still'?greyStillEnabled():kind==='matte'?greyMatteEnabled():greyVideoEnabled(),estimateUsd:kind==='still'?editEstimate({tool:'kontext',seconds:0}):kind==='matte'?(greyMatteEstimateUsd()??0):GREY_SHOT_USD}),
  identity:async()=>{
   const jar=await cookies(),own=keyIn(jar,COMFY_COOKIE),user=await userNow();
   if(!own&&(!platformOn()||!user))return undefined;
@@ -73,3 +74,10 @@ const mediaConsent=createGreyMediaConsent({
  },
 });
 export async function quoteGreyMedia(kind:GreyMediaKind,input:unknown){return mediaConsent.quote(kind,input);}
+
+/** The cut-out or area finder on Comfy Cloud. Same rules as the other paid Grey Room actions: switched on by the owner, an estimate you approve, held against your cap. */
+export async function runGreyCloudMatte(input:{prompt:string;files:Record<string,string>},approval?:GreyMediaConsent){
+  if(!greyMatteEnabled())return {ok:false as const,reason:"Cut-out on Comfy Cloud is not enabled. Use Your GPU or ask the site owner to turn it on."};
+  const permit=await mediaConsent.consume("matte",input,approval);if(!permit.ok)return {ok:false as const,reason:permit.reason};
+  return runWithGreyCap("matte",()=>runWorkflow({file:input.prompt,destination:"cloud"},{},input.files),greyMatteEstimateUsd());
+}
