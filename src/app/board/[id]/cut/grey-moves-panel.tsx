@@ -6,6 +6,21 @@ import { CAM_SECONDS, type CamKey, type CamState } from "../../../../story/grey-
 import { MOVES, MOVE_INFO, defaultMoveOptions, describeMove, moveKeys, moveStart, type Move, type MoveOptions } from "../../../../story/grey-camera-moves";
 import type { GreySubject } from "../../../../story/grey";
 
+const MOVE_PATH: Record<Move, string> = {
+  "Arc": "M4 16c2-8 14-8 16 0M17 13l3 3-4 1",
+  "Push in": "M4 12h14M13 7l5 5-5 5",
+  "Pull out": "M20 12H6M11 7l-5 5 5 5",
+  "Crane up": "M12 20V6M7 11l5-5 5 5",
+  "Crane down": "M12 4v14M7 13l5 5 5-5",
+  "Orbit": "M20 12a8 8 0 1 1-3-6.2M20 4v4h-4",
+  "Bullet time": "M4 8h4v8H4zM10 6h4v12h-4zM16 8h4v8h-4z",
+  "Dolly zoom": "M3 12h5M16 12h5M8 8l4 4-4 4M16 8l-4 4 4 4",
+  "Whip": "M4 8h16M4 12h12M4 16h8",
+};
+function MoveIcon({ move }: { move: Move }) {
+  return <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={MOVE_PATH[move]} /></svg>;
+}
+
 /** Named camera moves: pick one, set how long and how far, and it lays ordinary camera keys. Free, runs in the browser. */
 export function GreyMovesPanel({ cam, subjects, onApply }: { cam: CamState; subjects: GreySubject[]; onApply: (keys: CamKey[], note: string) => void }) {
   const [move, setMove] = useState<Move>("Arc");
@@ -22,7 +37,7 @@ export function GreyMovesPanel({ cam, subjects, onApply }: { cam: CamState; subj
   return (
     <div className="gr-moves" role="group" aria-label="Camera moves">
       <div className="gr-path-bar" role="radiogroup" aria-label="Choose a camera move">
-        {MOVES.map((m) => <button key={m} type="button" role="radio" aria-checked={m === move} className={`pill${m === move ? " on" : ""}`} onClick={() => pick(m)}>{m}</button>)}
+        {MOVES.map((m) => <button key={m} type="button" role="radio" aria-checked={m === move} className={`gr-move${m === move ? " on" : ""}`} onClick={() => pick(m)}><MoveIcon move={m} /><span>{m}</span></button>)}
       </div>
       <small className="gr-time">{info.says}.</small>
       <div className="gr-controls">
