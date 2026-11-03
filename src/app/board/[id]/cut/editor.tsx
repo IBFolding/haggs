@@ -53,6 +53,7 @@ import { Nav, openKeys } from "../../../nav";
 import { PROJECT_SAVED } from "../../../agent";
 import { ProjectTabs } from "../../../project-tabs";
 import { creditsText } from "../../../../story/price-text";
+import "./panel-layout.css";
 
 function clock(seconds: number): string {
   const whole = Math.max(0, seconds);
