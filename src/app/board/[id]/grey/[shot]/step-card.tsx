@@ -1,10 +1,32 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
+import { ASSET_DRAG } from "../../../../../story/grey-drop";
+import { useFileDrop } from "../../../../drop-zone";
 import { MoreOptions } from "./collapsible";
 
-export type StepTile = { id: string; label: string; icon?: string; swatch?: string; on?: boolean; disabled?: boolean; onClick: () => void };
+export type StepTile = {
+  id: string; label: string; icon?: string; swatch?: string; on?: boolean; disabled?: boolean; onClick: () => void;
+  /** Makes the tile a drop target: a picture from the desktop, or a card dragged from the mood board. */
+  onFiles?: (files: File[]) => void;
+  onAsset?: (payload: string) => void;
+};
+
+function Tile({ t }: { t: StepTile }) {
+  const [over, setOver] = useState(false);
+  const files = useFileDrop({ kinds: ["image"] }, (list) => t.onFiles?.(list), !t.onFiles || t.disabled === true);
+  const accepts = (e: React.DragEvent) => Boolean(t.onAsset) && Array.from(e.dataTransfer?.types ?? []).includes(ASSET_DRAG);
+  return (
+    <div className={`gw-tile-wrap${files.active || over ? " over" : ""}`} onDragEnter={(e) => { if (accepts(e)) { e.preventDefault(); setOver(true); } else files.props.onDragEnter(e); }} onDragOver={(e) => { if (accepts(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } else files.props.onDragOver(e); }} onDragLeave={(e) => { if (accepts(e)) setOver(false); else files.props.onDragLeave(e); }} onDrop={(e) => { if (accepts(e)) { e.preventDefault(); e.stopPropagation(); setOver(false); t.onAsset!(e.dataTransfer.getData(ASSET_DRAG)); } else files.props.onDrop(e); }}>
+      <button type="button" className={`gw-tile${t.on ? " on" : ""}`} aria-pressed={t.on === undefined ? undefined : t.on} disabled={t.disabled} onClick={t.onClick}>
+        {t.swatch ? <i className="gw-swatch-tile" style={{ background: t.swatch }} aria-hidden="true" /> : t.icon && ICONS[t.icon] ? <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[t.icon]} /></svg> : null}
+        <span>{t.label}</span>
+      </button>
+      {files.error && <p className="dz-error library-error" role="alert">{files.error}</p>}
+    </div>
+  );
+}
 
 const ICONS: Record<string, string> = {
   pick: "M5 4l14 7-6 2-2 6z",
@@ -22,12 +44,14 @@ const ICONS: Record<string, string> = {
 };
 
 /** One focused card per step: a short line, one main action, a few big visual buttons, and the rest under More options. */
-export function StepCard({ index, title, says, primary, tiles, open, onToggle, more, children }: {
+export function StepCard({ index, title, says, primary, tiles, areaTiles, open, onToggle, more, children }: {
   index: number;
   title: string;
   says: string;
   primary: { label: string; onClick: () => void; disabled?: boolean; note?: string | undefined };
   tiles: StepTile[];
+  /** Named areas (floor, wall...) that can be picked or dropped on. */
+  areaTiles?: StepTile[] | undefined;
   open: boolean;
   onToggle: () => void;
   more: ReactNode;
@@ -45,13 +69,15 @@ export function StepCard({ index, title, says, primary, tiles, open, onToggle, m
         {primary.note && <p className="gs-soft">{primary.note}</p>}
         {tiles.length > 0 && (
           <div className={`gw-tiles cols-${Math.min(4, tiles.length)}`} role="group" aria-label={`${title} tools`}>
-            {tiles.map((t) => (
-              <button key={t.id} type="button" className={`gw-tile${t.on ? " on" : ""}`} aria-pressed={t.on === undefined ? undefined : t.on} disabled={t.disabled} onClick={t.onClick}>
-                {t.swatch ? <i className="gw-swatch-tile" style={{ background: t.swatch }} aria-hidden="true" /> : t.icon && ICONS[t.icon] ? <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[t.icon]} /></svg> : null}
-                <span>{t.label}</span>
-              </button>
-            ))}
+            {tiles.map((t) => <Tile key={t.id} t={t} />)}
           </div>
+        )}
+        {areaTiles && areaTiles.length > 0 && (
+          <section className="gw-areas" aria-label="Floor, walls and other areas">
+            <h3>Floor, walls and other areas</h3>
+            <p className="gs-soft">Click one to pick it, then outline it. Or drop a picture on it to use as its material.</p>
+            <div className="gw-tiles cols-4">{areaTiles.map((t) => <Tile key={t.id} t={t} />)}</div>
+          </section>
         )}
         {children}
         <MoreOptions>{more}</MoreOptions>

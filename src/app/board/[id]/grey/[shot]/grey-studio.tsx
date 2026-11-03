@@ -21,6 +21,9 @@ import { Inspector } from "./inspector";
 import { LayersPanel, addImageLayer } from "./layers-panel";
 import { StepCard, type StepTile } from "./step-card";
 import { NumSlide } from "./slide";
+import { applyTrayReference } from "../../../../../story/grey-tray";
+import { addSurface } from "../../../../../story/grey-scene";
+import { GREY_PROPS, sceneAssetUrl } from "../../../../grey-builtins";
 import { LOOKS } from "./light-panel";
 import { GreyMovesPanel } from "../../cut/grey-moves-panel";
 import { checkDrop } from "../../../../../story/drop-files";
@@ -374,6 +377,21 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     change(res.scene, true); setSelected(res.selected);
   }
   const openDrawer = () => setDrawer(true);
+  /** Floor, wall, door and window: click to pick the area, or drop a picture on it to set its material. Same code as the mood board's apply. */
+  async function useMaterial(label: string, name: string, url: string) {
+    const r = applyTrayReference(liveScene.current, label, { id: "drop", url: await sceneAssetUrl(url), name });
+    if (r.kind === "missing") return stageDrop.setError("That area could not be added.");
+    change(r.scene, true); setSelected(r.selected);
+  }
+  const areaTiles: StepTile[] = ["Floor", "Wall", "Door", "Window"].map((label) => {
+    const existing = scene.surfaces?.find((x) => x.label.toLowerCase() === label.toLowerCase());
+    return {
+      id: label, label, icon: "areas", on: Boolean(existing && existing.id === selected),
+      onClick: () => { if (existing) return setSelected(existing.id === selected ? null : existing.id); const next = addSurface(liveScene.current, label); change(next, true); setSelected(next.surfaces!.at(-1)!.id); },
+      onFiles: async (list: File[]) => { const r = await uploadFile(list[0]!); if (!r.ok) return stageDrop.setError(r.reason); if (r.kind !== "image") return stageDrop.setError("Choose a picture."); await useMaterial(label, list[0]!.name.replace(/\.[^.]+$/, ""), r.url); },
+      onAsset: (payload: string) => { try { const a = JSON.parse(payload) as { name?: unknown; url?: unknown }; if (typeof a.name === "string" && typeof a.url === "string" && /^(https?:\/\/|\/(?!\/))/.test(a.url)) void useMaterial(label, a.name.slice(0, 40), a.url); } catch { /* Ignore malformed drags. */ } },
+    };
+  });
   let primary: { label: string; onClick: () => void; disabled?: boolean; note?: string | undefined };
   let tiles: StepTile[];
   if (current === "blockout") {
@@ -534,6 +552,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                 onToggle={() => setRightOpen(!rightOpen)}
                 primary={primary}
                 tiles={tiles}
+                areaTiles={current === "set" ? areaTiles : undefined}
                 more={<>
                   <AssetsPanel
                     tab={tab}

@@ -124,7 +124,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
         <ul className="gs-layers" aria-label="Areas">
           {(scene.surfaces ?? []).map((sf) => (
             <li key={sf.id} className={sf.id === selected ? "on" : ""}>
-              <button className="gs-lname" onClick={() => onSelect?.(sf.id === selected ? null : sf.id)}>{sf.label} · {sf.texture && sf.mask ? "ready" : sf.mask ? "choose material" : "find outline"}</button>
+              <button className="gs-lname" onClick={() => onSelect?.(sf.id === selected ? null : sf.id)}>{sf.label} · {sf.texture && sf.mask ? "ready" : sf.mask ? "choose material" : sf.texture ? "material added, outline it" : "find outline"}</button>
               <span className="gs-lact">
                 <button aria-label={sf.hidden ? "Show" : "Hide"} title={sf.hidden ? "Show" : "Hide"} onClick={() => onChange(updateSurface(scene, sf.id, { hidden: !sf.hidden }))}>{sf.hidden ? "○" : "●"}</button>
                 <button aria-label="Remove" title="Remove" onClick={() => { onChange(removeSurface(scene, sf.id)); if (selected === sf.id) onSelect?.(null); }}>×</button>
@@ -136,7 +136,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
       {cards.map((sf) => (
         <div key={sf.id} className="gs-surf">
           <div className="gs-surf-head">
-            <b>{sf.label} · {sf.texture && sf.mask ? "Ready to review" : sf.mask ? "Choose material" : "Find outline"}</b>
+            <b>{sf.label} · {sf.texture && sf.mask ? "Ready to review" : sf.mask ? "Choose material" : sf.texture ? "Material added, now outline the area" : "Find outline"}</b>
             <span className="gs-lact">
               <button aria-label={sf.hidden ? "Show" : "Hide"} title={sf.hidden ? "Show" : "Hide"} onClick={() => onChange(updateSurface(scene, sf.id, { hidden: !sf.hidden }))}>{sf.hidden ? "○" : "●"}</button>
               <button aria-label="Remove" title="Remove" onClick={() => onChange(removeSurface(scene, sf.id))}>×</button>
