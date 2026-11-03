@@ -70,12 +70,45 @@ split it (S), undo anything (⌘Z). Then:
 - **Render MP4** with captions and titles burned in, or export an ffmpeg script
   or a Final Cut / Resolve file (FCPXML 1.10, 30 fps, connected lanes).
 
+**Grey Room.** Block a scene in simple 3D before you spend anything: drop your
+actor and props on the floor, pick a camera move (arc, push, pull, crane, orbit,
+bullet time, dolly zoom, whip) or set your own camera keys, choose the air and
+the look, and see the first frame. The editor walks you through one tool at a
+time. The paid steps (making the still, the video take, the cut-out on Comfy
+Cloud) are off by default and, when switched on, show their price first and stop
+at your spending cap. See `docs/grey-room-camera-moves.md` and
+`docs/grey-spending-cap-handoff.md`.
+
+**Living comic.** Turn a story into a comic page (Classic, Manga, Noir or
+Storybook), draw the panels, and animate any panel into a short clip. The price
+of each step is on its button.
+
+**Playable.** Describe a small game, play it in the page, and change it by
+chatting. A featured game, Neon Courier, plays without an account. Games you
+save stay in your browser.
+
+**Haggs workflows.** Workflows made for haggs (effects, game scenes, world,
+motion and VFX) sit next to the community ones, each with its creator credited.
+Some need the Haggs nodes and a GPU on your own ComfyUI.
+
+**Free video tools.** Ten open-source tools at `/tools`, each with its creator
+credited: FFmpeg export, Find every shot (PySceneDetect), Cut dead air
+(Auto-Editor), Cut on the beat (librosa), Match colour (color-matcher), Remove
+the background (rembg), Split the music and voice (Demucs), Animated titles
+(HyperFrames), Upscale (Real-ESRGAN) and Smooth slow motion (RIFE). They cost no
+credits and run on the machine that runs haggs, using programs you install
+yourself; set `HAGGS_VIDEO_TOOLS_BIN` to the folder that holds them. A tool that
+is not installed says so instead of failing.
+
+**Gallery.** Everything you make lands in one place, with folders and an
+auto-organise pass, so you can find it and use it again.
+
 **Academy.** Seven short lessons, about 90 minutes, from your first video to a
 finished film. Each ends in something real in haggs; finish all seven for a
 certificate.
 
-**Claude and Codex, over MCP.** `scripts/mcp.ts` is an MCP server that Claude and Codex both
-can use. They can read your
+**Connect Claude or ChatGPT, over MCP.** `scripts/mcp.ts` is an MCP server that Claude
+and Codex (OpenAI's coding agent, in ChatGPT plans) can use, and any other MCP client. They can read your
 projects and send you work to apply: drafts, boards, edits, takes, voices, a
 series, or an app laid out on the canvas (`haggs_propose_canvas`,
 `haggs_propose_series`), a Playable game (`haggs_propose_game`), and search Comfy's workflow library
@@ -172,6 +205,9 @@ deployment needs a file store in their place.
 src/
   app/        pages: landing, projects, the project tabs, Photos, Video, Series, Workflows, Academy
   academy/    the seven lessons and your progress
+  comic/      comic pages, panels and animating a panel
+  playable/   Playable games and Neon Courier
+  tools/      the ten free video tools
   catalog/    models, settings, prices
   characters/ traits, sheets, identity locks
   comfy/      workflow converter, apps, canvas, ready-made apps, library
