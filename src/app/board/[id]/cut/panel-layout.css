@@ -1,0 +1,28 @@
+/* Cut editor tool panel: one scroll area that ends above the timeline, with nothing clipped on the right. */
+.ed-panel-main { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.ed-panel-main > * { flex: none; min-width: 0; }
+.ed-panel-main > .ed-side-body { flex: none; min-height: 0; overflow: visible; }
+.ed-panel-main > .ed-foot { max-height: none; overflow: visible; }
+/* The primary button stays in reach while the tool scrolls under it. */
+.ed-panel-main > .ed-primary { position: sticky; top: 0; z-index: 3; background: var(--surface-2); padding-bottom: 8px; }
+.ed-panel-main > .ed-primary:empty { display: none; }
+/* Title on its own line when the panel is narrow, the view switch wraps below it. */
+.ed-phead { flex-wrap: wrap; row-gap: 8px; }
+.ed-phead > div:first-child { flex: 1 1 140px; min-width: 0; }
+.ed-phead h2, .ed-phead p { overflow-wrap: anywhere; }
+/* Long words and chips wrap instead of running off the edge. */
+.ed-pane { min-width: 0; }
+.ed-side-body, .ed-foot, .ed-pane { overflow-wrap: anywhere; }
+.ed-side .reshoot-controls label { grid-template-columns: 4em minmax(0, 1fr) auto; }
+.ed-side .reshoot-controls label i { white-space: normal; text-align: right; }
+.ed-side .reshoot-presets { flex-wrap: wrap; }
+.ed-side .reshoot-hint { overflow-wrap: anywhere; min-width: 0; }
+.ed-side .sheet-row { flex-wrap: wrap; }
+.ed-side .gr-lock { flex-wrap: wrap; }
+.ed-side .gr-lock > div { flex: 1 1 150px; min-width: 0; }
+.ed-side .gr-lock .pill { margin-left: auto; }
+.ed-side .sheet-row > button { flex: 1 1 auto; max-width: 100%; }
+@media (max-width: 980px) {
+  /* Stacked layout: the page scrolls, so the panel simply grows to fit and keeps its own tools reachable. */
+  .ed-panel-main { overflow: visible; }
+}
