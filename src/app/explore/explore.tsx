@@ -8,6 +8,7 @@ import { Nav } from "../nav";
 import { useSession } from "../session";
 import { SiteFooter } from "../site-footer";
 import { PostGrid, PostView, loadPosts, removePost } from "./feed";
+import { Showcase } from "./showcase";
 
 /**
  * Explore: what people make with haggs, newest first. Every post shows who made it, the words and model, and what it
@@ -42,6 +43,9 @@ export function Explore() {
             </div>
           </header>
 
+          <Showcase />
+
+          <h2 className="ex-section">Shared by people</h2>
           <div className="rx-filter" role="tablist" aria-label="Kind">
             {(["all", "image", "video"] as const).map((k) => <button key={k} role="tab" aria-selected={kind === k} onClick={() => setKind(k)}>{k === "all" ? "All" : k === "image" ? "Pictures" : "Clips"}</button>)}
           </div>

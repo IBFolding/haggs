@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { LESSONS } from "../academy/lessons";
 import { CONTEST_EFFECTS, contestName } from "../comfy/contest-lab";
 import { LTX_WORKFLOWS } from "../comfy/ltx";
+import { communityAppPath, STUDIO_SAMPLES, THIRD_PARTY_WORKFLOWS } from "../community/curated";
 import { FEATURED } from "../playable/featured";
 
 export const SITE = "https://haggsfield.studio";
@@ -55,6 +56,7 @@ export function sitemapPaths(): string[] {
   return [
     ...PAGES,
     "/workflows/community",
+    ...[...STUDIO_SAMPLES.map((x) => x.id), ...THIRD_PARTY_WORKFLOWS.map((x) => x.id)].map((id) => communityAppPath(id)),
     ...workflowNames().map((n) => `/workflows/${encodeURIComponent(n)}`),
     ...dynamicIds(),
   ];

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { listApps, type CommunityApp } from "../../../community/community";
-import { STUDIO_SAMPLES, THIRD_PARTY_WORKFLOWS } from "../../../community/curated";
+import { STUDIO_SAMPLES, THIRD_PARTY_WORKFLOWS, communityAppPath } from "../../../community/curated";
 import { feeLabel } from "../../../community/fees";
 import { dbOf } from "../../../community/supabase-db";
 import { createAppStore } from "../../../story/apps";
@@ -57,30 +57,31 @@ export function Shelf() {
           <div className="wf-grid">
             {STUDIO_SAMPLES.map((s) => (
               <article key={s.id} className="community-card">
-                {s.kind === "video" ? <video src={s.src} poster={s.poster} style={s.tall ? TALL : undefined} muted loop playsInline controls preload="none" /> : <img src={s.src} alt={s.title} style={s.tall ? TALL : undefined} loading="lazy" />}
-                <h3>{s.title}</h3>
+                {s.kind === "video" ? <video src={s.src} poster={s.poster} style={s.tall ? TALL : undefined} muted loop playsInline preload="none" /> : <img src={s.src} alt={s.title} style={s.tall ? TALL : undefined} loading="lazy" />}
+                <h3><Link className="community-link" href={communityAppPath(s.id)}>{s.title}</Link></h3>
                 <p>{s.note}</p>
                 <small>Made with: {s.madeWith}</small>
+                <span className="pill community-open" aria-hidden="true">Open app</span>
               </article>
             ))}
           </div>
         </section>
-        <section aria-labelledby="third-party">
+        {THIRD_PARTY_WORKFLOWS.length > 0 && <section aria-labelledby="third-party">
           <h2 id="third-party">Workflows from other creators</h2>
           <p className="wf-small">Links to work we did not make. haggs does not bundle, host or redistribute any of it.</p>
           <div className="wf-grid">
             {THIRD_PARTY_WORKFLOWS.map((w) => (
               <article key={w.id} className="community-card">
-                <h3>{w.name}</h3>
+                <h3><Link className="community-link" href={communityAppPath(w.id)}>{w.name}</Link></h3>
                 <p>{w.summary}</p>
                 <small>By <a href={w.creator.url} target="_blank" rel="noopener noreferrer">@{w.creator.name}</a> · Licence {w.license}</small>
                 <small>Needs: {w.requirements.join(" · ")}</small>
                 <p>{w.notes}</p>
-                <a className="pill" href={w.source} target="_blank" rel="noopener noreferrer">Open the creator&rsquo;s workflow ↗</a>
+                <span className="pill community-open" aria-hidden="true">Open app</span>
               </article>
             ))}
           </div>
-        </section>
+        </section>}
         <h2>Community apps</h2>
         <p className="wf-small">Made by people using haggs. Free, or a creator fee of up to 12 credits a run, on top of what the run costs.</p>
         {!sb && <p className="wf-note">Community apps need an account. This copy of haggs isn&rsquo;t connected to one yet.</p>}
