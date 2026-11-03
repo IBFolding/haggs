@@ -218,7 +218,7 @@ export function BuildWorkflow({ start }: { start?: Canvas }) {
   }
 
   if (!draftReady) return <div className="app"><Nav current="Workflows" /><main><h1>Build a workflow</h1>{draftError?<p role="alert">Your draft could not be loaded. Check your browser storage and reload to try again.</p>:<p role="status">Loading your draft…</p>}</main></div>;
-  if (trying && compiled.json) return <WorkflowApp name={canvas.name} file={compiled.json} canvas={canvas} onBack={() => setTrying(false)} />;
+  if (trying && compiled.json) return <WorkflowApp name={canvas.name} file={compiled.json} canvas={canvas} {...(quick && !start ? {} : { onBack: () => setTrying(false) })} />;
 
   const at = (id: string) => canvas.nodes.find((n) => n.id === id)!;
 
