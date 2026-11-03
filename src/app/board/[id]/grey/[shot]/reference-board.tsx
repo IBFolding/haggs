@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { addRoomReference, removeRoomReference, referenceUses, type GreyScene, type RoomReference } from "../../../../../story/grey-scene";
 import { applyTrayReference } from "../../../../../story/grey-tray";
 import { uploadFile } from "../../../../upload-client";
+import { DropError, DropOverlay, useFileDrop } from "../../../../drop-zone";
 
 export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: GreyScene; selected?: string | null; onChange: (scene: GreyScene) => void; onEdit: (id?: string, kind?: "objects" | "surface") => void }) {
   const picker = useRef<HTMLInputElement>(null);
@@ -11,7 +12,7 @@ export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: G
   const [error, setError] = useState<string | null>(null);
   const [target, setTarget] = useState("Floor");
   const activeTarget = scene.props?.some(p => p.id === selected) ? `object:${selected}` : scene.surfaces?.some(s => s.id === selected) ? selected! : scene.surfaces?.find(s => s.label === target)?.id ?? target;
-  async function upload(files: FileList | null) {
+  async function upload(files: FileList | File[] | null) {
     if (!files) return;
     setBusy(true); setError(null);
     try {
@@ -27,6 +28,7 @@ export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: G
     } catch (e) { setError(e instanceof Error ? e.message : "Upload did not finish."); }
     finally { setBusy(false); }
   }
+  const drop = useFileDrop({ kinds: ["image"], multiple: true }, (files) => void upload(files), busy || (scene.references?.length ?? 0) >= 60);
   async function addSample(ref: { name: string; url: string }) {
     setBusy(true); setError(null);
     try {
@@ -50,7 +52,8 @@ export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: G
     setTarget(result.kind === "surface" ? result.selected : `object:${result.selected}`);
     live.current = result.scene; onChange(result.scene); onEdit(result.selected, result.kind);
   }
-  return <section className="gs-sec gs-moodboard" aria-label="Room reference board">
+  return <section className={`gs-sec gs-moodboard dz-host${drop.active ? " over" : ""}`} aria-label="Room reference board" {...drop.props}>
+    <DropOverlay active={drop.active} label="Drop to add reference images" />
     <div className="gs-surf-head"><div><span className="gs-board-kicker">YOUR CREATIVE DIRECTION</span><h3>Mood board <span className="gs-board-count">{scene.references?.length ?? 0}</span></h3></div><button className="pill on" disabled={busy || (scene.references?.length ?? 0) >= 60} onClick={() => picker.current?.click()}>{busy ? "Adding…" : "+ Add photos"}</button></div>
     <p className="gs-soft">Pick a target once, then click thumbnails to audition looks. Drag a card onto the scene to place it, or onto an object to swap it.</p>
     <input ref={picker} type="file" multiple accept="image/*" hidden onChange={e => { void upload(e.target.files); e.target.value = ""; }} />
@@ -71,6 +74,8 @@ export function ReferenceBoard({ scene, selected, onChange, onEdit }: { scene: G
         <button className="gs-card-remove" title="Remove card (keeps assigned edits)" aria-label={`Remove ${ref.name} from board`} onClick={() => { const next = removeRoomReference(live.current, ref.id); live.current = next; onChange(next); }}>×</button>
       </article>;
     })}</div>
+    <p className="gs-soft">You can also drag photos in from your desktop.</p>
+    <DropError error={drop.error} />
     {error && <p role="alert" className="library-error">{error}</p>}
   </section>;
 }

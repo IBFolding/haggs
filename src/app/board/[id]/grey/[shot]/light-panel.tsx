@@ -15,7 +15,7 @@ const AIR: { kind: AtmosKind; label: string }[] = [
   { kind: "dust", label: "Dust" }, { kind: "embers", label: "Embers" }, { kind: "beams", label: "Light beams" },
 ];
 
-const LOOKS: { name: string; look: Look }[] = [
+export const LOOKS: { name: string; look: Look }[] = [
   { name: "Neutral", look: NEUTRAL },
   { name: "Warm evening", look: { exposure: -0.1, contrast: 0.15, warmth: 0.6, saturation: 0.1, vignette: 0.3 } },
   { name: "Cold night", look: { exposure: -0.25, contrast: 0.2, warmth: -0.7, saturation: -0.2, vignette: 0.45 } },
