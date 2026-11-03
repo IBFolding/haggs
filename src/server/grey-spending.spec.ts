@@ -21,3 +21,12 @@ test('known charges settle even on output failure; ambiguous reports and settlem
  assert.deepEqual(settled,[.12,.2,null,null]);
  const result=await withGreySpending({...deps,finish:async()=>{throw Error('unavailable');}},async report=>{report(.1);return 'output preserved';});assert.equal(result,'output preserved');
 });
+test('media runs reserve only an approved estimate; without one there is no maximum and nothing runs',()=>{
+ for(const kind of ['still','video','matte'] as const){
+  assert.equal(verifiedGreyMaximum(kind,{}),undefined);
+  assert.equal(verifiedGreyMaximum(kind,{},0),undefined);
+  assert.equal(verifiedGreyMaximum(kind,{},Number.NaN),undefined);
+  assert.equal(verifiedGreyMaximum(kind,{},-1),undefined);
+  assert.equal(verifiedGreyMaximum(kind,{},0.4),0.4);
+ }
+});

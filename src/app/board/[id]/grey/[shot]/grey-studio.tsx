@@ -20,7 +20,12 @@ import { GreyRoom } from "../../cut/grey";
 import { Inspector } from "./inspector";
 import { LayersPanel, addImageLayer } from "./layers-panel";
 import { StepCard, type StepTile } from "./step-card";
+import { runMatte } from "../../../../grey-matte-run";
+import { useMatteWhere } from "../../../../grey-where";
 import { NumSlide } from "./slide";
+import { applyTrayReference } from "../../../../../story/grey-tray";
+import { addSurface } from "../../../../../story/grey-scene";
+import { GREY_PROPS, sceneAssetUrl } from "../../../../grey-builtins";
 import { LOOKS } from "./light-panel";
 import { GreyMovesPanel } from "../../cut/grey-moves-panel";
 import { checkDrop } from "../../../../../story/drop-files";
@@ -105,6 +110,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
   const [problem, setProblem] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
+  const matteWhere = useMatteWhere();
   const roomInput = useRef<HTMLInputElement>(null);
   const objectInput = useRef<HTMLInputElement>(null);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -314,7 +320,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     const prompt = actorMattePrompt({ describe, points: dots.map((d) => d.at) });
     const r = await track(
       { label: "Cutting out the actor", href: window.location.pathname + window.location.search, failure: (x) => (x.ok ? null : x.reason), result: (x) => (x.ok ? { url: x.url } : null) },
-      () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [MATTE_INPUT]: footage }),
+      () => runMatte(matteWhere.where, JSON.stringify(prompt), { [MATTE_INPUT]: footage }, () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [MATTE_INPUT]: footage })),
     ).catch((e: unknown) => ({ ok: false as const, reason: e instanceof Error ? e.message : "The cut-out didn't run.", needsKey: false }));
     setRunning(false);
     if (!r.ok) {
@@ -374,14 +380,29 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
     change(res.scene, true); setSelected(res.selected);
   }
   const openDrawer = () => setDrawer(true);
+  /** Floor, wall, door and window: click to pick the area, or drop a picture on it to set its material. Same code as the mood board's apply. */
+  async function useMaterial(label: string, name: string, url: string) {
+    const r = applyTrayReference(liveScene.current, label, { id: "drop", url: await sceneAssetUrl(url), name });
+    if (r.kind === "missing") return stageDrop.setError("That area could not be added.");
+    change(r.scene, true); setSelected(r.selected);
+  }
+  const areaTiles: StepTile[] = ["Floor", "Wall", "Door", "Window"].map((label) => {
+    const existing = scene.surfaces?.find((x) => x.label.toLowerCase() === label.toLowerCase());
+    return {
+      id: label, label, icon: "areas", on: Boolean(existing && existing.id === selected),
+      onClick: () => { if (existing) return setSelected(existing.id === selected ? null : existing.id); const next = addSurface(liveScene.current, label); change(next, true); setSelected(next.surfaces!.at(-1)!.id); },
+      onFiles: async (list: File[]) => { const r = await uploadFile(list[0]!); if (!r.ok) return stageDrop.setError(r.reason); if (r.kind !== "image") return stageDrop.setError("Choose a picture."); await useMaterial(label, list[0]!.name.replace(/\.[^.]+$/, ""), r.url); },
+      onAsset: (payload: string) => { try { const a = JSON.parse(payload) as { name?: unknown; url?: unknown }; if (typeof a.name === "string" && typeof a.url === "string" && /^(https?:\/\/|\/(?!\/))/.test(a.url)) void useMaterial(label, a.name.slice(0, 40), a.url); } catch { /* Ignore malformed drags. */ } },
+    };
+  });
   let primary: { label: string; onClick: () => void; disabled?: boolean; note?: string | undefined };
   let tiles: StepTile[];
   if (current === "blockout") {
     primary = { label: "Choose room photo", onClick: () => roomInput.current?.click() };
     tiles = [{ id: "blockout", label: "Grey blockout", icon: "areas", onClick: () => setMode("blockout") }];
   } else if (current === "cut") {
-    primary = { label: running ? "Cutting out…" : matte ? "Cut out again" : "Auto cut out", onClick: () => void cutOut(), disabled: running || !isVideo, note: !isVideo ? "The cut-out works on video. This shot is a picture." : price ? `Cost: ${price}` : undefined };
-    tiles = [{ id: "pick", label: "Pick actor", icon: "pick", on: picking, onClick: () => setPicking(!picking) }, { id: "orig", label: "Show original", icon: "original", on: showOriginal, onClick: () => setShowOriginal((v) => !v) }];
+    primary = { label: running ? "Cutting out…" : matte ? "Cut out again" : "Auto cut out", onClick: () => void cutOut(), disabled: running || !isVideo, note: !isVideo ? "The cut-out works on video. This shot is a picture." : matteWhere.where === "cloud" ? "Runs on Comfy Cloud. You approve the estimated maximum first; it is held against your cap." : price ? `Cost: ${price}` : undefined };
+    tiles = [...(matteWhere.cloudOk ? [{ id: "gpu", label: "Your GPU", icon: "draft", on: matteWhere.where === "gpu", onClick: () => matteWhere.setWhere("gpu") }, { id: "cloud", label: "Comfy Cloud", icon: "upscale", on: matteWhere.where === "cloud", onClick: () => matteWhere.setWhere("cloud") }] : []), { id: "pick", label: "Pick actor", icon: "pick", on: picking, onClick: () => setPicking(!picking) }, { id: "orig", label: "Show original", icon: "original", on: showOriginal, onClick: () => setShowOriginal((v) => !v) }];
   } else if (current === "set") {
     primary = { label: "Add an object", onClick: () => objectInput.current?.click() };
     tiles = (["move", "scale", "rotate"] as const).map((t) => ({ id: t, label: t === "move" ? "Move" : t === "scale" ? "Scale" : "Rotate", icon: t, on: tool === t, onClick: () => setTool(t) }));
@@ -534,6 +555,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
                 onToggle={() => setRightOpen(!rightOpen)}
                 primary={primary}
                 tiles={tiles}
+                areaTiles={current === "set" ? areaTiles : undefined}
                 more={<>
                   <AssetsPanel
                     tab={tab}

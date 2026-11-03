@@ -12,6 +12,8 @@ import { runGreyAssetImage as run } from "../../../../grey-legacy-actions";
 import { openKeys } from "../../../../nav";
 import { uploadFile } from "../../../../upload-client";
 import { DropError, DropOverlay, useFileDrop } from "../../../../drop-zone";
+import { runMatte } from "../../../../grey-matte-run";
+import { useMatteWhere } from "../../../../grey-where";
 import { runGreyLocalWorkflow as runWorkflow } from "../../../../grey-legacy-actions";
 import { Slide } from "./slide";
 import { AreaSelector } from "./area-selector";
@@ -44,6 +46,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
   const href = () => window.location.pathname + window.location.search;
   const fail = (x: { ok: boolean; reason?: string }) => (x.ok ? null : (x.reason ?? "It didn't finish."));
 
+  const matteWhere = useMatteWhere();
   async function find(sf: Surface) {
     if (!footageUrl) return;
     const started = source;
@@ -51,7 +54,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
     setProblem(null);
     const description = surfaceWords(sf.label, words[sf.id] ?? sf.words ?? "");
     const prompt = isVideo ? actorMattePrompt({ describe: description }) : imageMattePrompt(description);
-    const r = await track({ label: `Finding the ${sf.label.toLowerCase()}`, href: href(), failure: fail }, () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [isVideo ? MATTE_INPUT : IMAGE_MATTE_INPUT]: footageUrl })).catch((e: unknown) => ({ ok: false as const, reason: e instanceof Error ? e.message : "It didn't finish.", needsKey: false }));
+    const r = await track({ label: `Finding the ${sf.label.toLowerCase()}`, href: href(), failure: fail }, () => runMatte(matteWhere.where, JSON.stringify(prompt), { [isVideo ? MATTE_INPUT : IMAGE_MATTE_INPUT]: footageUrl }, () => runWorkflow({ file: JSON.stringify(prompt) }, {}, { [isVideo ? MATTE_INPUT : IMAGE_MATTE_INPUT]: footageUrl }))).catch((e: unknown) => ({ ok: false as const, reason: e instanceof Error ? e.message : "It didn't finish.", needsKey: false }));
     setBusy(null);
     if (!mounted.current || started !== liveSource.current) return;
     if (!r.ok) {
@@ -124,7 +127,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
         <ul className="gs-layers" aria-label="Areas">
           {(scene.surfaces ?? []).map((sf) => (
             <li key={sf.id} className={sf.id === selected ? "on" : ""}>
-              <button className="gs-lname" onClick={() => onSelect?.(sf.id === selected ? null : sf.id)}>{sf.label} · {sf.texture && sf.mask ? "ready" : sf.mask ? "choose material" : "find outline"}</button>
+              <button className="gs-lname" onClick={() => onSelect?.(sf.id === selected ? null : sf.id)}>{sf.label} · {sf.texture && sf.mask ? "ready" : sf.mask ? "choose material" : sf.texture ? "material added, outline it" : "find outline"}</button>
               <span className="gs-lact">
                 <button aria-label={sf.hidden ? "Show" : "Hide"} title={sf.hidden ? "Show" : "Hide"} onClick={() => onChange(updateSurface(scene, sf.id, { hidden: !sf.hidden }))}>{sf.hidden ? "○" : "●"}</button>
                 <button aria-label="Remove" title="Remove" onClick={() => { onChange(removeSurface(scene, sf.id)); if (selected === sf.id) onSelect?.(null); }}>×</button>
@@ -136,7 +139,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
       {cards.map((sf) => (
         <div key={sf.id} className="gs-surf">
           <div className="gs-surf-head">
-            <b>{sf.label} · {sf.texture && sf.mask ? "Ready to review" : sf.mask ? "Choose material" : "Find outline"}</b>
+            <b>{sf.label} · {sf.texture && sf.mask ? "Ready to review" : sf.mask ? "Choose material" : sf.texture ? "Material added, now outline the area" : "Find outline"}</b>
             <span className="gs-lact">
               <button aria-label={sf.hidden ? "Show" : "Hide"} title={sf.hidden ? "Show" : "Hide"} onClick={() => onChange(updateSurface(scene, sf.id, { hidden: !sf.hidden }))}>{sf.hidden ? "○" : "●"}</button>
               <button aria-label="Remove" title="Remove" onClick={() => onChange(removeSurface(scene, sf.id))}>×</button>
@@ -146,7 +149,7 @@ export function SurfacesPanel({ scene, footageUrl, isVideo, references, onChange
           {!isVideo && footageUrl && <button className="pill on" disabled={busy !== null} onClick={() => setSelecting({id:sf.id,source})}>{sf.selection ? "Redraw area" : "Draw area on photo"} <span className="cost">free</span></button>}
           <div className="gs-row">
             <input className="gs-name" type="text" maxLength={120} value={words[sf.id] ?? sf.words ?? ""} placeholder={surfaceWords(sf.label, "")} onChange={(e) => setWords({ ...words, [sf.id]: e.target.value })} aria-label={`Words to find the ${sf.label}`} />
-            <button className="pill" disabled={busy !== null || !footageUrl} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">GPU time</span></button>
+            <button className="pill" disabled={busy !== null || !footageUrl} onClick={() => void find(sf)}>{busy === `find:${sf.id}` ? "Finding…" : sf.mask ? "Find again" : "Find it"} <span className="cost">{matteWhere.where === "cloud" ? "Comfy Cloud" : "GPU time"}</span></button>
           </div>
           {!isVideo && <label className="gs-field">Or upload a prepared outline (PNG)
             <input type="file" accept="image/png" disabled={busy !== null} onChange={e => { void uploadOutline(sf, e.target.files?.[0]); e.target.value = ""; }} />
