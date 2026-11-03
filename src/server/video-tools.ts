@@ -8,7 +8,7 @@ import { ffmpegBin, ffprobeBin } from "./ffmpeg";
 import { localFile, localUrl } from "./local-media";
 import { titleBrief, titleHtml } from "../tools/title-card";
 import {
-  alphaArgs, autoEditArgs, clickMixArgs, COLOR_METHODS, cutsEvery, demucsArgs, isStemMode, exportArgs, EXPORT_PRESETS, frameArgs, framesToVideoArgs,
+  alphaArgs, autoEditArgs, isSlowModel, isUpscaleModel, rifeArgs, upscaleArgs, clickMixArgs, COLOR_METHODS, cutsEvery, demucsArgs, isStemMode, exportArgs, EXPORT_PRESETS, frameArgs, framesToVideoArgs,
   isColorMethod, isDetectMode, isExportPreset, isRemoveModel, parseScenes, sceneArgs, videoTool, VIDEO_TOOLS,
   type FrameJob, type Shot, type VideoToolId,
 } from "../tools/video-tools";
@@ -26,7 +26,14 @@ export function toolPath(command: string, env: NodeJS.ProcessEnv = process.env):
 /** The small Python programs HAGGS ships in tools/video-tools. They only call the libraries you installed. */
 const script = (name: string) => join(process.cwd(), "tools", "video-tools", name);
 
-async function present(command: string, module?: string): Promise<boolean> {
+/** A program shipped as a folder with its models beside it: the folder named by its environment variable. */
+function folderTool(tool: { command: string; dirEnv?: string }): string | null {
+  const dir = tool.dirEnv ? process.env[tool.dirEnv] : undefined;
+  return dir && existsSync(join(dir, tool.command)) ? join(dir, tool.command) : null;
+}
+
+async function present(command: string, module?: string, dirEnv?: string): Promise<boolean> {
+  if (dirEnv) return !!folderTool({ command, dirEnv });
   const exe = toolPath(command);
   if (!exe) return false;
   if (!module) return true;
@@ -34,7 +41,7 @@ async function present(command: string, module?: string): Promise<boolean> {
 }
 
 export async function availability(): Promise<Record<VideoToolId, boolean>> {
-  const entries = await Promise.all(VIDEO_TOOLS.map(async (t) => [t.id, await present(t.id === "ffmpeg-export" ? "ffmpeg" : t.command, t.module)] as const));
+  const entries = await Promise.all(VIDEO_TOOLS.map(async (t) => [t.id, await present(t.id === "ffmpeg-export" ? "ffmpeg" : t.command, t.module, t.dirEnv)] as const));
   return Object.fromEntries(entries) as Record<VideoToolId, boolean>;
 }
 
@@ -65,8 +72,8 @@ export async function runVideoTool(body: Record<string, unknown>, root: string |
   const file = tool.input === "none" ? null : open(body.url);
   const kindOk = tool.input === "none" || file && (file.type.startsWith("video/") || (tool.input === "video-or-audio" && file.type.startsWith("audio/")));
   if (!kindOk) return { ok: false, reason: tool.input === "video-or-audio" ? "Add a video or a song first." : "Add a video clip first." };
-  if (!(await present(tool.id === "ffmpeg-export" ? "ffmpeg" : tool.command, tool.module))) return { ok: false, reason: `${tool.name} needs ${tool.module ? `the ${tool.module} Python library` : tool.command} installed on this machine. Setup steps are on this page.` };
-  const exe = toolPath(tool.id === "ffmpeg-export" ? "ffmpeg" : tool.command)!;
+  if (!(await present(tool.id === "ffmpeg-export" ? "ffmpeg" : tool.command, tool.module, tool.dirEnv))) return { ok: false, reason: `${tool.name} needs ${tool.module ? `the ${tool.module} Python library` : tool.dirEnv ? `${tool.command} (set ${tool.dirEnv} to its folder)` : tool.command} installed on this machine. Setup steps are on this page.` };
+  const exe = (tool.dirEnv ? folderTool(tool) : toolPath(tool.id === "ffmpeg-export" ? "ffmpeg" : tool.command))!;
   const input = file as NonNullable<typeof file>;
   const ffmpeg = ffmpegBin();
 
@@ -130,6 +137,36 @@ export async function runVideoTool(body: Record<string, unknown>, root: string |
       await rm(join(dir, "demucs"), { recursive: true, force: true });
       await rm(join(dir, "track.wav"), { force: true });
       return { ok: true, tool: tool.id, stems: stems.map((n) => ({ name: n.replace(".wav", "").replace("no_vocals", "backing"), url: rel(n) })) };
+    }
+    if (tool.id === "upscale" || tool.id === "slow-motion") {
+      const up = tool.id === "upscale";
+      const cap = up ? { seconds: 4, fps: 24, width: 1920 } : { seconds: 6, fps: 30, width: 1280 };
+      const job: FrameJob = { seconds: cap.seconds, fps: await fpsOf(input.path, cap.fps), width: cap.width };
+      const inDir = join(work, "in"), outDir = join(work, "out");
+      await mkdir(inDir, { recursive: true });
+      await mkdir(outDir, { recursive: true });
+      await run(ffmpeg, frameArgs(input.path, inDir, job), opts);
+      const frames = (await readdir(inDir)).filter((n) => n.endsWith(".png")).length;
+      if (!frames) return { ok: false, reason: "No frames could be read from that clip." };
+      // These run from their own folder so they find the models beside them.
+      const cwd = join(exe, "..");
+      const audio = await hasStream(input.path, "a");
+      if (up) {
+        const model = isUpscaleModel(body.model) ? body.model : "realesr-animevideov3";
+        await run(exe, upscaleArgs(inDir, outDir, model, num(body.scale, 2)), { ...opts, cwd });
+        await run(ffmpeg, framesToVideoArgs(outDir, input.path, join(dir, "upscaled.mp4"), job, audio), opts);
+        await rm(work, { recursive: true, force: true });
+        return { ok: true, tool: tool.id, url: rel("upscaled.mp4"), frames, after: frames / job.fps, before: frames / job.fps };
+      }
+      const model = isSlowModel(body.model) ? body.model : "rife-v4.6";
+      const factor = num(body.factor, 2) === 4 ? 4 : 2;
+      await run(exe, rifeArgs(inDir, outDir, model, frames, factor), { ...opts, cwd });
+      const made = (await readdir(outDir)).filter((n) => n.endsWith(".png")).length;
+      const smooth = body.slowMode === "smooth";
+      const outJob: FrameJob = smooth ? { ...job, fps: job.fps * factor } : job;
+      await run(ffmpeg, framesToVideoArgs(outDir, input.path, join(dir, "smooth.mp4"), outJob, smooth && audio, "%08d.png"), opts);
+      await rm(work, { recursive: true, force: true });
+      return { ok: true, tool: tool.id, url: rel("smooth.mp4"), frames: made, before: frames / job.fps, after: made / outJob.fps };
     }
     // The frame-by-frame tools: first seconds of the clip, as pictures, through the tool, back to video.
     const cap = tool.id === "remove-bg" ? { seconds: 8, fps: 24, width: 960 } : { seconds: 10, fps: 24, width: 1280 };

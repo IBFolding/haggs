@@ -131,3 +131,31 @@ test("title text is escaped and limited, and colours must be hex", () => {
   assert.equal(b.shape, "landscape");
   assert.ok(titleHtml(titleBrief({ format: "webm" })).includes("background: transparent"));
 });
+
+import { rifeArgs, upscaleArgs } from "./video-tools";
+
+test("only the video model upscales 2x/3x; the others are 4x; RIFE targets frames times factor", () => {
+  assert.ok(upscaleArgs("i", "o", "realesr-animevideov3", 3).includes("3"));
+  assert.equal(upscaleArgs("i", "o", "realesrgan-x4plus", 2)[upscaleArgs("i", "o", "realesrgan-x4plus", 2).indexOf("-s") + 1], "4");
+  assert.ok(rifeArgs("i", "o", "rife-v4.6", 10, 4).includes("40"));
+  assert.ok(rifeArgs("i", "o", "rife-v4.6", 10, 7).includes("20"));
+});
+
+const REAL = process.env.HAGGS_REALESRGAN_DIR, RIFE = process.env.HAGGS_RIFE_DIR;
+test("Real-ESRGAN doubles a clip's size", { skip: !REAL || !existsSync(join(REAL, "realesrgan-ncnn-vulkan")) }, async () => {
+  mkdirSync(join(dir, "up"), { recursive: true });
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=320x180:r=12:d=1", "-pix_fmt", "yuv420p", join(dir, "up", "c.mp4")]);
+  const r = await runVideoTool({ tool: "upscale", model: "realesr-animevideov3", scale: 2, url: "/api/local/up/c.mp4" }, dir, "development");
+  assert.ok(r.ok, JSON.stringify(r));
+  if (!r.ok || !r.url) return;
+  const path = join(dir, ...decodeURIComponent(r.url.slice("/api/local/".length)).split("/"));
+  assert.equal(execFileSync("ffprobe", ["-v", "error", "-select_streams", "v", "-show_entries", "stream=width,height", "-of", "csv=p=0", path]).toString().trim(), "640,360");
+});
+
+test("RIFE turns 12 frames into 24 for 2x slow motion", { skip: !RIFE || !existsSync(join(RIFE, "rife-ncnn-vulkan")) }, async () => {
+  mkdirSync(join(dir, "sm"), { recursive: true });
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=320x180:r=12:d=1", "-pix_fmt", "yuv420p", join(dir, "sm", "c.mp4")]);
+  const r = await runVideoTool({ tool: "slow-motion", model: "rife-v4.6", factor: 2, slowMode: "slow", url: "/api/local/sm/c.mp4" }, dir, "development");
+  assert.ok(r.ok, JSON.stringify(r));
+  if (r.ok) { assert.equal(r.frames, 24); assert.ok(Math.abs((r.after ?? 0) - 2) < 0.1); }
+});
