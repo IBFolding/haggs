@@ -406,6 +406,15 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
               <button role="tab" aria-selected={mode === "scene"} className={mode === "scene" ? "on" : ""} onClick={() => setMode("scene")} title="Build the set around your footage">Scene</button>
               <button role="tab" aria-selected={mode === "blockout"} className={mode === "blockout" ? "on" : ""} onClick={() => { setMode("blockout"); setSelected(null); }} title="Work out the camera, the figures and the light in grey, for free">Blockout</button>
             </div>
+            <details className="gr-shot-tools">
+            <summary>Shots and setup</summary><div className="gr-shot-pop">
+            <label>Open shot<select aria-label="Open Grey Room shot" value={shotId} disabled={shotBusy} onChange={e=>void saveAndOpen(e.target.value)}>{project.shots.map((s,i)=><option key={s.id} value={s.id}>{i+1}. {s.heading||"Untitled shot"}{s.render?"":" · draft"}</option>)}</select></label>
+            <p>Create a draft with this room, people, props, materials and camera. Footage, masks, takes and approvals stay on the original shot.</p>
+            <label>New shot name<input aria-label="New setup shot name" maxLength={160} value={draftHeading} disabled={shotBusy||!!createdDraft} onChange={e=>setDraftHeading(e.target.value)}/></label>
+            <label>What happens in the new shot?<textarea aria-label="New setup shot action" maxLength={4000} value={draftBeat} disabled={shotBusy||!!createdDraft} placeholder="Optional — leave blank to keep this shot's action" onChange={e=>setDraftBeat(e.target.value)}/></label>
+            {!createdDraft&&<button className="pill" disabled={shotBusy||!draftHeading.trim()} onClick={()=>void createSetupShot()}>{shotBusy?"Saving…":"Create draft from this setup"}</button>}
+            {createdDraft&&<p role="status">{saveIssue?"Draft is kept in this session until saving succeeds.":"Draft created."} <button className="pill" disabled={shotBusy||!!saveIssue} onClick={()=>void saveAndOpen(createdDraft)}>Open new draft</button><button className="plain" disabled={shotBusy||!!saveIssue} onClick={()=>{setCreatedDraft(null);setDraftBeat("");}}>Create another</button></p>}
+          </div></details>
             <span className="gs-tools">
               <button className="pill" onClick={undo} disabled={!pending.current && !history.current.canUndo} title="Undo (⌘Z)">Undo</button>
               <button className="pill" onClick={redo} disabled={pending.current || !history.current.canRedo} title="Redo (⇧⌘Z)">Redo</button>
@@ -416,15 +425,6 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
           </header>
 
           {saveIssue&&<p role="alert">{saveIssue} <button className="pill" disabled={shotBusy} onClick={()=>void retrySave()}>Retry save</button></p>}
-          <details className="gr-shot-tools">
-            <summary>Shots and setup</summary>
-            <label>Open shot<select aria-label="Open Grey Room shot" value={shotId} disabled={shotBusy} onChange={e=>void saveAndOpen(e.target.value)}>{project.shots.map((s,i)=><option key={s.id} value={s.id}>{i+1}. {s.heading||"Untitled shot"}{s.render?"":" · draft"}</option>)}</select></label>
-            <p>Create a draft with this room, people, props, materials and camera. Footage, masks, takes and approvals stay on the original shot.</p>
-            <label>New shot name<input aria-label="New setup shot name" maxLength={160} value={draftHeading} disabled={shotBusy||!!createdDraft} onChange={e=>setDraftHeading(e.target.value)}/></label>
-            <label>What happens in the new shot?<textarea aria-label="New setup shot action" maxLength={4000} value={draftBeat} disabled={shotBusy||!!createdDraft} placeholder="Optional — leave blank to keep this shot's action" onChange={e=>setDraftBeat(e.target.value)}/></label>
-            {!createdDraft&&<button className="pill" disabled={shotBusy||!draftHeading.trim()} onClick={()=>void createSetupShot()}>{shotBusy?"Saving…":"Create draft from this setup"}</button>}
-            {createdDraft&&<p role="status">{saveIssue?"Draft is kept in this session until saving succeeds.":"Draft created."} <button className="pill" disabled={shotBusy||!!saveIssue} onClick={()=>void saveAndOpen(createdDraft)}>Open new draft</button><button className="plain" disabled={shotBusy||!!saveIssue} onClick={()=>{setCreatedDraft(null);setDraftBeat("");}}>Create another</button></p>}
-          </details>
           <ol className="gs-steps gw-guide" aria-label="Where you are">
             {STEPS.map((s2, i) => (
               <li key={s2.id}>
@@ -460,7 +460,7 @@ export function GreyStudio({ id, shotId, boardId }: { id: string; shotId: string
           ) : (
             <div className="gw-main">
               <aside className={`gw-left${leftOpen ? "" : " folded"}`} aria-label="Layers and assets">
-                <button type="button" className="gw-side-toggle" aria-expanded={leftOpen} onClick={() => setLeftOpen(!leftOpen)} title={leftOpen ? "Fold the layers panel" : "Open the layers panel"}>{leftOpen ? "« Layers" : "»"}</button>
+                <button type="button" className="gw-side-toggle" aria-expanded={leftOpen} onClick={() => setLeftOpen(!leftOpen)} title={leftOpen ? "Fold the layers panel" : "Open the layers panel"} aria-label={leftOpen ? "Fold the layers panel" : "Open the layers panel"}>{leftOpen ? "«" : "»"}</button>
                 <div hidden={!leftOpen}><LayersPanel scene={shown} selected={selected} onSelect={setSelected} onChange={edit} accessories={accessories} /></div>
               </aside>
 

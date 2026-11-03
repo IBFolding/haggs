@@ -5325,3 +5325,13 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .gw-camrow .gr-moves .gr-path-bar[role="radiogroup"] { grid-template-columns: repeat(9, minmax(0, 1fr)); }
 @media (max-width: 1100px) { .gw-camrow .gr-moves .gr-path-bar[role="radiogroup"] { grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); } }
 .gr-move span { font-size: 10.5px; }
+/* Shots and setup lives in the header row, as a small menu. */
+.gw-head .gr-shot-tools { position: relative; margin: 0; padding: 0; border: 0; min-width: 0; }
+.gw-head .gr-shot-tools > summary { min-height: 34px; display: inline-flex; align-items: center; padding: 4px 12px; border: 1px solid var(--line-hot); border-radius: 999px; background: var(--surface-2); color: var(--text-2); font-size: 12.5px; font-weight: 500; white-space: nowrap; list-style: none; }
+.gw-head .gr-shot-tools > summary::-webkit-details-marker { display: none; }
+.gw-head .gr-shot-tools > summary:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.gr-shot-pop { position: absolute; left: 0; top: calc(100% + 6px); z-index: 60; width: min(420px, 88vw); padding: 14px; border: 1px solid var(--line-hot); border-radius: 14px; background: var(--surface); box-shadow: 0 12px 40px #0009; display: grid; gap: 8px; }
+.gw-left > .gw-side-toggle { width: 30px; min-height: 28px; padding: 0; margin: 0 0 4px auto; display: block; text-align: center; font-size: 13px; }
+.gw-left.folded > .gw-side-toggle { margin: 0 auto 4px; }
+.gr-move { min-height: 60px; justify-content: flex-start; padding-top: 10px; }
+.gr-move span { white-space: nowrap; font-size: 10.5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
