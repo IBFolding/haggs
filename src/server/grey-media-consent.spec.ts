@@ -32,3 +32,16 @@ test('uncertain claims, missing identity and invalid pricing fail closed',async(
  const r=await broken.consume('still',input,{quoteId:q.id,consent:true});assert.equal(r.ok,false);assert.doesNotMatch(JSON.stringify(r),/secret diagnostic/);
  assert.equal((await g.consume('still',input,{quoteId:q.id,consent:true})).ok,false);
 });
+test('relight and make-it-real quotes bind the exact clip, kind and length-based price',async()=>{
+ const clip={video:'https://example.test/draft.mp4',seconds:4,prompt:'Match the light'};
+ const priceFor=(_k:string,i?:unknown)=>({enabled:true,estimateUsd:.05*Number((i as {seconds?:number}|undefined)?.seconds??0)});
+ const g=createGreyMediaConsent({store:memoryGreyQuoteStore(),identity:async()=>'account-one',policy:priceFor});
+ const q=await g.quote('relight',clip);assert.ok(q.ok);assert.equal(q.estimateUsd,.2);const approval={quoteId:q.id,consent:true as const};
+ assert.equal((await g.consume('real',clip,approval)).ok,false);
+ assert.equal((await g.consume('relight',{...clip,seconds:8},approval)).ok,false);
+ assert.equal((await g.consume('relight',{...clip,video:'https://example.test/other.mp4'},approval)).ok,false);
+ assert.equal((await g.consume('relight',clip)).ok,false);
+ assert.equal((await g.consume('relight',clip,approval)).ok,true);
+ assert.equal((await g.consume('relight',clip,approval)).ok,false);
+ const none=await g.quote('real',{...clip,seconds:0});assert.equal(none.ok,false);
+});

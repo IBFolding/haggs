@@ -8,6 +8,9 @@ test('legacy Grey panels cannot import general paid action entry points',()=>{
  for(const file of ['assets-panel','surfaces-panel','render-panel','grey-studio']){
   const source=readFileSync(`src/app/board/[id]/grey/[shot]/${file}.tsx`,'utf8');
   assert.doesNotMatch(source,/import \{[^}]*\b(?:run|runEdit|runWorkflow|quoteWorkflow)\b[^}]*\} from "\.\.\/\.\.\/\.\.\/\.\.\/(?:actions|workflow-actions)"/);
-  assert.match(source,/grey-legacy-actions/);
+  if(file==='render-panel'){
+   // Relight and Make it real use the consented, capped actions: a quote bound to the exact clip, shown and approved before the call.
+   assert.match(source,/grey-shot-actions/);assert.match(source,/quoteGreyMedia/);assert.match(source,/window\.confirm/);assert.doesNotMatch(source,/\brunEdit\b/);
+  }else assert.match(source,/grey-legacy-actions/);
  }
 });
