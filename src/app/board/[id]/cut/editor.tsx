@@ -7,7 +7,7 @@ import { EditorDialog } from "./editor-dialog";
 import { PassPanel } from "./pass-panel";
 import { ContinuityPanel } from "./continuity-panel";
 import { Section } from "./section";
-import { GuideCard, Pane, PanelHead, ToolRail } from "./panel-rail";
+import { GuideCard, Pane, PanelHead, ToolRail, TlIcon } from "./panel-rail";
 import { groupAfter, groupById, groupForTab, railFor, suggestNext, type GroupId, type PanelTab } from "../../../../story/panel-guide";
 import { DropZone } from "../../../drop-zone";
 import { uploadFile } from "../../../upload-client";
@@ -761,7 +761,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
               setToolsCollapsed(!toolsCollapsed);
               try { localStorage.setItem("haggs.cut.toolsCollapsed", String(!toolsCollapsed)); } catch {}
               if (toolsCollapsed) requestAnimationFrame(() => { if (body) body.scrollTop = toolsScroll.current; });
-            }} aria-label={toolsCollapsed ? "Expand Shot tools" : "Collapse Shot tools to the icon rail"} title={toolsCollapsed ? "Expand Shot tools" : "Collapse to the icon rail"}>{toolsCollapsed ? "»" : "« Shot tools"}</button>
+            }} aria-label={toolsCollapsed ? "Expand Shot tools" : "Collapse Shot tools to the icon rail"} title={toolsCollapsed ? "Expand Shot tools" : "Collapse to the icon rail"}>{toolsCollapsed ? "»" : "«"}</button>
             <div id="ed-tools-content" className="ed-tools-content">
             {(() => {
               const rail = railFor(advanced ? "advanced" : "simple", group);
@@ -1003,22 +1003,22 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
           <section className="ed-time" aria-label="Timeline" data-collapsed={timelineCollapsed}>
             <div className="ed-time-bar">
               <b>Timeline</b>
-              <button className="plain ed-timeline-toggle" aria-expanded={!timelineCollapsed} aria-controls="ed-timeline-tracks" onClick={(e) => {
+              <button className="plain ed-timeline-toggle tl-ic" aria-label={timelineCollapsed ? "Expand timeline" : "Collapse timeline"} title={timelineCollapsed ? "Expand timeline" : "Collapse timeline"} aria-expanded={!timelineCollapsed} aria-controls="ed-timeline-tracks" onClick={(e) => {
                 e.currentTarget.focus();
                 if (!timelineCollapsed) timelineScroll.current = scroller.current?.scrollLeft ?? 0;
                 setTimelineCollapsed(!timelineCollapsed);
                 try { localStorage.setItem("haggs.cut.timelineCollapsed", String(!timelineCollapsed)); } catch {}
                 if (timelineCollapsed) requestAnimationFrame(() => { if (scroller.current) scroller.current.scrollLeft = timelineScroll.current; });
-              }}>{timelineCollapsed ? "Expand timeline +" : "Collapse timeline −"}</button>
+              }}><TlIcon name={timelineCollapsed ? "expand" : "collapse"} /></button>
               <span className="ed-time-summary">{cut.clips.length} clips · {clock(cut.total)}</span>
-              <button className="pill" disabled={!selected} onClick={removeSelected} title="Remove the selected segment and close the gap. Source footage stays in Media. Undo restores it.">Remove from timeline</button>
+              <button className="pill tl-ic" aria-label="Remove from timeline" disabled={!selected} onClick={removeSelected} title="Remove the selected segment and close the gap. Source footage stays in Media. Undo restores it."><TlIcon name="trash" /></button>
               <span className="ed-keys" title="Keyboard shortcuts">Space play · ←/→ step · S split · I/O trim · M marker · ⌘Z undo</span>
-              <button hidden={!advanced} className="plain" onClick={() => apply((current) => { const at = Math.round(t * 10) / 10; const next = addMarker(current, at, "", cut!.total); const added = next.markers!.find((m) => m.at === at && !(current.markers ?? []).some((c) => c.id === m.id)); if (added) setMarkerEdit(added.id); return next; })} title="Leave a note at the playhead (M). , and . jump between notes">+ Marker</button>
-              <button className="plain" onClick={() => setCard(card ? null : { text: "", sub: "", busy: false })} title="Words on black, placed after the clip under the playhead">+ Title card</button>
-              <button className="plain" disabled={historyTick < 0 || past.current.length === 0} onClick={() => travel("undo")} title="Undo (⌘Z)">Undo</button>
-              <button className="plain" disabled={future.current.length === 0} onClick={() => travel("redo")} title="Redo (⇧⌘Z)">Redo</button>
+              <button hidden={!advanced} className="plain tl-ic" aria-label="Add a marker at the playhead" onClick={() => apply((current) => { const at = Math.round(t * 10) / 10; const next = addMarker(current, at, "", cut!.total); const added = next.markers!.find((m) => m.at === at && !(current.markers ?? []).some((c) => c.id === m.id)); if (added) setMarkerEdit(added.id); return next; })} title="Leave a note at the playhead (M). , and . jump between notes"><TlIcon name="marker" /></button>
+              <button className="plain tl-ic" aria-label="Add a title card" onClick={() => setCard(card ? null : { text: "", sub: "", busy: false })} title="Words on black, placed after the clip under the playhead"><TlIcon name="title" /></button>
+              <button className="plain tl-ic" aria-label="Undo" disabled={historyTick < 0 || past.current.length === 0} onClick={() => travel("undo")} title="Undo (⌘Z)"><TlIcon name="undo" /></button>
+              <button className="plain tl-ic" aria-label="Redo" disabled={future.current.length === 0} onClick={() => travel("redo")} title="Redo (⇧⌘Z)"><TlIcon name="redo" /></button>
               <label className="ed-zoom">Zoom <input type="range" min={6} max={160} value={Math.round(pps)} onChange={(e) => setPps(Number(e.target.value))} aria-label="Timeline zoom" /></label>
-              <button className="plain" onClick={fit}>Fit all</button>
+              <button className="plain tl-ic" aria-label="Fit all clips in view" title="Fit all clips in view" onClick={fit}><TlIcon name="fit" /></button>
             </div>
             {card && (
               <EditorDialog label="Title card" onClose={() => setCard(null)}><form className="ed-card" onSubmit={(e) => { e.preventDefault(); void addCard(); }}>

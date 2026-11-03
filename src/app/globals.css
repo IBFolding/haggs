@@ -5371,3 +5371,5 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .ed-time-bar { flex-wrap: wrap; }
 @media (max-width: 1400px) { .ed-time-bar .ed-keys { display: none; } }
 @media (min-width: 981px) { .ed { height: max(930px, calc(100vh - 150px)); } }
+.ed-time-bar .tl-ic { width: 34px; min-width: 34px; height: 34px; min-height: 34px; padding: 0; display: inline-grid; place-items: center; border-radius: 9px; }
+.ed-time-bar .tl-ic:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }

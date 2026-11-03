@@ -79,3 +79,19 @@ export function PanelHead({ group, showMode, mode, onMode, note }: { group: Grou
 export function Pane({ id, open, children }: { id: GroupId; open: GroupId; children: ReactNode }) {
   return open === id ? <div className="ed-pane" role="region" aria-label={groupById(id).label}>{children}</div> : null;
 }
+
+const TL: Record<string, string> = {
+  trash: "M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v5M14 11v5",
+  marker: "M6 21V4M6 5h11l-2 4 2 4H6",
+  title: "M5 6h14M12 6v13M9 19h6",
+  undo: "M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 12",
+  redo: "M15 7l5 5-5 5M20 12H10a6 6 0 0 0 0 12",
+  fit: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
+  collapse: "M6 15l6-6 6 6",
+  expand: "M6 9l6 6 6-6",
+};
+
+/** Small line icons for the timeline bar. Each button keeps its name as an aria-label and tooltip. */
+export function TlIcon({ name }: { name: keyof typeof TL | string }) {
+  return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={TL[name]} /></svg>;
+}
