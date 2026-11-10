@@ -297,7 +297,7 @@ export function Library() {
           </div>
 
           <section className={styles.start} aria-label="Start a new project">
-          <div className={styles.sectionHeading}><div><span className="eyebrow">Start something new</span><h2>What are you starting with?</h2></div><span>No generation starts here.</span></div>
+          <div className={styles.sectionHeading}><div><span className="eyebrow">Start something new</span><h2>What are you starting with?</h2></div><span>No generation starts here. <Link className="ph-ghost" href="/film-engine">Create a 3D film ↗</Link></span></div>
           <div className={styles.startTabs} role="group" aria-label="Starting point">{["Idea", "Photo", "Reference video", "Workflow", "Game", "Script"].map((kind) => <button key={kind} aria-pressed={startKind === kind} onClick={() => setStartKind(kind)}>{kind}</button>)}</div>
           <div className="ph-grid">
             <section className="ph-card" hidden={startKind !== "Idea"}>

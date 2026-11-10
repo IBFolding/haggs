@@ -1,0 +1,66 @@
+.studio{max-width:1650px;margin:0 auto;padding:clamp(18px,3vw,42px);color:#e9eee7}
+.heading{display:flex;justify-content:space-between;align-items:end;gap:24px;margin:8px 0 24px}
+.heading h1{font-size:clamp(30px,4.2vw,56px);font-weight:750;letter-spacing:-.055em;line-height:1.04;margin:10px 0}
+.heading p{font-size:14px;line-height:1.65;color:#a4b0ab;max-width:670px;margin:0}
+.eyebrow{font:700 10px/1.5 ui-monospace,monospace;letter-spacing:.21em;color:#c8ff2e}
+.headActions,.inline,.toolRow,.player,.stageTop,.stageBottom,.panelTitle,.presetRow{display:flex;align-items:center;gap:10px}
+.headActions{flex-shrink:0}
+.studio button,.studio select{border:1px solid #34413d;background:#1b2422;color:#e2ece4;border-radius:10px;padding:10px 13px;font-weight:650;font-size:12px;cursor:pointer;transition:border-color .15s,background .15s}
+.studio button:hover{border-color:#729a49;background:#273630}
+.studio button:focus-visible,.studio input:focus-visible,.studio textarea:focus-visible,.studio select:focus-visible{outline:2px solid #c8ff2e;outline-offset:2px}
+.studio button.primary{background:#c8ff2e;border-color:#c8ff2e;color:#152008;font-weight:800}
+.studio button.primary:hover{background:#e1ff81}
+.studio button.active{background:#283a24;color:#c8ff2e;border-color:#739e46}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(285px,330px);gap:18px;align-items:start}
+.stageColumn{min-width:0}
+.stage{position:relative;overflow:hidden;border:1px solid #2c403f;background:radial-gradient(ellipse at 50% 30%,#233734,#071012 75%);border-radius:18px;aspect-ratio:16/9;min-height:320px;box-shadow:0 25px 80px #0008}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.stageTop{position:absolute;left:22px;right:22px;top:20px;justify-content:space-between;pointer-events:none}
+.stageChip{font:700 10px/1.2 ui-monospace,monospace;letter-spacing:.11em;color:#ddf2df;background:#101b1bc9;border:1px solid #38534b;border-radius:7px;padding:8px 10px}
+.stageChip i{width:7px;height:7px;border-radius:50%;display:inline-block;background:#c8ff2e;box-shadow:0 0 12px #c8ff2e;margin-right:7px}
+.stageBottom{position:absolute;bottom:18px;left:22px;right:22px;justify-content:space-between;align-items:end;pointer-events:none;text-shadow:0 2px 15px #000}
+.stageBottom div{display:flex;flex-direction:column;gap:4px}
+.stageBottom small{font:650 9px ui-monospace,monospace;color:#c8ff2e;letter-spacing:.15em}
+.stageBottom strong{font-size:clamp(19px,2.8vw,32px);letter-spacing:-.05em}
+.stageBottom>span{font:650 10px ui-monospace,monospace;color:#bad0cb}
+.player{background:#151e1d;border:1px solid #2a3934;margin-top:12px;border-radius:12px;padding:11px}
+.player input{accent-color:#c8ff2e;flex:1;min-width:60px}
+.player output{font:650 11px ui-monospace,monospace;color:#cee3cf;white-space:nowrap}
+.shots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.studio button.shot{background:#111918;display:flex;flex-direction:column;align-items:start;gap:5px;padding:11px 12px;text-align:left;min-width:0}
+.shot b{font-size:13px;margin-left:5px}
+.shot small{font:500 10px ui-monospace,monospace;color:#8daba1}
+.studio button.shotActive{background:#20352b;border-color:#a3e559}
+.status{min-height:1.5em;color:#a4b6ae;font:500 11px/1.6 ui-monospace,monospace;margin:12px 2px}
+.inspector{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:#131c1b;border:1px solid #2d3b35;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panelTitle{justify-content:space-between;margin-bottom:2px}
+.panelTitle strong{font-size:14px;letter-spacing:-.02em}
+.panelTitle span{color:#749c80;font:650 11px ui-monospace,monospace}
+.fieldLabel{font-size:11px;color:#acbdb4;margin-bottom:-7px}
+.studio textarea{background:#0b1414;border:1px solid #34433f;border-radius:9px;padding:11px;color:#eaf0e9;resize:vertical;width:100%;font:inherit;font-size:12px;line-height:1.55}
+.studio select{flex:1;min-width:0;max-width:100%;background:#0f1816}
+.inline{width:100%}
+.inline button{white-space:nowrap}
+.presetRow{flex-wrap:wrap;gap:5px}
+.presetRow button{flex:1;padding:9px 5px;font-size:10px;white-space:nowrap}
+.toolRow{gap:6px;flex-wrap:wrap}
+.toolRow button{flex:1}
+.hint{font-size:11px;color:#97aaa0;line-height:1.6;margin:0}
+.selection{border:1px solid #3d533a;background:#142116;border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.selection span{color:#c8ff2e;font:700 9px ui-monospace,monospace;letter-spacing:.12em}
+.selection strong{font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.selection small{color:#abbcb0;line-height:1.45}
+.studio button.danger{background:#322020;border-color:#624140;color:#ffc2b5}
+.sliders{display:flex;flex-direction:column;gap:9px}
+.sliders label{display:flex;flex-direction:column;gap:5px}
+.sliders label span{display:flex;justify-content:space-between;gap:10px;color:#bfcfc7;font-size:11px}
+.sliders output{font:600 10px ui-monospace,monospace;color:#c8ff2e}
+.sliders input{width:100%;accent-color:#c8ff2e}
+.hidden{display:none}
+.footerNote{font-size:11px;color:#7f9588;margin:12px 0 26px}
+@media(max-width:1050px){.layout{grid-template-columns:minmax(0,1fr)}.inspector{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.inspector .panel:last-child{grid-column:span 2}.heading{align-items:start}}
+@media(max-width:650px){.studio{padding:14px}.heading{flex-direction:column;gap:14px}.headActions{width:100%}.headActions button{flex:1}.stage{border-radius:10px;min-height:235px}.stageTop{top:11px;left:10px;right:10px}.stageTop .stageChip:last-child{display:none}.stageBottom{left:11px;bottom:10px;right:11px}.stageBottom>span{display:none}.player{flex-wrap:wrap;gap:8px}.player input{order:3;flex-basis:100%}.shots{grid-template-columns:1fr 1fr 1fr}.studio button.shot{padding:7px}.shot b{display:block;margin-left:0}.inspector{display:flex}.inspector .panel:last-child{grid-column:auto}}
+
+.makeFilm{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;padding:11px 16px;border:1px solid var(--volt,#35e48a);border-radius:10px;color:var(--volt,#35e48a);background:rgba(53,228,138,.08);text-decoration:none;font-weight:750;font-size:12px}
+.makeFilm:hover{background:rgba(53,228,138,.16)}
