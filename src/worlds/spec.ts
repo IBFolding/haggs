@@ -94,7 +94,7 @@ const validColor = (v: unknown) => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.
 export function validateWorld(w: unknown): w is WorldSpec {
   if (!w || typeof w !== "object") return false;
   const a = w as Partial<WorldSpec>;
-  if (a.version !== 1 || !PRESETS.includes(a.preset as WorldPreset) || !Number.isInteger(a.seed) || typeof a.name !== "string" || a.name.length > 160 || typeof a.prompt !== "string" || a.prompt.length > 1500 || typeof a.id !== "string") return false;
+  if (a.version !== 1 || !PRESETS.includes(a.preset as WorldPreset) || (typeof a.seed !== "number" || !Number.isInteger(a.seed)) || typeof a.name !== "string" || a.name.length > 160 || typeof a.prompt !== "string" || a.prompt.length > 1500 || typeof a.id !== "string") return false;
   const e = a.environment;
   if (!e || !validColor(e.accent) || ![e.fog, e.daylight, e.motion].every(n => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1)) return false;
   if (!Array.isArray(a.objects) || a.objects.length > 600) return false;
