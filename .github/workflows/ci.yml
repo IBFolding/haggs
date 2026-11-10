@@ -23,3 +23,8 @@ jobs:
         run: npm test
       - name: Local Comfy node installer
         run: python3 tools/haggs-comfy-installer/test_installer.py
+
+      - name: Worlds Python syntax and model-free ComfyUI nodes
+        run: |
+          python3 -m py_compile scripts/worlds/render_blender.py public/workflows/worlds/custom_nodes/ComfyUI-HaggsWorlds/nodes.py
+          python3 -m unittest discover -s public/workflows/worlds/tests -v
