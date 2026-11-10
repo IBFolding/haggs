@@ -29,6 +29,7 @@ const ITEMS = [
   { label: "Photos", href: "/photos" },
   { label: "Video", href: "/video" },
   { label: "Editor", href: "/editor" },
+  { label: "Worlds", href: "/worlds" },
   { label: "Workflows", href: "/workflows" },
   { label: "Gallery", href: "/gallery" },
   { label: "Explore", href: "/explore" },
