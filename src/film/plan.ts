@@ -26,7 +26,7 @@ const BEATS = [
   ["The final image", "Finish on the iconic composition; a clean place for the cut."],
 ] as const;
 
-const round = (n: number) => Math.round(n * 1000) / 1000;
+const round = (n: number) => { const value = Math.round(n * 1000) / 1000; return Object.is(value, -0) ? 0 : value; };
 const finiteVec = (v: unknown): v is Vec3 => Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === "number" && Number.isFinite(n) && Math.abs(n) < 500);
 const lerp = (a: Vec3, b: Vec3, t: number): Vec3 => a.map((x, i) => round(x + (b[i]! - x) * t)) as Vec3;
 const vec = (x: number, y: number, z: number): Vec3 => [round(x), round(y), round(z)];
