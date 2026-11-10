@@ -102,7 +102,7 @@ def add(kind, name, parent, mat, pos=(0, 0, 0), dims=(1, 1, 1), rotate=None):
     o.name = name
     o.parent = parent
     o.location = v(pos)
-    o.scale = v(dims) if False else Vector((dims[0], dims[2], dims[1]))
+    o.scale = Vector(dims)  # Blender local dimensions: X width, Y depth, Z height
     if rotate is not None:
         o.rotation_euler = rotate
     o.data.materials.append(mat)
@@ -133,26 +133,26 @@ def add_obj(spec):
         for i in range(4):
             a = i * math.pi / 2
             add("ico", "Crystal", parent, emissive if i == 0 else base,
-                (math.sin(a) * .23, .26, math.cos(a) * .23), (.3, .3 * (1.7 + i * .2), .3))
+                (math.sin(a) * .23, .26, math.cos(a) * .23), (.3, .3, .3 * (1.7 + i * .2)))
     elif kind == "monolith":
-        add("cylinder", "Monolith", parent, base, (0, .85, 0), (.3, 1.7, .3))
-        add("cone", "Crown", parent, rim, (0, 1.83, 0), (.31, .35, .31))
+        add("cylinder", "Monolith", parent, base, (0, .85, 0), (.3, .3, 1.7))
+        add("cone", "Crown", parent, rim, (0, 1.83, 0), (.31, .31, .35))
         for i in range(3):
             ring = add("torus", "Rune", parent, emissive, (0, .4 + i * .4, 0), (.27, .27, .27))
     elif kind == "tower":
         parent.scale = (spec.get("width", 1), spec.get("width", 1), spec["scale"])
-        add("cube", "Tower", parent, material("#1d2834", .02, .45, .35), (0, 0, 0), (.7, 1, .7))
+        add("cube", "Tower", parent, material("#1d2834", .02, .45, .35), (0, 0, 0), (.7, .7, 1))
         for i in range(6):
             for j in range(3):
-                add("cube", "Window", parent, emissive, (-.21 + j * .2, -.4 + i * .16, .357), (.1, .024, .01))
+                add("cube", "Window", parent, emissive, (-.21 + j * .2, -.4 + i * .16, .357), (.1, .01, .024))
     elif kind == "ground":
-        add("cube", "Ground", parent, base, (0, -.04, 0), (120, .08, 120))
+        add("cube", "Ground", parent, base, (0, -.04, 0), (120, 120, .08))
     elif kind == "rock":
         for i in range(4):
-            add("ico", "Boulder", parent, base, ((i - 2) * .3, .12, math.sin(i * 2) * .3), (.42, .26, .42))
+            add("ico", "Boulder", parent, base, ((i - 2) * .3, .12, math.sin(i * 2) * .3), (.42, .42, .26))
     elif kind == "arch":
         for x in (-.86, .86):
-            add("cylinder", "Column", parent, base, (x, .9, 0), (.27, 1.8, .27))
+            add("cylinder", "Column", parent, base, (x, .9, 0), (.27, .27, 1.8))
         ring = add("torus", "Arch arc", parent, base, (0, 1.78, 0))
         ring.rotation_euler.x = math.pi / 2
         add("sphere", "Keystone", parent, rim, (0, 2.72, 0), (.15, .18, .15))
