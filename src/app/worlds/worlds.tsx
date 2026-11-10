@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { ChangeEvent } from "react";
 import { HaggsWorldEngine } from "../../worlds/engine";
 import { cameraAt, fromWorldPrompt, KINDS, makeWorld, PRESETS, shotAt, titleOf, validateWorld } from "../../worlds/spec";
@@ -159,6 +160,7 @@ export default function WorldsStudio() {
         </div>
         <div className={styles.headActions}>
           <button type="button" onClick={saveLocal}>Save world</button>
+          <Link className={styles.makeFilm} href="/film-engine">Make a Film ↗</Link>
           <button type="button" onClick={exportWorld} className={styles.primary}>Export film scene ↗</button>
         </div>
       </div>
