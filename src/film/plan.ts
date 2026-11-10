@@ -87,7 +87,7 @@ export function validateFilmDocument(value: unknown): value is FilmDocument {
     if (!s || typeof s.id !== "string" || !/^S\d{2}$/.test(s.id) || typeof s.name !== "string" || s.name.length > 90 || typeof s.beat !== "string" || s.beat.length > 900 || typeof s.notes !== "string" || s.notes.length > 2000 || !["unreviewed", "approved", "needs-change"].includes(s.review) || typeof s.start !== "number" || typeof s.end !== "number" || !Number.isFinite(s.start) || !Number.isFinite(s.end) || Math.abs(s.start - last) > .00001 || s.end <= s.start || s.end > doc.duration + .00001 || ![s.from, s.to, s.lookFrom, s.lookTo].every(finiteVec) || !Number.isFinite(s.lensMm) || s.lensMm < 12 || s.lensMm > 250) return false;
     last = s.end;
   }
-  return Math.abs(last - doc.duration) < .00001 && validateWorld(filmWorld(doc));
+  return Math.abs(last - doc.duration) < .00001 && validateWorld(filmWorld(doc as FilmDocument));
 }
 
 export function filmShotAt(doc: FilmDocument, time: number): FilmShot {
