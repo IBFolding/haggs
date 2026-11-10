@@ -59,7 +59,7 @@ export default function FilmEngineStudio() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("Three.js is starting…");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [lastExport, setLastExport] = useState<"world" | "plan" | null>(null);
+  const [lastExport, setLastExport] = useState<"world" | "plan" | "manifest" | null>(null);
   const { openOnly } = usePrefs();
 
   const makeThumbs = useCallback((doc: FilmDocument) => {
@@ -199,8 +199,12 @@ export default function FilmEngineStudio() {
     } catch { setMessage("Local storage is unavailable. Use the JSON export instead."); }
   };
   const exportPlan = () => {
-    download(blob(filmManifest(docRef.current)), "haggs-film-production.json");
-    setLastExport("plan"); setMessage("Film production manifest downloaded. This is a plan, not rendered video.");
+    download(blob(docRef.current), "haggs-film-project.json");
+    setLastExport("plan"); setMessage("Editable Film Engine project exported. It can be imported into this workspace.");
+  };
+  const exportManifest = () => {
+    download(blob(filmManifest(docRef.current)), "haggs-film-render-manifest.json");
+    setLastExport("manifest"); setMessage("Film render manifest exported. No rendering has been performed.");
   };
   const exportWorld = () => {
     download(blob(filmWorld(docRef.current)), "haggs-world.json");
@@ -242,8 +246,8 @@ export default function FilmEngineStudio() {
     finally { setBusy(false); }
   };
 
-  const updateShot = (patch: Partial<FilmShot>) => {
-    patchFilm(doc => ({ ...doc, shots: doc.shots.map((s, i) => i === current ? { ...s, ...patch } : s) }));
+  const updateShot = (patch: Partial<FilmShot>, refreshWorld = false) => {
+    patchFilm(doc => ({ ...doc, shots: doc.shots.map((s, i) => i === current ? { ...s, ...patch } : s) }), refreshWorld);
   };
   const updateReview = (review: ReviewState) => {
     updateShot({ review });
@@ -381,7 +385,7 @@ export default function FilmEngineStudio() {
           <div className={styles.cameraDeck}>
             <div><span className={styles.eyebrow}>SHOT CAMERA · {selected.id}</span><h3>{selected.name}</h3><p>Move the camera in live edit mode, capture the starting and ending views, then play the move.</p></div>
             <div className={styles.cameraActions}><button type="button" onClick={editCamera} className={cameraEdit ? styles.selectedButton : ""}>{cameraEdit ? "Finish camera edit" : "Edit camera"}</button><button type="button" onClick={() => captureKey(false)} disabled={!cameraEdit}>Capture start</button><button type="button" onClick={() => captureKey(true)} disabled={!cameraEdit}>Capture end</button></div>
-            <label>Lens <input type="range" min={18} max={120} value={selected.lensMm} onChange={e => updateShot({lensMm:+e.target.value})} /><strong>{selected.lensMm}mm</strong></label>
+            <label>Lens <input type="range" min={18} max={120} value={selected.lensMm} onChange={e => updateShot({lensMm:+e.target.value}, true)} /><strong>{selected.lensMm}mm</strong></label>
           </div>
         )}
         {tab === "review" && (
@@ -442,14 +446,15 @@ export default function FilmEngineStudio() {
             <div className={styles.divider}/>
             <div className={styles.sectionLabel}>EXTERNAL PRODUCTION <small>NOT AUTO-RUN</small></div>
             <p className={styles.hint}>Blender: run <code>scripts/worlds/render_blender.py</code> with the exported world JSON. ComfyUI: connect Haggs · Load World → Haggs · Direct Shot to an installed compatible video model. No unverified model runs are represented as complete.</p>
-            <button type="button" onClick={exportPlan}>Download complete production manifest</button>
+            <button type="button" onClick={exportManifest}>Download complete production manifest</button>
           </div>
         )}
         {panel === "outputs" && (
           <div className={styles.sidebarContent}>
             <div className={styles.sectionLabel}>OUTPUTS <small>ACTUAL FILES</small></div>
             <div className={styles.outputCard}><strong>{videoUrl ? "Browser video ready" : "No video recorded yet"}</strong><p>{videoUrl ? "Real-time Three.js preview. WebM container; not a 4K Cycles final." : "Record a preview or export a scene to render externally."}</p>{videoUrl ? <a href={videoUrl} download="haggs-film-preview.webm" className={styles.primary + " " + styles.outputDownload}>Download WebM preview ↧</a> : null}</div>
-            <button type="button" onClick={exportPlan}>↥ Download film plan</button>
+            <button type="button" onClick={exportPlan}>↥ Export editable film project</button>
+            <button type="button" onClick={exportManifest}>↥ Export render manifest</button>
             <button type="button" onClick={exportWorld}>↥ Download world and cameras</button>
             <button type="button" onClick={() => importRef.current?.click()}>↧ Import world / film document</button>
             <p className={styles.hint}>The production manifest contains the shot list, timing, camera coordinates, and review notes. The world JSON works with the existing Blender and ComfyUI Worlds bridges.</p>
@@ -457,7 +462,7 @@ export default function FilmEngineStudio() {
             <p className={styles.hint}>Manual handoff only. The film has not been inserted into an Editor project.</p>
             <div className={styles.sectionLabel}>REVIEW SUMMARY <small>{reviewCount}/{film.shots.length} APPROVED</small></div>
             <p className={styles.hint}>{needsChange} shots flagged for revision · {film.shots.length - reviewCount - needsChange} not reviewed. Reviews are manual in V2.</p>
-            {lastExport && <div className={styles.exportTag}>Most recent export: {lastExport === "plan" ? "production manifest" : "world scene"}</div>}
+            {lastExport && <div className={styles.exportTag}>Most recent export: {lastExport === "plan" ? "editable film project" : lastExport === "manifest" ? "render manifest" : "world scene"}</div>}
           </div>
         )}
       </aside>
