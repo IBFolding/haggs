@@ -69,7 +69,7 @@ function buildObject(spec) {
   return root;
 }
 export class HaggsWorldEngine {
-  constructor(canvas, onSelect = () => {}, onEdit = () => {}, onTick = () => {}) {
+  constructor(canvas, onSelect = (obj) => {}, onEdit = () => {}, onTick = (time, playing) => {}) {
     this.canvas = canvas; this.onSelect = onSelect; this.onEdit = onEdit; this.onTick = onTick;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace; this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
