@@ -160,7 +160,7 @@ export default function WorldsStudio() {
         </div>
         <div className={styles.headActions}>
           <button type="button" onClick={saveLocal}>Save world</button>
-          <Link className={styles.makeFilm} href="/film-engine">Make a Film ↗</Link>
+          <Link className={styles.makeFilm} href="/film-engine" onClick={(e) => { try { if (!validateWorld(worldRef.current)) throw new Error("Invalid world."); localStorage.setItem(STORE, JSON.stringify(worldRef.current)); } catch { e.preventDefault(); setStatus("Save or export your world before opening Film Engine. Browser storage is unavailable."); } }}>Make a Film ↗</Link>
           <button type="button" onClick={exportWorld} className={styles.primary}>Export film scene ↗</button>
         </div>
       </div>
