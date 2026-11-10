@@ -61,3 +61,6 @@
 .footerNote{font-size:11px;color:#7f9588;margin:12px 0 26px}
 @media(max-width:1050px){.layout{grid-template-columns:minmax(0,1fr)}.inspector{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.inspector .panel:last-child{grid-column:span 2}.heading{align-items:start}}
 @media(max-width:650px){.studio{padding:14px}.heading{flex-direction:column;gap:14px}.headActions{width:100%}.headActions button{flex:1}.stage{border-radius:10px;min-height:235px}.stageTop{top:11px;left:10px;right:10px}.stageTop .stageChip:last-child{display:none}.stageBottom{left:11px;bottom:10px;right:11px}.stageBottom>span{display:none}.player{flex-wrap:wrap;gap:8px}.player input{order:3;flex-basis:100%}.shots{grid-template-columns:1fr 1fr 1fr}.studio button.shot{padding:7px}.shot b{display:block;margin-left:0}.inspector{display:flex}.inspector .panel:last-child{grid-column:auto}}
+
+.makeFilm{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;padding:11px 16px;border:1px solid var(--volt,#35e48a);border-radius:10px;color:var(--volt,#35e48a);background:rgba(53,228,138,.08);text-decoration:none;font-weight:750;font-size:12px}
+.makeFilm:hover{background:rgba(53,228,138,.16)}
