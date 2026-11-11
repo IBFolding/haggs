@@ -233,3 +233,9 @@ MIT. See `LICENSE`.
 Fixes, workflows, Series formats and looks are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; report a security
 problem privately as described in [SECURITY.md](SECURITY.md). Everyone is expected to follow the
 [code of conduct](CODE_OF_CONDUCT.md). MIT licensed.
+
+### Studio Access and rented GPUs
+
+Studio Access stays **$15/month** for studio tools, BYOK and local/rented GPU workflow connections. Compute and rental disks are paid separately to the provider; the plan includes no generation credits or hosted media storage.
+
+See `/guides/rented-gpu` in the app and [`tools/gpu/gateway.py`](tools/gpu/gateway.py) for the authenticated HTTPS gateway. Production hosts must set a server-only `HAGGS_GPU_CONNECTION_SECRET` (64 hex characters). Checks are read-only; they never rent a GPU or submit a render. Users choose **Your GPU** in workflows and run preflight before submission. Rented results stay on the rented disk and play through the authenticated connection; download them before deleting the disk. Disconnecting Haggs does not stop the rental.
