@@ -47,7 +47,7 @@ export function Pricing({ plans, credits, packs=[] }: { plans: Shown[]; credits:
     <LearnShell current="/pricing">
         <div className="pr">
           <h1>Plans</h1>
-          <p className="pr-lead">Every plan unlocks the whole studio. The difference is who pays for generation: you, on your own Comfy key or your own GPU, or us, from the generation your plan includes.</p>
+          <p className="pr-lead">Every plan unlocks the whole studio. The difference is who pays for generation: you, on your own provider keys or local/rented GPUs, or us, from the generation your plan includes.</p>
           <div className="pr-grid">
             {plans.map((p) => {
               const can = buyable?.includes(p.id);
@@ -55,7 +55,7 @@ export function Pricing({ plans, credits, packs=[] }: { plans: Shown[]; credits:
                 <article key={p.id} className={`pr-plan${current === p.id ? " on" : ""}`}>
                   <h2>{p.name}</h2>
                   <p className="pr-price"><b>${p.monthly}</b> a month</p>
-                  <p className="pr-credits">{p.id === "byok" ? "Local storage · your own key or GPU" : p.credits && credits ? `${p.credits.toLocaleString("en-US")} credits · ${p.storageGB} GB storage` : "Generation included"}</p>
+                  <p className="pr-credits">{p.id === "byok" ? "Bring your own keys or GPU · compute separate" : p.credits && credits ? `${p.credits.toLocaleString("en-US")} credits · ${p.storageGB} GB storage` : "Generation included"}</p>
                   <p className="pr-blurb">{p.blurb}</p>
                   {current === p.id ? (
                     <span className="pr-current">Your plan</span>
@@ -68,9 +68,10 @@ export function Pricing({ plans, credits, packs=[] }: { plans: Shown[]; credits:
               );
             })}
           </div>
+          <section className="pr-access" aria-label="Studio Access benefits"><h2>Your studio. Your compute.</h2><p>Studio Access puts the production tools in one $15/month workspace.</p><ul className="pr-benefits"><li>Full studio: storyboard, references, timeline and audio tools</li><li>Connect your own Comfy, Claude and enabled provider keys</li><li>Run open-weight workflows on local or authenticated rented GPUs</li><li>Import workflows, use MCP and export your projects</li></ul><p className="sh-note">No generation credits, GPU hours or hosted media storage included. Rental bills continue until you stop the machine with your provider. Connecting a GPU does not rent one.</p></section>
           <section aria-label="Credit packs">
             <h2>One-time credit packs</h2>
-            <p>Generation credits do not expire. These packs are separate from the $15 monthly Platform subscription.</p>
+            <p>Generation credits do not expire. These packs are separate from the $15 monthly Studio Access subscription.</p>
             <div className="pr-grid">{packs.map(p=><article className="pr-plan" key={p.id}><h3>${p.usd} pack</h3><p className="pr-credits">{p.credits.toLocaleString("en-US")} credits</p><Link className="plain" href="/account#credits">Check availability</Link></article>)}</div>
             <p className="sh-note">Purchase availability is shown in your account. Each generation shows its credit cost before you run.</p>
           </section>

@@ -23,8 +23,9 @@ import { keepResult } from "../server/keep";
 import { partnerNodes } from "../comfy/partner";
 import { openOnlyIn, workflowRefusal } from "../comfy/open-only";
 import { workflowRuntime } from "../comfy/runtime";
-import { createLocalRunner, localBase } from "../providers/local";
-import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn, localIn } from "../server/keys";
+import {gpuIn,gpuBase,gpuFetch,rentedConnection,gpuResultUrl,readGpuOutput} from "../server/gpu-connection";
+import { createLocalRunner } from "../providers/local";
+import { CLAUDE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, keyIn } from "../server/keys";
 import { contestVariant } from "../comfy/contest-lab";
 import { addContestMasks, isContestMaskField } from "../comfy/contest-masks";
 import { assertAlignedVideos } from "../server/contest-mask-timing";
@@ -52,13 +53,13 @@ async function comfyKey() {
 export type Source = ({ template: string } | { file: string }) & { destination?: "local" | "cloud" };
 
 async function open(key: string | undefined, source: Source): Promise<Opened> {
-  const address = source.destination === "local" || (!key && source.destination !== "cloud") ? localIn(await cookies()) : undefined;
+  const address = source.destination !== "cloud" ? (await gpuIn()) : undefined;
   if (source.destination === "local" && !address) throw new Error("Connect Your GPU in settings first. ComfyUI must be reachable from the Haggs server; a hosted server cannot reach your laptop's localhost.");
   if ("template" in source && (ltxWorkflow(source.template) || contestVariant(source.template) || haggsPreview(source.template))) {
     if ((contestVariant(source.template) || haggsPreview(source.template)) && !address) throw new Error("This Haggs preview requires a connected local ComfyUI with the relevant Haggs custom nodes installed. A cloud key alone cannot run it.");
     let catalog: Catalog;
     if (address) {
-      const response = await fetch(`${localBase(address)}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30000) });
+      const response = await gpuFetch(`${gpuBase(address)}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30000) });
       if (!response.ok) throw new Error("Your local ComfyUI node catalog could not be loaded. No cloud fallback was attempted.");
       catalog = await response.json() as Catalog;
     } else {
@@ -69,7 +70,7 @@ async function open(key: string | undefined, source: Source): Promise<Opened> {
   }
   if ("template" in source && address) {
     const ui = await templateOf(root(), source.template);
-    const response = await fetch(`${localBase(address)}/object_info`, {redirect:"error", signal:AbortSignal.timeout(10000), cache:"no-store"});
+    const response = await gpuFetch(`${gpuBase(address)}/object_info`, {redirect:"error", signal:AbortSignal.timeout(10000), cache:"no-store"});
     if (!response.ok) throw new Error("Your GPU: node catalog unavailable. Start ComfyUI and check its address in settings.");
     const catalog = await response.json() as Catalog;
     const {prompt, problems} = prepare(ui, catalog);
@@ -85,7 +86,7 @@ async function open(key: string | undefined, source: Source): Promise<Opened> {
   }
   let catalog: Catalog;
   if (address) {
-    const response = await fetch(`${localBase(address)}/object_info`, {redirect:"error",signal:AbortSignal.timeout(30000)});
+    const response = await gpuFetch(`${gpuBase(address)}/object_info`, {redirect:"error",signal:AbortSignal.timeout(30000)});
     if (!response.ok) throw new Error("Your local ComfyUI node catalog could not be loaded.");
     catalog = await response.json() as Catalog;
   } else { if (!key) throw new Error("Connect your local ComfyUI or add a Comfy key first."); catalog = await catalogOf(root(), key); }
@@ -173,9 +174,9 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
   const isHaggsPreview = Boolean(displayPreview && haggsPreview(displayPreview));
   const displayLtx = "template" in source ? source.template : savedLtxName(source.file);
   const isLtx = Boolean(displayLtx && ltxWorkflow(displayLtx));
-  if (!isHaggsEffect && !isHaggsPreview && !isLtx && !key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
   const name = (isHaggsPreview && displayPreview) || (isHaggsEffect && displayEffect) || (isLtx && displayLtx) || ("template" in source ? source.template : "your workflow");
   try {
+    if (!isHaggsEffect && !isHaggsPreview && !isLtx && !key && !(await gpuIn())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to open workflows.", needsKey: true };
     const opened = isHaggsEffect && displayEffect ? openContestForDisplay(displayEffect) : isHaggsPreview && displayPreview ? openHaggsPreviewForDisplay(displayPreview) : isLtx && displayLtx ? openLtxForDisplay(displayLtx) : await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
     const samples = Object.fromEntries(opened.app.fields.flatMap((f) => (f.kind === "media" && f.sample ? [[String(prompt[f.node]?.inputs[f.input] ?? ""), f.sample]] : [])));
@@ -187,7 +188,7 @@ export async function openWorkflow(source: Source): Promise<OpenedApp> {
       thumb: opened.entry?.thumb ?? null,
       app: opened.app,
       problems: opened.problems,
-      price: isHaggsEffect || isHaggsPreview || isLtx ? "Check connection before running" : !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && localIn(await cookies())) ? "Your GPU · no provider charge" : (await priceOf(prompt, opened.catalog)).label,
+      price: isHaggsEffect || isHaggsPreview || isLtx ? "Check connection before running" : !partnerNodes(prompt, opened.catalog).length && (source.destination !== "cloud" && (await gpuIn())) ? "Your GPU · rental/electricity billed separately" : (await priceOf(prompt, opened.catalog)).label,
       graph: graphOf(opened.ui, samples),
       workflow: JSON.stringify(opened.ui),
     };
@@ -208,6 +209,11 @@ async function mediaBytes(source: string): Promise<{ bytes: Uint8Array; mime: st
     if (file.type.startsWith("video/")) return { bytes: await (await import("../server/video-fit")).fittedVideo(file.path), mime: file.type };
     return { bytes: new Uint8Array(await readFile(file.path)), mime: file.type };
   }
+  if(source.startsWith('/api/gpu/output?')) {
+    const response=await readGpuOutput(source);
+    if(!response.ok)throw Error('That result is no longer available on the rented GPU.');
+    return {bytes:new Uint8Array(await response.arrayBuffer()),mime:response.headers.get('content-type')??'application/octet-stream'};
+  }
   if (privateMediaPath(source) || isBlobUrl(source)) return readMedia(source);
   if (source.startsWith("https://raw.githubusercontent.com/Comfy-Org/workflow_templates/")) {
     const got = await fetch(source, { redirect: "error", signal: AbortSignal.timeout(60_000) });
@@ -223,11 +229,11 @@ export type Quote = { label: string; min: number; max: number; perSecond: boolea
 
 export async function quoteWorkflow(source: Source, values: Values): Promise<Quote> {
   const key = await comfyKey();
-  if (!key && !localIn(await cookies())) return { label: "connect Comfy", min: 0, max: 0, perSecond: false };
   try {
+    if (!key && !(await gpuIn())) return { label: "connect Comfy", min: 0, max: 0, perSecond: false };
     const opened = await open(key, source);
     const { prompt } = prepare(opened.ui, opened.catalog);
-    if (source.destination !== "cloud" && localIn(await cookies()) && !partnerNodes(prompt,opened.catalog).length) return {label:"Your GPU · no provider charge",min:0,max:0,perSecond:false};
+    if (source.destination !== "cloud" && (await gpuIn()) && !partnerNodes(prompt,opened.catalog).length) return {label:"Your GPU · rental/electricity billed separately",min:0,max:0,perSecond:false};
     const media = Object.fromEntries(Object.entries(values).filter(([k]) => opened.app.fields.some((f) => f.kind === "media" && `${f.node}/${f.input}` === k)));
     const words = Object.fromEntries(Object.entries(values).filter(([k]) => !(k in media)));
     const previewName = 'template' in source ? source.template : savedHaggsPreviewName(source.file);
@@ -247,13 +253,13 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
     const key = await comfyKey();
     const opened = await open(key, source);
     let {prompt} = prepare(opened.ui, opened.catalog);
-    const address = source.destination === "cloud" ? undefined : localIn(await cookies());
-    const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key), source.destination);
+    const address = source.destination === "cloud" ? undefined : (await gpuIn());
+    const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key), source.destination,gpuBase);
     if (source.destination === "local" && runtime.kind !== "local") throw new Error("This workflow needs partner services. Choose a different workflow; Your GPU was not replaced with cloud execution.");
     report.destination = runtime.kind === "local" ? "Your GPU" : "Comfy Cloud";
     const base = runtime.kind === "local" ? runtime.base : "https://cloud.comfy.org/api";
     const headers: Record<string,string> = runtime.kind === "cloud" ? {"X-API-Key":key!} : {};
-    const response = await fetch(`${base}/object_info`,{headers,redirect:"error",cache:"no-store",signal:AbortSignal.timeout(10000)});
+    const response = await (runtime.kind === "local" ? gpuFetch : fetch)(`${base}/object_info`,{headers,redirect:"error",cache:"no-store",signal:AbortSignal.timeout(10000)});
     if (!response.ok) throw new Error("Node catalog unavailable. Check your Comfy connection and credentials in settings.");
     const catalog = await response.json() as Catalog;
     report.connection = "Connected · catalog checked now";
@@ -266,8 +272,8 @@ export async function preflightWorkflow(source: Source, values: Values): Promise
     const refusal = workflowRefusal(openOnlyIn(await cookies()),partnerNodes(prompt,catalog));
     if (refusal) report.issues.push(refusal);
     if (runtime.kind === "local") {
-      report.cost = "No provider charge · your hardware and electricity";
-      const stats = await fetch(`${base}/system_stats`,{redirect:"error",cache:"no-store",signal:AbortSignal.timeout(10000)});
+      report.cost = "No Haggs generation charge · rental and electricity paid separately";
+      const stats = await gpuFetch(`${base}/system_stats`,{redirect:"error",cache:"no-store",signal:AbortSignal.timeout(10000)});
       if (!stats.ok) throw new Error("GPU status unavailable. Check ComfyUI /system_stats before generating.");
       const data = await stats.json() as {devices?:{name?:string;type?:string;vram_free?:number}[]};
       const devices = data.devices?.filter(d => d.type && d.type !== "cpu") ?? [];
@@ -300,8 +306,8 @@ export type WorkflowResult = { ok: true; url: string; kind: "image" | "video" | 
 /** Runs a Comfy workflow with your files and words. Never retried automatically. */
 export async function runWorkflow(source: Source, values: Values, files: Record<string, string>): Promise<WorkflowResult> {
   const key = await comfyKey();
-  if (!key && !localIn(await cookies())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to run workflows.", needsKey: true };
   try {
+    if (!key && !(await gpuIn())) return { ok: false, reason: "Connect your local ComfyUI or add a Comfy key to run workflows.", needsKey: true };
     const preflight = await preflightWorkflow(source, values);
     if (!preflight.ok) return {ok:false,reason:preflight.issues.join(" ")};
     const opened = await open(key, source);
@@ -312,12 +318,12 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     const refused = workflowRefusal(openOnlyIn(await cookies()), partnerNodes(prompt, opened.catalog));
     if (refused) return { ok: false, reason: refused };
     // Open weights only, and your own ComfyUI set: run there, free, on your own GPU.
-    const address = source.destination === "cloud" ? undefined : localIn(await cookies());
-    const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key), source.destination);
+    const address = source.destination === "cloud" ? undefined : (await gpuIn());
+    const runtime = workflowRuntime(prompt, opened.catalog, address, Boolean(key), source.destination,gpuBase);
     const mine = runtime.kind === "local" ? runtime.base : null;
     let catalog = opened.catalog;
     if (mine) {
-      catalog = (await (await fetch(`${mine}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30_000) })).json()) as typeof opened.catalog;
+      catalog = (await (await gpuFetch(`${mine}/object_info`, { redirect: "error", signal: AbortSignal.timeout(30_000) })).json()) as typeof opened.catalog;
       const local = prepare(opened.ui, catalog);
       if (local.swaps.length) return {ok:false,reason:"The model inventory changed. Edit the workflow to choose an installed model explicitly; no generation started."};
       const requirements = modelRequirements(local.prompt,catalog);
@@ -325,7 +331,10 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
       if (local.problems.length) return { ok: false, reason: `Your ComfyUI can't run this yet: ${local.problems[0]}` };
       prompt = local.prompt;
     }
-    const cloud = mine ? createLocalRunner({ base: mine, keep: keepResult }) : createCloudRunner({ apiKey: key!, keep: keepResult, beforeRun: checkGenerationStorage, timeoutMs: 40 * 60_000 });
+    const rented=mine?await rentedConnection():undefined;
+    // Studio Access has no hosted storage: rented outputs stay on the user's GPU.
+    if(mine&&!rented)await checkGenerationStorage();
+    const cloud = mine ? createLocalRunner({ base: mine, fetch:gpuFetch, keep: keepResult, keepRemote:rented?async(file)=>gpuResultUrl(rented,file):undefined }) : createCloudRunner({ apiKey: key!, keep: keepResult, beforeRun: checkGenerationStorage, timeoutMs: 40 * 60_000 });
     const uploaded: Values = {};
     const optionalMasks = opened.app.fields.filter(f => f.kind === "media" && f.optional && isContestMaskField(f.node));
     const allowedMasks = new Set(optionalMasks.map(f => `${f.node}/${f.input}`));
@@ -364,7 +373,7 @@ export async function runWorkflow(source: Source, values: Values, files: Record<
     const missing = validate(ready, catalog);
     if (missing.length) return { ok: false, reason: `That input can't be left out: ${missing[0]}` };
     const quoted = mine ? null : await priceOf(ready, opened.catalog);
-    const price = quoted ? quoted.label : "Your GPU · no provider charge";
+    const price = quoted ? quoted.label : "Your GPU · rental/electricity billed separately";
     // Unknown or runtime-only prices cannot use the platform balance.
     if (!mine && !keyIn(await cookies(), COMFY_COOKIE)) {
       const estimate = quoted ? boundedWorkflowCost(ready, opened.catalog, quoted) : null;

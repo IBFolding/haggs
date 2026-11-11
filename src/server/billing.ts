@@ -23,7 +23,7 @@ export const creditsForPrice = (usd: number) => Math.floor(usd * 100 * customerS
 export type Plan = { id: "byok" | "starter" | "mid" | "pro"; name: string; monthly: number; credits: number; priceEnv: string; storageGB: number; blurb: string };
 
 export const PLANS: Plan[] = [
-  { id: "byok", name: "Platform", monthly: 15, credits: 0, priceEnv: "STRIPE_PRICE_BYOK", storageGB: 0, blurb: "The whole studio, unlocked. Generation runs on your own Comfy key or your own GPU, at Comfy's price." },
+  { id: "byok", name: "Studio Access", monthly: 15, credits: 0, priceEnv: "STRIPE_PRICE_BYOK", storageGB: 0, blurb: "Edit, storyboard and build workflows in one workspace. Bring your own provider keys or connect local and rented GPUs." },
   { id: "starter", name: "Creator", monthly: 39, credits: 2400, priceEnv: "STRIPE_PRICE_STARTER_FIXED_2026", storageGB: 5, blurb: "The whole studio, with generation included. For a first short, a comic or a series." },
   { id: "mid", name: "Studio", monthly: 69, credits: 4400, priceEnv: "STRIPE_PRICE_MID_FIXED_2026", storageGB: 15, blurb: "More generation every month: a whole series' worth of boards." },
   { id: "pro", name: "Production", monthly: 99, credits: 6400, priceEnv: "STRIPE_PRICE_PRO_FIXED_2026", storageGB: 30, blurb: "The most generation, for work every week." },
