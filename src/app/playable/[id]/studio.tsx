@@ -1,4 +1,6 @@
 "use client";
+import { WorkbenchPanel } from "../workbench-panel";
+import type { RunReport } from "../../../playable/workbench";
 import { standaloneGame } from "../../../playable/standalone";
 
 import Link from "next/link";
@@ -38,6 +40,9 @@ export function Studio({ id }: { id: string }) {
   const mine = sent.filter((s) => s.game === id);
   const [quality, setQuality] = useState<Quality>("quality");
   const [lines, setLines] = useState(0);
+  const [runReport, setRunReport] = useState<RunReport | null>(null);
+  const onReport = useCallback((r: RunReport | null) => setRunReport(r), []);
+  const [phone, setPhone] = useState(false);
   const [bug, setBug] = useState<string | null>(null);
   const onBug = useCallback((m: string | null) => setBug(m), []);
 
@@ -147,7 +152,7 @@ export function Studio({ id }: { id: string }) {
           <h1>{spec.title}</h1>
           <span className="pl-badge">{genre}</span>
         </header>
-        <div className="pl-studio">
+        <div className={`pl-studio${spec.template === "code" && spec.art.assets.length === 0 ? " pl-procedural" : ""}`}>
           <aside className="pl-panel pl-chat" aria-label="Chat">
             <h2>Change it by chatting</h2>
             <div className="pl-log">
@@ -184,7 +189,7 @@ export function Studio({ id }: { id: string }) {
               </div>
             </div>
 
-            {spec.template === "code" && <><button className="pl-plain" disabled={exporting} onClick={async()=>{setExporting(true);setExportNote(null);try{const html=await standaloneGame(spec, fetch, framePicture);const url=URL.createObjectURL(new Blob([html],{type:"text/html"}));const anchor=document.createElement("a");anchor.href=url;anchor.download=`${spec.title.replace(/[^\w.-]+/g,"-")||"game"}.html`;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){setExportNote(error instanceof Error?error.message:"Export failed.");}finally{setExporting(false);}}}>{exporting?"Packaging pictures…":"Download standalone HTML"}</button>{exportNote&&<p role="alert">{exportNote}</p>}</>}
+            {spec.template === "code" && <><button className="pl-plain" disabled={exporting} onClick={async()=>{setExporting(true);setExportNote(null);try{const html=await standaloneGame(spec, fetch, framePicture, {allowExternalRuntime:spec.three});const url=URL.createObjectURL(new Blob([html],{type:"text/html"}));const anchor=document.createElement("a");anchor.href=url;anchor.download=`${spec.title.replace(/[^\w.-]+/g,"-")||"game"}.html`;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){setExportNote(error instanceof Error?error.message:"Export failed.");}finally{setExporting(false);}}}>{exporting?"Packaging pictures…":spec.three?"Download 3D HTML · internet required":"Download standalone HTML"}</button>{exportNote&&<p role="alert">{exportNote}</p>}</>}
             <h2>Spec</h2>
             <p className="pl-pitch">{spec.pitch}</p>
             <div className="pl-chips">{ruleChips(spec).map((c) => <span key={c} className="pl-chip pl-static">{c}</span>)}</div>
@@ -193,7 +198,7 @@ export function Studio({ id }: { id: string }) {
           </aside>
 
           <main className="pl-main">
-            {spec.template === "code" ? <CodeFrame spec={spec} onBug={onBug} /> : <GameCanvas spec={spec} />}
+            {spec.template === "code" ? <><div className="pl-stage-bar" role="group" aria-label="Preview size"><button className="pl-chip" aria-pressed={!phone} onClick={()=>setPhone(false)}>Desktop width</button><button className="pl-chip" aria-pressed={phone} onClick={()=>setPhone(true)}>Phone width</button></div><CodeFrame spec={spec} onBug={onBug} onReport={onReport} phone={phone} />{phone&&<p className="pl-sub">390px width preview. Test touch controls on a real phone before publishing.</p>}</> : <GameCanvas spec={spec} />}
             {spec.template === "code" && bug ? (
               <div className="pl-bug" role="alert">
                 <span>This game hit a bug: {bug}</span>
@@ -202,8 +207,9 @@ export function Studio({ id }: { id: string }) {
             ) : null}
           </main>
 
-          <ArtPanel spec={spec} onChange={changeSpec} onAtlasChange={(s, note) => changeSpec(s, note, true)} />
+          {spec.template === "code" && spec.art.assets.length === 0 ? null : <ArtPanel spec={spec} onChange={changeSpec} onAtlasChange={(s, note) => changeSpec(s, note, true)} />}
         </div>
+        <WorkbenchPanel game={game} run={runReport} onSave={async value=>{const next=await store.workspace(id,value);if(!next)throw new Error("The game could not be saved.");setGame(next);}} onRestore={async (next,name)=>{const saved=await changeSpec(next,`Restored checkpoint: ${name}`);if(!saved)throw new Error("The checkpoint could not be restored.");}} onRepair={text=>{setMessage(text.slice(0,2000));setAsk(null);document.querySelector<HTMLTextAreaElement>('[aria-label="Change the game"]')?.focus();}} />
       </div>
     </div>
   );
