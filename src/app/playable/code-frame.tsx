@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { privatePicture } from "../../playable/private-picture";
 import { keyOut } from "../../playable/art";
 import { SIZES, srcdoc } from "../../playable/kit";
+import { recordEvent, revisionOf, type RunReport } from "../../playable/workbench";
 import type { CodeSpec } from "../../playable/spec";
 
 /** Where made pictures live when they can't be handed over as data: this site and Vercel Blob. */
@@ -46,7 +47,11 @@ type FromGame = { haggs?: boolean; type?: string; message?: string; line?: numbe
  * site's origin) built by `srcdoc`, and talks back by message: a bug, the
  * score, the end. Replay starts it fresh; a changed game or new art reloads it.
  */
-export function CodeFrame({ spec, onBug }: { spec: CodeSpec; onBug: (message: string | null) => void }) {
+export function CodeFrame({ spec, onBug, onReport, phone = false }: { spec: CodeSpec; onBug: (message: string | null) => void; onReport?: (report: RunReport | null) => void; phone?: boolean }) {
+  const reportRef = useRef<RunReport | null>(null);
+  const observer = useRef(onReport);
+  observer.current = onReport;
+  const revision = useMemo(() => revisionOf(spec), [spec]);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [pictures, setPictures] = useState<Record<string, string> | null>(null);
@@ -70,17 +75,23 @@ export function CodeFrame({ spec, onBug }: { spec: CodeSpec; onBug: (message: st
   const doc = useMemo(() => (pictures ? srcdoc(spec, pictures, hostsHere()) : null), [spec, pictures]);
 
   useEffect(() => {
+    reportRef.current = doc ? { revision, startedAt: Date.now(), ready: false, started: false, seconds: 0, score: null, outcome: "playing", errors: [] } : null;
+    observer.current?.(reportRef.current);
     onBug(null);
     setScore(null);
     setEnded(null);
-  }, [doc, run, onBug]);
+  }, [doc, run, onBug, revision]);
 
   useEffect(() => {
     const listen = (e: MessageEvent<FromGame>) => {
       if (e.source !== frameRef.current?.contentWindow || !e.data?.haggs) return;
+      const next = reportRef.current && recordEvent(reportRef.current, e.data, Date.now());
+      if (!next) return;
+      reportRef.current = next;
+      observer.current?.(next);
       if (e.data.type === "error") onBug(`${e.data.message ?? "Something went wrong."}${e.data.line ? ` (line ${e.data.line})` : ""}`);
-      if (e.data.type === "score" && typeof e.data.score === "number") setScore(e.data.score);
-      if (e.data.type === "end") setEnded({ won: Boolean(e.data.won), score: Number(e.data.score) || 0 });
+      if (e.data.type === "score" && typeof e.data.score === "number" && Number.isFinite(e.data.score)) setScore(e.data.score);
+      if (e.data.type === "end") { setScore(next.score); setEnded({ won: next.outcome === "won", score: next.score ?? 0 }); }
     };
     window.addEventListener("message", listen);
     return () => window.removeEventListener("message", listen);
@@ -89,7 +100,7 @@ export function CodeFrame({ spec, onBug }: { spec: CodeSpec; onBug: (message: st
   const [w, h] = SIZES[spec.aspect];
   return (
     <div className="pl-stage">
-      <div ref={wrapRef} className="pl-code-wrap" style={{ aspectRatio: `${w} / ${h}`, width: `min(100%, calc(78vh * ${w} / ${h}))` }}>
+      <div ref={wrapRef} className="pl-code-wrap" style={{ aspectRatio: `${w} / ${h}`, width: phone ? `min(100%, 390px)` : `min(100%, calc(78vh * ${w} / ${h}))` }}>
         {doc ? (
           <iframe ref={frameRef} key={run} className="pl-code-frame" title={spec.title} sandbox="allow-scripts" allow="autoplay; fullscreen" srcDoc={doc} />
         ) : (

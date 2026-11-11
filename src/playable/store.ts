@@ -1,3 +1,4 @@
+import { readWorkbench, type Workbench } from "./workbench";
 import type { Kv } from "../story/kv";
 import { readSpec, slotsOf, type GameSpec } from "./spec";
 
@@ -15,7 +16,7 @@ export const CHAT = 100;
 
 export type ChatLine = { who: "you" | "claude" | "note"; text: string; at: number };
 
-export type SavedGame = { id: string; createdAt: number; updatedAt: number; spec: GameSpec; history: GameSpec[]; chat: ChatLine[] };
+export type SavedGame = { id: string; createdAt: number; updatedAt: number; spec: GameSpec; history: GameSpec[]; chat: ChatLine[]; workbench?: Workbench };
 
 export type GameSummary = { id: string; title: string; template: GameSpec["template"]; accent: string; cover?: string; updatedAt: number };
 
@@ -35,7 +36,7 @@ function readGame(value: unknown): SavedGame | undefined {
   try {
     const history = (Array.isArray(g.history) ? g.history : []).flatMap((h) => { try { return [readSpec(h)]; } catch { return []; } });
     const chat = (Array.isArray(g.chat) ? g.chat : []).filter((l): l is ChatLine => typeof l?.text === "string" && ["you", "claude", "note"].includes(l?.who));
-    return { id: g.id, createdAt: Number(g.createdAt) || 0, updatedAt: Number(g.updatedAt) || 0, spec: readSpec(g.spec), history, chat };
+    return { id: g.id, createdAt: Number(g.createdAt) || 0, updatedAt: Number(g.updatedAt) || 0, spec: readSpec(g.spec), history, chat, ...(g.workbench ? { workbench: readWorkbench(g.workbench, readSpec(g.spec)) } : {}) };
   } catch {
     return undefined;
   }
@@ -51,6 +52,7 @@ export type GameStore = {
   say(id: string, ...lines: ChatLine[]): Promise<SavedGame | undefined>;
   /** Back to the spec before the last change. Undefined when there is nothing to undo. */
   undo(id: string): Promise<SavedGame | undefined>;
+  workspace(id: string, value: Workbench): Promise<SavedGame | undefined>;
   remove(id: string): Promise<void>;
 };
 
@@ -96,6 +98,11 @@ export function createGameStore(kv: Kv, now: () => number = Date.now, newId: () 
       const previous = game?.history.at(-1);
       if (!game || !previous) return undefined;
       return write({ ...game, updatedAt: now(), spec: previous, history: game.history.slice(0, -1), chat: [...game.chat, { who: "note" as const, text: "Undid the last change.", at: now() }].slice(-CHAT) });
+    },
+    async workspace(id, value) {
+      const game = await get(id);
+      if (!game) return undefined;
+      return write({ ...game, updatedAt: now(), workbench: readWorkbench(value, game.spec) });
     },
     async remove(id) {
       await kv.remove(recordKey(id));
