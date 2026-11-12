@@ -6,9 +6,9 @@ import { currentAnimation, type PanelAnimation } from "../../comic/living";
 import { bookLayout, defaultAppearance, pageSvg, panelLetters, type Appearance } from "../../comic/appearance";
 import styles from "./living-page.module.css";
 
-export function LivingPage({ panels, pictures, animations, title, layout, appearance = defaultAppearance() }: { panels: Panel[]; pictures: Record<string, string>; animations: Record<string, PanelAnimation>; title: string; layout: LayoutId; appearance?: Appearance }) {
+export function LivingPage({ panels, pictures, animations, title, layout, appearance = defaultAppearance(), pageNumber=1 }: { panels: Panel[]; pictures: Record<string, string>; animations: Record<string, PanelAnimation>; title: string; layout: LayoutId; appearance?: Appearance;pageNumber?:number }) {
   const geometry = bookLayout(panels, layout, appearance);
-  const background = pageSvg(panels.map(p => ({ ...p, caption: "", lines: [] })), pictures, layout, title, appearance);
+  const background = pageSvg(panels.map(p => ({ ...p, caption: "", lines: [] })), pictures, layout, title, appearance,pageNumber);
   const [zoomed, setZoomed] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const [reduced, setReduced] = useState(true);

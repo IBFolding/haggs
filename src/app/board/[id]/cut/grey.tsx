@@ -6,6 +6,9 @@ import {GreySpendingPanel} from "./grey-spending-panel";
 import {MoreOptions} from "../grey/[shot]/collapsible";
 import { GreyProposalPanel } from "./grey-proposal-panel";
 import { GreyMovesPanel } from "./grey-moves-panel";
+import {CoveragePanel} from "./coverage-panel";
+import {PanoramaPanel} from "./panorama-panel";
+import {ActionPathPanel} from "./action-path-panel";
 import { GreySpaceView } from "./grey-space-view";
 import type { GreyScene as SceneData } from "../../../../story/grey-scene";
 import { TrajectoryPanel } from "./trajectory-panel";
@@ -299,6 +302,7 @@ export function GreyRoom({ shot, vertical, names, onGrey, onApprove, onTake, onS
       <GreyMovesPanel cam={grey.cam} subjects={grey.subjects} onApply={withKeys} />
       <MoreOptions label="More options: plan with AI, path, camera and lights">
       {scene && onDesign && <GreyProposalPanel vertical={vertical} grey={saved} scene={scene} onApply={onDesign} />}
+      {scene&&onScene&&<><p className="wf-small"><a href="/production-tools">Production tools: plate repair, reshoot, motion and dialogue workflows →</a></p><CoveragePanel grey={grey} scene={scene}/><PanoramaPanel scene={scene} onChange={onScene}/><ActionPathPanel scene={scene} onChange={onScene}/></>}
       <TrajectoryPanel value={grey.trajectory} vertical={vertical} onChange={trajectory=>{const {trajectory:_,...rest}=grey;onGrey(trajectory?{...rest,trajectory}:rest)}} />
 
       <div className="gr-grid">

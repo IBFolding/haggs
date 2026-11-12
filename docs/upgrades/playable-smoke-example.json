@@ -1,0 +1,63 @@
+{
+  "schema": "haggs.playable-smoke/1",
+  "project": "/playable/c30c5091-b27",
+  "at": "2026-11-12T01:27:46.160Z",
+  "kind": "scripted-smoke",
+  "actions": [
+    {
+      "key": "ArrowUp",
+      "ms": 8000
+    },
+    {
+      "key": "ArrowRight",
+      "ms": 800
+    },
+    {
+      "key": "Space",
+      "ms": 250
+    },
+    {
+      "key": "ArrowLeft",
+      "ms": 800
+    }
+  ],
+  "events": [
+    {
+      "type": "ready"
+    },
+    {
+      "type": "score",
+      "score": 0
+    },
+    {
+      "type": "score",
+      "score": 100
+    },
+    {
+      "type": "score",
+      "score": 200
+    },
+    {
+      "type": "score",
+      "score": 300
+    },
+    {
+      "type": "end",
+      "score": 350,
+      "won": true
+    }
+  ],
+  "screenshots": [
+    "output/playwright/game-smoke-1.png",
+    "output/playwright/game-smoke-2.png",
+    "output/playwright/game-smoke-3.png",
+    "output/playwright/game-smoke-4.png"
+  ],
+  "errors": [],
+  "limitations": [
+    "Synthetic control sequence, not an autonomous player",
+    "Game-reported score/end events are diagnostics, not independent quality scores",
+    "Winning this sequence does not prove all levels or devices work"
+  ],
+  "observedWin": true
+}
