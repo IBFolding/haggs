@@ -7,6 +7,7 @@ export function modeLinks(group: ModeGroup, canEdit: boolean): ModeLink[] {
     return [
       { href: "/video", label: "Make a clip" },
       { href: "/draw", label: "Draw to video" },
+      { href: "/shorts", label: "Shorts Studio" },
       { href: "/series", label: "Series" },
       { href: "/recreate", label: "Recreate an edit" },
       { href: "/found", label: "Found footage" },
@@ -21,7 +22,7 @@ export function modeLinks(group: ModeGroup, canEdit: boolean): ModeLink[] {
     { href: "/characters", label: "Characters" },
     { href: "/locations", label: "Locations" },
     { href: "/accessories", label: "Accessories" },
-    { href: "/comic", label: "Comic strip" },
+    { href: "/comics", label: "Comic Studio" },
     { href: "/marketing", label: "Marketing" },
     { href: "/ads", label: "Ads" },
   ];

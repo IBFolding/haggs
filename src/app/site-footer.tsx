@@ -28,6 +28,7 @@ export function SiteFooter() {
         <Link href="/pricing">Plans</Link>
         <Link href="/terms">Terms</Link>
         <Link href="/privacy">Privacy</Link>
+        <Link href="/credits">Open-source credits</Link>
         <a href="https://github.com/IBFolding/haggs" target="_blank" rel="noreferrer">GitHub</a>
         <a href="https://github.com/IBFolding/haggs/issues" target="_blank" rel="noreferrer">Report a problem</a>
       </nav>
