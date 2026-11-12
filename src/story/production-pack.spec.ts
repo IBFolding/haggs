@@ -5,6 +5,8 @@ import {restoreMediaEnvelope} from './media-bundle';
 import {createProject,newShot} from './model';
 import {importBundle} from './transfer';
 import {zipFiles} from '../comic/archive';
+import {parseScreenplay} from '../sheets/screenplay';
+import {buildSheets} from '../sheets/sheets';
 const data='data:image/png;base64,aGVsbG8=';
 function fixture(){return {...createProject('Production <script>'),shots:[{...newShot(),heading:'Meet <script>',beat:'They meet.',refs:[data],render:{url:data,kind:'image' as const,usd:0,promptHash:'x',at:1}}]};}
 
@@ -47,4 +49,13 @@ test('import refuses unknown archives and duplicate attachment paths',async()=>{
 test('inaccessible stored media stops export rather than producing a misleading portable pack',async()=>{
  const source=fixture();source.shots[0]!.refs=['/api/local/missing.png'];
  await assert.rejects(()=>productionPack(source,undefined,async()=>new Response(null,{status:401})),/could not be bundled/);
+});
+
+test('source screenplay and editable script sheets survive production handoff',async()=>{
+ const sheets=buildSheets([parseScreenplay('INT. KITCHEN - NIGHT\n\nAn empty chair waits.\n\nROWAN\nLeave a light on.\n')]);
+ const bytes=await productionPack(fixture(),sheets),envelope=await readProductionPack(bytes);
+ const imported=importBundle(JSON.stringify(envelope));
+ assert.equal(imported.sheets!.script[0]!.dialogue[0]!.words,'Leave a light on.');
+ const text=new TextDecoder().decode(bytes);
+ assert.ok(text.includes('## Source screenplay'));assert.ok(text.includes('An empty chair waits.'));assert.ok(text.includes('Leave a light on.'));
 });

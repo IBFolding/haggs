@@ -46,6 +46,12 @@ export async function productionPack(project:Project,sheets?:Sheets,fetcher:type
  add('project.haggs.json',JSON.stringify(content,null,2));
  const normalized=normalize(content.project as Project),rows:string[]=[['Board','Shot','Heading','Beat','Seconds','Model','Camera','Light','Staging','Continuity warnings'].map(csv).join(',')];
  const briefs:unknown[]=[],script:string[]=[`# ${project.name}`],cards:string[]=[];
+ const scriptSheets=content.sheets as Sheets|undefined;
+ if(scriptSheets?.script.length){
+  script.push('\n## Source screenplay');
+  for(const scene of scriptSheets.script){script.push(`\n### Episode ${scene.episode} · ${scene.heading}\n${scene.action}`,...scene.dialogue.map(line=>`\n${line.character}${line.extension?` (${line.extension})`:''}${line.parenthetical?` ${line.parenthetical}`:''}\n${line.words}`));}
+  script.push('\n## Production boards');
+ }
  for(const board of normalized.boards??[]) {
   const scoped=view(normalized,board.id);script.push(`\n## ${board.name}`);
   for(const [i,shot] of scoped.shots.entries()) {

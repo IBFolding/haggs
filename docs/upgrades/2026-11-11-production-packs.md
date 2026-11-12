@@ -8,7 +8,7 @@ Projects → Production pack downloads a flat, uncompressed `.production.zip` wi
 
 - `project.haggs.json`: editable project, all boards, takes, cast, voice/effects/overlay configuration and optional script sheets.
 - Actual stored raster images, audio and video files, deduplicated. Same-origin sample media is included too. Inaccessible supported stored media stops the export.
-- `script.md`, `shots.csv`, `continuity.json`, `contact-sheet.html` and `README.txt`.
+- `script.md` (including source screenplay when script sheets exist), `shots.csv`, `continuity.json`, `contact-sheet.html` and `README.txt`.
 - `manifest.json`: per-file byte counts and SHA-256 digests, media mapping and unbundled dependencies.
 
 The contact sheet loads only packaged stills/reference frames. It does not fetch remote thumbnails or imply that a selected video has a generated thumbnail. HTML is escaped and has a restrictive content policy; spreadsheet formula-leading text is escaped in CSV.
@@ -29,7 +29,7 @@ The archived continuity document uses the pack's media IDs with the same media-t
 
 ## Verification
 
-- Full Node suite: 1,525 passed, 8 skipped, 0 failed. Typecheck and production build passed. No provider requests are made by these checks.
+- Full Node suite: 1,526 passed, 8 skipped, 0 failed. Typecheck and production build passed. No provider requests are made by these checks.
 - Browser: exported a real project containing two existing sample JPEGs; downloaded ZIP checked independently with Python zipfile CRC and SHA-256 checks. Both images were in the archive, with zero unbundled media dependencies for that fixture.
 - Browser: displayed assigned cast and the actual compiled prompt in the board inspector.
 - Browser: opened the extracted contact sheet offline; its packaged still loaded.
