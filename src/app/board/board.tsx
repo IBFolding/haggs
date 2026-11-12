@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getModelCard, MODELS } from "../../catalog/models";
 import { coerceSettings } from "../../catalog/settings";
+import { ContinuityBrief } from "./continuity-brief";
 import { hashPrompt, promptFor, staleShots } from "../../story/assemble";
 import { defaultKv } from "../../story/kv";
 import { moveShot, newShot, setLook, type Project, type Shot } from "../../story/model";
@@ -363,6 +364,7 @@ export function Board({ id, boardId }: { id: string; boardId?: string | undefine
                     }))
                   }
                 />
+                <ContinuityBrief project={project} shotId={shot.id}/>
                 <details className="inspect-prompt">
                   <summary>
                     The prompt this shot will run

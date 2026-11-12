@@ -14,3 +14,5 @@ These files are editorial coverage recipes and prompt setup text. Haggs adds its
 Credits: Keys (github.com/drowzeys) and Sam Wasserman / Wasserman Productions (wassermanproductions.com). Slate was created by Sam Wasserman (wassermanproductions.com).
 
 The retained upstream NOTICE also describes the broader upstream product and model licences. Those model components are not bundled by this reuse; Apache licensing of the editorial data does not grant rights to separately distributed models or artwork.
+
+Haggs also independently adapts Slate's production-pack and continuity-compilation concepts in `src/story/production-pack.ts` and `src/story/compile.ts`. These original TypeScript modules do not copy the Python engines. See `docs/upgrades/2026-11-11-production-packs.md` for verification and limits.
