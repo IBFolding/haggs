@@ -43,7 +43,10 @@ export function assemble(
 export function promptFor(project: Project, index: number): string {
   const shot = project.shots[index];
   if (!shot) return "";
-  return assemble(shot, index > 0 ? project.shots[index - 1] : undefined, project.direction);
+  const cast = project.threads.filter(t => t.kind === "character" && shot.threadIds.includes(t.id));
+  return join([assemble(shot, index > 0 ? project.shots[index - 1] : undefined, project.direction),
+    cast.length ? `Cast continuity: ${cast.map(t => t.name).join("; ")}. Preserve each character’s identity, wardrobe and distinguishing features.` : undefined,
+  ]);
 }
 
 /**

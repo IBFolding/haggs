@@ -1,9 +1,6 @@
-import { continuityStale, acceptsStartFrame } from "../story/continuity";
-import { getModelCard } from "../catalog/models";
-import { coerceSettings } from "../catalog/settings";
-import { hashPrompt, promptFor } from "../story/assemble";
+import { compileShot } from "../story/compile";
+import { hashPrompt } from "../story/assemble";
 import type { Project, Shot } from "../story/model";
-import { inputsFor, renderSeconds } from "../story/references";
 import { run } from "./actions";
 
 /**
@@ -17,19 +14,14 @@ export async function shoot(project: Project, index: number): Promise<
 > {
   const shot = project.shots[index];
   if (!shot) return { ok: false, reason: "That shot is not on the board any more." };
-  if (shot.startsFrom && continuityStale(project, shot)) return {ok:false,reason:"The previous clip changed. Update or remove its starting-frame dependency before generating this shot."};
-  if (shot.startsFrom && !acceptsStartFrame(shot)) return {ok:false,reason:"This model does not accept a video starting frame. Choose a supported video model or remove the dependency."};
-  const text = promptFor(project, index);
-  if (!text.trim()) return { ok: false, reason: "Give the shot a beat before generating it." };
-  const card = getModelCard(shot.model.id);
-  const { images, firstFrame } = inputsFor(shot, card.inputImages);
-  const settings = coerceSettings(card.settings, shot.model.settings);
-  // The shot's own length, not the model's default, so the price shown is the price sent.
-  const seconds = renderSeconds(shot, card.settings.duration);
-  if (seconds !== null) settings.duration = seconds;
-  const result = await run(shot.model.id, text, settings, images, firstFrame, firstFrame && shot.endsOn ? shot.endsOn : undefined);
+  let compiled: ReturnType<typeof compileShot>;
+  try { compiled = compileShot(project, index); }
+  catch { return {ok:false,reason:"This shot’s model is unavailable. Choose a supported model before generating."}; }
+  if (compiled.blockers.length) return {ok:false,reason:compiled.blockers[0]!};
+  const {prompt:text,settings,images,firstFrame,endFrame}=compiled;
+  const result = await run(shot.model.id, text, settings, images, firstFrame, endFrame);
   if (!result.ok) return { ok: false, reason: result.reason, ...(result.needsKey ? { needsKey: true } : {}) };
   const first = result.shots[0];
   if (!first) return { ok: false, reason: "The provider finished without returning a picture." };
-  return { ok: true, render: { url: first.url, kind: first.kind, usd: result.usd, promptHash: hashPrompt(text), at: Date.now() }, origin: card.name };
+  return { ok: true, render: { url: first.url, kind: first.kind, usd: result.usd, promptHash: hashPrompt(text), at: Date.now() }, origin: compiled.modelName };
 }
