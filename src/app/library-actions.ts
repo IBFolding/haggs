@@ -1,5 +1,6 @@
 "use server";
 
+import {privateMediaWrites} from "../server/media-storage-config";
 import { privateMediaPath } from "../server/private-media-url";
 
 import { userNow } from "../server/auth";
@@ -23,6 +24,7 @@ export async function keepInLibrary(url: string): Promise<Kept> {
   if (!user) return { ok: false, reason: "Sign in to keep your results in your account." };
   if (privateMediaPath(url) || isBlobUrl(url)) return { ok: true, url };
   if (!url.startsWith("/api/local/")) return { ok: false, reason: "That result isn't a file on this machine.", final: true };
+  if (!privateMediaWrites()) return {ok:false,reason:"Private storage must be configured before device files can sync to your account. Your local files were not uploaded."};
   if (!libraryToken()) return { ok: false, reason: "File sync isn't set up on this copy of haggs." };
   if (!allow(`library:${user.id}`, 600, 3_600_000)) return { ok: false, reason: "Slow down a little; syncing resumes shortly." };
   try {
