@@ -120,7 +120,8 @@ export async function syncProjects(kv: Kv, store: ProjectStore, remote: Remote, 
     const got = await remote.get(id);
     if (!got) continue;
     await store.keep(got.project);
-    if (got.sheets) await kv.set(`sheets/${id}`, got.sheets);
+    if (got.sheets !== null) await kv.set(`sheets/${id}`, got.sheets);
+    else await kv.remove(`sheets/${id}`);
     report.pulled += 1;
   }
   for (const id of todo.removeRemote) { await remote.remove(id); report.removed += 1; }

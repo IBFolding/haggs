@@ -18,15 +18,17 @@ const kindOf = (file: File): "audio" | "video" | "image" | null => (file.type.st
  * store from the browser; on a developer's machine it goes to the local media
  * folder through /api/upload.
  */
-export async function uploadFile(file: File): Promise<Uploaded> {
+export async function uploadFile(file: File, options: {requirePrivate?:boolean} = {}): Promise<Uploaded> {
   if (process.env.NEXT_PUBLIC_HOSTED === "1") {
     const kind = kindOf(file);
     if (!kind) return { ok: false, reason: "Add an audio file, a video or a picture." };
     if (file.size > 300 * 1024 * 1024) return { ok: false, reason: "Keep added files under 300 MB." };
     try {
       const owner = await ownerFolder();
+      if(options.requirePrivate&&owner==='guest')return {ok:false,reason:'Sign in before restoring private project media. Nothing was uploaded.'};
       const config = await fetch("/api/blob/upload", { cache: "no-store" }).then(r => r.json()) as { access?: string };
       if (config.access !== "public" && config.access !== "private") throw new Error("Storage setup is unavailable.");
+      if(options.requirePrivate&&config.access!=='private')return {ok:false,reason:'Private storage is not configured on this deployment. Nothing was uploaded. Keep your production pack as a backup.'};
       const made = await upload(`haggs/${owner}/uploads/${crypto.randomUUID()}/upload-${file.name.replace(/[^\w.-]+/g, "-").slice(-80)}`, file, { access: config.access, handleUploadUrl: config.access === "private" ? "/api/blob/private-upload" : "/api/blob/upload", clientPayload: JSON.stringify({size:file.size}) });
       return { ok: true, url: config.access === "private" ? privateMediaUrl(made.pathname) : made.url, kind, name: file.name };
     } catch (caught) {
