@@ -44,17 +44,16 @@ export function GuideCard({ rail, visited, open, suggested, onOpen, primaryGoesT
   const steps = stepProgress(visited, rail, open);
   const next = suggested ? groupById(suggested) : null;
   return (
-    <section className="ed-guide" aria-label="Next step guide">
+    <section className="ed-guide" aria-label="Editing stages">
       <ol className="ed-guide-steps">
         {steps.map((s, i) => (
-          <li key={s.id} className={s.state} aria-current={s.state === "current" ? "step" : undefined}>
-            <i aria-hidden="true">{s.state === "done" ? "✓" : ""}</i>
-            <span>{s.label}</span>
-            <small className="sr-only">Step {i + 1}: {s.seen} of {s.total} opened</small>
+          <li key={s.id} className={s.state==='current'?'current':''}>
+            <button type="button" className="ed-stage-button" aria-current={s.state==='current'?'step':undefined} onClick={()=>{const first=rail.find(g=>g.step===s.id);if(first)onOpen(first.id);}}><i aria-hidden="true"/>{s.label}</button>
+            <small className="sr-only">Stage {i+1}: tool categories, not completion status</small>
           </li>
         ))}
       </ol>
-      {next && next.id !== primaryGoesTo ? <button type="button" className="ed-guide-next" onClick={() => onOpen(next.id)}>Next step: <b>{next.label}</b> <span aria-hidden="true">→</span></button> : !next ? <p className="ed-guide-done">All tools opened. Pick any to go back.</p> : null}
+      {next && next.id !== primaryGoesTo ? <button type="button" className="ed-guide-next" onClick={() => onOpen(next.id)}>Explore: <b>{next.label}</b> <span aria-hidden="true">→</span></button> : !next ? <p className="ed-guide-done">Choose any tool to keep refining this shot.</p> : null}
     </section>
   );
 }

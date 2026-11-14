@@ -9,7 +9,7 @@ export function MediaThumb({ url, kind, at = 0.1 }: { url: string; kind: "video"
   if (gone) {
     const local = url.startsWith("/api/local/");
     return (
-      <span className="thumb-gone" role="img" aria-label="Preview unavailable" title={local ? "This file is still on the computer that made it. Open the project there, signed in, and it copies to your account." : "This file couldn't be loaded. It may have expired."}>
+      <span className="thumb-gone" role="img" aria-label="Preview unavailable" title={local ? "This file is still on the computer that made it. Open the project there and choose Save to this account. Check account sync status before switching devices." : "This file couldn't be loaded. It may have expired."}>
         {local ? "On your computer" : "Not available"}
       </span>
     );

@@ -492,7 +492,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
   if (missing) {
     return (
       <div className="app">
-        <Nav current="Projects" />
+        <Nav current="Editor" />
         <div className="canvas">
           <div className="library">
             <div className="library-blank">
@@ -507,7 +507,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
     );
   }
 
-  if (!project || !cut) return <div className="app"><Nav current="Projects" /></div>;
+  if (!project || !cut) return <div className="app"><Nav current="Editor" /></div>;
 
   const selected = cut.clips.find((c) => c.shotId === picked) ?? here?.clip ?? null;
   const shot = selected ? project.shots.find((s) => s.id === selected.shotId) : undefined;
@@ -676,7 +676,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
 
   return (
     <div className="app">
-      <Nav current="Projects" />
+      <Nav current="Editor" />
       <ProjectTabs project={full.current ?? project} boardId={boardId} current="cut" greyShotId={shot?.id ?? here?.clip.shotId} beforeGreyNavigate={saveBeforeGrey} />
 
       {cut.clips.length === 0 ? (
