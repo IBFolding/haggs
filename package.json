@@ -29,7 +29,8 @@
     "demo": "tsx src/demo.ts",
     "prices": "tsx src/catalog/pricing.test.ts",
     "test": "node --import tsx --test \"src/**/*.spec.ts\"",
-    "check:grey-panorama": "tsx scripts/check-grey-panorama.ts"
+    "check:grey-panorama": "tsx scripts/check-grey-panorama.ts",
+    "haggy:connect": "tsx scripts/haggy-connect.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
