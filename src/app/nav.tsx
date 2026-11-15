@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {CreateMenu} from "./create-menu";
 
 import { openProducer, Producer } from "./agent";
 import { useEffect, useState } from "react";
@@ -84,7 +85,8 @@ export function Nav({ current }: { current: Place }) {
           haggs<i>.</i>
         </Link>
         <div className="nav-items">
-          {ITEMS.map((item) => (
+          <CreateMenu/>
+          {ITEMS.filter(item=>item.label!=="Photos"&&item.label!=="Video").map((item) => (
             <Link key={item.label} className="nav-item" href={item.href} aria-current={item.label === current} data-tour={item.label}>
               {item.label}
             </Link>

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { addBoard, boardOf, normalize, removeBoard } from "../story/boards";
+import {staleShots} from "../story/assemble";
+import { addBoard, boardOf, normalize, removeBoard, view } from "../story/boards";
 import { defaultKv } from "../story/kv";
 import type { Project } from "../story/model";
 import { createProjectStore } from "../story/store";
@@ -49,6 +50,7 @@ export function ProjectTabs({ project, boardId, current, greyShotId, beforeGreyN
   const path = TABS.find((t) => t.id === current)!.path;
   const done = progress(project, board.id);
   const next = nextStep(project, board.id);
+  const optionalReview=current==='cut'&&next.tab==='board'&&staleShots(view(project,board.id)).length>0;
   const href = (tabPath: string, b = board.id) => `/board/${project.id}${tabPath}?b=${encodeURIComponent(b)}`;
 
   async function choose(value: string) {
@@ -112,9 +114,9 @@ export function ProjectTabs({ project, boardId, current, greyShotId, beforeGreyN
         </Link>
       )}
       {!(next.tab === current && current !== "board") && (
-        <Link className="ptabs-next" href={href(TABS.find((t) => t.id === next.tab)!.path)}>
-          <small>Next</small>
-          {next.label}
+        <Link className={`ptabs-next${optionalReview?" is-review":""}`} href={href(TABS.find((t) => t.id === next.tab)!.path)}>
+          <small>{optionalReview?"Optional":"Next"}</small>
+          {optionalReview?"Review prompt changes":next.label}
         </Link>
       )}
     </div>

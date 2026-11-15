@@ -1,6 +1,6 @@
 # Haggs release tracker
 
-Updated: November 12, 2026 (America/Los_Angeles).
+Updated: November 14, 2026 (America/Los_Angeles).
 
 These are the six priorities the owner asked to retain. Keep their IDs stable. Mark a priority complete only when its acceptance evidence is linked here; a green build, preview or sample cover is not end-to-end proof. Do not expand this list with competitor-inspired features without keeping the six release priorities visible.
 
@@ -24,3 +24,5 @@ These are the six priorities the owner asked to retain. Keep their IDs stable. M
 - Production-pack/compiler evidence and limits: `docs/upgrades/2026-11-11-production-packs.md`. This improves R5 without completing the six release gates.
 
 - Account restoration hardening and exact live blockers: `docs/upgrades/2026-11-12-account-restore-safety.md`. Fixture cross-device checks do not complete R1/R3.
+
+- November 14 flow refinement: `docs/upgrades/2026-11-14-studio-refinement.md` (Projects, Create menu, Editor chooser and Cut guidance). Local production-build UI and regression checks pass; this does not complete hosted, billing, sample-render or GPU gates.

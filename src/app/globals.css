@@ -5413,3 +5413,17 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .key-row label { display:block; margin:12px 0; }
 .key-row label > input { display:block; width:100%; margin-top:6px; }
 @media(max-width:600px) { .pr-benefits {grid-template-columns:1fr;} .pr-access {padding:18px;} }
+
+/* Existing takes stay usable while prompt revisions are reviewed. */
+.ptabs-next.is-review{background:var(--surface-2);color:var(--text-2);box-shadow:none;border:1px solid var(--line-hot)}.ptabs-next.is-review:hover{color:var(--text);border-color:var(--text-3)}
+@media(prefers-reduced-motion:reduce){.nav-tip span{animation:none!important}}
+
+/* Creation studio disclosure, shared with the main navigation. */
+.studio-create-root{position:relative;flex:none;display:inline-flex}
+.studio-create-trigger{font:inherit;border:0;cursor:pointer;gap:6px}.studio-create-trigger[data-active=true]{color:var(--text);background:none;border-bottom:2px solid var(--volt)}
+.studio-create-menu{position:fixed;width:min(520px,calc(100vw - 32px));z-index:100;background:var(--surface-2);border:1px solid var(--line-hot);border-radius:16px;box-shadow:0 18px 64px #0009;overflow:hidden;color:var(--text)}
+.studio-create-heading{padding:20px 20px 12px;display:flex;flex-direction:column;gap:5px}.studio-create-heading>b{font-size:19px}.studio-create-heading>span{color:var(--text-2);font-size:13px}
+.studio-create-links{display:grid;grid-template-columns:1fr 1fr;padding:4px 10px 12px;gap:4px}.studio-create-links>a{padding:12px 10px;border-radius:10px;display:flex;flex-direction:column;gap:6px;text-decoration:none;color:var(--text)}.studio-create-links>a:hover,.studio-create-links>a[aria-current=page]{background:var(--bg)}.studio-create-links>a>b{font-size:14px}.studio-create-links>a>span{font-size:12px;line-height:1.5;color:var(--text-2)}
+.studio-create-footer{display:block;padding:14px 20px;border-top:1px solid var(--line);font-size:13px;color:var(--volt);text-decoration:none}
+.studio-create-menu a:focus-visible,.studio-create-trigger:focus-visible{outline:2px solid var(--volt);outline-offset:-3px}
+@media(max-width:860px){.studio-create-menu{position:fixed;top:auto;bottom:calc(74px + env(safe-area-inset-bottom));left:12px;width:calc(100vw - 24px);max-height:calc(100dvh - 170px);overflow:auto}.studio-create-trigger{display:inline-flex!important}.studio-create-links{grid-template-columns:1fr 1fr}.studio-create-links>a{padding:10px}.studio-create-links>a>span{font-size:12px}}

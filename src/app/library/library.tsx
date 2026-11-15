@@ -308,6 +308,7 @@ export function Library() {
             <p>Pick up a project, or choose a starting point for something new.</p>
           </div>
 
+          {projects.length>0&&(()=>{const recent=[...projects].sort((a,b)=>b.updatedAt-a.updatedAt)[0]!;const next=progress[recent.id];return <section className={styles.resume} aria-label="Continue your project"><div><span className="eyebrow">Continue where you left off</span><h2>{recent.name}</h2><p>{recent.shotCount} shot{recent.shotCount===1?'':'s'} · {next?.stage??'Saved on this device'}</p></div><Link className="fire" href={next?.href??`/board/${encodeURIComponent(recent.id)}`}>Continue project →</Link><a className="plain" href="#your-projects">Choose another project</a></section>;})()}
           <section className={styles.start} aria-label="Start a new project">
           <div className={styles.sectionHeading}><div><span className="eyebrow">Start something new</span><h2>What are you starting with?</h2></div><span>No generation starts here.</span></div>
           <div className={styles.startTabs} role="group" aria-label="Starting point">{["Idea", "Photo", "Reference video", "Workflow", "Game", "Script"].map((kind) => <button key={kind} aria-pressed={startKind === kind} onClick={() => setStartKind(kind)}>{kind}</button>)}</div>
@@ -372,7 +373,7 @@ export function Library() {
 
           </section>
 
-          <div className="ph-continue">
+          <div className="ph-continue" id="your-projects">
             <div><span className="eyebrow">Your work</span><h2>Pick up where you left off.</h2></div>
             <button className="ph-link" onClick={() => fileInput.current?.click()}>Import a project file</button>
           </div>
