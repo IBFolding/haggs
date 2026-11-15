@@ -11,6 +11,7 @@ import { coverOf, createProject, type ProjectSummary } from "../../story/model";
 import { createProjectStore } from "../../story/store";
 import { exportSheets, importSheets } from "../../sheets/sheets";
 import { createMediaEnvelope, restoreMediaEnvelope, restoreBundledMedia, hasEmbeddedMedia } from "../../story/media-bundle";
+import { productionPack, readProductionPack } from "../../story/production-pack";
 import { TransferError, exportProject, importBundle } from "../../story/transfer";
 import { backupsToOffer, toRestore, type OnDisk } from "../../story/restore";
 import { Nav } from "../nav";
@@ -55,6 +56,7 @@ function ago(at: number): string {
 }
 
 export function Library() {
+  const [packing,setPacking] = useState<string | null>(null);
   const router = useRouter();
   const kv = useMemo(() => defaultKv(), []);
   const store = useMemo(() => createProjectStore(kv), [kv]);
@@ -206,7 +208,9 @@ export function Library() {
   );
 
   const download = useCallback(
-    async (summary: ProjectSummary, includeMedia = true) => {
+    async (summary: ProjectSummary, includeMedia = true, production = false) => {
+      setPacking(summary.id);
+      setError(null);
       try {
       const project = await store.load(summary.id);
       if (!project) return;
@@ -216,15 +220,17 @@ export function Library() {
       try {
         sheets = raw ? importSheets(raw) : undefined;
       } catch {
+        if (production) throw Error("The project’s script sheets could not be read. Repair them before exporting a production pack.");
         sheets = undefined;
       }
       const envelope = JSON.parse(exportProject(project, sheets));
-      const packed = includeMedia ? await createMediaEnvelope(envelope) : envelope;
-      const blob = new Blob([JSON.stringify(packed, null, 2)], { type: "application/json" });
+      const archive = production ? await productionPack(project, sheets) : null;
+      const packed = !production && includeMedia ? await createMediaEnvelope(envelope) : envelope;
+      const blob = archive ? new Blob([new Uint8Array(archive).buffer], {type:"application/zip"}) : new Blob([JSON.stringify(packed, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `${project.name.replace(/[^\w.-]+/g, "-") || "project"}.haggs.json`;
+      anchor.download = `${project.name.replace(/[^\w.-]+/g, "-") || "project"}${production ? ".production.zip" : ".haggs.json"}`;
 
       // The anchor has to be in the document for the click to count in Firefox,
       // and the object URL has to outlive the click — revoking on the same tick
@@ -233,7 +239,7 @@ export function Library() {
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
-      } catch (error) { setError(error instanceof Error ? error.message : "The export could not be created."); }
+      } catch (error) { setError(error instanceof Error ? error.message : "The export could not be created."); } finally { setPacking(null); }
     },
     [kv, store],
   );
@@ -243,10 +249,11 @@ export function Library() {
       setError(null);
       try {
         if (file.size > 180 * 1024 * 1024) throw new TransferError("Keep project bundles under 180 MB.");
-        const envelope = JSON.parse(await file.text()) as Record<string,unknown>;
+        const isPack = file.name.toLowerCase().endsWith(".zip");
+        const envelope = isPack ? await readProductionPack(new Uint8Array(await file.arrayBuffer())) : JSON.parse(await file.text()) as Record<string,unknown>;
         let bundle = importBundle(JSON.stringify(envelope));
         if (envelope.mediaBundle) {
-          if (!window.confirm("Restore this bundle’s media into your storage? Quotas apply. No generation will run.")) return;
+          if (Object.keys((envelope.mediaBundle as {files:object}).files??{}).length && !window.confirm("Restore this bundle’s media into your storage? Quotas apply. No generation will run.")) return;
           bundle = importBundle(JSON.stringify(await restoreMediaEnvelope(envelope, uploadFile)));
         }
         if (hasEmbeddedMedia(bundle)) {
@@ -255,7 +262,7 @@ export function Library() {
         }
         let project = bundle.project;
         const { sheets } = bundle;
-        if (project.importKey) {
+        if (project.importKey && !isPack) {
           const all = await Promise.all((await store.list()).map((s) => store.load(s.id)));
           const earlier = all.find((p) => p?.importKey === project.importKey);
           if (
@@ -402,7 +409,8 @@ export function Library() {
                       <Link className={styles.nextLink} href={status?.href ?? `/board/${summary.id}`}>{status?.action ?? "Open storyboard"} →</Link>
                       <span className="ph-acts">
                         <button className="ph-link" onClick={() => { setEditing(summary.id); setDraft(summary.name); }}>Rename</button>
-                        <button className="ph-link" title="Includes supported stored media. External links remain external; large media may need a separate download." onClick={() => void download(summary)}>Export with media</button>
+                        <button className="ph-link" disabled={packing !== null} title="Project, stored media, shot list, script and contact sheet. External links are listed separately." onClick={() => void download(summary, true, true)}>{packing === summary.id ? "Packing…" : "Production pack"}</button>
+                        <button className="ph-link" disabled={packing !== null} title="Includes supported stored media. External links remain external; large media may need a separate download." onClick={() => void download(summary)}>Export with media</button>
                         <button className="ph-link" title="Project data and links only; media still needs its source account or device." onClick={() => void download(summary, false)}>Export project links</button>
                       </span>
                     </div>
@@ -416,7 +424,7 @@ export function Library() {
           <input
             ref={fileInput}
             type="file"
-            accept="application/json,.json"
+            accept="application/json,.json,application/zip,.zip"
             hidden
             onChange={(event) => {
               const file = event.target.files?.[0];

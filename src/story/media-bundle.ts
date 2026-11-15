@@ -2,6 +2,7 @@ import { privateMediaPath } from "../server/private-media-url";
 const TYPES=new Set(["image/png","image/jpeg","image/webp","video/mp4","video/webm","video/quicktime","audio/mpeg","audio/mp4","audio/aac","audio/flac","audio/wav","audio/x-wav"]);
 const MAX=64*1024*1024,TOTAL=128*1024*1024;
 function appMedia(url:string){
+ if(/^\/(samples|showcase|images|assets)\/[a-zA-Z0-9_.% /-]+\.(png|jpe?g|webp|mp4|webm|mp3|wav|m4a)$/i.test(url)&&!url.split("/").some(p=>{try{const part=decodeURIComponent(p);return [".",".."].includes(part)||/[\/\\\x00-\x1f]/.test(part);}catch{return true;}}))return true;
  if(privateMediaPath(url))return true;
  if(/^\/api\/local\/[a-zA-Z0-9_./% -]+$/.test(url)){try{const parts=url.slice("/api/local/".length).split("/").map(decodeURIComponent);if(parts.every(p=>p&&p!=="."&&p!==".."&&!p.includes("/")&&!p.includes("\\")))return true;}catch{}}
  try{const u=new URL(url);return u.protocol==="https:"&&/^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/.test(u.hostname)&&!u.username&&!u.password&&!u.search&&!u.hash;}catch{return false;}

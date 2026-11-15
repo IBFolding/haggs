@@ -28,3 +28,9 @@ test("attachment envelopes validate before upload and restore normal project URL
  assert.equal(importBundle(JSON.stringify(restored)).project.media![0]!.url,base+"restored.png");
  assert.equal(restored.mediaBundle,undefined);
 });
+
+test('public sample assets bundle as same-origin media but traversal remains unfetched',async()=>{
+ let calls=0;
+ const packed=await bundleAppMedia({sample:'/samples/street.jpg',traversal:'/samples/%2e%2e/private.jpg'},async(url,init)=>{calls++;assert.equal(url,'/samples/street.jpg');assert.equal(init?.credentials,'same-origin');return new Response('fixture',{headers:{'content-type':'image/jpeg'}});});
+ assert.equal(calls,1);assert.ok(packed.sample.startsWith('data:image/jpeg;'));assert.equal(packed.traversal,'/samples/%2e%2e/private.jpg');
+});
