@@ -1,0 +1,18 @@
+{
+  "source": "https://github.com/drowzeys/Imagination-Studio-by-keys-Wasserman",
+  "commit": "ef88a0747686212749768b72d6a796932e8e583d",
+  "files": [
+    {
+      "source": "app/static/slate/coverage-plans.json",
+      "destination": "src/creators/data/coverage-plans.json",
+      "sha256": "bca626993f0a254e155c319fbc4b11a6260c624b5116539456533df5e76cd9e0",
+      "modified": false
+    },
+    {
+      "source": "app/static/slate/setups.json",
+      "destination": "src/creators/data/setups.json",
+      "sha256": "17ba938500cbd364448e0b5bdd6bdb8b83378ea0ea7ca3c01dc0b58e4e0bca42",
+      "modified": false
+    }
+  ]
+}

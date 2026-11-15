@@ -1,3 +1,4 @@
+import {readPanorama,type Panorama} from './grey-panorama';
 import { roomSpace, materialSchema, type SpatialMaterial, type RoomSpace } from "./grey-space";
 import { validSelection, type AreaSelection } from "./grey-selection";
 /**
@@ -30,6 +31,7 @@ export type Backdrop = { url: string; name: string; scale: number; x: number; y:
 export type RoomReference = { id: string; url: string; name: string };
 
 export type GreyScene = {
+  panorama?: Panorama;
   /** Material choices for the shared spatial preview. */
   space?: RoomSpace;
   direction?: string;
@@ -62,7 +64,7 @@ export function setShadow(s: GreyScene, change: Partial<{ amount: number; angle:
   return { ...s, shadow: { amount: unit(next.amount), angle: ((Math.round(next.angle) % 360) + 360) % 360 } };
 }
 
-export const sceneIsEmpty = (s: GreyScene | undefined) => !s || !(s.direction || s.space || s.references?.length || s.place || s.matte || s.backdrop || s.surfaces?.length || s.props?.length || s.lights?.length || s.atmos?.length || (s.look && JSON.stringify(s.look) !== JSON.stringify(NEUTRAL)));
+export const sceneIsEmpty = (s: GreyScene | undefined) => !s || !(s.panorama || s.direction || s.space || s.references?.length || s.place || s.matte || s.backdrop || s.surfaces?.length || s.props?.length || s.lights?.length || s.atmos?.length || (s.look && JSON.stringify(s.look) !== JSON.stringify(NEUTRAL)));
 
 /* ── props ── */
 
@@ -192,6 +194,7 @@ export function normalizeScene(raw: GreyScene | undefined): GreyScene {
   const isLight = (l: unknown): l is Light => !!l && typeof l === "object" && typeof (l as Light).id === "string" && typeof (l as Light).kind === "string";
   return {
     ...(typeof raw.direction === "string" ? { direction: raw.direction.slice(0, 4000) } : {}),
+    ...(readPanorama(raw.panorama)?{panorama:readPanorama(raw.panorama)!}:{}),
     ...(raw.space ? { space: roomSpace(raw.space) } : {}),
     ...(raw.source && typeof raw.source.url === "string" && (raw.source.kind === "video" || raw.source.kind === "image") ? { source: { url: raw.source.url, kind: raw.source.kind, ...(Number.isFinite(raw.source.trimIn) && raw.source.trimIn! > 0 ? {trimIn:raw.source.trimIn} : {}), ...(typeof raw.source.revision === "string" ? {revision:raw.source.revision} : {}) } } : {}),
     ...(Array.isArray(raw.references) ? { references: raw.references.filter(r => r && typeof r.id === "string" && typeof r.url === "string" && typeof r.name === "string").slice(0, 60) } : {}),

@@ -1,6 +1,7 @@
 "use client";
 
 import {RentedGpuSection} from "./rented-gpu-section";
+import Link from "next/link";
 import { FAL_ENABLED } from "../catalog/models";
 import { useEffect, useRef, useState } from "react";
 
@@ -249,6 +250,7 @@ export function KeySheet({
           </section>
         ))}
 
+        <p><Link href="/machine">Inspect connected GPU, nodes and model choices →</Link></p>
         <RentedGpuSection refresh={gpuEpoch} onConnected={()=>{setGpu(null);}} />
         <section className="key-row">
           <header>

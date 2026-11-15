@@ -28,7 +28,8 @@
     "typecheck": "tsc --noEmit",
     "demo": "tsx src/demo.ts",
     "prices": "tsx src/catalog/pricing.test.ts",
-    "test": "node --import tsx --test \"src/**/*.spec.ts\""
+    "test": "node --import tsx --test \"src/**/*.spec.ts\"",
+    "check:grey-panorama": "tsx scripts/check-grey-panorama.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

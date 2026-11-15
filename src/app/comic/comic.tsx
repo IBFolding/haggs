@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import {createBookStore,pageDraftKey,type ComicPageDraft} from "../../comic/books";
+import {PanelRetouch} from "./panel-retouch";
 import { PageDesign, LetterPlacement } from "./page-design";
 import { bookLayout, defaultAppearance, readAppearance, type Appearance } from "../../comic/appearance";
 import { LivingPage } from "./living-page";
@@ -48,7 +51,10 @@ export function Comic() {
   const sheetFile = useRef<HTMLInputElement>(null);
   const [reading, setReading] = useState(false);
   const [animations, setAnimations] = useState<Record<string, PanelAnimation>>({});
+  const [artTakes,setArtTakes]=useState<Record<string,string[]>>({});
+  const pictureRef=useRef<Record<string,string>>({});
   const [pictures, setPictures] = useState<Record<string, string>>({});
+  pictureRef.current=pictures;
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [appearance, setAppearance] = useState<Appearance>(defaultAppearance);
@@ -58,27 +64,37 @@ export function Comic() {
   const [title, setTitle] = useState("My comic");
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState("Loading draft…");
+  const draftKey=useRef("comic:draft:v1");
+  const [bookContext,setBookContext]=useState<{id:string;title:string}|null>(null);
   const writes = useRef(Promise.resolve());
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    void idbKv().get<{ appearance?: Appearance; animations?: Record<string, PanelAnimation>; panels: Panel[]; pictures: Record<string, string>; title: string; look: LookId; layout: LayoutId; style: StyleSheet; inIt: string[]; extras: BankItem[] }>("comic:draft:v1").then((d) => {
-      if (d?.panels?.length) { setAppearance(readAppearance(d.appearance)); setAnimations(d.animations ?? {}); setPanels(d.panels); setPictures(d.pictures); setTitle(d.title); setLook(d.look); setLayout(d.layout); setStyle(d.style); setInIt(d.inIt); setExtras(d.extras); }
+    void (async()=>{
+      const query=new URLSearchParams(window.location.search),bookId=query.get('book'),pageId=query.get('page');
+      let d:ComicPageDraft|undefined;
+      if(bookId&&pageId){
+        const book=await createBookStore(idbKv()).load(bookId),page=book?.chapters.flatMap(c=>c.pages).find(p=>p.id===pageId);
+        if(!book||!page)throw Error('This comic page was not found on this device. Your other drafts are preserved.');
+        draftKey.current=pageDraftKey(bookId,pageId);setBookContext({id:bookId,title:book.title});
+        d={...page.draft,style:{...page.draft.style,notes:page.draft.style.notes||[book.cast,book.world].filter(Boolean).join('\n')}};
+      }else d=await idbKv().get<ComicPageDraft>(draftKey.current);
+      if (d?.panels?.length) { setAppearance(readAppearance(d.appearance)); setAnimations(d.animations ?? {}); setPanels(d.panels); setPictures(d.pictures);pictureRef.current=d.pictures;setArtTakes(d.artTakes??{}); setTitle(d.title); setLook(d.look); setLayout(d.layout); setStyle(d.style); setInIt(d.inIt); setExtras(d.extras); }
       setReady(true);
-    }).catch(() => { setSaved("Draft storage unavailable. Keep this page open."); setReady(true); });
+    })().catch((error)=>{setProblem(error instanceof Error?error.message:'Draft storage unavailable.');setSaved('Draft could not be opened. Return to Comic Studio to choose a saved page.');});
   }, []);
   useEffect(() => {
     if (!ready) return;
     handoff.current = null;
     setSaved("Saving…");
-    writes.current = writes.current.catch(() => undefined).then(() => idbKv().set("comic:draft:v1", { panels, pictures, animations, appearance, title, look, layout, style, inIt, extras }));
+    writes.current = writes.current.catch(() => undefined).then(() => idbKv().set(draftKey.current, { panels, pictures, artTakes, animations, appearance, title, look, layout, style, inIt, extras }));
     const current = writes.current;
     void current.then(() => { if (current === writes.current) setSaved("Saved on this device"); }).catch(() => setSaved("Could not save. Retry or keep this page open."));
-  }, [ready, panels, pictures, animations, appearance, title, look, layout, style, inIt, extras, retry]);
+  }, [ready, panels, pictures, artTakes, animations, appearance, title, look, layout, style, inIt, extras, retry]);
 
   function start(next: Panel[]) {
     if (!window.confirm("Replace the current panels and pictures? Your character and style choices stay. Cancel to keep editing.")) return;
-    setPanels(next); setPictures({}); setAnimations({});
+    setPanels(next); setPictures({});pictureRef.current={}; setArtTakes({});setAnimations({});
   }
 
   useEffect(() => {
@@ -105,6 +121,12 @@ export function Comic() {
   const change = (id: string, patch: Partial<Panel>) => setPanels((all) => all.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   const move = (i: number, d: number) => setPanels((all) => { const n = [...all]; const j = i + d; if (j < 0 || j >= n.length) return all; [n[i], n[j]] = [n[j]!, n[i]!]; return n; });
 
+  function rememberArt(id:string,url:string){
+    const previous=pictureRef.current[id];
+    if(previous&&previous!==url)setArtTakes(all=>({...all,[id]:[...new Set([...(all[id]??[]),previous])].slice(-20)}));
+    pictureRef.current={...pictureRef.current,[id]:url};setPictures(pictureRef.current);
+  }
+
   async function make(list: Panel[]) {
     stop.current = false;
     setProblem(null);
@@ -116,7 +138,7 @@ export function Comic() {
       const r = await makeStill(panelPrompt(p, look, names.map((c) => identityLock(c.traits)), wordsOf(extras) || undefined, style), imageRatio(p.shape), await shrinkAll(allocateRefs({ characters: names.map((c) => c.sheet), place: extras.filter((i) => i.kind === "place" && i.image).map((i) => i.image!), style: style.refs.slice(0, MAX_STYLE_REFS), accessories: extras.filter((i) => i.kind === "accessory" && i.image).map((i) => i.image!) }, 4)), `${COMIC_FINISH}`);
       galleryStill(p.action, "Comic panel")(r);
       if (!r.ok) { if (r.needsKey) openKeys(); setProblem(r.reason); break; }
-      setPictures((all) => ({ ...all, [p.id]: r.url }));
+      rememberArt(p.id,r.url);
     }
     } catch { setProblem("The panel request could not finish. Check your connection and try again; existing art is preserved."); }
     finally { setBusy(null); }
@@ -172,7 +194,8 @@ export function Comic() {
       <Nav current="Photos" />
       <div className="canvas">
         <div className="swap comic">
-          <ModeTabs group="Photos" current="/comic" canEdit={surfaceAvailable("Edit")} />
+          <p className="wf-small" style={{padding:'12px 24px'}}><Link href={bookContext?`/comics?book=${encodeURIComponent(bookContext.id)}`:'/comics'}>← {bookContext?bookContext.title:'Comic Studio · books and samples'}</Link></p>
+          <ModeTabs group="Photos" current="/comics" canEdit={surfaceAvailable("Edit")} />
           <div className="cx cm-cx" style={reading ? { display: "block" } : undefined}>
             <aside style={reading ? { display: "none" } : undefined} className="cx-builder" aria-label="Set up the comic">
               <fieldset disabled={!ready || busy !== null} className="cx-scroll cm-authoring" aria-busy={!ready}>
@@ -295,11 +318,12 @@ export function Comic() {
                           <input key={k} value={p.lines[k]?.text ?? ""} onChange={(e) => change(p.id, { lines: [0, 1].map((j) => (j === k ? { who: p.lines[j]?.who ?? "", text: e.target.value } : (p.lines[j] ?? { who: "", text: "" }))).filter((l, j, a) => l.text || a.slice(j + 1).some((x) => x.text)) })} placeholder={k === 0 ? "Speech bubble" : "A second bubble (optional)"} aria-label={`Panel ${i + 1}: speech ${k + 1}`} maxLength={90} />
                         ))}
                         <LetterPlacement panel={p} index={i} appearance={appearance} rect={pageRects[i]!} onChange={patch => change(p.id, patch)} />
+                        {pictures[p.id]&&<><PanelRetouch picture={pictures[p.id]!} ratio={imageRatio(p.shape)} onPicture={url=>rememberArt(p.id,url)} onBusy={value=>setBusy(value?'Editing panel art…':null)}/>{Boolean(artTakes[p.id]?.length)&&<label>Art versions<select aria-label={`Panel ${i+1} art version`} value={pictures[p.id]} onChange={e=>rememberArt(p.id,e.target.value)}>{[...new Set([...(artTakes[p.id]??[]),pictures[p.id]!])].map((url,n)=><option value={url} key={url}>Version {n+1}{url===pictures[p.id]?' · selected':''}</option>)}</select></label>}</>}
                         {pictures[p.id] && <AnimatePanel panel={p} picture={pictures[p.id]!} onAnimation={clip => setAnimations(all => ({ ...all, [p.id]: clip }))} onBusy={value => setBusy(value ? "Preparing panel animation…" : null)} />}
                         <label><input type="checkbox" checked={p.include !== false} onChange={(e) => change(p.id, { include: e.target.checked })} /> Include in video editor export</label>
                         <div className="cm-row"><label>Scene seconds <input type="number" min={1} max={15} value={p.seconds ?? 3} onChange={(e) => change(p.id, { seconds: Math.max(1, Math.min(15, Number(e.target.value) || 3)) })} aria-label={`Panel ${i + 1}: seconds`} /></label></div>
                         <input value={p.motion ?? ""} onChange={(e) => change(p.id, { motion: e.target.value })} maxLength={400} placeholder="Motion: slow push toward her face; rain drifts behind" aria-label={`Panel ${i + 1}: motion`} />
-                        <label className="plain">Upload panel art<input type="file" accept="image/png,image/jpeg,image/webp" aria-label={`Panel ${i + 1}: upload art`} onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; if (!["image/png", "image/jpeg", "image/webp"].includes(f.type) || f.size > 20 * 1024 * 1024) return setProblem("Choose a PNG, JPEG or WebP under 20 MB."); try { const decoded = await createImageBitmap(f); decoded.close(); const urls = await shrinkAll([await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(f); })]); setPictures((all) => ({ ...all, [p.id]: urls[0]! })); } catch { setProblem("Could not read that picture. Try another image."); } }} /></label>
+                        <label className="plain">Upload panel art<input type="file" accept="image/png,image/jpeg,image/webp" aria-label={`Panel ${i + 1}: upload art`} onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; if (!["image/png", "image/jpeg", "image/webp"].includes(f.type) || f.size > 20 * 1024 * 1024) return setProblem("Choose a PNG, JPEG or WebP under 20 MB."); try { const decoded = await createImageBitmap(f); decoded.close(); const urls = await shrinkAll([await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(f); })]); rememberArt(p.id,urls[0]!); } catch { setProblem("Could not read that picture. Try another image."); } }} /></label>
                         <div className="cm-row">
                           <button className="pill" disabled={busy !== null || p.action.trim().length < 6} onClick={() => void make([p])}>{pictures[p.id] ? "Draw again" : "Draw this panel"} <span className="cost">about {creditsText(PRICE)}</span></button>
                           <button className="plain" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>

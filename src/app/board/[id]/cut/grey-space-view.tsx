@@ -64,14 +64,22 @@ export function GreySpaceView(props: Props) {
     return () => { cancelled = true; cleanup(); };
   }, []);
 
+  useEffect(()=>{
+    const e=engine.current;if(!e||!ready)return;let active=true;let texture:Three.Texture|undefined;
+    const panorama=props.scene.panorama;
+    if(!panorama){e.world.background=new e.THREE.Color('#22262d');e.world.backgroundRotation.set(0,0,0);e.render();return;}
+    new e.THREE.TextureLoader().load(panorama.url,loaded=>{texture=loaded;if(!active){loaded.dispose();return;}loaded.mapping=e.THREE.EquirectangularReflectionMapping;loaded.colorSpace=e.THREE.SRGBColorSpace;e.world.background=loaded;e.world.backgroundRotation.set(0,panorama.yaw*Math.PI/180,0);e.world.backgroundIntensity=2**panorama.exposure;e.render();},undefined,()=>{if(active)setError('The panorama could not be loaded. Your scene remains editable.');});
+    return()=>{active=false;if(e.world.background===texture)e.world.background=null;texture?.dispose();};
+  },[ready,props.scene.panorama]);
+
   useEffect(() => {
     const e = engine.current; if (!e || !ready) return;
     const { THREE: T, world, camera, render } = e;
     dispose(world);
     let active = true;
     const material = (key: keyof typeof MATERIALS) => new T.MeshStandardMaterial({ ...MATERIALS[key], metalness: key === "metal" ? .65 : 0, side: T.DoubleSide });
-    const floor = new T.Mesh(new T.PlaneGeometry(6, 6), material(spatial.floor)); floor.userData.surface = "floor"; floor.rotation.x = -Math.PI / 2; world.add(floor);
-    const wall = new T.Mesh(new T.PlaneGeometry(6, 3.5), material(spatial.wall)); wall.userData.surface = "wall"; wall.position.set(0, 1.75, 3); world.add(wall);
+    const floor = new T.Mesh(new T.PlaneGeometry(6, 6), material(spatial.floor)); floor.userData.surface = "floor"; floor.rotation.x = -Math.PI / 2; if(!props.scene.panorama||props.scene.panorama.showFloor)world.add(floor);else {floor.geometry.dispose();(floor.material as Three.Material).dispose();}
+    const wall = new T.Mesh(new T.PlaneGeometry(6, 3.5), material(spatial.wall)); wall.userData.surface = "wall"; wall.position.set(0, 1.75, 3); if(!props.scene.panorama)world.add(wall);else {wall.geometry.dispose();(wall.material as Three.Material).dispose();}
     const grid = new T.GridHelper(6, 12, "#9babbc", "#555e68"); grid.position.y = .005; world.add(grid);
     world.add(new T.HemisphereLight("#e5eeff", "#56504b", 2));
     const sun = new T.DirectionalLight("#fff0db", 3);

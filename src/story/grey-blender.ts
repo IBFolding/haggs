@@ -14,6 +14,7 @@ import { subjectFacing, type GreyFrame } from "./grey";
  */
 
 export type BlenderManifest = {
+  panorama?: {file:string;yaw:number;exposure:number;showFloor:boolean};
   version: 1;
   name: string;
   width: number;
@@ -45,7 +46,8 @@ export function blenderManifest(scene: GreyScene, o: { name: string; size: { w: 
   const add = (url: string) => {
     const have = byUrl.get(url);
     if (have) return have;
-    const file = `assets/${byUrl.size + 1}-${slug(url)}`;
+    const mime=/^data:image\/(png|jpeg|webp);base64,/.exec(url);
+    const file = `assets/${byUrl.size + 1}-${mime?`inline.${mime[1]==="jpeg"?"jpg":mime[1]}`:slug(url)}`;
     byUrl.set(url, file);
     assets[file] = url;
     return file;
@@ -58,13 +60,14 @@ export function blenderManifest(scene: GreyScene, o: { name: string; size: { w: 
   const actorKind = scene.matte ? "movie" : o.footage.kind === "video" ? "movie" : "image";
   if (!scene.matte) notes.push("The actor isn't cut out yet, so the original footage fills the frame.");
   const grey = o.grey;
-  const spatial=Boolean(grey&&(scene.space||scene.props?.some(p=>p.primitive==="box")));
+  const spatial=Boolean(grey&&(scene.space||scene.panorama||scene.props?.some(p=>p.primitive==="box")));
   const palette=(key:SpatialMaterial)=>({...MATERIALS[key],metalness:key==="metal"?.65:0});
   const room:RoomSpace=roomSpace(scene.space);
   const keys: CamKey[] = grey?.camKeys ?? [];
   if (grey?.pose === "walk") notes.push("Walking figures use baked guide geometry at the export frame rate; they are geometric stand-ins, not rigged characters.");
   if (grey) notes.push(keys.length > 1 ? "The Grey Room camera move is a perspective camera in the set. The actor and the pictures are flat, so they show parallax rather than turning." : "The Grey Room camera is a perspective camera at its still position.");
   return {
+    ...(scene.panorama?{panorama:{file:add(scene.panorama.url),yaw:scene.panorama.yaw,exposure:scene.panorama.exposure,showFloor:scene.panorama.showFloor}}:{}),
     version: 1,
     name: o.name,
     width: o.size.w,
@@ -159,6 +162,20 @@ bg = world.node_tree.nodes.get("Background")
 if bg:
     bg.inputs[0].default_value = (0.02, 0.02, 0.025, 1)
     bg.inputs[1].default_value = 0.4
+
+# Optional 360-degree environment texture, carried by the same asset manifest.
+if "panorama" in S:
+    sky = S["panorama"]
+    nodes = world.node_tree.nodes
+    environment = nodes.new("ShaderNodeTexEnvironment")
+    environment.image = bpy.data.images.load(os.path.join(ROOT, sky["file"]))
+    coordinates = nodes.new("ShaderNodeTexCoord")
+    mapping = nodes.new("ShaderNodeMapping")
+    mapping.inputs["Rotation"].default_value[2] = math.radians(sky["yaw"])
+    world.node_tree.links.new(coordinates.outputs["Normal"], mapping.inputs["Vector"])
+    world.node_tree.links.new(mapping.outputs["Vector"], environment.inputs["Vector"])
+    world.node_tree.links.new(environment.outputs["Color"], bg.inputs["Color"])
+    bg.inputs["Strength"].default_value = 2 ** sky["exposure"]
 
 # A camera that looks straight at the frame. Depth is only for ordering.
 cam_data = bpy.data.cameras.new("HaggsCamera")
@@ -310,16 +327,18 @@ def spatial_material(name, values, opacity=1.0):
     return mat
 
 if "room" in S:
-    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, -1.2))
-    floor = bpy.context.active_object
-    floor.name = "Spatial floor"
-    floor.scale = (6, 6, 1)
-    floor.data.materials.append(spatial_material("Floor palette", S["room"]["floor"]))
-    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 3, 0.55), rotation=(math.radians(90), 0, 0))
-    wall = bpy.context.active_object
-    wall.name = "Spatial wall"
-    wall.scale = (6, 3.5, 1)
-    wall.data.materials.append(spatial_material("Wall palette", S["room"]["wall"]))
+    if S.get("panorama", {}).get("showFloor", True):
+        bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, -1.2))
+        floor = bpy.context.active_object
+        floor.name = "Spatial floor"
+        floor.scale = (6, 6, 1)
+        floor.data.materials.append(spatial_material("Floor palette", S["room"]["floor"]))
+    if "panorama" not in S:
+        bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 3, 0.55), rotation=(math.radians(90), 0, 0))
+        wall = bpy.context.active_object
+        wall.name = "Spatial wall"
+        wall.scale = (6, 3.5, 1)
+        wall.data.materials.append(spatial_material("Wall palette", S["room"]["wall"]))
     data = bpy.data.lights.new("Spatial key light", "SUN")
     data.energy = 3
     data.color = (1, 0.94, 0.86)

@@ -35,6 +35,8 @@ export async function POST(request: Request) {
     const dir = join(work, folder);
     await mkdir(join(dir, "assets"), { recursive: true });
     for (const [rel, url] of Object.entries(manifest.assets)) {
+      const inline=/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(url);
+      if(inline){const bytes=Buffer.from(inline[2]!, 'base64');if(bytes.length>12*1024*1024)throw Error('Keep inline set images under 12 MB.');await writeFile(join(dir,rel),bytes);continue;}
       if (!url.startsWith("/api/local/")) throw new Error("The Blender set can only gather files from your media folder.");
       const found = localFile(root, url.slice("/api/local/".length).split("/").map(decodeURIComponent), process.env.NODE_ENV);
       if (!found) throw new Error(`A file in this set isn't in the media folder: ${url.split("/").at(-1)}`);
