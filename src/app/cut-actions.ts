@@ -1,4 +1,5 @@
 "use server";
+import {isGpuOutputUrl} from "../server/gpu-output-url";
 import { privateMediaPath } from "../server/private-media-url";
 import { checkGenerationStorage } from "../server/generation-storage";
 
@@ -28,7 +29,7 @@ const run = promisify(execFile);
 
 /** A frame of a take kept in the app's file store. The take is fetched to a scratch file and ffmpeg (shipped with the build) reads it there. */
 async function hostedFrame(url: string, at: number): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
-  if (!privateMediaPath(url) && !isBlobUrl(url)) return { ok: false, reason: "Only takes in this app's store can give a frame." };
+  if (!privateMediaPath(url) && !isBlobUrl(url) && !isGpuOutputUrl(url)) return { ok: false, reason: "Only takes in this app's store can give a frame." };
   if (!Number.isFinite(at) || at < 0 || at > 7200) return { ok: false, reason: "That moment isn't in the take." };
   const dir = await mkdtemp(join(tmpdir(), "haggs-frame-"));
   try {
@@ -40,7 +41,7 @@ async function hostedFrame(url: string, at: number): Promise<{ ok: true; url: st
     // Past the last frame ffmpeg writes nothing: take the very last frame there is.
     if (!(await stat(out).then((s) => s.size > 0, () => false))) await run(ff, ["-loglevel", "error", "-y", "-sseof", "-0.1", "-i", src, "-update", "1", "-frames:v", "1", out]).catch(() => undefined);
     const bytes = await readFile(out).catch(() => null);
-    return bytes ? { ok: true, url: await putBlob(new Uint8Array(bytes), "png", "frames") } : { ok: false, reason: "ffmpeg couldn't read a frame from that take." };
+    return bytes ? { ok: true, url: isGpuOutputUrl(url)?`data:image/png;base64,${bytes.toString("base64")}`:await putBlob(new Uint8Array(bytes), "png", "frames") } : { ok: false, reason: "ffmpeg couldn't read a frame from that take." };
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -53,7 +54,7 @@ async function hostedFrame(url: string, at: number): Promise<{ ok: true; url: st
  */
 export async function frameAt(url: string, at: number, kind: "image" | "video"): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
   if (kind === "image") return { ok: true, url };
-  if (hosted()) return hostedFrame(url, at);
+  if (hosted()||isGpuOutputUrl(url)) return hostedFrame(url, at);
   const root = process.env.HAGGS_LOCAL_MEDIA;
   if (!root || process.env.NODE_ENV === "production") return { ok: false, reason: "Taking a frame needs the local media folder (development)." };
   if (!url.startsWith("/api/local/")) return { ok: false, reason: "Only takes on this machine can give a frame here." };
@@ -156,8 +157,8 @@ export async function terminalFrame(url:string, from:number, seconds:number):Pro
  const dir=await mkdtemp(join(tmpdir(),"haggs-terminal-"));
  try {
    let src:string;
-   if(hosted()) {
-     if(!privateMediaPath(url) && !isBlobUrl(url))return {ok:false,reason:"This clip must be in the app’s media store before a frame can be extracted."};
+   if(hosted()||isGpuOutputUrl(url)) {
+     if(!privateMediaPath(url) && !isBlobUrl(url) && !isGpuOutputUrl(url))return {ok:false,reason:"This clip must be in the app’s media store before a frame can be extracted."};
      src=join(dir,"source.mp4");await writeFile(src,(await readMedia(url)).bytes);
    } else {
      const root=process.env.HAGGS_LOCAL_MEDIA;
