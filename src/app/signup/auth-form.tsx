@@ -10,8 +10,7 @@ import { supabase, useSession } from "../session";
 
 /**
  * Sign up and sign in, one form. Google is one click; email works with a
- * password or a sign-in link. Projects stay on this device either way —
- * the account is for your plan.
+ * password or a sign-in link. Device projects are enrolled in account sync explicitly.
  */
 export function AuthForm({ mode }: { mode: "signup" | "signin" }) {
   const router = useRouter();
@@ -79,7 +78,7 @@ export function AuthForm({ mode }: { mode: "signup" | "signin" }) {
           ) : (
             <>
               <h1>{mode === "signup" ? "Start making." : "Welcome back."}</h1>
-              <p>{mode === "signup" ? "An account holds your plan. Your projects stay on this device." : "Sign in to your haggs account."}</p>
+              <p>{mode === "signup" ? "An account holds your plan and the projects you choose to sync. Device-only projects stay here." : "Sign in to your haggs account."}</p>
               {!sb ? (
                 <p className="library-error">Accounts aren't set up on this copy of haggs. Add the Supabase URL and publishable key to .env.local.</p>
               ) : (

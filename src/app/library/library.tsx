@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import {FileSyncNote} from "../file-sync-note";
+import {ProjectAccountLink} from "../project-account-link";
 import styles from "../studio-polish.module.css";
 import { projectProgress } from "../../story/project-progress";
 import { useRouter } from "next/navigation";
@@ -87,6 +89,9 @@ export function Library() {
 
   useEffect(() => {
     void refresh();
+    const update=()=>void refresh();
+    window.addEventListener('haggs:projects-synced',update);
+    return()=>window.removeEventListener('haggs:projects-synced',update);
   }, [refresh]);
 
   // Projects saved before thumbnails existed get theirs read from the project itself, a few at a time.
@@ -254,11 +259,11 @@ export function Library() {
         let bundle = importBundle(JSON.stringify(envelope));
         if (envelope.mediaBundle) {
           if (Object.keys((envelope.mediaBundle as {files:object}).files??{}).length && !window.confirm("Restore this bundle’s media into your storage? Quotas apply. No generation will run.")) return;
-          bundle = importBundle(JSON.stringify(await restoreMediaEnvelope(envelope, uploadFile)));
+          bundle = importBundle(JSON.stringify(await restoreMediaEnvelope(envelope, file=>uploadFile(file,{requirePrivate:true}))));
         }
         if (hasEmbeddedMedia(bundle)) {
           if (!window.confirm("Import the embedded media into your storage? Storage quotas apply. No generation will run.")) return;
-          bundle = await restoreBundledMedia(bundle, uploadFile);
+          bundle = await restoreBundledMedia(bundle, file=>uploadFile(file,{requirePrivate:true}));
         }
         let project = bundle.project;
         const { sheets } = bundle;
@@ -371,6 +376,7 @@ export function Library() {
             <div><span className="eyebrow">Your work</span><h2>Pick up where you left off.</h2></div>
             <button className="ph-link" onClick={() => fileInput.current?.click()}>Import a project file</button>
           </div>
+          <FileSyncNote/>
           {projects.length > 0 && <input className={styles.search} type="search" aria-label="Search projects" placeholder="Find a project by name" value={projectQuery} onChange={(e) => setProjectQuery(e.target.value)} />}
           {!ready ? <p role="status">Loading your projects…</p> : projects.length === 0 ? (
             <p className="ph-small">Your projects will appear here as you work. Choose a starting point above, or import a project you already have.</p>
@@ -409,6 +415,7 @@ export function Library() {
                       <Link className={styles.nextLink} href={status?.href ?? `/board/${summary.id}`}>{status?.action ?? "Open storyboard"} →</Link>
                       <span className="ph-acts">
                         <button className="ph-link" onClick={() => { setEditing(summary.id); setDraft(summary.name); }}>Rename</button>
+                        <ProjectAccountLink id={summary.id}/>
                         <button className="ph-link" disabled={packing !== null} title="Project, stored media, shot list, script and contact sheet. External links are listed separately." onClick={() => void download(summary, true, true)}>{packing === summary.id ? "Packing…" : "Production pack"}</button>
                         <button className="ph-link" disabled={packing !== null} title="Includes supported stored media. External links remain external; large media may need a separate download." onClick={() => void download(summary)}>Export with media</button>
                         <button className="ph-link" title="Project data and links only; media still needs its source account or device." onClick={() => void download(summary, false)}>Export project links</button>

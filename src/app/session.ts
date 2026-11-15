@@ -4,8 +4,7 @@ import { createClient, type Session, type SupabaseClient } from "@supabase/supab
 import { useEffect, useState } from "react";
 
 /**
- * Accounts run on Supabase Auth (Google or email). Projects stay on this
- * device either way; an account is for your subscription.
+ * Accounts run on Supabase Auth (Google or email). Device projects stay local until explicitly enrolled in account sync.
  */
 
 let client: SupabaseClient | null | undefined;
