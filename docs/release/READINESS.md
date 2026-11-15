@@ -26,3 +26,5 @@ These are the six priorities the owner asked to retain. Keep their IDs stable. M
 - Account restoration hardening and exact live blockers: `docs/upgrades/2026-11-12-account-restore-safety.md`. Fixture cross-device checks do not complete R1/R3.
 
 - November 14 flow refinement: `docs/upgrades/2026-11-14-studio-refinement.md` (Projects, Create menu, Editor chooser and Cut guidance). Local production-build UI and regression checks pass; this does not complete hosted, billing, sample-render or GPU gates.
+
+- Personal Haggy Claude/Codex companion: `docs/PERSONAL-HAGGY.md`. Real MCP transport, browser edit/undo/recovery and cancellation have fixture evidence; no real personal-model turn or hosted loopback verification. This does not complete R1–R6.

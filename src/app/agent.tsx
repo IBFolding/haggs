@@ -1,6 +1,8 @@
 "use client";
 
 import type Anthropic from "@anthropic-ai/sdk";
+import {usePersonalHaggy} from "./use-personal-haggy";
+import {PersonalHaggy} from "./personal-haggy";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -49,6 +51,7 @@ function restore(): { history: Msg[]; lines: Line[] } {
 
 export function Producer() {
   const router = useRouter();
+  const [engine,setEngine]=useState<"api"|"personal">("personal");
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [history, setHistory] = useState<Msg[]>([]);
@@ -109,6 +112,8 @@ export function Producer() {
     [store, kv, router],
   );
 
+  const personal=usePersonalHaggy(ctx,open&&engine==="personal");
+
   async function send() {
     const text = draft.trim();
     if (!text || busy) return;
@@ -125,7 +130,7 @@ export function Producer() {
           if (turn.needsKey) openKeys();
           setLines((l) => [...l, { who: "error", text: turn.reason }]);
           // No key is not a dead end: Claude (in Claude Code or Claude Desktop) can do the same over MCP, with no key at all.
-          if (turn.needsKey) setLines((l) => [...l, { who: "claude", text: "No key needed if you use Claude directly: it's connected to haggs over MCP. Ask it here, in your Claude app, for what you want (a board, a draft, a series). What it makes lands in the project on your own computer, and you press Apply to use it." }]);
+          if (turn.needsKey) setLines((l) => [...l, { who: "claude", text: "You can also choose Connect my AI above to pair your own Claude Code or Codex through the local connector. External MCP setup alone does not connect this web conversation." }]);
           // The person's message stays; the failed turn leaves no half-answer behind.
           break;
         }
@@ -168,10 +173,12 @@ export function Producer() {
         <aside className="producer" aria-label="Haggy">
           <header>
             <b>Haggy</b>
-            <span>Your producer, working on your projects</span>
-            {lines.length > 0 && <button className="plain" onClick={() => { setHistory([]); setLines([]); }}>New chat</button>}
+            <span>{engine==="personal"?"Your AI, connected to your studio":"Claude API, working on your projects"}</span>
+            {engine==="api"&&lines.length > 0 && <button className="plain" onClick={() => { setHistory([]); setLines([]); }}>New chat</button>}
             <button className="plain" onClick={() => setOpen(false)} aria-label="Close">Close</button>
           </header>
+          <label className="haggy-engine">Haggy connection<select value={engine} disabled={busy||personal.busy||personal.recoverable} onChange={e=>setEngine(e.target.value as 'api'|'personal')}><option value="personal">Connect my AI · Claude / Codex</option><option value="api">Claude API key</option></select></label>
+          {engine==='personal'?<PersonalHaggy ai={personal}/>:<>
           <div className="producer-log" aria-live="polite">
             {!lines.length && (
               <div className="producer-hello">
@@ -201,6 +208,7 @@ export function Producer() {
             <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} placeholder="Ask Haggy…" aria-label="Message Haggy" onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
             <button className="fire" disabled={busy || !draft.trim()}>Send</button>
           </form>
+          </>}
         </aside>
       )}
     </>,

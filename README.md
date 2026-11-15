@@ -11,6 +11,12 @@ Built for Comfy's **#OpenSourceHiggsfield** challenge. MIT licensed.
 
 **Contest demo:** see [the reusable workflow and replay instructions](workflows/contest-demo/README.md). `docs/demo/` contains a draft recording script; no contest submission or published demo is implied.
 
+## Connect your own AI
+
+Use Claude Code or Codex in the Haggy web panel through a local MCP companion.
+Run `npm run haggy:connect`, then pair it in **Ask Haggy → Connect my AI**.
+See [setup, recovery and verification boundaries](docs/PERSONAL-HAGGY.md).
+
 ## What you can do
 
 **Start with one that works.** Twenty-six ready-made apps, one click each,
