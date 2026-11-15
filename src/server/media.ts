@@ -1,3 +1,4 @@
+import {isGpuOutputUrl} from "./gpu-output-url";
 import { readFile } from "node:fs/promises";
 
 import { hosted, isBlobUrl } from "./blob";
@@ -8,10 +9,11 @@ import { localFile } from "./local-media";
 export type Media = { bytes: Uint8Array; mime: string };
 
 /** Whether a link is something the server may read: a file in the local media folder, or this app's own store. */
-export const mediaAllowed = (url: string) => url.startsWith("/api/local/") || Boolean(privateMediaPath(url)) || isBlobUrl(url);
+export const mediaAllowed = (url: string) => url.startsWith("/api/local/") || isGpuOutputUrl(url) || Boolean(privateMediaPath(url)) || isBlobUrl(url);
 
 /** Reads a take, a still or an upload as bytes: from the local media folder in development, or from the app's own file store when hosted. */
-export async function readMedia(url: string): Promise<Media> {
+export async function readMedia(url: string, gpuReader:(url:string)=>Promise<Response>=async source=>(await import("./gpu-connection")).readGpuOutput(source)): Promise<Media> {
+  if(isGpuOutputUrl(url)){const got=await gpuReader(url);if(!got.ok)throw Error("Reconnect the original rented GPU to read this result.");const mime=(got.headers.get("content-type")??"").split(";")[0]!;if(!/^(image\/(png|jpeg|webp)|video\/(mp4|webm)|audio\/(mpeg|wav|x-wav|flac))$/.test(mime))throw Error("Unsupported GPU output type.");return {bytes:new Uint8Array(await got.arrayBuffer()),mime};}
   const data = /^data:([\w/+.-]+);base64,(.+)$/.exec(url);
   if (data) return { bytes: Uint8Array.from(Buffer.from(data[2]!, "base64")), mime: data[1]! };
   if (url.startsWith("/api/local/")) {

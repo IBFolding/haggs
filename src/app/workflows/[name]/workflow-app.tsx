@@ -177,7 +177,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
   const [namingApp, setNamingApp] = useState(false);
   const [appName, setAppName] = useState("");
   const [savingApp, setSavingApp] = useState(false);
-  const destinationPicker = <div className="wf-field"><label>Run location<select value={destination} disabled={running} onChange={e=>{setPreflight(null);setOpened(null);setResult(null);setDestination(e.target.value as "local"|"cloud");}}><option value="local">Your GPU</option><option value="cloud">Comfy Cloud</option></select></label><span>Your GPU requires ComfyUI reachable from the Haggs server. Cloud GPU time may be charged.</span><button className="plain" onClick={()=>openKeys()}>Connection settings</button></div>;
+  const destinationPicker = <div className="wf-field"><label>Run location<select value={destination} disabled={running} onChange={e=>{setPreflight(null);setOpened(null);setResult(null);setDestination(e.target.value as "auto"|"local"|"cloud");}}><option value="auto">Choose run location</option><option value="local">Your GPU</option><option value="cloud">Comfy Cloud</option></select></label><span>Your GPU can be local or rented and must be reachable from Haggs. Rental time and storage are billed separately by your provider.</span><button className="plain" onClick={()=>openKeys()}>Connection settings</button></div>;
   // Back from building a character, place or accessory: it goes into the first empty picture slot.
   const [returned, setReturned] = useState<BankItem | null>(null);
   useReturnedPick(["character", "place", "accessory"], setReturned);
@@ -243,6 +243,7 @@ export function WorkflowApp({ name, file, recipe, canvas, saved: savedApp, onBac
   useEffect(() => {
     let live = true;
     setPreflight(null);
+    if(destination==='auto') {setChecking(false);setPreflight({ok:false,destination:'Choose a location',connection:'Not checked',cost:'Not quoted',issues:['Choose Your GPU or Comfy Cloud before running.'],notes:[]});return;}
     setChecking(true);
     const timer = setTimeout(() => { void preflightWorkflow(source,values).then(r=>{if(live)setPreflight(r);}).catch(()=>{if(live)setPreflight({ok:false,destination:destination==="local"?"Your GPU":"Comfy Cloud",connection:"Check failed",cost:"Unknown",issues:["Connection check failed. Retry or update settings."],notes:[]});}).finally(()=>{if(live)setChecking(false);}); },300);
     return ()=>{live=false;clearTimeout(timer);};

@@ -1,5 +1,6 @@
 "use client";
 
+import {RentedGpuSection} from "./rented-gpu-section";
 import { FAL_ENABLED } from "../catalog/models";
 import { useEffect, useRef, useState } from "react";
 
@@ -51,6 +52,7 @@ export function KeySheet({
   const [workspaceChoices, setWorkspaceChoices] = useState<{id:string;name:string}[]>([]);
   const [drafts, setDrafts] = useState({ comfy: "", fal: "", claude: "" });
   const [busy, setBusy] = useState<string | null>(null);
+  const [gpuEpoch,setGpuEpoch]=useState(0);
   const [gpu, setGpu] = useState<{ base: string; note: string } | null>(null);
   const [address, setAddress] = useState("127.0.0.1:8188");
   const [gpuError, setGpuError] = useState<string | null>(null);
@@ -146,12 +148,12 @@ export function KeySheet({
             </a>
             <button className="path-card" onClick={() => setView("keys")}>
               <b>I have a Comfy key</b>
-              <span>Add your key and run on your own Comfy account at Comfy&rsquo;s prices.{hosted ? " The studio is the Platform plan, $15 a month." : ""}</span>
+              <span>Add your key and run on your own Comfy account at Comfy&rsquo;s prices.{hosted ? " The studio is Studio Access, $15 a month." : ""}</span>
               <i>Add my key</i>
             </button>
             <button className="path-card" onClick={() => setView("keys")}>
               <b>I run Comfy on my own GPU</b>
-              <span>Connect your ComfyUI. Your renders stay on your drive and show up here.{hosted ? " The studio is the Platform plan, $15 a month." : ""}</span>
+              <span>Connect your ComfyUI. Your renders stay on your drive and show up here.{hosted ? " The studio is Studio Access, $15 a month." : ""}</span>
               <i>Connect my GPU</i>
             </button>
             <button className="path-card" onClick={() => setView("mcp")}>
@@ -174,7 +176,7 @@ export function KeySheet({
       <div ref={dialog} className="sheet wide provider-sheet" role="dialog" aria-modal="true" aria-label="Provider setup" onClick={(event) => event.stopPropagation()}>
         <h3>Connect your keys</h3>
         <p>
-          You pay the provider directly, at their rate.{hosted ? " The studio itself is the Platform plan, $15 a month." : ""}{" "}
+          You pay the provider directly, at their rate.{hosted ? " The studio itself is Studio Access, $15 a month." : ""}{" "}
           A key is posted once and kept in an httpOnly cookie.
         </p>
 
@@ -247,14 +249,15 @@ export function KeySheet({
           </section>
         ))}
 
+        <RentedGpuSection refresh={gpuEpoch} onConnected={()=>{setGpu(null);}} />
         <section className="key-row">
           <header>
-            <b>Your own GPU</b>
+            <b>Local GPU</b>
             <span className={`lamp${gpu ? " live" : ""}`} />
             <span className="key-status">{gpu ? `connected${gpu.note ? ` · ${gpu.note}` : ""}` : "not connected"}</span>
           </header>
           <p className="key-blurb">
-            Point haggs at a ComfyUI running on your computer or network. Open-weights workflows (no partner nodes) then run there, free, instead of on Comfy Cloud. Workflows that use partner models like Kling or ElevenLabs still go to Comfy Cloud.
+            Point haggs at a ComfyUI running on your computer or network. Open-weights workflows (no partner nodes) then run there. You cover your hardware and electricity. Workflows that use partner models like Kling or ElevenLabs still go to Comfy Cloud.
           </p>
           <div className="sheet-row">
             <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="127.0.0.1:8188" autoComplete="off" aria-label="ComfyUI address" />
@@ -266,7 +269,7 @@ export function KeySheet({
                 setGpuError(null);
                 const r = await saveLocalComfy(address);
                 setBusy(null);
-                if (r.ok) setGpu({ base: r.base, note: r.gpu });
+                if (r.ok) {setGpu({ base: r.base, note: r.gpu });setGpuEpoch(v=>v+1);}
                 else setGpuError(r.reason);
               }}
             >

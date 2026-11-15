@@ -30,6 +30,9 @@ import { createFalProvider } from "../providers/fal";
 import type { Provider } from "../providers/types";
 
 import { CLAUDE_COOKIE, CLAUDE_WORKSPACE_COOKIE, claudeWorkspaceIn, COMFY_COOKIE, KEY_COOKIE, LOCAL_COOKIE, keyIn, localIn } from "../server/keys";
+import {RENTED_COOKIE, checkRented, sealConnection} from "../server/rented-gpu";
+import {rentedConnection} from "../server/gpu-connection";
+import {userNow} from "../server/auth";
 import { localBase } from "../providers/local";
 import { creditsText } from "../story/price-text";
 
@@ -103,7 +106,9 @@ export async function saveLocalComfy(address: string): Promise<LocalComfy> {
   try {
     const stats = (await (await fetch(`${base}/system_stats`, { redirect: "error", signal: AbortSignal.timeout(5000) })).json()) as { devices?: { name?: string }[] };
     const gpu = stats.devices?.find((d) => d.name)?.name?.replace(/^cuda:\d+\s*/, "") ?? "your GPU";
-    (await cookies()).set(LOCAL_COOKIE, base, COOKIE_OPTIONS);
+    const jar=await cookies();
+    jar.set(LOCAL_COOKIE, base, COOKIE_OPTIONS);
+    jar.set(RENTED_COOKIE, "", {...COOKIE_OPTIONS,maxAge:0});
     return { ok: true, base, gpu };
   } catch {
     return { ok: false, reason: `Nothing answered at ${base}. Start ComfyUI (add --listen if it's on another computer) and try again.` };
@@ -121,6 +126,28 @@ export async function localComfy(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Checks are read-only: no uploads, workflow submissions, rentals or provider billing calls. */
+export async function saveRentedGpu(address:string, token:string):Promise<LocalComfy> {
+  try {
+    const owner=process.env.NODE_ENV==='production'?(await userNow())?.id:'local-development';
+    if(!owner)return {ok:false,reason:'Sign in before connecting a rented GPU.'};
+    const expires=Date.now()+7*24*60*60*1000;
+    // Validate sealing configuration before making any network request.
+    const sealed=sealConnection({base:address,token,owner,expires});
+    const checked=await checkRented({base:address,token});
+    const jar=await cookies();
+    jar.set(RENTED_COOKIE,sealed,{...COOKIE_OPTIONS,maxAge:7*24*60*60});
+    jar.set(LOCAL_COOKIE,'',{...COOKIE_OPTIONS,maxAge:0});
+    return {ok:true,base:checked.base,gpu:`${checked.gpu} · ${checked.nodes} nodes`};
+  } catch(error) {return {ok:false,reason:error instanceof Error?error.message:'GPU check failed. No render was submitted.'};}
+}
+export async function rentedGpu():Promise<{base:string}|null> {
+  try {const connection=await rentedConnection();return connection?{base:connection.base}:null;}catch{return null;}
+}
+export async function clearRentedGpu():Promise<void> {
+  (await cookies()).set(RENTED_COOKIE,'',{...COOKIE_OPTIONS,maxAge:0});
 }
 
 export async function keysHeld(): Promise<{ comfy: boolean; fal: boolean; claude: boolean }> {

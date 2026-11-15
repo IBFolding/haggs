@@ -28,13 +28,14 @@ export function localBase(input: string): string {
   return `${url.protocol}//${url.host}`;
 }
 
-export type LocalOptions = { base: string; fetch?: typeof fetch; pollMs?: number; timeoutMs?: number; keep: (bytes: Uint8Array, extension: Kept) => Promise<string> };
+export type GpuOutput = {filename:string;subfolder?:string;type?:string};
+export type LocalOptions = { keepRemote?: ((file:GpuOutput)=>Promise<string>) | undefined; base: string; fetch?: typeof fetch; pollMs?: number; timeoutMs?: number; keep: (bytes: Uint8Array, extension: Kept) => Promise<string> };
 
 const EXTENSION: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/flac": "flac" };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** The same three calls as the Cloud runner, so every tool in the app can use either. */
-export function createLocalRunner({ base, fetch: fetchImpl = fetch, pollMs = 1500, timeoutMs = 60 * 60_000, keep }: LocalOptions) {
+export function createLocalRunner({ base, fetch: fetchImpl = fetch, pollMs = 1500, timeoutMs = 60 * 60_000, keep, keepRemote }: LocalOptions) {
   const fail = (message: string, status?: number) => new ProviderError("comfy-local", message, status);
   const get = async (path: string, init?: RequestInit) => {
     try {
@@ -79,6 +80,11 @@ export function createLocalRunner({ base, fetch: fetchImpl = fetch, pollMs = 150
         const files = [...(out.video ?? []), ...(out.videos ?? []), ...(out.gifs ?? []), ...(out.images ?? []), ...(out.audio ?? [])] as { filename?: string; subfolder?: string; type?: string }[];
         const file = files.find((f) => typeof f.filename === "string" && /\.(mp4|webm|png|jpe?g|webp|mp3|flac|wav)$/i.test(f.filename) && f.type === "output");
         if (!file) throw fail("The run finished without a result.");
+        if (keepRemote) {
+          const url=await keepRemote(file as GpuOutput);
+          const kind=/\.(mp4|webm)$/i.test(file.filename!)?'video':/\.(mp3|flac|wav)$/i.test(file.filename!)?'audio':'image';
+          return {url,kind,jobId:id};
+        }
         const query = new URLSearchParams({ filename: file.filename!, subfolder: file.subfolder ?? "", type: "output" });
         const got = await get(`/view?${query}`);
         if (!got.ok) throw fail("The result couldn't be read from your ComfyUI.");

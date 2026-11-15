@@ -5405,3 +5405,11 @@ html body a.fire { color: var(--volt-ink); text-decoration: none; }
 .gw-tiles.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .gw-areas .gw-tile { min-height: 54px; font-size: 11.5px; }
 .wf-credit.wf-credit-community { margin-top: 8px; font-size: 13px; color: var(--text-2); }
+
+.pr-access { border: 1px solid var(--line); border-radius:14px; padding:24px; margin:20px 0 28px; background:var(--surface); }
+.pr-access h2 { margin:0 0 8px; }
+.pr-benefits { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 30px; padding-left:20px; margin:20px 0; line-height:1.6; }
+.pr-access .sh-note { max-width:80ch; line-height:1.6; }
+.key-row label { display:block; margin:12px 0; }
+.key-row label > input { display:block; width:100%; margin-top:6px; }
+@media(max-width:600px) { .pr-benefits {grid-template-columns:1fr;} .pr-access {padding:18px;} }
