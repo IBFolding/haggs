@@ -19,11 +19,13 @@ export type ToolContext = {
   sheets(id: string): Promise<Sheets | null>;
   workflows(query: string): Promise<{ name: string; title: string; description: string }[]>;
   open(path: string): void;
+  mode?: 'simple'|'pro';
+  production?: {propose(project:string,input:unknown):Promise<unknown>;read(project:string):Promise<unknown>}|undefined;
 };
 
 export type ToolOutcome = { result: unknown; change?: { label: string; before: Project }; error?: boolean };
 
-const PAGES = /^\/(library|photos|create|video|series|swap|edit|editor|gallery|academy|characters|locations|workflows(\/[\w.-]+)?|board\/[\w-]+(\/(sheets|cut|media))?)(\?(b|quick)=[\w.-]+)?$/;
+const PAGES = /^\/(simple|library|photos|create|video|series|swap|edit|editor|gallery|academy|characters|locations|workflows(\/[\w.-]+)?|board\/[\w-]+(\/(sheets|cut|media))?)(\?(b|quick)=[\w.-]+)?$/;
 
 async function project(ctx: ToolContext, id: unknown): Promise<Project> {
   const found = typeof id === "string" ? await ctx.load(id) : null;
@@ -43,7 +45,16 @@ function withBoard(p: Project, boardId: string, shots: Project["shots"]): Projec
 
 export async function runTool(name: string, input: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutcome> {
   try {
+    if(ctx.mode==='simple'&&['edit_shots','move_shot','add_board','add_voice_line','open_page'].includes(name))throw Error('Simple is plan-first. Use propose_production_plan; changes wait for the person to review and execute.');
     switch (name) {
+      case 'propose_production_plan': {
+        if(!ctx.production||typeof input.project!=='string')throw Error('Open the Simple workspace to propose a production plan.');
+        return {result:await ctx.production.propose(input.project,input.plan)};
+      }
+      case 'read_production_plan': {
+        if(!ctx.production||typeof input.project!=='string')throw Error('Open the Simple workspace to read its production plan.');
+        return {result:await ctx.production.read(input.project)};
+      }
       case "list_projects": {
         const all = await ctx.list();
         const out = [];
@@ -59,6 +70,7 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
         return {
           result: {
             project: p.name,
+            references:p.threads.filter(t=>t.ref).map(t=>({name:t.name,kind:t.kind,url:t.ref})),
             board: { id: board.id, name: board.name },
             shots: board.shots.map((s, i) => ({ id: s.id, n: i + 1, beat: s.beat.slice(0, 200), seconds: s.seconds, shows: s.render?.kind ?? "nothing", takes: takesOf(s).length, kept: s.locked === true, voice: (s.voices ?? []).map((v) => `${v.speaker}: ${v.text}${v.url ? "" : " (not spoken yet)"}`) })),
           },

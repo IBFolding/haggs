@@ -57,7 +57,7 @@ export default function Landing() {
               Turn a script, a photo, a video or a workflow into a finished cut. Pictures, motion, voices and music in one studio, with the price on every button before you press it.
             </p>
             <div className="lp-cta">
-              <Link className="fire" href="/library">Start a project →</Link>
+              <Link className="fire" href="/simple">Start with Haggy →</Link>
               <Link className="lp-ghost" href="/photos">Make something now</Link>
               <JoinButton />
             </div>

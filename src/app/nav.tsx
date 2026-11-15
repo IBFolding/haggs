@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {usePathname,useRouter} from "next/navigation";
 import {CreateMenu} from "./create-menu";
 
 import { openProducer, Producer } from "./agent";
@@ -56,12 +57,15 @@ export function openKeys() {
 }
 
 export function Nav({ current }: { current: Place }) {
+  const pathname=usePathname(),router=useRouter(),simple=pathname==='/simple';
+  const switchMode=(pro:boolean)=>{setPro(pro);const selected=/^\/board\/([^/]+)/.exec(window.location.pathname)?.[1]??new URLSearchParams(window.location.search).get('project');const board=new URLSearchParams(window.location.search).get('b');if(!pro)router.push(`/simple${selected?`?project=${encodeURIComponent(selected)}${board?`&b=${encodeURIComponent(board)}`:''}`:''}`);else if(simple)router.push(selected?`/board/${encodeURIComponent(selected)}/cut${board?`?b=${encodeURIComponent(board)}`:''}`:'/editor');};
   const [held, setHeld] = useState({ comfy: false, fal: false, claude: false });
   const { session } = useSession();
   const [open, setOpen] = useState(false);
   const [tip, setTip] = useState(0);
   const { pro, openOnly } = usePrefs();
   const [explain, setExplain] = useState(false);
+  useEffect(()=>{if(/^\/(board|editor|photos|video|workflows|shorts|comic|comics|coverage|series|swap|create|playable|locations|characters)(\/|$)/.test(pathname))setPro(true);},[pathname]);
 
   useEffect(() => {
     void keysHeld().then(setHeld);
@@ -85,8 +89,8 @@ export function Nav({ current }: { current: Place }) {
           haggs<i>.</i>
         </Link>
         <div className="nav-items">
-          <CreateMenu/>
-          {ITEMS.filter(item=>item.label!=="Photos"&&item.label!=="Video").map((item) => (
+          {simple?<Link className="nav-item" href="/simple" aria-current="page">Haggy</Link>:<CreateMenu/>}
+          {ITEMS.filter(item=>simple?["Projects","Gallery"].includes(item.label):item.label!=="Photos"&&item.label!=="Video").map((item) => (
             <Link key={item.label} className="nav-item" href={item.href} aria-current={item.label === current} data-tour={item.label}>
               {item.label}
             </Link>
@@ -98,16 +102,16 @@ export function Nav({ current }: { current: Place }) {
           <button className={`nav-open${openOnly ? " on" : ""}`} aria-pressed={openOnly} onClick={() => setOpenOnly(!openOnly)} title="No partner model is ever called">
             {openOnly ? "●" : "○"} Open weights only
           </button>
-          <span className="nav-seg" role="group" aria-label="How much to show" title="Pro shows every model's seed, negative prompt and CFG. Nothing is hidden or removed in Simple.">
-            <button aria-pressed={!pro} onClick={() => setPro(false)}>Simple</button>
-            <button aria-pressed={pro} onClick={() => setPro(true)}>Pro</button>
+          <span className="nav-seg" role="group" aria-label="How much to show" title="Simple: talk, review a plan and execute. Pro: every studio tool and fine control.">
+            <button aria-pressed={!pro} onClick={() => switchMode(false)}>Simple</button>
+            <button aria-pressed={pro} onClick={() => switchMode(true)}>Pro</button>
           </span>
           <span className="nav-explain-wrap">
             <button className="nav-help" onClick={() => setExplain((v) => !v)} aria-expanded={explain} title="What do these do?" aria-label="What do Open weights only and Pro do?">?</button>
             {explain && (
               <span className="nav-explain" role="dialog" aria-label="The two switches">
                 <b>Simple or Pro</b>
-                <span>Pro adds the extra controls a model accepts: a seed to repeat a result, a negative prompt, and CFG. Simple keeps them at the model&rsquo;s defaults. Your runs are the same either way until you change one.</span>
+                <span>Simple is a conversation with your connected Claude or Codex: review the plan and price before executing. Pro opens the full studio and model controls. Both modes share the same editable projects and do not change your subscription.</span>
                 <b>Open weights only</b>
                 <span>Nothing runs on a partner model. Photos and Video offer open-model workflows. Choose Your GPU (configure a reachable ComfyUI in Keys) or Comfy Cloud. Installed models, connection and charges must pass checks before generating.</span>
                 <button className="plain" onClick={() => setExplain(false)}>Got it</button>
@@ -123,11 +127,11 @@ export function Nav({ current }: { current: Place }) {
             <span className={`lamp${held.comfy || held.fal ? " live" : ""}`} />
             {label}
           </button>
-          <button className="nav-help nav-tour" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))} title="Take the tour" aria-label="Take the tour"><span aria-hidden>?</span><b>Tour</b></button>
+          {!simple&&<button className="nav-help nav-tour" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))} title="Take the tour" aria-label="Take the tour"><span aria-hidden>?</span><b>Tour</b></button>}
           </span>
         </div>
         <span className="nav-right">
-          <button className="nav-ask" onClick={() => openProducer()} data-tour="ask">Ask Haggy</button>
+          <button className="nav-ask" onClick={() => simple?document.querySelector<HTMLElement>('.simple-chat')?.scrollIntoView({block:"start",behavior:"smooth"}):openProducer()} data-tour="ask">Ask Haggy</button>
           {session ? (
             <Link className="nav-account" href="/account" aria-current={current === "Account"} title={session.user.email ?? "Account"}>
               {(session.user.email ?? "?").slice(0, 1).toUpperCase()}
@@ -144,8 +148,8 @@ export function Nav({ current }: { current: Place }) {
         </div>
       )}
       {open && <KeySheet held={held} onChange={setHeld} onClose={() => setOpen(false)} />}
-      <Producer />
-      <Tour />
+      {!simple&&<Producer />}
+      {!simple&&<Tour />}
       <CloudSync />
       <RunSync />
     </>

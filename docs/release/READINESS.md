@@ -28,3 +28,6 @@ These are the six priorities the owner asked to retain. Keep their IDs stable. M
 - November 14 flow refinement: `docs/upgrades/2026-11-14-studio-refinement.md` (Projects, Create menu, Editor chooser and Cut guidance). Local production-build UI and regression checks pass; this does not complete hosted, billing, sample-render or GPU gates.
 
 - Personal Haggy Claude/Codex companion: `docs/PERSONAL-HAGGY.md`. Real MCP transport, browser edit/undo/recovery and cancellation have fixture evidence; no real personal-model turn or hosted loopback verification. This does not complete R1–R6.
+
+- November 15: PRs #141–144 and #146–148 merged to main; production 6549fcc passed CI and public-page checks. #138, #139, #140 and #145 remain held. This foundation release does not complete the paid, account and GPU proofs above.
+- Simple plan-first production candidate: `docs/SIMPLE-STUDIO.md`. New automatic orchestration is tested with provider fixtures; paid execution and final export are not yet proven end to end.

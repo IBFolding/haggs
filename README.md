@@ -17,6 +17,12 @@ Use Claude Code or Codex in the Haggy web panel through a local MCP companion.
 Run `npm run haggy:connect`, then pair it in **Ask Haggy → Connect my AI**.
 See [setup, recovery and verification boundaries](docs/PERSONAL-HAGGY.md).
 
+## Simple or Pro
+
+[Simple](docs/SIMPLE-STUDIO.md) is a conversation-led workspace: Haggy proposes a
+production plan, you review its cost, and approved steps run into a new editable
+board. Pro keeps the full studio and fine controls on the same projects.
+
 ## What you can do
 
 **Start with one that works.** Twenty-six ready-made apps, one click each,
