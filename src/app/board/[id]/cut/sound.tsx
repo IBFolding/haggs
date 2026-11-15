@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { galleryAudio } from "../../../gallery-log";
 import { MusicMaker } from "./music-maker";
 import { uploadFile } from "../../../upload-client";
@@ -329,6 +330,7 @@ export function Tracks({ sound, onSound, effects, onEffects, music, onMusic, pla
 
   return (
     <div className="tracks">
+      <p className="wf-small"><Link href="/workflows/toolkits?area=Audio%20%26%20music">External audio-retake and music-video toolkits →</Link></p>
       <TrackHead name="Video sound" hint="the clips' own audio" muted={Boolean(snd.clipMute)} onMute={() => set({ clipMute: !snd.clipMute })} level={snd.clipGain ?? 0} onLevel={(n) => set({ clipGain: n })} />
       <TrackHead name="Voice" hint={voices ? `${voices} line${voices === 1 ? "" : "s"} on shots` : "none yet"} muted={Boolean(snd.voiceMute)} onMute={() => set({ voiceMute: !snd.voiceMute })} level={snd.voiceGain ?? 0} onLevel={(n) => set({ voiceGain: n })} />
 

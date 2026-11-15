@@ -85,7 +85,19 @@ of each step is on its button.
 
 **Playable.** Describe a small game, play it in the page, and change it by
 chatting. A featured game, Neon Courier, plays without an account. Games you
-save stay in your browser.
+save stay in your browser. The **game workbench** keeps a design brief, human
+playtest reviews and named checkpoints; restoring one retains the replaced game
+in Undo. Export/import an editable project file to back it up. Code games report
+runtime events for the current revision, and a review can prepare an improvement
+request without automatically sending it. **Skybound Relay** is a free procedural
+3D starter. Its 3D HTML export requires internet access for the pinned Three.js
+runtime; the offline export remains 2D-only.
+
+**Community toolkits.** `/workflows/toolkits` maps all sixteen recognised Comfy
+challenge projects to game, scene, camera, VFX and audio work. It provides credited
+setup links, local app launch links and manual handoff packets. These external
+runtimes are not installed or executed by the shelf; they are not native Haggs
+GPU integrations. See [the integration map](docs/upgrades/2026-11-10-community-toolkits.md).
 
 **Haggs workflows.** Workflows made for haggs (effects, game scenes, world,
 motion and VFX) sit next to the community ones, each with its creator credited.

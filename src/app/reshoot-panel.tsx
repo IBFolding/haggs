@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { PRESETS, cameraWords, sameCamera, SAME, type Camera } from "../story/reshoot";
@@ -135,6 +136,7 @@ export function ReshootPanel({
   return (
     <div className="reshoot-panel">
       <header><b>Reshoot</b><span>Same scene, new camera. Slide to compare, keep what you like.</span></header>
+      <p className="wf-small"><Link href="/workflows/toolkits?area=Scene%20%26%20camera">External panorama and moving-camera toolkits →</Link></p>
       <div className="engine" role="radiogroup" aria-label="Engine">
         <button role="radio" aria-checked={engine === "partner"} className={engine === "partner" ? "on" : ""} onClick={() => pick("partner")}>FLUX 3 <small>10 credits</small></button>
         <button role="radio" aria-checked={engine === "open"} className={engine === "open" ? "on" : ""} onClick={() => pick("open")}>Open weights <small>Qwen multi-angle · GPU time</small></button>

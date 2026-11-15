@@ -141,6 +141,7 @@ export function Locations() {
               <div className="cx-scroll">
                 <span className="eyebrow">Locations</span>
                 <h1 className="cx-title">Build a place you can shoot from any side.</h1>
+                <p className="wf-small"><Link href="/workflows/toolkits?area=Scene%20%26%20camera">Prepare a panorama with an external toolkit →</Link></p>
                 <label className="wf-field"><span>Name</span><input value={traits.name} maxLength={60} onChange={(e) => set("name", e.target.value)} /></label>
 
                 <div className="cx-likeness">

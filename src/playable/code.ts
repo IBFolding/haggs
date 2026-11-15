@@ -1,3 +1,4 @@
+import { EDIT_MESSAGE_LIMIT } from "./limits";
 import type { DraftRequest } from "../writer/draft";
 import { KIT_API } from "./kit";
 import { SHAPES, SpecError, keepMadeArt, readSpec, type CodeSpec, type GameSpec } from "./spec";
@@ -78,7 +79,7 @@ export function forRewrite(spec: CodeSpec): string {
 export function codeEditRequest(spec: CodeSpec, message: string): DraftRequest {
   const text = message.trim();
   if (!text) throw new Error("Say what to change.");
-  if (text.length > 3000) throw new Error("That message is too long. Keep it under 3,000 characters.");
+  if (text.length > EDIT_MESSAGE_LIMIT) throw new Error("That message is too long. Keep it under 12,000 characters.");
   const user = [
     "Here is the game as it is now:",
     forRewrite(spec),

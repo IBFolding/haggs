@@ -1,5 +1,7 @@
 "use client";
 
+import { SKYBOUND_RELAY } from "../../playable/showcase/skybound-relay";
+import { importPlayable } from "../../playable/workbench";
 import { loadAtlasDemo } from "./atlas-demo";
 
 import Link from "next/link";
@@ -242,6 +244,12 @@ export function PlayableHome() {
           ) : null}
         </section>
 
+        <section className="pl-panel pl-upgrade" aria-label="Playable workbench starters">
+          <div><span className="pl-eyebrow">A game you can keep improving</span><h2>Start with a working 3D adventure.</h2><p>Restore sky beacons, dodge sentinels and reach the relay. Play free with procedural 3D art and synth sound, then write a design brief, record a playtest and keep your best versions.</p><p className="pl-sub">Needs WebGL and an internet connection for Three.js. No AI key or generation credits required.</p></div>
+          <div className="pl-pair"><button className="pl-go" disabled={busy} onClick={async()=>{setBusy(true);try{const saved=await store.create(structuredClone(SKYBOUND_RELAY),[{who:'note',text:'Original Haggs procedural 3D starter. No generated art or paid model calls.',at:Date.now()}]);router.push(`/playable/${saved.id}`);}catch{setProblem({text:'Could not save the starter. Check browser storage.'});setBusy(false);}}}>Play & remix Skybound Relay</button>
+          <label className="pl-ghost pl-upload">Import game project<input type="file" accept=".json,application/json" onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(file.size>30_000_000)throw new Error('Keep game project files under 30 MB.');const value=importPlayable(JSON.parse(await file.text()));const saved=await store.create(value.spec,[{who:'note',text:'Imported editable game project as a new copy.',at:Date.now()}]);await store.workspace(saved.id,value.workbench);router.push(`/playable/${saved.id}`);}catch(error){setProblem({text:error instanceof Error?error.message:'That game file could not be imported.'});}}}/></label></div>
+          <Link href="/workflows/toolkits?area=Playable" className="pl-plain">Explore community game toolkits →</Link>
+        </section>
         <section className="pl-section" aria-label="Featured games">
           <h2>Featured games</h2>
           <p className="pl-sub">Jump into a finished game. No key needed to play.</p>

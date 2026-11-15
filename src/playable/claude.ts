@@ -1,3 +1,4 @@
+import { EDIT_MESSAGE_LIMIT } from "./limits";
 import type { DraftRequest } from "../writer/draft";
 import { RANGES, SHAPES, TEMPLATE_INFO, TEMPLATES, keepMadeArt, readSpec, type GameSpec } from "./spec";
 
@@ -82,7 +83,7 @@ export function forClaude(spec: GameSpec): unknown {
 export function editRequest(spec: GameSpec, message: string): DraftRequest {
   const text = message.trim();
   if (!text) throw new Error("Say what to change.");
-  if (text.length > 2000) throw new Error("That message is too long. Keep it under 2,000 characters.");
+  if (text.length > EDIT_MESSAGE_LIMIT) throw new Error("That message is too long. Keep it under 12,000 characters.");
   const user = [
     "Here is the game as it is now:",
     JSON.stringify(forClaude(spec)),

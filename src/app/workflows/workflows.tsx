@@ -117,6 +117,7 @@ export function Workflows() {
             <Link href="/workflows/import">Open a workflow or app</Link>
             <Link href="/workflows/community">Community apps</Link>
             <Link href="/tools">Free video tools</Link>
+            <Link href="/workflows/toolkits">Community toolkits (16)</Link>
             <a href="#haggs" onClick={() => { setTab("Haggs"); setOnlyFavorites(false); setHunt(""); }}>Haggs custom workflows (16)</a>
             {mine.length > 0 && <a href="#your-apps">Your apps ({mine.length})</a>}
           </p>
