@@ -5,9 +5,8 @@ import { useEffect, useState } from "react";
 import { OPEN_COOKIE } from "../comfy/open-only";
 
 /**
- * Two switches in the header. Pro shows the extra controls a model declares
- * (seed, negative prompt, CFG); it is only a view, so it lives in this
- * browser. Open weights only changes what may run, so it is a cookie the
+ * Two switches in the header. Simple opens the conversation-led production workspace. Pro keeps the full
+ * studio and model controls. This is a workspace preference, not a subscription. Open weights only changes what may run, so it is a cookie the
  * server reads and enforces as well.
  */
 

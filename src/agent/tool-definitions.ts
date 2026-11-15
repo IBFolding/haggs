@@ -1,7 +1,12 @@
+import {z} from "zod";
+import {planInput} from "../simple/plan";
 import type Anthropic from "@anthropic-ai/sdk";
 import {AGENT_OPEN_PAGE_DESCRIPTION} from "../brand/product-copy";
 
+const {$schema:_schema,...productionSchema}=z.toJSONSchema(planInput);
 export const HAGGY_TOOLS: Anthropic.Beta.BetaTool[] = [
+ {name:'propose_production_plan',description:'Propose or revise a complete Simple production plan for review. Does not edit the project, generate or spend. Choose image/video per shot, concrete camera movement, lighting, existing reference URLs or generated character/location assets, and optional narration, sound effects and music. Reuse existing shots by ID when appropriate. Execution is only a user button, never a tool.',input_schema:{type:'object',properties:{project:{type:'string'},plan:productionSchema},required:['project','plan'],additionalProperties:false}},
+ {name:'read_production_plan',description:'Read the saved Simple production plan and execution progress. Read this before revising a plan. No generation or spending.',input_schema:{type:'object',properties:{project:{type:'string'}},required:['project'],additionalProperties:false}},
   { name: "list_projects", description: "The person's projects, each with its boards and how many shots they have.", input_schema: { type: "object", properties: {}, additionalProperties: false } },
   {
     name: "read_board",

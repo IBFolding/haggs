@@ -1,8 +1,8 @@
 import {z} from 'zod';
-export const PROTOCOL='haggs.personal-ai/2';
+export const PROTOCOL='haggs.personal-ai/3';
 export const providerSchema=z.enum(['claude','codex']);
 export type PersonalProvider=z.infer<typeof providerSchema>;
-export const turnSchema=z.object({id:z.string().uuid(),provider:providerSchema,messages:z.array(z.object({role:z.enum(['user','assistant']),text:z.string().min(1).max(24000)}).strict()).min(1).max(40),context:z.object({page:z.string().max(400),project:z.string().max(100),board:z.string().max(100).optional()}).strict()}).strict().refine(v=>JSON.stringify(v).length<160000,'Conversation is too large. Start a new chat.');
+export const turnSchema=z.object({id:z.string().uuid(),provider:providerSchema,messages:z.array(z.object({role:z.enum(['user','assistant']),text:z.string().min(1).max(24000)}).strict()).min(1).max(40),context:z.object({mode:z.enum(['simple','pro']).optional(),page:z.string().max(400),project:z.string().max(100),board:z.string().max(100).optional()}).strict()}).strict().refine(v=>JSON.stringify(v).length<160000,'Conversation is too large. Start a new chat.');
 export type PersonalTurn=z.infer<typeof turnSchema>;
 export type ChatEvent={seq:number;type:'status'|'text'|'tool'|'done'|'error'|'canceled';text?:string;requestId?:string;name?:string;input?:Record<string,unknown>};
 export const toolResponseSchema=z.object({id:z.string().uuid(),result:z.unknown(),error:z.boolean().optional()}).strict();
