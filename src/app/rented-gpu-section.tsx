@@ -7,6 +7,7 @@ export function RentedGpuSection({refresh,onConnected}:{refresh:number;onConnect
   return <section className="key-row"><header><b>Rented GPU</b><span className={`lamp${connected?' live':''}`} /><span className="key-status">{connected?'connected':'not connected'}</span></header>
     <p className="key-blurb">Use a GPU you already rent from RunPod, Vast.ai or another host, running ComfyUI behind an authenticated HTTPS gateway. Open-weight workflows use your installed models; partner models still require Comfy Cloud.</p>
     <ol><li>Start your GPU and install the workflow’s models and nodes.</li><li>Protect ComfyUI with a bearer-token gateway. Copy its HTTPS root URL.</li><li>Check and connect below, then choose <b>Your GPU</b> in a workflow and run its preflight.</li></ol>
+    <p><a href="/runpod">Using RunPod Serverless instead? Open its queue setup →</a></p>
     <p><a href="/guides/rented-gpu" target="_blank" rel="noreferrer">GPU setup guide</a></p>
     {connected && <p>Active endpoint: {connected}</p>}
     <label>GPU gateway URL<input aria-label="GPU gateway URL" value={base} onChange={e=>setBase(e.target.value)} placeholder="https://your-gpu.example.com" autoComplete="off" /></label>

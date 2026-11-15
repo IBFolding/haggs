@@ -1,0 +1,3 @@
+# Candidate worker dependencies: fully lock and test the resulting CUDA/PyTorch environment before deployment.
+runpod>=1.7,<2
+boto3>=1.35,<2

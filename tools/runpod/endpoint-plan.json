@@ -1,0 +1,22 @@
+{
+  "schema": "haggs.runpod-deployment-plan/1",
+  "status": "DRAFT_NOT_PROVISIONED",
+  "endpointType": "queue-based",
+  "activeWorkers": 0,
+  "maxWorkers": 1,
+  "gpusPerWorker": 1,
+  "idleTimeoutSeconds": 10,
+  "maxExecutionSeconds": 600,
+  "gpuRequirement": "At least 48 GB VRAM; choose using live Serverless pricing, US availability and a measured video workflow.",
+  "networkVolume": {"sizeGB": 200, "status": "PROPOSED_NOT_CREATED", "mount": "/runpod-volume"},
+  "requiredBeforeProvisioning": [
+    "GPU image digest and ComfyUI commit fixed",
+    "Required node/model versions and licences reviewed",
+    "Worker Python dependency lock generated and container built/tested",
+    "Private object storage configured for durable outputs",
+    "Live US Serverless capacity, GPU rate, storage rate and monthly storage budget reviewed",
+    "User approval of provisioning/storage charges and one proof-render budget"
+  ],
+  "automaticCreation": false,
+  "automaticPaidSmokeTest": false
+}
