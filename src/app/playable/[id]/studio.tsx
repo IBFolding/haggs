@@ -1,4 +1,5 @@
 "use client";
+import { EDIT_MESSAGE_LIMIT } from "../../../playable/limits";
 import { WorkbenchPanel } from "../workbench-panel";
 import type { RunReport } from "../../../playable/workbench";
 import { standaloneGame } from "../../../playable/standalone";
@@ -179,7 +180,7 @@ export function Studio({ id }: { id: string }) {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
                 placeholder="Make it faster and set it on the moon"
                 rows={2}
-                maxLength={2000}
+                maxLength={EDIT_MESSAGE_LIMIT}
                 aria-label="Change the game"
               />
               <div className="pl-composer-bar">
@@ -209,7 +210,7 @@ export function Studio({ id }: { id: string }) {
 
           {spec.template === "code" && spec.art.assets.length === 0 ? null : <ArtPanel spec={spec} onChange={changeSpec} onAtlasChange={(s, note) => changeSpec(s, note, true)} />}
         </div>
-        <WorkbenchPanel game={game} run={runReport} onSave={async value=>{const next=await store.workspace(id,value);if(!next)throw new Error("The game could not be saved.");setGame(next);}} onRestore={async (next,name)=>{const saved=await changeSpec(next,`Restored checkpoint: ${name}`);if(!saved)throw new Error("The checkpoint could not be restored.");}} onRepair={text=>{setMessage(text.slice(0,2000));setAsk(null);document.querySelector<HTMLTextAreaElement>('[aria-label="Change the game"]')?.focus();}} />
+        <WorkbenchPanel game={game} run={runReport} onSave={async value=>{const next=await store.workspace(id,value);if(!next)throw new Error("The game could not be saved.");setGame(next);}} onRestore={async (next,name)=>{const saved=await changeSpec(next,`Restored checkpoint: ${name}`);if(!saved)throw new Error("The checkpoint could not be restored.");}} onRepair={text=>{setMessage(text);setAsk(null);document.querySelector<HTMLTextAreaElement>('[aria-label="Change the game"]')?.focus();}} />
       </div>
     </div>
   );

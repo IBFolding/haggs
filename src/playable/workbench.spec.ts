@@ -44,3 +44,13 @@ test('explicit 3D web export retains sandbox and pinned runtime while offline ex
  const html=await standaloneGame(SKYBOUND_RELAY,fetch,undefined,{allowExternalRuntime:true});
  assert.match(html,/sandbox="allow-scripts"/);assert.match(html,/three@0\.170\.0/);assert.doesNotMatch(html,/allow-same-origin/);
 });
+
+test('the complete longest saved improvement request reaches both game edit paths without losing review or constraints',async()=>{
+ const {editRequest}=await import('./claude'),{codeEditRequest}=await import('./code'),{EDIT_MESSAGE_LIMIT}=await import('./limits');
+ const spec=defaultSpec('runner'),w=readWorkbench(undefined,spec);
+ for(const key of Object.keys(w.brief) as (keyof typeof w.brief)[])w.brief[key]='b'.repeat(600);
+ w.reviews=[{revision:revisionOf(spec),at:1,controls:false,goal:false,progression:false,notes:'n'.repeat(1980)+'REVIEW_END',run:{revision:revisionOf(spec),startedAt:1,ready:true,started:true,seconds:60,score:10,outcome:'lost',errors:Array(8).fill('e'.repeat(490)+'ERROR_END')}}];
+ const message=repairBrief(spec,w);assert.ok(message.length>3000);assert.ok(message.length<=EDIT_MESSAGE_LIMIT);
+ for(const built of [editRequest(spec,message),codeEditRequest(SKYBOUND_RELAY,message)]){assert.ok(built.user.includes(message));assert.match(built.user,/REVIEW_END/);assert.match(built.user,/ERROR_END/);assert.match(built.user,/Do not start asset generation or spend Comfy credits/);}
+ assert.throws(()=>editRequest(spec,'x'.repeat(EDIT_MESSAGE_LIMIT+1)),/12,000/);assert.throws(()=>codeEditRequest(SKYBOUND_RELAY,'x'.repeat(EDIT_MESSAGE_LIMIT+1)),/12,000/);
+});
