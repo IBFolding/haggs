@@ -96,6 +96,8 @@ export function createCompanion(options:CompanionOptions={}){
     if(jobs.size>=100){for(const [id,j]of jobs)if(j.terminal)jobs.delete(id);}
     const job:Job={turn,owner:token,token:secret(),events:[],listeners:new Set(),pending:new Map(),answers:new Map(),terminal:false,text:'',finished:false};jobs.set(turn.id,job);job.timer=setTimeout(()=>{finish(job,'error','The AI turn timed out. No automatic retry was made.');kill(job);},300000);json(res,202,{id:turn.id});void start(job);return;
    }
+   const pendingMatch=/^\/turn\/([\w-]+)\/pending\/([\w-]+)$/.exec(url.pathname);
+   if(pendingMatch&&req.method==='GET'){const job=jobs.get(pendingMatch[1]!);if(!job||job.owner!==token){json(res,404,{error:'Turn not found.'});return;}json(res,200,{pending:!job.terminal&&job.pending.has(pendingMatch[2]!)});return;}
    const match=/^\/turn\/([\w-]+)(\/result)?$/.exec(url.pathname);if(!match){json(res,404,{error:'Not found.'});return;}const job=jobs.get(match[1]!);if(!job||job.owner!==token){json(res,404,{error:'Turn not found.'});return;}
    if(req.method==='DELETE'){finish(job,'canceled');kill(job);json(res,200,{ok:true});return;}
    if(match[2]&&req.method==='POST'){

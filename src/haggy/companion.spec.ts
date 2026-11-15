@@ -53,10 +53,11 @@ for(const provider of ['claude','codex'] as const)test(`${provider}: real MCP tr
   const created=await s.post('/turn',turn,s.token);assert.equal(created.status,202);assert.equal((await s.post('/turn',turn,s.token)).status,200);
   const stream=await fetch(s.base+`/turn/${turn.id}`,{headers:{Origin:origin,Authorization:`Bearer ${s.token}`}});const reader=stream.body!.getReader(),decoder=new TextDecoder();let buffer='',events:ChatEvent[]=[];
   for(;;){const part=await reader.read();if(part.done)break;buffer+=decoder.decode(part.value,{stream:true});for(;;){const end=buffer.indexOf('\n\n');if(end<0)break;const frame=buffer.slice(0,end);buffer=buffer.slice(end+2);if(!frame.startsWith('data: '))continue;const event=JSON.parse(frame.slice(6)) as ChatEvent;events.push(event);if(event.type==='tool'){
+   const pending=await fetch(s.base+`/turn/${turn.id}/pending/${event.requestId}`,{headers:{Origin:origin,Authorization:`Bearer ${s.token}`}});assert.equal((await pending.json()).pending,true);
    const result=await runTool(event.name!,event.input!,ctx);if(result.change)before=result.change.before as typeof p;
    const body={id:event.requestId,result:result.result??null,...(result.error?{error:true}:{})};assert.equal((await s.post(`/turn/${turn.id}/result`,body,s.token)).status,200);assert.equal((await s.post(`/turn/${turn.id}/result`,body,s.token)).status,200);
   }}}
-  assert.equal(events.at(-1)?.type,'done');assert.equal(edits,1);assert.equal(s.starts(),1);assert.ok(!JSON.stringify(events).includes('fixture-private-diagnostic'));
+  assert.equal(events.at(-1)?.type,'done');assert.equal(edits,1);assert.equal(s.starts(),1);for(const event of events.filter(e=>e.type==='tool')){const response=await fetch(s.base+`/turn/${turn.id}/pending/${event.requestId}`,{headers:{Origin:origin,Authorization:`Bearer ${s.token}`}});assert.equal((await response.json()).pending,false);}assert.ok(!JSON.stringify(events).includes('fixture-private-diagnostic'));
   assert.equal((await store.load(p.id))!.boards![0]!.shots[0]!.seconds,2);assert.ok(before);await store.save(before!);assert.equal((await store.load(p.id))!.boards![0]!.shots[0]!.seconds,3);
   const replay=await fetch(s.base+`/turn/${turn.id}?after=${events.at(-2)!.seq}`,{headers:{Origin:origin,Authorization:`Bearer ${s.token}`}});assert.ok((await replay.text()).includes('done'));assert.equal(s.starts(),1);
   assert.equal((await s.post('/turn',{...turn,messages:[{role:'user',text:'Different'}]},s.token)).status,409);

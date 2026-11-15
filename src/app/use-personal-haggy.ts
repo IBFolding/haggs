@@ -10,6 +10,7 @@ type Line={who:'you'|'assistant'|'change'|'error';text:string;undo?:Project;undo
 type Runner={installed:boolean;compatible:boolean;signedIn:boolean;note:string};
 type Active={id:string;cursor:number;owner:string;context:{project:string;board?:string};};
 const STORAGE='haggs.personal-ai/1';
+class ConnectorRejection extends Error{constructor(message:string,readonly status:number){super(message);}}
 /** Browser talks only to the paired loopback connector. AI credentials never enter this state. */
 export function usePersonalHaggy(ctx:ToolContext,enabled:boolean){
  const {session,ready:sessionReady}=useSession(),owner=session?.user.id??'device';
@@ -20,7 +21,7 @@ export function usePersonalHaggy(ctx:ToolContext,enabled:boolean){
  const request=useCallback(async(path:string,init:RequestInit={},c=con.current)=>{
   if(!c)throw Error('Connect your AI first.');
   const response=await fetch(c.endpoint+path,{...init,redirect:'error',headers:{'Content-Type':'application/json',Authorization:`Bearer ${c.token}`,...init.headers}});
-  if(!response.ok){let message='The connector could not answer.';try{message=(await response.json()).error??message;}catch{}throw Error(message);}
+  if(!response.ok){let message='The connector could not answer.';try{message=(await response.json()).error??message;}catch{}throw new ConnectorRejection(message,response.status);}
   return response;
  },[]);
  const refresh=useCallback(async()=>{setProblem('');try{const response=await request('/status',{signal:AbortSignal.timeout(20000)}),data=await response.json();if(data.protocol!==PROTOCOL)throw Error('This is not a compatible Haggy connector.');setRunners({claude:data.claude,codex:data.codex});setStatus('Connected to your computer');}catch(error){setProblem(error instanceof Error?error.message:'Connector unavailable.');setStatus('Connection unavailable');}},[request]);
@@ -38,6 +39,8 @@ export function usePersonalHaggy(ctx:ToolContext,enabled:boolean){
       const last=history.current[history.current.length-1];if(last?.role==='assistant')last.text+=event.text;else history.current.push({role:'assistant',text:event.text});
      }
      if(event.type==='tool'&&event.requestId&&event.name&&event.input){
+      const pending=await (await request(`/turn/${job.id}/pending/${event.requestId}`,{signal:controller.signal})).json();
+      if(!pending.pending){job.cursor=event.seq;persist();continue;}
       const before=receipts.current[event.requestId];
       if(before?.state==='running'){
        await request(`/turn/${job.id}`,{method:'DELETE'});active.current=null;persist();throw Error('A previous edit was interrupted. Inspect your project before asking again; it was not retried.');
@@ -86,9 +89,9 @@ export function usePersonalHaggy(ctx:ToolContext,enabled:boolean){
   const board=new URLSearchParams(window.location.search).get('b');const job:Active={id:crypto.randomUUID(),cursor:0,owner:ownerRef.current,context:{project:contextProject,...(board?{board}:{})}};
   history.current.push({role:'user',text});setLines(all=>[...all,{who:'you',text}]);active.current=job;receipts.current={};persist();
   try{await request('/turn',{method:'POST',body:JSON.stringify({id:job.id,provider,messages:history.current.slice(-40),context:{...job.context,page:window.location.pathname+window.location.search}}),signal:AbortSignal.timeout(15000)});await consumeRef.current(job);}
-  catch(error){setBusy(false);setRecoverable(true);setProblem((error instanceof Error?error.message:'The connector could not confirm submission.')+' Recover this turn; do not resend it.');}finally{turnStart.current=false;}
+  catch(error){setBusy(false);const rejected=error instanceof ConnectorRejection&&[400,401,403,404,409,413,429].includes(error.status);if(rejected){active.current=null;persist();}setRecoverable(!rejected);setProblem((error instanceof Error?error.message:'The connector could not confirm submission.')+(rejected?' No turn was started.':' Recover this turn; do not resend it.'));}finally{turnStart.current=false;}
  };
- const stop=async()=>{abort.current?.abort();if(active.current)try{await request(`/turn/${active.current.id}`,{method:'DELETE'});}catch{setProblem('Stop could not be confirmed. The connector has a five-minute timeout.');return;}active.current=null;setBusy(false);setRecoverable(false);setStatus('Stopped');persist();};
+ const stop=async()=>{abort.current?.abort();if(active.current)try{await request(`/turn/${active.current.id}`,{method:'DELETE'});}catch(error){if(!(error instanceof ConnectorRejection&&error.status===404)){setProblem('Stop could not be confirmed. The connector has a five-minute timeout.');return;}}active.current=null;setBusy(false);setRecoverable(false);setStatus('Stopped');persist();};
  const disconnect=async()=>{await stop();try{await request('/disconnect',{method:'POST'});}catch{}con.current=null;setConnection(null);setRunners(null);setStatus('Not connected');active.current=null;persist();};
  const newChat=()=>{if(busy||active.current)return;history.current=[];receipts.current={};setLines([]);setProblem('');persist();};
  const changeProvider=(next:PersonalProvider)=>{if(busy||active.current)return;newChat();providerRef.current=next;setProvider(next);persist();};

@@ -1,5 +1,5 @@
 import {z} from 'zod';
-export const PROTOCOL='haggs.personal-ai/1';
+export const PROTOCOL='haggs.personal-ai/2';
 export const providerSchema=z.enum(['claude','codex']);
 export type PersonalProvider=z.infer<typeof providerSchema>;
 export const turnSchema=z.object({id:z.string().uuid(),provider:providerSchema,messages:z.array(z.object({role:z.enum(['user','assistant']),text:z.string().min(1).max(24000)}).strict()).min(1).max(40),context:z.object({page:z.string().max(400),project:z.string().max(100),board:z.string().max(100).optional()}).strict()}).strict().refine(v=>JSON.stringify(v).length<160000,'Conversation is too large. Start a new chat.');
