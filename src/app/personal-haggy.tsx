@@ -14,9 +14,9 @@ export function PersonalHaggy({ai}:{ai:ReturnType<typeof usePersonalHaggy>}){
     <label>Project context<select value={ai.contextProject} disabled={ai.busy||ai.recoverable} onChange={e=>ai.setContextProject(e.target.value)}><option value="">Choose a project</option>{ai.projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     <p className="producer-small">Only this project is available to this conversation. Switching AI starts a new chat.</p>
    </>}
-   {ai.problem&&<p role="alert" className="library-error">{ai.problem}</p>}
-   {ai.recoverable&&<button className="pill" onClick={ai.recover}>Recover existing turn</button>}
   </section></details>
+  {ai.problem&&<p role="alert" className="library-error" style={{margin:'8px 16px',fontSize:12}}>{ai.problem}</p>}
+  {ai.recoverable&&<button className="pill" style={{margin:'8px 16px'}} onClick={ai.recover}>Recover existing turn</button>}
   <div className="producer-log" aria-live="polite">
    {!ai.lines.length&&ai.connection&&<div className="producer-hello"><p>Talk to your own AI here. Ask it to review pacing, refine a shot or plan a new board.</p><p className="producer-small">Edits have Undo in this session. Generating media and spending credits remain separate actions in the studio.</p></div>}
    {ai.lines.map((line,i)=><div key={i} className={`producer-line ${line.who==='assistant'?'claude':line.who}`}>{line.who==='change'?<><span>{line.undone?'Undone: ':'Done: '}{line.text}</span>{line.undo&&!line.undone&&<button className="plain" onClick={()=>void ai.undo(i)}>Undo</button>}</>:<p>{line.text}</p>}</div>)}
