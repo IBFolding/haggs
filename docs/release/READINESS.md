@@ -31,3 +31,5 @@ These are the six priorities the owner asked to retain. Keep their IDs stable. M
 
 - November 15: PRs #141–144 and #146–148 merged to main; production 6549fcc passed CI and public-page checks. #138, #139, #140 and #145 remain held. This foundation release does not complete the paid, account and GPU proofs above.
 - Simple plan-first production candidate: `docs/SIMPLE-STUDIO.md`. New automatic orchestration is tested with provider fixtures; paid execution and final export are not yet proven end to end.
+
+- Storyboard-first candidate adds reference approval, silent animatic review, staged motion/sound and export preflight. Synthetic local MP4 export is verified; paid generation and hosted export remain unverified. This does not complete R1–R6.

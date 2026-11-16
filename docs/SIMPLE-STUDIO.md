@@ -84,3 +84,39 @@ approval gating, refresh and mode switching at desktop/phone sizes.
 No live personal-model request, paid media generation or real new MP4 export was
 submitted for this change. Browser microphone performance was not tested. These
 checks do not complete release gates R1–R6 or qualify a real paid production run.
+
+## Storyboard-first production candidate
+
+The new Simple flow is brief → cast/world bible → storyboard animatic → motion
+and sound → export review. A `.txt`, `.md`, or `.fountain` script can accompany
+the brief. Sending it asks the paired personal AI for a plan; it never executes.
+
+Each bible asset has an actual selected image, editable identity, wardrobe and
+continuity anchors. Approval binds the image and those details to the plan's
+look. Changes require approval again. The storyboard pass generates stills only.
+Play the silent animatic and adjust shot holds before approving its exact frames
+and timing. The final pass uses those images as video first frames. Reused video
+plays separately in the timing preview; the animatic is not a final audio mix.
+
+Exact matching storyboard frames and final video takes can be reused across plan
+versions. Audio reuse binds text/prompt, native voice and applicable duration,
+and stays within the same account and project. A saved execution snapshot keeps
+its request graph stable when caches update. This is input matching, not visual
+identity analysis, and it cannot guarantee the provider preserves faces or motion.
+
+A project queue retains versioned receipts, including unresolved submissions.
+Unknown outcomes block further paid passes until the person checks provider jobs
+and explicitly acknowledges the record. That does not settle, cancel, refund or
+retry the original request. The original uncertain step remains blocked. Plans,
+bibles, approvals, queue and caches are browser-local, account-scoped records.
+
+Export preflight blocks missing selected pictures, unspoken narration and effects
+or overlays extending past the cut. Cropping, long captions and audio mix settings
+receive manual-review warnings. These are metadata checks, not artistic scores.
+
+Validation: 1,579 tests passed, eight skipped; production build passed. A real
+local FFmpeg export of owned synthetic video and tone produced H.264/AAC at
+1920×1080, 2.026 seconds. This is a local renderer proof, not hosted export or a
+paid generation-through-export proof. No new paid provider requests were made.
+
+Browser fixture checks also verified reference editing/persistence, approval invalidation, animatic playback, timing changes, refresh restoration and no phone overflow. No real provider media was generated in those checks.
