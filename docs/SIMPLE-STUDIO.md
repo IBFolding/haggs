@@ -8,25 +8,33 @@ another project. An active production board is retained across that switch.
 
 ## The flow
 
-1. Select an existing project or start a named project. Optionally choose actual
-   character/place references from the existing bank. Projects are not mutated
-   by the AI's Simple planning tools.
-2. Pair the local companion and choose Claude Code or Codex. Ask for the goal,
-   audience, duration, style and story. Haggy reads the project and proposes
-   or revises a structured plan. Missing essentials can be clarified in chat.
-3. Inspect the cast/location preparation, shot beats, framing/camera movement,
-   lighting, pacing, references, chosen models, voice, effects and soundtrack.
-   Existing reference images are shown; ungenerated shots are labelled planned.
-4. Estimate the remaining steps. Review provider USD and equivalent Haggs
-   credits, then explicitly approve that version and press Execute plan.
-5. The browser executes one step at a time: reference assets, shots, narration,
-   effects, music. Fresh per-step server quotes are checked against the reviewed
-   estimates. A higher or unknown price stops execution. Results attach to a
-   separate editable board with source takes preserved.
-6. Review the result, export MP4 from Simple using the existing renderer, or open
-   the same board in Pro to refine takes, timing, framing and sound. The export
-   uses actual selected media and mixes the separate audio tracks. No automatic
-   subtitles are added. Previous exports remain labelled when the cut changes.
+1. On the first visit, pair the local companion and select a signed-in,
+   compatible Claude Code or Codex. Setup does not purchase or generate media.
+   Completion is saved per account on this browser. A missing connection can
+   be repaired without discarding projects or brief drafts.
+2. Later visits to `/simple` open a welcome screen: continue a recent project
+   or make something new. A project URL opens that project directly. Existing
+   conversations with an interrupted turn still offer recovery, not a resend.
+3. New projects use three short screens: choose a video type; describe the idea
+   or add a text screenplay; choose length, aspect ratio and optional feeling.
+   Back/refresh preserve the draft locally under its account/project key.
+   Nothing is sent until the person presses **Make my plan with Haggy**.
+4. Haggy reads the brief and proposes the production plan. New untitled projects
+   take the proposed title. The workspace then reveals chat, the plan and staged
+   reference/storyboard production. Shot specifications are expandable.
+5. Review actual references and storyboard frames/timing before final motion
+   and sound. Each pass has its own estimate and explicit approval. Fresh
+   per-step quotes stop execution if price, inputs or account change. Results
+   attach to separate editable boards with source takes preserved.
+6. Review the result, export MP4 through the existing renderer, or open the same
+   board in Pro to refine takes, timing, framing and sound. Export uses selected
+   media and separate audio tracks; no automatic subtitles are added. Previous
+   exports remain labelled when the cut changes.
+
+Simple’s technical toolbar is in **Studio settings**: generation connections,
+activity, balance, open-weights preference and the full Pro studio. The selected
+open-weights policy continues to be enforced. Generation credentials are not
+required to draft a brief; execution keeps the existing provider/storage gates.
 
 The initial automatic routes use the existing Comfy workflows for Nano Banana 2
 reference/still images, MiniMax H3 video, ElevenLabs speech/effects and Sonilo
@@ -120,3 +128,13 @@ local FFmpeg export of owned synthetic video and tone produced H.264/AAC at
 paid generation-through-export proof. No new paid provider requests were made.
 
 Browser fixture checks also verified reference editing/persistence, approval invalidation, animatic playback, timing changes, refresh restoration and no phone overflow. No real provider media was generated in those checks.
+
+## Guided-entry validation
+
+Browser checks used the real companion transport with a deterministic test AI.
+They verified first-visit setup gating, saved onboarding, new-project brief steps,
+draft refresh, plan handoff, project naming, recent-project continuation, phone
+layout and real page-wheel scrolling. No paid generation or real personal-model
+request was submitted. Setup/drafts are browser-local, not cross-device sync.
+
+The build surfaced GHSA-mfr8-8qww-v76h in Next.js 16.4.3. Next.js and its locked platform packages were updated to 16.4.6; the Next.js advisory is absent from the follow-up npm audit. Other dependency audit findings are outside this UI change.
