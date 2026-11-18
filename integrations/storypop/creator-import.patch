@@ -1,0 +1,89 @@
+--- a/app/creator-dashboard/page.tsx
++++ b/app/creator-dashboard/page.tsx
+@@ -34,6 +34,7 @@
+ import { StudioCreditsPill } from "@/components/StudioCreditsPill";
+ import { FixAudioButton, StudioMakePop } from "@/components/StudioMake";
+ import { StatusPill, type StatusKind } from "@/components/StatusPill";
++import { HaggsFilmImport } from "@/components/HaggsFilmImport";
+ import { HAGGS_URL } from "@/lib/haggsUrl";
+ 
+ type TabKey = "home" | "create" | "shows" | "channel" | "fans" | "cast" | "drops" | "money";
+@@ -717,6 +718,11 @@
+                     <button type="button" onClick={cancelEditEpisode} className="rounded-lg border border-white/30 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em]">Cancel</button>
+                   ) : null}
+                 </div>
++                {!editingEpisodeId && <HaggsFilmImport signedIn={authStatus === "signed-in"} onImport={(url, title) => {
++                  setEpisodeVideoUrl(url);
++                  setEditDraft(draft => ({ ...draft, title }));
++                  setActionState({ tone: "success", message: "Film imported. Choose your show and save your episode." });
++                }} />}
+                 <form key={editingEpisodeId || "new"} onSubmit={saveEpisode} className="mt-4 flex flex-col gap-5">
+                   <fieldset className="flex min-w-0 flex-col gap-2">
+                     <legend className="mb-1 font-display text-xl uppercase"><span className="text-pink">1</span> Video</legend>
+--- /dev/null
++++ b/components/HaggsFilmImport.tsx
+@@ -0,0 +1,64 @@
++"use client";
++
++import { useEffect, useRef, useState } from "react";
++import { upload } from "@vercel/blob/client";
++import { HAGGS_URL } from "@/lib/haggsUrl";
++
++export function HaggsFilmImport({ signedIn, onImport }: {
++  signedIn: boolean;
++  onImport: (url: string, title: string) => void;
++}) {
++  const [id, setId] = useState("");
++  const [status, setStatus] = useState("");
++  const [busy, setBusy] = useState(false);
++  const session = useRef<AbortController | null>(null);
++  useEffect(() => {
++    const token = new URLSearchParams(location.hash.slice(1)).get("haggs") || "";
++    if (window.opener && /^[a-f0-9-]{36}$/i.test(token)) setId(token);
++    return () => session.current?.abort();
++  }, []);
++  if (!id) return null;
++
++  function receive() {
++    if (!signedIn || busy || !window.opener) return;
++    const sender = window.opener as Window;
++    const origin = new URL(HAGGS_URL).origin;
++    const controller = new AbortController();
++    session.current = controller;
++    setBusy(true);
++    setStatus("Waiting for the open Haggs tab…");
++    const timer = setTimeout(() => {
++      controller.abort();
++      setBusy(false);
++      setStatus("Open the finished film in Haggs and start a new export.");
++    }, 60000);
++    controller.signal.addEventListener("abort", () => clearTimeout(timer));
++    window.addEventListener("message", async event => {
++      if (event.origin !== origin || event.source !== sender || event.data?.id !== id) return;
++      if (event.data.type !== "haggs.film" && event.data.type !== "haggs.failed") return;
++      controller.abort();
++      try {
++        const blob = event.data.blob;
++        if (!(blob instanceof Blob) || (await blob.slice(4, 8).text()) !== "ftyp") throw Error();
++        setStatus("Uploading your film to StoryPop…");
++        const result = await upload(`creator/${crypto.randomUUID()}.mp4`, blob, {
++          access: "public", contentType: "video/mp4",
++          handleUploadUrl: "/api/media/upload-intent", clientPayload: "episode-video"
++        });
++        onImport(result.url, String(event.data.title || "Untitled film").slice(0, 150));
++        sender.postMessage({ type: "haggs.imported", id }, origin);
++        setId("");
++      } catch {
++        sender.postMessage({ type: "haggs.failed", id }, origin);
++        setStatus("Import failed. Check your sign-in and restart the export in Haggs.");
++      } finally { setBusy(false); }
++    }, { signal: controller.signal });
++    sender.postMessage({ type: "haggs.request", id }, origin);
++  }
++
++  return <section className="my-4 rounded-lg border border-white/30 p-3">
++    <p>{signedIn ? "Import your Haggs MP4 to StoryPop’s public media storage, then review the episode before publishing." : "Sign in to import your Haggs film."}</p>
++    <button type="button" disabled={!signedIn || busy} onClick={receive}>Import film</button>
++    <p role="status">{status}</p>
++  </section>;
++}
