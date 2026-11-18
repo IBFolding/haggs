@@ -97,7 +97,7 @@ export function Nav({ current }: { current: Place }) {
           ))}
         </div>
         {/* The tools: the two switches as one capsule, then what's running, credits, keys and the tour. On a phone this is a strip of its own under the top row. */}
-        <div className="nav-tools">
+        {!simple&&<div className="nav-tools">
         <span className="nav-modes">
           <button className={`nav-open${openOnly ? " on" : ""}`} aria-pressed={openOnly} onClick={() => setOpenOnly(!openOnly)} title="No partner model is ever called">
             {openOnly ? "●" : "○"} Open weights only
@@ -129,9 +129,9 @@ export function Nav({ current }: { current: Place }) {
           </button>
           {!simple&&<button className="nav-help nav-tour" onClick={() => window.dispatchEvent(new Event(TOUR_EVENT))} title="Take the tour" aria-label="Take the tour"><span aria-hidden>?</span><b>Tour</b></button>}
           </span>
-        </div>
+        </div>}
         <span className="nav-right">
-          <button className="nav-ask" onClick={() => simple?document.querySelector<HTMLElement>('.simple-chat')?.scrollIntoView({block:"start",behavior:"smooth"}):openProducer()} data-tour="ask">Ask Haggy</button>
+          {simple?<details className="simple-nav-settings"><summary>Studio settings</summary><div><button className="plain" onClick={()=>switchMode(true)}>Open Pro studio →</button><button className="plain" onClick={()=>setOpen(true)}>Generation keys & connections</button><button className="plain" aria-pressed={openOnly} onClick={()=>setOpenOnly(!openOnly)}>Open weights only: {openOnly?'on':'off'}</button><ActivityMenu/><CreditChip ownKey={held.comfy}/></div></details>:<button className="nav-ask" onClick={openProducer} data-tour="ask">Ask Haggy</button>}
           {session ? (
             <Link className="nav-account" href="/account" aria-current={current === "Account"} title={session.user.email ?? "Account"}>
               {(session.user.email ?? "?").slice(0, 1).toUpperCase()}

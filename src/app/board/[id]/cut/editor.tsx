@@ -1,4 +1,5 @@
 "use client";
+import {StoryPopExport} from "../../../storypop-export";
 import {prepareCutMedia} from "../../../prepare-cut-media";
 
 import { ReframePanel } from "./reframe-panel";
@@ -745,7 +746,7 @@ export function Editor({ id, boardId, classic = false, renderEnabled = false }: 
               {cut.skipped.length > 0 && <span className="transport-note">{cut.skipped.length} shot{cut.skipped.length === 1 ? "" : "s"} not shot yet</span>}
               <span className="ed-spacer" />
               {rendered && ("url" in rendered ? (
-                <span className="exports-done" role="status">Rendered. <a href={rendered.url} target="_blank" rel="noreferrer">Watch</a> · <a href={rendered.url} download>Download</a>{rendered.srt && <> · <a href={`data:text/plain;charset=utf-8,${encodeURIComponent(rendered.srt)}`} download={`${project.name}.srt`}>Captions (.srt)</a></>}</span>
+                <span className="exports-done" role="status">Rendered. <a href={rendered.url} target="_blank" rel="noreferrer">Watch</a> · <a href={rendered.url} download>Download</a> <StoryPopExport url={rendered.url} title={project.name}/>{rendered.srt && <> · <a href={`data:text/plain;charset=utf-8,${encodeURIComponent(rendered.srt)}`} download={`${project.name}.srt`}>Captions (.srt)</a></>}</span>
               ) : (
                 <span className="library-error" role="alert">{rendered.reason}</span>
               ))}

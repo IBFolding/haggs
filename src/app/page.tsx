@@ -246,6 +246,11 @@ export default function Landing() {
           </p>
           <Link className="plain" href="/pricing">See plans</Link>
         </section>
+        <section className="lp-mcp" id="storypop">
+          <h2>Take your finished film to StoryPop.</h2>
+          <p>Render your final cut, then choose Export to StoryPop. Import the MP4 into Creator Studio, pick your show and review the episode before publishing.</p>
+          <a className="plain" href="https://storypop.fun/creator-dashboard">Open StoryPop Creator Studio</a>
+        </section>
         <footer className="lp-foot">
           <span>haggs · open source, MIT licensed · built on Comfy</span>
           <Link href="/library">Your projects</Link>
